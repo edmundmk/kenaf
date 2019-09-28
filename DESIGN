@@ -135,10 +135,25 @@ builtins:
     max( n ... )
     min( n ... )
     pow( n, n )
+    sqrt( n )
+    sin( n )
+    tan( n )
+    cos( n )
+    asin( n )
+    acos( n )
+    atan( n[, n ] )
     ceil( n )
     trunc( n )
     floor( n )
     round( n )
+    isnan( n )
+    isinf( n )
+    isfinite( n )
+
+    pi
+    tau
+    nan
+    infinity
 
     def object
     end

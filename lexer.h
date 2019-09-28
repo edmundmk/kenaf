@@ -52,10 +52,14 @@ private:
     size_t _index;
     std::vector< char > _text;
 
+    token lex_identifier();
+    token lex_number();
+    token lex_string();
+
     token assign_token( unsigned normal_kind, unsigned assign_kind, size_t sloc, const char* text );
     token source_token( unsigned kind, size_t sloc, const char* text );
-    void newline();
 
+    char newline();
     char peek( size_t i );
     char next( size_t count = 1 );
     bool eof();

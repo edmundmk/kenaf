@@ -53,8 +53,7 @@ token lexer::lex()
             break;
 
         case '"':
-            // TODO.
-            break;
+            return lex_string();
 
         case '#':
             next();
@@ -91,7 +90,12 @@ token lexer::lex()
         case '-':
             if ( peek( 1 ) == '-' )
             {
-                // TODO.
+                // Inline comment.
+                c = next( 2 );
+                while ( c != '\r' && c != '\n' && ( c != '\0' || ! eof() ) )
+                {
+                    c = next();
+                }
                 continue;
             }
             else
@@ -111,6 +115,10 @@ token lexer::lex()
                 next( 2 );
                 return assign_token( TOKEN_CONCAT, TOKEN_CONCAT_ASSIGN, sloc, text );
             }
+            else if ( peek( 1 ) >= '0' && peek( 1 ) <= '9' )
+            {
+                return lex_number();
+            }
             else
             {
                 next();
@@ -120,7 +128,24 @@ token lexer::lex()
         case '/':
             if ( peek( 1 ) == '*' )
             {
-                // TODO.
+                // Block comment.
+                next( 2 );
+                while ( peek( 0 ) != '*' || peek( 1 ) != '/' )
+                {
+                    if ( c == '\0' && eof() )
+                    {
+                        _source->error( sloc, "unterminated block comment" );
+                        break;
+                    }
+                    if ( c == '\r' || c == '\n' )
+                    {
+                        c = newline();
+                    }
+                    else
+                    {
+                        c = next();
+                    }
+                }
                 continue;
             }
             else if ( peek( 1 ) == '/' )
@@ -214,6 +239,17 @@ token lexer::lex()
             break;
         }
 
+        if ( c >= '0' && c <= '9' )
+        {
+            return lex_number();
+        }
+
+        if ( ( c >= 'A' && c <= 'Z' ) || ( c >= 'a' && c <= 'z' ) || c == '_' )
+        {
+            return lex_identifier();
+        }
+
+
         // Check for other tokens.
     }
 }
@@ -241,13 +277,15 @@ token lexer::source_token( unsigned kind, size_t sloc, const char* text )
     return token;
 }
 
-void lexer::newline()
+char lexer::newline()
 {
+    char c;
     if ( peek( 0 ) == '\r' && peek( 1 ) == '\n' )
-        next( 2 );
+        c = next( 2 );
     else
-        next( 1 );
+        c = next( 1 );
     _source->newline( _index );
+    return c;
 }
 
 char lexer::peek( size_t i )
