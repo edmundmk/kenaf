@@ -1,10 +1,27 @@
+//
+//  grammar.lemon
+//
+//  Created by Edmund Kapusniak on 28/09/2019.
+//  Copyright © 2019 Edmund Kapusniak.
+//
+//  Licensed under the MIT License. See LICENSE file in the project root for
+//  full license information.
+//
 
 %include
 {
 #include <assert.h>
+#include "lexer.h"
+#include "parser.h"
 }
 
+
+%name KenafParse
 %token_prefix TOKEN_
+%extra_argument { kf::parser* p }
+%token_type { kf::token }
+%token_destructor { (void)p; }
+%syntax_error { p->syntax_error( TOKEN ); }
 
 
 // SCRIPT
@@ -217,8 +234,3 @@ catch ::= CATCH IDENTIFIER IS expr THEN block .
 finally_opt ::= FINALLY block .
 */
 
-
-%code
-{
-    // hello
-}

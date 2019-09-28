@@ -8,6 +8,9 @@
 //  full license information.
 //
 
+#ifndef LEXER_H
+#define LEXER_H
+
 #include <string_view>
 #include "grammar.h"
 #include "source.h"
@@ -70,4 +73,6 @@ private:
 };
 
 }
+
+#endif
 

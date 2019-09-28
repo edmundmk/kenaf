@@ -17,6 +17,8 @@ lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
 sources = [
     'lexer.cpp',
     'source.cpp',
+    'parser.cpp',
+    'syntax.cpp',
 ]
 
 sources += lemon.process( 'grammar.lemon' )

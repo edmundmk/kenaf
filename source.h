@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <memory>
 
 #if defined( __GNUC__ )
 #define PRINTF_FORMAT( x, y ) __attribute__(( format( printf, x, y ) ))
@@ -40,8 +41,8 @@ struct source_location
 
 struct source_string
 {
-    const char* text;
     size_t size;
+    const char text[];
 };
 
 /*
@@ -85,13 +86,16 @@ struct source
     void newline( srcloc sloc );
     source_location location( srcloc sloc ) const;
 
+    const source_string* new_string( const char* text, size_t size );
+
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
 
     std::string filename;
     std::vector< char > text;
     std::vector< srcloc > newlines;
-    std::vector< source_string > strings;
+    std::vector< source_string* > strings;
     std::vector< source_diagnostic > diagnostics;
+
 };
 
 }

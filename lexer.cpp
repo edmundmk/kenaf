@@ -246,7 +246,43 @@ token lexer::lex()
             return lex_identifier();
         }
 
-        // UNEXPECTED!
+        // Unexpected character.
+        if ( c >= 0x20 && c < 0x7F )
+        {
+            // Printable ASCII character.
+            _source->error( sloc, "unexpected character '%c'", c );
+            next();
+            continue;
+        }
+
+        if ( (unsigned)c >= 0x80 )
+        {
+            // Work out how many encoding units there should be in UTF-8.
+            int utf8_size = 1;
+            if ( ( c & 0xF8 ) == 0xF0 )     utf8_size = 4;
+            else if ( ( c & 0xF0 ) == 0xE0 )  utf8_size = 3;
+            else if ( ( c & 0xE0 ) == 0xC0 )  utf8_size = 2;
+
+            // Peek to see how many continuation bytes there actually are.
+            int char_size = 1;
+            while ( char_size < utf8_size && ( peek( char_size ) & 0xC0 ) == 0x80 )
+            {
+                char_size += 1;
+            }
+
+            // Print UTF-8 character.
+            if ( utf8_size == char_size )
+            {
+                const char* text = &_source->text[ _index ];
+                _source->error( sloc, "unexpected character '%.*s'", char_size, text );
+                next( char_size );
+                continue;
+            }
+        }
+
+        // Non-printable character.
+        _source->error( sloc, "unexpected character '\\x%02X'", c );
+        next();
     }
 }
 
@@ -519,10 +555,9 @@ token lexer::lex_string()
     else
     {
         // String has escapes, so we need to copy the text we accumulated.
-        token.size = _text.size();
-        token.text = (const char*)malloc( token.size );
-        memcpy( (char*)token.text, _text.data(), token.size );
-        _source->strings.push_back( { token.text, token.size } );
+        const source_string* s = _source->new_string( _text.data(), _text.size() );
+        token.text = s->text;
+        token.size = s->size;
     }
 
     _text.clear();

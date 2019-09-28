@@ -25,9 +25,9 @@ source::source()
 
 source::~source()
 {
-    for ( const source_string& s : strings )
+    for ( source_string* s : strings )
     {
-        free( (char*)s.text );
+        free( s );
     }
 }
 
@@ -45,6 +45,15 @@ void source::newline( srcloc sloc )
 {
     assert( sloc >= newlines.back() );
     newlines.push_back( sloc );
+}
+
+const source_string* source::new_string( const char* text, size_t size )
+{
+    source_string* s = (source_string*)malloc( sizeof( source_string ) + size );
+    s->size = size;
+    memcpy( (char*)s->text, text, size );
+    strings.push_back( s );
+    return s;
 }
 
 source_location source::location( srcloc sloc ) const
