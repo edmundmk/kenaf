@@ -56,8 +56,11 @@ private:
     token lex_number();
     token lex_string();
 
-    token assign_token( unsigned normal_kind, unsigned assign_kind, size_t sloc, const char* text );
-    token source_token( unsigned kind, size_t sloc, const char* text );
+    char string_hex( char c, size_t count, unsigned* x );
+    void string_utf8( srcloc sloc, unsigned codepoint );
+
+    token assign_token( unsigned normal_kind, unsigned assign_kind, size_t sloc );
+    token source_token( unsigned kind, size_t sloc );
 
     char newline();
     char peek( size_t i );

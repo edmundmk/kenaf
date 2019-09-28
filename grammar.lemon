@@ -111,7 +111,7 @@ expr_muldiv ::= expr_muldiv PERCENT expr_unary .
 expr_addsub ::= expr_muldiv .
 expr_addsub ::= expr_addsub PLUS expr_muldiv .
 expr_addsub ::= expr_addsub MINUS expr_muldiv .
-expr_addsub ::= expr_addsub CONCAT expr_muldiv .
+expr_addsub ::= expr_addsub TILDE expr_muldiv .
 
 expr_shift ::= expr_addsub .
 expr_shift ::= expr_shift LSHIFT expr_addsub .
