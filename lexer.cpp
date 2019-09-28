@@ -122,7 +122,7 @@ token lexer::lex()
             if ( peek( 1 ) == '*' )
             {
                 // Block comment.
-                next( 2 );
+                c = next( 2 );
                 while ( peek( 0 ) != '*' || peek( 1 ) != '/' )
                 {
                     if ( c == '\0' && eof() )
@@ -130,7 +130,7 @@ token lexer::lex()
                         _source->error( sloc, "unterminated block comment" );
                         break;
                     }
-                    if ( c == '\r' || c == '\n' )
+                    else if ( c == '\r' || c == '\n' )
                     {
                         c = newline();
                     }
@@ -138,6 +138,10 @@ token lexer::lex()
                     {
                         c = next();
                     }
+                }
+                if ( c != '\0' )
+                {
+                    next( 2 );
                 }
                 continue;
             }
@@ -265,11 +269,11 @@ static int digit( char c )
     {
         return c - '0';
     }
-    else if ( c >= 'A' && c <= 'F' )
+    else if ( c >= 'A' && c <= 'Z' )
     {
         return 10 + ( c - 'A' );
     }
-    else if ( c >= 'a' && c <= 'f' )
+    else if ( c >= 'a' && c <= 'z' )
     {
         return 10 + ( c - 'a' );
     }
@@ -304,9 +308,11 @@ token lexer::lex_number()
         }
     }
 
+    bool has_digit = false;
     char c = peek( 0 );
     while ( digit( c ) < base )
     {
+        has_digit = true;
         _text.push_back( c );
         c = next();
     }
@@ -320,9 +326,15 @@ token lexer::lex_number()
 
         while ( digit( c ) < base )
         {
+            has_digit = true;
             _text.push_back( c );
             c = next();
         }
+    }
+
+    if ( ! has_digit )
+    {
+        _source->error( sloc, "numeric literal has no digits" );
     }
 
     if ( ( base == 10 && c == 'e' ) || ( base == 16 && c == 'p' ) )
@@ -349,10 +361,18 @@ token lexer::lex_number()
         }
     }
 
+    if ( digit( c ) < INT_MAX )
+    {
+        _source->error( _index, "invalid suffix on numeric literal" );
+    }
+
     double n;
     if ( real )
     {
+        if ( base == 16 )
+            _text.insert( _text.begin(), { '0', 'x' } );
         _text.push_back( '\0' );
+
         n = strtod( _text.data(), nullptr );
     }
     else

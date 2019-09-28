@@ -34,6 +34,8 @@ sources = [
 kenaf = executable(
     'kenaf',
     sources : sources,
+    include_directories : libkenaf.private_dir_include(),
+    link_with : [ libkenaf ],
     install : true
 )
 
