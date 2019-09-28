@@ -1,0 +1,139 @@
+kenaf is a lua-like language with an object model.
+it is designed to be as simple as possible.
+
+a call x.y always passes x as first argument
+a definition x.y declares 'self', and 'super' as 'superof( self )'
+
+bare functions and lambdas don't have automatic self.
+
+unpacking is not automatic.  varargs is a special value that can be unpacked.
+
+    def f( va ... )
+        a, b, c = f()       -- error, not enough values
+        a, b, c = f() ...   -- ok, unpacks 3 results from f
+        a, b, c = va        -- error, args isn't a real value
+        a, b, c = va ...    -- ok
+        a = [ va ... ]      -- unpacking allowed in array construction
+        b, c, z = 3, a ...  -- ok, unpacks array
+    end
+
+comparisons are chained like in python
+
+    if not 0 <= index < size then
+    end
+
+tables and arrays
+
+    var table = { 'key' : value }
+    var array = [ a, b, c ]
+
+objects:
+
+    def object
+        key : value
+        key : value
+        def method()
+        end
+    end
+
+    def object is prototype
+        def self( p, q )
+        end
+    end
+
+    var x = new object( p, q )
+
+functions:
+
+    def function()
+    end
+
+out-of-line methods:
+
+    def object end
+    def object.method()
+    end
+
+lambdas
+
+    var lambda = def() return x end
+    var lambda = def() : x
+
+generators must be marked with yield:
+
+    def yield coroutine( param, param )
+        param, param = yield expr, expr
+        return
+    end
+    var lambda = def yield( param ) return y end
+
+calling a generator function produces a generator
+
+to delegate to a child generator use 'yield for'
+
+    yield for subgenerator()
+
+statements
+
+    a, b = b, a = c, d = e, f
+    a = b *= c
+    f()
+    break
+    continue
+    return
+    yield
+    throw
+    do
+    end
+    if expr then
+    elif expr then
+    end
+    for i = start : stop do
+    end
+    for i = start : stop : step do
+    end
+    for k, v : generator do
+    end
+    while expr do
+    end
+    repeat
+    until expr
+
+
+builtins:
+
+    global
+
+    superof( object )
+    haskey( object, string ) -> bool
+    getkey( object, string ) -> value
+    setkey( object, string, value ) -> value
+    delkey( object, string )
+    keys( object ) -> generator
+
+    abs( n )
+    max( n ... )
+    min( n ... )
+    pow( n, n )
+    ceil( n )
+    floor( n )
+    round( n )
+
+
+extras, for the future.  don't need to catch exceptions necessarily to start
+with.
+
+    with exprlist do
+    end
+    with name, name = exprlist do
+    end
+    try
+    catch name is prototype then
+    catch name then
+    finally
+    end
+
+
+
+
+
