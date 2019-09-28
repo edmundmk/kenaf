@@ -1,0 +1,271 @@
+//
+//  lexer.cpp
+//
+//  Created by Edmund Kapusniak on 28/09/2019.
+//  Copyright © 2019 Edmund Kapusniak.
+//
+//  Licensed under the MIT License. See LICENSE file in the project root for
+//  full license information.
+//
+
+#include "lexer.h"
+
+namespace kf
+{
+
+lexer::lexer( source* source )
+    :   _source( source )
+    ,   _index( 0 )
+{
+}
+
+lexer::~lexer()
+{
+}
+
+token lexer::lex()
+{
+    while ( true )
+    {
+        char c = peek( 0 );
+
+        const char* text = &_source->text[ _index ];
+        size_t sloc = _index;
+
+        switch ( c )
+        {
+        case ' ':
+        case '\t':
+            next();
+            continue;
+
+        case '\r':
+        case '\n':
+            newline();
+            continue;
+
+        case '!':
+            if ( peek( 1 ) == '=' )
+            {
+                next( 2 );
+                return source_token( TOKEN_NE, sloc, text );
+            }
+            break;
+
+        case '"':
+            // TODO.
+            break;
+
+        case '#':
+            next();
+            return source_token( TOKEN_HASH, sloc, text );
+
+        case '%':
+            next();
+            return assign_token( TOKEN_PERCENT, TOKEN_MOD_ASSIGN, sloc, text );
+
+        case '&':
+            next();
+            return assign_token( TOKEN_AMPERSAND, TOKEN_BITAND_ASSIGN, sloc, text );
+
+        case '(':
+            next();
+            return source_token( TOKEN_LPN, sloc, text );
+
+        case ')':
+            next();
+            return source_token( TOKEN_RPN, sloc, text );
+
+        case '*':
+            next();
+            return assign_token( TOKEN_ASTERISK, TOKEN_MUL_ASSIGN, sloc, text );
+
+        case '+':
+            next();
+            return assign_token( TOKEN_PLUS, TOKEN_ADD_ASSIGN, sloc, text );
+
+        case ',':
+            next();
+            return source_token( TOKEN_COMMA, sloc, text );
+
+        case '-':
+            if ( peek( 1 ) == '-' )
+            {
+                // TODO.
+                continue;
+            }
+            else
+            {
+                next();
+                return assign_token( TOKEN_MINUS, TOKEN_SUB_ASSIGN, sloc, text );
+            }
+
+        case '.':
+            if ( peek( 1 ) == '.' && peek( 2 ) == '.' )
+            {
+                next( 3 );
+                return source_token( TOKEN_ELLIPSIS, sloc, text );
+            }
+            else if ( peek( 1 ) == '.' )
+            {
+                next( 2 );
+                return assign_token( TOKEN_CONCAT, TOKEN_CONCAT_ASSIGN, sloc, text );
+            }
+            else
+            {
+                next();
+                return source_token( TOKEN_PERIOD, sloc, text );
+            }
+
+        case '/':
+            if ( peek( 1 ) == '*' )
+            {
+                // TODO.
+                continue;
+            }
+            else if ( peek( 1 ) == '/' )
+            {
+                next( 2 );
+                return assign_token( TOKEN_INTDIV, TOKEN_INTDIV_ASSIGN, sloc, text );
+            }
+            else
+            {
+                next();
+                return assign_token( TOKEN_SOLIDUS, TOKEN_DIV_ASSIGN, sloc, text );
+            }
+
+        case ':':
+            next();
+            return source_token( TOKEN_COLON, sloc, text );
+
+        case ';':
+            next();
+            return source_token( TOKEN_SEMICOLON, sloc, text );
+
+        case '<':
+            if ( peek( 1 ) == '<' )
+            {
+                next( 2 );
+                return assign_token( TOKEN_LSHIFT, TOKEN_LSHIFT_ASSIGN, sloc, text );
+            }
+            else
+            {
+                next();
+                return assign_token( TOKEN_LT, TOKEN_LE, sloc, text );
+            }
+
+        case '=':
+            next();
+            return assign_token( TOKEN_ASSIGN, TOKEN_EQ, sloc, text );
+
+        case '>':
+            if ( peek( 1 ) == '>' )
+            {
+                next( 2 );
+                return assign_token( TOKEN_RSHIFT, TOKEN_RSHIFT_ASSIGN, sloc, text );
+            }
+            else
+            {
+                next();
+                return assign_token( TOKEN_GT, TOKEN_GE, sloc, text );
+            }
+
+        case '[':
+            next();
+            return source_token( TOKEN_LSQ, sloc, text );
+
+        case ']':
+            next();
+            return source_token( TOKEN_RSQ, sloc, text );
+
+        case '^':
+            next();
+            return assign_token( TOKEN_CARET, TOKEN_BITXOR_ASSIGN, sloc, text );
+
+        case '{':
+            next();
+            return source_token( TOKEN_LBR, sloc, text );
+
+        case '|':
+            next();
+            return assign_token( TOKEN_VBAR, TOKEN_BITOR_ASSIGN, sloc, text );
+
+        case '}':
+            next();
+            return source_token( TOKEN_RBR, sloc, text );
+
+        case '~':
+            if ( peek( 1 ) == '>' && peek( 2 ) == '>' )
+            {
+                next( 3 );
+                return assign_token( TOKEN_ASHIFT, TOKEN_ASHIFT_ASSIGN, sloc, text );
+            }
+            else
+            {
+                next();
+                return source_token( TOKEN_TILDE, sloc, text );
+            }
+
+        case '\0':
+            if ( eof() )
+            {
+                return source_token( TOKEN_EOF, sloc, text );
+            }
+            break;
+        }
+
+        // Check for other tokens.
+    }
+}
+
+token lexer::assign_token( unsigned normal_kind, unsigned assign_kind, size_t sloc, const char* text )
+{
+    if ( peek( 0 ) == '=' )
+    {
+        next();
+        return source_token( assign_kind, sloc, text );
+    }
+    else
+    {
+        return source_token( normal_kind, sloc, text );
+    }
+}
+
+token lexer::source_token( unsigned kind, size_t sloc, const char* text )
+{
+    token token;
+    token.kind = kind;
+    token.sloc = sloc;
+    token.text = text;
+    token.size = _index - sloc;
+    return token;
+}
+
+void lexer::newline()
+{
+    if ( peek( 0 ) == '\r' && peek( 1 ) == '\n' )
+        next( 2 );
+    else
+        next( 1 );
+    _source->newline( _index );
+}
+
+char lexer::peek( size_t i )
+{
+    assert( _index + i < _source->text.size() );
+    return _source->text[ _index + i ];
+}
+
+char lexer::next( size_t count )
+{
+    _index += count;
+    return peek( 0 );
+}
+
+bool lexer::eof()
+{
+    return _index >= _source->size();
+}
+
+}
+

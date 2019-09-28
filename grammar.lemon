@@ -1,4 +1,11 @@
 
+%include
+{
+#include <assert.h>
+}
+
+%token_prefix TOKEN_
+
 
 // SCRIPT
 
@@ -69,6 +76,9 @@ op_assign ::= CONCAT_ASSIGN .
 op_assign ::= LSHIFT_ASSIGN .
 op_assign ::= RSHIFT_ASSIGN .
 op_assign ::= ASHIFT_ASSIGN .
+op_assign ::= BITAND_ASSIGN .
+op_assign ::= BITXOR_ASSIGN .
+op_assign ::= BITOR_ASSIGN .
 
 
 // EXPRESSIONS
@@ -207,3 +217,8 @@ catch ::= CATCH IDENTIFIER IS expr THEN block .
 finally_opt ::= FINALLY block .
 */
 
+
+%code
+{
+    // hello
+}
