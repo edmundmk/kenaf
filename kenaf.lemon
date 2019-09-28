@@ -1,0 +1,208 @@
+
+
+// SCRIPT
+
+script ::= block .
+
+
+// STATEMENTS
+
+block ::= stmt_list .
+block ::= stmt_list last_stmt .
+block ::= stmt_list last_stmt SEMICOLON .
+
+stmt_list ::= .
+stmt_list ::= stmt_list stmt .
+stmt_list ::= stmt_list stmt SEMICOLON .
+
+stmt ::= expr_atom .
+stmt ::= stmt_assign .
+stmt ::= definition .
+stmt ::= VAR name_list .
+stmt ::= VAR name_list ASSIGN assign_rval .
+stmt ::= YIELD unpack_list .
+stmt ::= YIELD FOR expr_atom .
+stmt ::= THROW expr .
+stmt ::= DO block END .
+stmt ::= IF expr THEN block elif_list_opt else_opt END .
+stmt ::= FOR name_list ASSIGN expr COLON expr step_opt DO block END .
+stmt ::= FOR name_list COLON expr DO block END .
+stmt ::= WHILE expr DO block END .
+stmt ::= REPEAT block UNTIL expr .
+
+elif_list_opt ::= .
+elif_list_opt ::= elif_list_opt ELIF expr THEN block .
+
+else_opt ::= .
+else_opt ::= ELSE block .
+
+step_opt ::= .
+step_opt ::= COLON expr .
+
+name_list ::= IDENTIFIER .
+name_list ::= name_list COMMA IDENTIFIER .
+
+last_stmt ::= RETURN .
+last_stmt ::= RETURN unpack_list .
+last_stmt ::= BREAK .
+last_stmt ::= CONTINUE .
+
+stmt_assign ::= assign_lval_list op_assign assign_rval .
+
+assign_lval_list ::= expr_atom .
+assign_lval_list ::= assign_lval_list COMMA expr_atom .
+
+assign_rval ::= unpack_list .
+assign_rval ::= YIELD unpack_list .
+assign_rval ::= YIELD FOR expr_atom .
+assign_rval ::= YIELD FOR expr_atom ELLIPSIS .
+assign_rval ::= unpack_list /* assign_lval_list */ op_assign assign_rval .
+
+op_assign ::= ASSIGN .
+op_assign ::= MUL_ASSIGN .
+op_assign ::= DIV_ASSIGN .
+op_assign ::= INTDIV_ASSIGN .
+op_assign ::= MOD_ASSIGN .
+op_assign ::= ADD_ASSIGN .
+op_assign ::= SUB_ASSIGN .
+op_assign ::= CONCAT_ASSIGN .
+op_assign ::= LSHIFT_ASSIGN .
+op_assign ::= RSHIFT_ASSIGN .
+op_assign ::= ASHIFT_ASSIGN .
+
+
+// EXPRESSIONS
+
+expr_atom ::= NULL .
+expr_atom ::= FALSE .
+expr_atom ::= TRUE .
+expr_atom ::= NUMBER .
+expr_atom ::= STRING .
+expr_atom ::= IDENTIFIER .
+expr_atom ::= expr_atom PERIOD IDENTIFIER .
+expr_atom ::= expr_atom LSQ expr RSQ .
+expr_atom ::= expr_atom LPN unpack_list_opt RPN .
+
+expr_paren ::= expr_atom .
+expr_paren ::= LPN expr RPN .
+
+expr_unary ::= expr_paren .
+expr_unary ::= MINUS expr_unary .
+expr_unary ::= PLUS expr_unary .
+expr_unary ::= TILDE expr_unary .
+
+expr_muldiv ::= expr_unary .
+expr_muldiv ::= expr_muldiv ASTERISK expr_unary .
+expr_muldiv ::= expr_muldiv SOLIDUS expr_unary .
+expr_muldiv ::= expr_muldiv INTDIV expr_unary .
+expr_muldiv ::= expr_muldiv PERCENT expr_unary .
+
+expr_addsub ::= expr_muldiv .
+expr_addsub ::= expr_addsub PLUS expr_muldiv .
+expr_addsub ::= expr_addsub MINUS expr_muldiv .
+expr_addsub ::= expr_addsub CONCAT expr_muldiv .
+
+expr_shift ::= expr_addsub .
+expr_shift ::= expr_shift LSHIFT expr_addsub .
+expr_shift ::= expr_shift RSHIFT expr_addsub .
+expr_shift ::= expr_shift ASHIFT expr_addsub .
+
+expr_bitand ::= expr_shift .
+expr_bitand ::= expr_bitand AMPERSAND expr_shift .
+
+expr_bitxor ::= expr_bitand .
+expr_bitxor ::= expr_bitxor CARET expr_bitand .
+
+expr_bitor ::= expr_bitxor .
+expr_bitor ::= expr_bitor VBAR expr_bitxor .
+
+expr_compare ::= expr_bitor .
+expr_compare ::= expr_compare op_compare expr_bitor .
+
+op_compare ::= EQ .
+op_compare ::= NE .
+op_compare ::= LT .
+op_compare ::= LE .
+op_compare ::= GT .
+op_compare ::= GE .
+op_compare ::= IS .
+op_compare ::= IS NOT .
+
+expr_not ::= expr_compare .
+expr_not ::= NOT expr_not .
+
+expr_and ::= expr_not .
+expr_and ::= expr_and AND expr_not .
+
+expr_or ::= expr_and .
+expr_or ::= expr_or OR expr_and .
+
+constructor ::= DEF LPN parameters RPN lambda_body .
+constructor ::= DEF YIELD LPN parameters RPN lambda_body .
+constructor ::= DEF prototype_opt object_keys END .
+constructor ::= LSQ unpack_list_opt RSQ .
+constructor ::= LBR keyval_list_opt RBR .
+
+lambda_body ::= COLON expr .
+lambda_body ::= block END .
+
+expr ::= expr_or .
+expr ::= constructor .
+
+unpack_list_opt ::= .
+unpack_list_opt ::= unpack_list .
+
+unpack_list ::= term_list .
+unpack_list ::= term_list ELLIPSIS .
+
+term_list ::= expr .
+term_list ::= term_list COMMA expr .
+
+parameters ::= .
+parameters ::= param_list .
+parameters ::= param_list ELLIPSIS .
+
+param_list ::= IDENTIFIER .
+param_list ::= param_list COMMA IDENTIFIER .
+
+keyval_list_opt ::= .
+keyval_list_opt ::= keyval_list_opt COMMA keyval .
+
+keyval ::= expr COLON expr .
+
+
+// DEFINITIONS
+
+definition ::= DEF qual_name LPN parameters RPN block END .
+definition ::= DEF YIELD qual_name LPN parameters RPN block END .
+definition ::= DEF qual_name prototype_opt object_keys END .
+
+qual_name ::= IDENTIFIER .
+qual_name ::= qual_name PERIOD IDENTIFIER .
+
+prototype_opt ::= .
+prototype_opt ::= IS expr .
+
+object_keys ::= .
+object_keys ::= object_keys object_key .
+
+object_key ::= IDENTIFIER COLON expr .
+object_key ::= IDENTIFIER COLON expr SEMICOLON .
+object_key ::= definition .
+
+
+// TRY CATCH
+/*
+stmt ::= WITH unpack_list DO block END .
+stmt ::= WITH unpack_list /* name_list *//* ASSIGN unpack_list DO block END .
+stmt ::= TRY block catch_list_opt finally_opt END .
+
+catch_list_opt ::= .
+catch_list_opt ::= catch_list_opt catch .
+
+catch ::= CATCH IDENTIFIER THEN block .
+catch ::= CATCH IDENTIFIER IS expr THEN block .
+
+finally_opt ::= FINALLY block .
+*/
+

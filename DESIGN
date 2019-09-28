@@ -1,4 +1,4 @@
-kenaf is a lua-like language with an object model.
+kenaf is a lua-like language with a prototype-based object model.
 it is designed to be as simple as possible.
 
 a call x.y always passes x as first argument
@@ -8,12 +8,13 @@ bare functions and lambdas don't have automatic self.
 
 unpacking is not automatic.  varargs is a special value that can be unpacked.
 
-    def f( va ... )
+    def f( args ... )
         a, b, c = f()       -- error, not enough values
         a, b, c = f() ...   -- ok, unpacks 3 results from f
-        a, b, c = va        -- error, args isn't a real value
-        a, b, c = va ...    -- ok
-        a = [ va ... ]      -- unpacking allowed in array construction
+        a, b, c = args      -- error, args isn't a real value
+        a, b, c = args ...  -- ok
+        a = [ args ... ]    -- unpacking allowed in array construction
+        f( "x", args ... )  -- and in argument lists
         b, c, z = 3, a ...  -- ok, unpacks array
     end
 
@@ -116,6 +117,7 @@ builtins:
     min( n ... )
     pow( n, n )
     ceil( n )
+    trunc( n )
     floor( n )
     round( n )
 
