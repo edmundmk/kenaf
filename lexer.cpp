@@ -13,6 +13,101 @@
 namespace kf
 {
 
+/*
+    Get user-friendly name of token.
+*/
+
+std::string spelling( const token& token )
+{
+    std::string spelling;
+    switch ( token.kind )
+    {
+    case TOKEN_NULL:
+    case TOKEN_FALSE:
+    case TOKEN_TRUE:
+        spelling = "value ";
+        break;
+
+    case TOKEN_NUMBER:
+        return "number literal";
+
+    case TOKEN_STRING:
+        return "string literal";
+
+    case TOKEN_IDENTIFIER:
+        spelling = "identifier ";
+        break;
+
+    case TOKEN_HASH:
+    case TOKEN_MINUS:
+    case TOKEN_PLUS:
+    case TOKEN_TILDE:
+    case TOKEN_ASTERISK:
+    case TOKEN_SOLIDUS:
+    case TOKEN_INTDIV:
+    case TOKEN_PERCENT:
+    case TOKEN_LSHIFT:
+    case TOKEN_RSHIFT:
+    case TOKEN_ASHIFT:
+    case TOKEN_AMPERSAND:
+    case TOKEN_CARET:
+    case TOKEN_VBAR:
+    case TOKEN_EQ:
+    case TOKEN_NE:
+    case TOKEN_LT:
+    case TOKEN_LE:
+    case TOKEN_GT:
+    case TOKEN_GE:
+    case TOKEN_ASSIGN:
+    case TOKEN_MUL_ASSIGN:
+    case TOKEN_DIV_ASSIGN:
+    case TOKEN_INTDIV_ASSIGN:
+    case TOKEN_MOD_ASSIGN:
+    case TOKEN_ADD_ASSIGN:
+    case TOKEN_SUB_ASSIGN:
+    case TOKEN_CONCAT_ASSIGN:
+    case TOKEN_LSHIFT_ASSIGN:
+    case TOKEN_RSHIFT_ASSIGN:
+    case TOKEN_ASHIFT_ASSIGN:
+    case TOKEN_BITAND_ASSIGN:
+    case TOKEN_BITXOR_ASSIGN:
+    case TOKEN_BITOR_ASSIGN:
+        spelling = "operator ";
+        break;
+
+    case TOKEN_IS:
+    case TOKEN_NOT:
+    case TOKEN_AND:
+    case TOKEN_OR:
+    case TOKEN_DEF:
+    case TOKEN_YIELD:
+    case TOKEN_END:
+    case TOKEN_VAR:
+    case TOKEN_THROW:
+    case TOKEN_DO:
+    case TOKEN_IF:
+    case TOKEN_THEN:
+    case TOKEN_ELIF:
+    case TOKEN_ELSE:
+    case TOKEN_FOR:
+    case TOKEN_WHILE:
+    case TOKEN_REPEAT:
+    case TOKEN_UNTIL:
+        spelling = "keyword ";
+        break;
+    }
+
+    spelling.append( "'" );
+    spelling.append( token.text, token.size );
+    spelling.append( "'" );
+    return spelling;
+}
+
+
+/*
+    Lexer.
+*/
+
 lexer::lexer( source* source )
     :   _source( source )
     ,   _index( 0 )

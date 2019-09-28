@@ -38,11 +38,19 @@ struct syntax_node;
 
 struct syntax_tree
 {
+    syntax_tree();
+    ~syntax_tree();
+
+    syntax_function* new_function();
+
     std::vector< std::unique_ptr< syntax_function > > functions;
 };
 
 struct syntax_function
 {
+    syntax_function();
+    ~syntax_function();
+
     std::vector< syntax_node > nodes;
 };
 

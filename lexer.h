@@ -36,6 +36,8 @@ struct token
     };
 };
 
+std::string spelling( const token& token );
+
 /*
     Analyze the source text and produce a stream of tokens.
 */

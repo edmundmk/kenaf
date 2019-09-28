@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "source.h"
 #include "lexer.h"
+#include "parser.h"
 
 int main( int argc, char* argv[] )
 {
@@ -27,23 +28,8 @@ int main( int argc, char* argv[] )
     buffer.reset();
 
     kf::lexer lexer( &source );
-    while ( true )
-    {
-        kf::token token = lexer.lex();
-        kf::source_location location = source.location( token.sloc );
-        if ( token.kind != TOKEN_NUMBER )
-        {
-            printf( "%s:%u:%u: '%.*s'\n", source.filename.c_str(), location.line, location.column, (int)token.size, token.text );
-        }
-        else
-        {
-            printf( "%s:%u:%u: %f\n", source.filename.c_str(), location.line, location.column, token.n );
-        }
-        if ( token.kind == TOKEN_EOF )
-        {
-            break;
-        }
-    }
+    kf::parser parser( &source, &lexer );
+    parser.parse();
 
     for ( const kf::source_diagnostic& diagnostic : source.diagnostics )
     {

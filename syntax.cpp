@@ -10,3 +10,30 @@
 
 #include "syntax.h"
 
+namespace kf
+{
+
+syntax_tree::syntax_tree()
+{
+}
+
+syntax_tree::~syntax_tree()
+{
+}
+
+syntax_function* syntax_tree::new_function()
+{
+    functions.push_back( std::make_unique< syntax_function >() );
+    return functions.back().get();
+}
+
+syntax_function::syntax_function()
+{
+}
+
+syntax_function::~syntax_function()
+{
+}
+
+}
+
