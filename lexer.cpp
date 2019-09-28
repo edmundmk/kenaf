@@ -93,6 +93,9 @@ std::string spelling( const token& token )
     case TOKEN_WHILE:
     case TOKEN_REPEAT:
     case TOKEN_UNTIL:
+    case TOKEN_RETURN:
+    case TOKEN_BREAK:
+    case TOKEN_CONTINUE:
         spelling = "keyword ";
         break;
     }
@@ -391,7 +394,52 @@ token lexer::lex_identifier()
         c = next();
     }
 
-    return source_token( TOKEN_IDENTIFIER, sloc );
+    token token = source_token( TOKEN_IDENTIFIER, sloc );
+
+    struct keyword { std::string_view text; unsigned kind; };
+    const keyword KEYWORDS[] =
+    {
+        { "and",        TOKEN_AND       },
+        { "def",        TOKEN_DEF       },
+        { "do",         TOKEN_DO        },
+        { "elif",       TOKEN_ELIF      },
+        { "else",       TOKEN_ELSE      },
+        { "end",        TOKEN_END       },
+        { "false",      TOKEN_FALSE     },
+        { "for",        TOKEN_FOR       },
+        { "if",         TOKEN_IF        },
+        { "is",         TOKEN_IS        },
+        { "not",        TOKEN_NOT       },
+        { "null",       TOKEN_NULL      },
+        { "or",         TOKEN_OR        },
+        { "repeat",     TOKEN_REPEAT    },
+        { "then",       TOKEN_THEN      },
+        { "throw",      TOKEN_THROW     },
+        { "true",       TOKEN_TRUE      },
+        { "until",      TOKEN_UNTIL     },
+        { "var",        TOKEN_VAR       },
+        { "while",      TOKEN_WHILE     },
+        { "yield",      TOKEN_YIELD     },
+        { "return",     TOKEN_RETURN    },
+        { "break",      TOKEN_BREAK     },
+        { "continue",   TOKEN_CONTINUE  },
+    };
+
+    std::string_view text( token.text, token.size );
+    auto i = std::lower_bound
+    (
+        std::begin( KEYWORDS ),
+        std::end( KEYWORDS ),
+        text,
+        []( const keyword& kw, std::string_view text ) { return kw.text < text; }
+    );
+
+    if ( i != std::end( KEYWORDS ) && i->text == text )
+    {
+        token.kind = i->kind;
+    }
+
+    return token;
 }
 
 static int digit( char c )

@@ -57,21 +57,37 @@ struct syntax_function
 enum syntax_node_leaf
 {
     AST_NON_LEAF,
+    AST_LEAF_NODE,
     AST_LEAF_STRING,
     AST_LEAF_NUMBER,
+    AST_LEAF_OPERATOR,
 };
 
 enum syntax_node_kind
 {
+    AST_EXPR_NULL,
+    AST_EXPR_FALSE,
+    AST_EXPR_TRUE,
+    AST_EXPR_NUMBER,
+    AST_EXPR_STRING,
+    AST_EXPR_IDENTIFIER,
+    AST_EXPR_KEY,
+    AST_EXPR_INDEX,
+    AST_EXPR_CALL,
+    AST_EXPR_LENGTH,
+    AST_EXPR_NEG,
+    AST_EXPR_POS,
+    AST_EXPR_BITNOT,
 };
 
 struct syntax_node
 {
-    uint32_t kind : 30;     // AST node kind.
-    uint32_t leaf : 2;      // Leaf or non leaf?
+    uint16_t kind;          // AST node kind.
+    uint16_t leaf;           // Leaf or non leaf?
     srcloc sloc;            // Source location.
     union
     {
+        // Non-leaf node.
         struct
         {
             size_t child_index;     // Index of first child, or a custom index.
@@ -81,6 +97,8 @@ struct syntax_node
         struct { const char* text; size_t size; } s;
         // Leaf node with number value.
         double n;
+        // Leaf node with operator.
+        unsigned op;
     };
 };
 

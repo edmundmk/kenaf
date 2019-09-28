@@ -73,5 +73,66 @@ void parser::syntax_error( token token )
     _source->error( token.sloc, "unexpected %s", spelling( token ).c_str() );
 }
 
+size_t parser::leaf_node( syntax_node_kind kind, srcloc sloc )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_LEAF_NODE;
+    node.sloc = sloc;
+    size_t index = _syntax_function->nodes.size();
+    _syntax_function->nodes.push_back( node );
+    return index;
+}
+
+size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_LEAF_STRING;
+    node.sloc = sloc;
+    node.s.text = text;
+    node.s.size = size;
+    size_t index = _syntax_function->nodes.size();
+    _syntax_function->nodes.push_back( node );
+    return index;
+}
+
+size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_LEAF_NUMBER;
+    node.sloc = sloc;
+    node.n = n;
+    size_t index = _syntax_function->nodes.size();
+    _syntax_function->nodes.push_back( node );
+    return index;
+}
+
+size_t parser::operator_node( syntax_node_kind kind, srcloc sloc, unsigned op )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_LEAF_OPERATOR;
+    node.sloc = sloc;
+    node.op = op;
+    size_t index = _syntax_function->nodes.size();
+    _syntax_function->nodes.push_back( node );
+    return index;
+}
+
+size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_NON_LEAF;
+    node.sloc = sloc;
+    node.child_index = child;
+    node.next_index = 0;
+    size_t index = _syntax_function->nodes.size();
+    _syntax_function->nodes.push_back( node );
+    return index;
+}
+
 }
 
