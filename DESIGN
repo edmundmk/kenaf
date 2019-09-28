@@ -23,6 +23,17 @@ comparisons are chained like in python
     if not 0 <= index < size then
     end
 
+lenght operator, like lua
+
+    for i = 0, #array do
+    end
+
+bitwise operators, including shifts
+
+    a << b  left
+    a >> b  logical right
+    a ~>> b arithmetic right
+
 tables and arrays
 
     var table = { 'key' : value }
@@ -42,7 +53,15 @@ objects:
         end
     end
 
-    var x = new object( p, q )
+    var x = object( p, q )
+
+prototype rules:
+
+    once object has been used as a prototype, it's sealed and no keys can be
+    added to it.
+
+    primitive values, including bools, numbers, strings, functions, and
+    generators/cothreads cannot be used as prototypes
 
 functions:
 
@@ -121,6 +140,32 @@ builtins:
     floor( n )
     round( n )
 
+    def object
+    end
+
+    def bool is object
+    end
+
+    def number is object
+        def self( o ) return string_to_number( o ) end
+    end
+
+    def string is object
+        def self( o ) return object_to_string( o ) end
+    end
+
+    def array is object
+        def resize( n ) end
+        def append( x ) end
+        def extend( x ... ) end
+        def pop() return x end
+    end
+
+    def table is object
+        def get( k, default )
+        def del( k )
+    end
+
 
 extras, for the future.  don't need to catch exceptions necessarily to start
 with.
@@ -138,4 +183,22 @@ with.
 
 
 
+VM
+
+    nun-boxing
+
+        0000'0000'0000'0000
+        0000'FFFF'FFFF'FFFF kn::object*
+
+        000F'FFFF'FFFF'FFFF first double
+        000F'FFFF'FFFF'FFFF -∞
+        7FFF'FFFF'FFFF'FFFF -0
+        8007'FFFF'FFFF'FFFE qNAN
+        800F'FFFF'FFFF'FFFE sNaN
+        800F'FFFF'FFFF'FFFF +∞
+        FFFF'FFFF'FFFF'FFFF +0
+
+
+    kv::selector
+        kv::string* key
 

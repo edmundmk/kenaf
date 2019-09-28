@@ -87,6 +87,7 @@ expr_paren ::= expr_atom .
 expr_paren ::= LPN expr RPN .
 
 expr_unary ::= expr_paren .
+expr_unary ::= HASH expr_unary .
 expr_unary ::= MINUS expr_unary .
 expr_unary ::= PLUS expr_unary .
 expr_unary ::= TILDE expr_unary .
