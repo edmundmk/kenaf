@@ -522,7 +522,7 @@ parameters(x) ::= param_list(u) .
     }
 parameters(x) ::= param_list(u) ELLIPSIS(op) .
     {
-        size_t z = p->node( AST_EXPR_UNPACK, op.sloc, u.ilast );
+        size_t z = p->node( AST_VARARG_PARAM, op.sloc, u.ilast );
         z = u.index == u.ilast ? z : u.index;
         x = p->node( AST_PARAMETERS, 0, z );
     }

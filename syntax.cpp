@@ -31,12 +31,49 @@ syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
     :   sloc( sloc )
     ,   outer( outer )
     ,   implicit_self( false )
-    ,   is_generator( true )
+    ,   is_generator( false )
+    ,   is_top_level( false )
 {
 }
 
 syntax_function::~syntax_function()
 {
+}
+
+void syntax_function::fixup_nodes()
+{
+    // Calculate next sibling pointers.
+    for ( unsigned index = 0; index < nodes.size(); ++index )
+    {
+        // Link last child node to its parent.
+        if ( index )
+        {
+            unsigned last_index = index - 1;
+            nodes[ last_index ].next_index = index;
+        }
+
+        // Find oldest descendant.
+        unsigned node_index = index;
+        unsigned child_index = nodes[ node_index ].child_index;
+        while ( child_index != node_index )
+        {
+            node_index = child_index;
+            child_index = nodes[ node_index ].child_index;
+        }
+
+        // Previous node is the node before the oldest descendant.
+        if ( child_index )
+        {
+            unsigned prev_index = child_index - 1;
+            nodes[ prev_index ].next_index = index;
+        }
+
+        // Skip leaf data.
+        if ( nodes[ index ].leaf )
+        {
+            ++index;
+        }
+    }
 }
 
 }

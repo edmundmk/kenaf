@@ -51,12 +51,15 @@ struct syntax_function
     syntax_function( srcloc sloc, syntax_function* outer );
     ~syntax_function();
 
+    void fixup_nodes();
+
     srcloc sloc;
     std::string name;
     syntax_function* outer;
     std::vector< syntax_node > nodes;
     bool implicit_self;
     bool is_generator;
+    bool is_top_level;
 
 };
 
@@ -159,22 +162,29 @@ struct syntax_node
     uint16_t kind;          // AST node kind.
     uint16_t leaf;          // Leaf or non leaf?
     srcloc sloc;            // Source location.
-    union
-    {
-        // Non-leaf node.
-        struct
-        {
-            size_t child_index;     // Index of first child, or invalid.
-            size_t next_index;      // Index of next sibling, fixed up afterwards.
-        };
-        // Leaf node with string value.
-        struct { const char* text; size_t size; } s;
-        // Leaf node with number value.
-        double n;
-        // Leaf node with function.
-        syntax_function* function;
-    };
+    unsigned child_index;   // Index of first child, or invalid.
+    unsigned next_index;    // Index of next sibling, fixed up afterwards.
 };
+
+struct syntax_leaf_string
+{
+    const char* text;
+    size_t size;
+};
+
+struct syntax_leaf_number
+{
+    double n;
+};
+
+struct syntax_leaf_function
+{
+    syntax_function* function;
+};
+
+static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
+static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
+static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
 
 }
 

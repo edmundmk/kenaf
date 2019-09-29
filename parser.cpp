@@ -25,8 +25,6 @@ parser::parser( source* source, lexer* lexer )
     :   _source( source )
     ,   _lexer( lexer )
     ,   _yyp( KenafParseAlloc( malloc ) )
-    ,   _syntax_tree( std::make_unique< syntax_tree >() )
-    ,   _fstack{ _syntax_tree->new_function( 0, nullptr ) }
 {
 }
 
@@ -46,6 +44,15 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
 #endif
 
+    _syntax_tree = std::make_unique< syntax_tree >();
+
+    _fstack.push_back( _syntax_tree->new_function( 0, nullptr ) );
+    _fstack.back()->is_top_level = true;
+
+    size_t z = string_node( AST_EXPR_NAME, 0, "args", 4 );
+    z = node( AST_VARARG_PARAM, 0, z );
+    z = node( AST_PARAMETERS, 0, z );
+
     do
     {
         _token = _lexer->lex();
@@ -62,7 +69,9 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
     while ( _token.kind != TOKEN_EOF );
 
+    pop_function();
     _fstack.clear();
+
     return std::move( _syntax_tree );
 }
 
@@ -87,6 +96,7 @@ syntax_function* parser::push_function( srcloc sloc )
 
 void parser::pop_function()
 {
+    _fstack.back()->fixup_nodes();
     _fstack.pop_back();
 }
 
@@ -110,51 +120,36 @@ void parser::update_sloc( size_t index, srcloc sloc )
 
 size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
 {
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_NON_LEAF;
-    node.sloc = sloc;
-    node.child_index = child;
-    node.next_index = AST_INVALID_INDEX;
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( node );
+    child = child != AST_INVALID_INDEX ? child : index;
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_NON_LEAF, sloc, (unsigned)child, 0 } );
     return index;
 }
 
 size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size )
 {
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_LEAF_STRING;
-    node.sloc = sloc;
-    node.s.text = text;
-    node.s.size = size;
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( node );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_STRING, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( {} );
+    *( (syntax_leaf_string*)&_fstack.back()->nodes.back() ) = { text, size };
     return index;
 }
 
 size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
 {
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_LEAF_NUMBER;
-    node.sloc = sloc;
-    node.n = n;
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( node );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_NUMBER, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( {} );
+    ( (syntax_leaf_number*)&_fstack.back()->nodes.back() )->n = n;
     return index;
 }
 
 size_t parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function )
 {
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_LEAF_FUNCTION;
-    node.sloc = sloc;
-    node.function = function;
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( node );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_FUNCTION, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( {} );
+    ( (syntax_leaf_function*)&_fstack.back()->nodes.back() )->function = function;
     return index;
 }
 
@@ -163,15 +158,19 @@ std::string parser::qual_name_string( size_t index )
     const syntax_node& n = _fstack.back()->nodes.at( index );
     if ( n.kind == AST_EXPR_NAME )
     {
-        return std::string( n.s.text, n.s.size );
+        syntax_leaf_string* s = (syntax_leaf_string*)( &n + 1 );
+        return std::string( s->text, s->size );
     }
     else if ( n.kind == AST_EXPR_KEY )
     {
         const syntax_node& o = _fstack.back()->nodes.at( index + 1 );
         assert( o.kind == AST_EXPR_NAME );
+        syntax_leaf_string* s = (syntax_leaf_string*)( &o + 1 );
+
         std::string qual_name = qual_name_string( n.child_index );
         qual_name.append( "." );
-        qual_name.append( o.s.text, o.s.size );
+        qual_name.append( s->text, s->size );
+
         return qual_name;
     }
     else
