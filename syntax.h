@@ -122,6 +122,10 @@ enum syntax_node_kind
     AST_EXPR_ELIF,          // expr expr
     AST_EXPR_UNPACK,        // last expression in list with ...
 
+    AST_EXPR_ARRAY,
+    AST_EXPR_TABLE,
+    AST_KEYVAL,
+
     AST_OP_EQ,
     AST_OP_NE,
     AST_OP_LT,
@@ -131,11 +135,9 @@ enum syntax_node_kind
     AST_OP_IS,
     AST_OP_IS_NOT,
 
-    AST_CONSTRUCT_LAMBDA,
-    AST_CONSTRUCT_LAMBDA_GENERATOR,
-    AST_CONSTRUCT_OBJECT,
-    AST_CONSTRUCT_ARRAY,
-    AST_CONSTRUCT_TABLE,
+    AST_DEF_FUNCTION,
+    AST_DEF_GENERATOR,
+    AST_DEF_OBJECT,
 };
 
 const size_t AST_INVALID_INDEX = ~(size_t)0;

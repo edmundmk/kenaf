@@ -395,27 +395,42 @@ expr_elif_list_opt(x) ::= .
 expr_elif_list_opt(x) ::= expr_elif_list_opt ELIF(kw) expr(u) THEN expr .
     { x = AST_INVALID_INDEX; p->node( AST_EXPR_ELIF, kw.sloc, u.index ); }
 
-expr(x) ::= expr_if(u) .                        { x = u; }
-expr(x) ::= constructor(u) .                    { x = { EXPR_FULL, u }; }
+expr(x) ::= expr_if(u) .                            { x = u; }
+expr(x) ::= constructor(u) .                        { x = { EXPR_FULL, u }; }
+expr(x) ::= LSQ(op) unpack_list_opt(u) RSQ .        { x = { EXPR_FULL, p->node( AST_EXPR_ARRAY, op.sloc, u.index ) }; }
+expr(x) ::= LBR(op) keyval_list_opt(u) RBR .        { x = { EXPR_FULL, p->node( AST_EXPR_TABLE, op.sloc, u ) }; }
 
-unpack_list_opt(x) ::= .                        { x = { EXPR_EMPTY_LIST, AST_INVALID_INDEX }; }
-unpack_list_opt(x) ::= unpack_list(u) .         { x = u; }
+keyval_list_opt(x) ::= .                            { x = AST_INVALID_INDEX; }
+keyval_list_opt(x) ::= keyval_list(u) .             { x = u; }
 
-unpack_list(x) ::= term_list(u) .               { x = { u.kind, u.index }; }
-unpack_list(x) ::= term_list(u) ELLIPSIS(op) .  { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = { EXPR_UNPACK_LIST, u.index }; }
+keyval_list(x) ::= keyval(u) .                      { x = u; }
+keyval_list(x) ::= keyval_list(u) COMMA keyval .    { x = u; }
+
+keyval(x) ::= expr(u) COLON(op) expr .              { x = p->node( AST_KEYVAL, op.sloc, u.index ); }
+
+unpack_list_opt(x) ::= .                            { x = { EXPR_EMPTY_LIST, AST_INVALID_INDEX }; }
+unpack_list_opt(x) ::= unpack_list(u) .             { x = u; }
+
+unpack_list(x) ::= term_list(u) .                   { x = { u.kind, u.index }; }
+unpack_list(x) ::= term_list(u) ELLIPSIS(op) .      { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = { EXPR_UNPACK_LIST, u.index }; }
 
 %type term_list { term_list_type }
-term_list(x) ::= expr(u) .                      { x = { u.kind, u.index, u.index }; }
-term_list(x) ::= term_list(u) COMMA expr(v) .   { x = { expr_list_kind( u.kind, v.kind ), u.index, v.index }; }
+term_list(x) ::= expr(u) .                          { x = { u.kind, u.index, u.index }; }
+term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.kind, v.kind ), u.index, v.index }; }
 
 
-// CONSTRUCTORS
+// CONSTRUCTORS / DEFINITIONS
 
 constructor ::= DEF LPN parameters RPN lambda_body .
 constructor ::= DEF YIELD LPN parameters RPN lambda_body .
 constructor ::= DEF prototype_opt object_keys END .
-constructor ::= LSQ unpack_list_opt RSQ .
-constructor ::= LBR keyval_list_opt RBR .
+
+definition ::= DEF qual_name LPN parameters RPN block END .
+definition ::= DEF YIELD qual_name LPN parameters RPN block END .
+definition ::= DEF qual_name prototype_opt object_keys END .
+
+qual_name ::= IDENTIFIER .
+qual_name ::= qual_name PERIOD IDENTIFIER .
 
 lambda_body ::= COLON expr .
 lambda_body ::= block END .
@@ -426,21 +441,6 @@ parameters ::= param_list ELLIPSIS .
 
 param_list ::= IDENTIFIER .
 param_list ::= param_list COMMA IDENTIFIER .
-
-keyval_list_opt ::= .
-keyval_list_opt ::= keyval_list_opt COMMA keyval .
-
-keyval ::= expr COLON expr .
-
-
-// DEFINITIONS
-
-definition ::= DEF qual_name LPN parameters RPN block END .
-definition ::= DEF YIELD qual_name LPN parameters RPN block END .
-definition ::= DEF qual_name prototype_opt object_keys END .
-
-qual_name ::= IDENTIFIER .
-qual_name ::= qual_name PERIOD IDENTIFIER .
 
 prototype_opt ::= .
 prototype_opt ::= IS expr .
