@@ -13,6 +13,81 @@
 namespace kf
 {
 
+const char* const SYNTAX_NODE_NAME[] =
+{
+    [ AST_FUNCTION          ] = "FUNCTION",
+    [ AST_BLOCK             ] = "BLOCK",
+    [ AST_STMT_VAR          ] = "STMT_VAR",
+    [ AST_STMT_IF           ] = "STMT_IF",
+    [ AST_STMT_FOR_STEP     ] = "STMT_FOR_STEP",
+    [ AST_STMT_FOR_EACH     ] = "STMT_FOR_EACH",
+    [ AST_STMT_WHILE        ] = "STMT_WHILE",
+    [ AST_STMT_REPEAT       ] = "STMT_REPEAT",
+    [ AST_STMT_BREAK        ] = "STMT_BREAK",
+    [ AST_STMT_CONTINUE     ] = "STMT_CONTINUE",
+    [ AST_STMT_RETURN       ] = "STMT_RETURN",
+    [ AST_STMT_THROW        ] = "STMT_THROW",
+    [ AST_NAME_LIST         ] = "NAME_LIST",
+    [ AST_ELIF              ] = "ELIF",
+    [ AST_ASSIGN            ] = "ASSIGN",
+    [ AST_OP_ASSIGN         ] = "OP_ASSIGN",
+    [ AST_LVAL_LIST         ] = "LVAL_LIST",
+    [ AST_RVAL_LIST         ] = "RVAL_LIST",
+    [ AST_EXPR_YIELD        ] = "EXPR_YIELD",
+    [ AST_EXPR_YIELD_FOR    ] = "EXPR_YIELD_FOR",
+    [ AST_EXPR_NULL         ] = "EXPR_NULL",
+    [ AST_EXPR_FALSE        ] = "EXPR_FALSE",
+    [ AST_EXPR_TRUE         ] = "EXPR_TRUE",
+    [ AST_EXPR_NUMBER       ] = "EXPR_NUMBER",
+    [ AST_EXPR_STRING       ] = "EXPR_STRING",
+    [ AST_EXPR_NAME         ] = "EXPR_NAME",
+    [ AST_EXPR_KEY          ] = "EXPR_KEY",
+    [ AST_EXPR_INDEX        ] = "EXPR_INDEX",
+    [ AST_EXPR_CALL         ] = "EXPR_CALL",
+    [ AST_EXPR_LENGTH       ] = "EXPR_LENGTH",
+    [ AST_EXPR_NEG          ] = "EXPR_NEG",
+    [ AST_EXPR_POS          ] = "EXPR_POS",
+    [ AST_EXPR_BITNOT       ] = "EXPR_BITNOT",
+    [ AST_EXPR_MUL          ] = "EXPR_MUL",
+    [ AST_EXPR_DIV          ] = "EXPR_DIV",
+    [ AST_EXPR_INTDIV       ] = "EXPR_INTDIV",
+    [ AST_EXPR_MOD          ] = "EXPR_MOD",
+    [ AST_EXPR_ADD          ] = "EXPR_ADD",
+    [ AST_EXPR_SUB          ] = "EXPR_SUB",
+    [ AST_EXPR_CONCAT       ] = "EXPR_CONCAT",
+    [ AST_EXPR_LSHIFT       ] = "EXPR_LSHIFT",
+    [ AST_EXPR_RSHIFT       ] = "EXPR_RSHIFT",
+    [ AST_EXPR_ASHIFT       ] = "EXPR_ASHIFT",
+    [ AST_EXPR_BITAND       ] = "EXPR_BITAND",
+    [ AST_EXPR_BITXOR       ] = "EXPR_BITXOR",
+    [ AST_EXPR_BITOR        ] = "EXPR_BITOR",
+    [ AST_EXPR_COMPARE      ] = "EXPR_COMPARE",
+    [ AST_EXPR_NOT          ] = "EXPR_NOT",
+    [ AST_EXPR_AND          ] = "EXPR_AND",
+    [ AST_EXPR_OR           ] = "EXPR_OR",
+    [ AST_EXPR_IF           ] = "EXPR_IF",
+    [ AST_EXPR_ELIF         ] = "EXPR_ELIF",
+    [ AST_EXPR_UNPACK       ] = "EXPR_UNPACK",
+    [ AST_EXPR_ARRAY        ] = "EXPR_ARRAY",
+    [ AST_EXPR_TABLE        ] = "EXPR_TABLE",
+    [ AST_KEYVAL            ] = "KEYVAL",
+    [ AST_OP_EQ             ] = "OP_EQ",
+    [ AST_OP_NE             ] = "OP_NE",
+    [ AST_OP_LT             ] = "OP_LT",
+    [ AST_OP_LE             ] = "OP_LE",
+    [ AST_OP_GT             ] = "OP_GT",
+    [ AST_OP_GE             ] = "OP_GE",
+    [ AST_OP_IS             ] = "OP_IS",
+    [ AST_OP_IS_NOT         ] = "OP_IS_NOT",
+    [ AST_DEFINITION        ] = "DEFINITION",
+    [ AST_DEF_FUNCTION      ] = "DEF_FUNCTION",
+    [ AST_DEF_OBJECT        ] = "DEF_OBJECT",
+    [ AST_PARAMETERS        ] = "PARAMETERS",
+    [ AST_VARARG_PARAM      ] = "VARARG_PARAM",
+    [ AST_PROTOTYPE         ] = "PROTOTYPE",
+    [ AST_OBJECT_KEY        ] = "OBJECT_KEY",
+};
+
 syntax_tree::syntax_tree()
 {
 }
@@ -43,14 +118,21 @@ syntax_function::~syntax_function()
 void syntax_function::fixup_nodes()
 {
     // Calculate next sibling pointers.
+    unsigned last_index = 0;
     for ( unsigned index = 0; index < nodes.size(); ++index )
     {
-        // Link last child node to its parent.
         if ( index )
         {
-            unsigned last_index = index - 1;
+            // Link last child node to its parent.
             nodes[ last_index ].next_index = index;
+
+            // Remember if last index so we can move backwards in vector.
+            if ( nodes[ last_index ].leaf )
+            {
+                nodes[ index ].prev_leaf = true;
+            }
         }
+        last_index = index;
 
         // Find oldest descendant.
         unsigned node_index = index;
@@ -65,6 +147,10 @@ void syntax_function::fixup_nodes()
         if ( child_index )
         {
             unsigned prev_index = child_index - 1;
+            if ( nodes[ child_index ].prev_leaf )
+            {
+                prev_index -= 1;
+            }
             nodes[ prev_index ].next_index = index;
         }
 
@@ -74,6 +160,73 @@ void syntax_function::fixup_nodes()
             ++index;
         }
     }
+}
+
+static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned index, int indent )
+{
+    const syntax_node& n = nodes.at( index );
+
+    printf( "%*s%s", indent, "", SYNTAX_NODE_NAME[ n.kind ] );
+    if ( n.leaf == AST_LEAF_STRING )
+    {
+        syntax_leaf_string* l = (syntax_leaf_string*)( &n + 1 );
+        printf( " STRING '%.*s'\n", (int)l->size, l->text );
+    }
+    else if ( n.leaf == AST_LEAF_NUMBER )
+    {
+        syntax_leaf_number* l = (syntax_leaf_number*)( &n + 1 );
+        printf( " NUMBER %f\n", l->n );
+    }
+    else if ( n.leaf == AST_LEAF_FUNCTION )
+    {
+        syntax_leaf_function* l = (syntax_leaf_function*)( &n + 1 );
+        printf( " FUNCTION %p %s\n", l->function, l->function->name.c_str() );
+    }
+    else
+    {
+        printf( "\n" );
+    }
+
+    for ( unsigned c = n.child_index; c < index; c = nodes[ c ].next_index )
+    {
+        debug_print_tree( nodes, c, indent + 2 );
+    }
+}
+
+void syntax_function::debug_print()
+{
+    for ( unsigned i = 0; i < nodes.size(); ++i )
+    {
+        const syntax_node& n = nodes.at( i );
+
+        printf( "[%u|%u|%u]%s", i, n.child_index, n.next_index, SYNTAX_NODE_NAME[ n.kind ] );
+        if ( n.leaf == AST_LEAF_STRING )
+        {
+            syntax_leaf_string* l = (syntax_leaf_string*)( &n + 1 );
+            printf( " STRING '%.*s'\n", (int)l->size, l->text );
+        }
+        else if ( n.leaf == AST_LEAF_NUMBER )
+        {
+            syntax_leaf_number* l = (syntax_leaf_number*)( &n + 1 );
+            printf( " NUMBER %f\n", l->n );
+        }
+        else if ( n.leaf == AST_LEAF_FUNCTION )
+        {
+            syntax_leaf_function* l = (syntax_leaf_function*)( &n + 1 );
+            printf( " FUNCTION %p %s\n", l->function, l->function->name.c_str() );
+        }
+        else
+        {
+            printf( "\n" );
+        }
+
+        if ( n.leaf )
+        {
+            ++i;
+        }
+    }
+
+    debug_print_tree( nodes, nodes.size() - 1, 0 );
 }
 
 }

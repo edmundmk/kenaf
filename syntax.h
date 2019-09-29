@@ -52,6 +52,7 @@ struct syntax_function
     ~syntax_function();
 
     void fixup_nodes();
+    void debug_print();
 
     srcloc sloc;
     std::string name;
@@ -73,6 +74,8 @@ enum syntax_node_leaf
 
 enum syntax_node_kind
 {
+    AST_FUNCTION,           // parameters block
+
     AST_BLOCK,              // stmt|call-expr|yield-expr*
 
     AST_STMT_VAR,           // name|name_list rval|rval_list?
@@ -160,7 +163,8 @@ const size_t AST_INVALID_INDEX = ~(size_t)0;
 struct syntax_node
 {
     uint16_t kind;          // AST node kind.
-    uint16_t leaf;          // Leaf or non leaf?
+    uint8_t leaf;           // Leaf or non leaf?
+    uint8_t prev_leaf;      // Is the previous node a leaf?.
     srcloc sloc;            // Source location.
     unsigned child_index;   // Index of first child, or invalid.
     unsigned next_index;    // Index of next sibling, fixed up afterwards.

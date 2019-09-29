@@ -446,6 +446,7 @@ constructor(x) ::= DEF(def) prototype_opt(u) object_keys(v) END .
 constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
     {
         p->update_sloc( params, lpn.sloc );
+        p->node( AST_FUNCTION, u.sloc, params );
         p->pop_function();
         u.function->name = "[lambda]";
         x = p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
@@ -483,19 +484,20 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
     {
         p->update_sloc( params, lpn.sloc );
         p->update_sloc( block, bdo.sloc );
+        p->node( AST_FUNCTION, u.sloc, params );
         p->pop_function();
         p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
         u.function->name = p->qual_name_string( u.name_index );
         x = p->node( AST_DEFINITION, u.sloc, u.name_index );
     }
 
-open_function(x) ::= DEF(def) qual_name(u) LPN .
+open_function(x) ::= DEF(def) qual_name(u) .
     {
         syntax_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;
         x = { f, u.index, def.sloc };
     }
-open_function(x) ::= DEF(def) YIELD qual_name(u) LPN .
+open_function(x) ::= DEF(def) YIELD qual_name(u) .
     {
         syntax_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;

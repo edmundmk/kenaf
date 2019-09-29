@@ -69,6 +69,7 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
     while ( _token.kind != TOKEN_EOF );
 
+    node( AST_FUNCTION, 0, z );
     pop_function();
     _fstack.clear();
 
@@ -96,7 +97,11 @@ syntax_function* parser::push_function( srcloc sloc )
 
 void parser::pop_function()
 {
-    _fstack.back()->fixup_nodes();
+//    if ( _source->diagnostics.empty() )
+    {
+        _fstack.back()->fixup_nodes();
+        _fstack.back()->debug_print();
+    }
     _fstack.pop_back();
 }
 
@@ -122,14 +127,14 @@ size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
 {
     size_t index = _fstack.back()->nodes.size();
     child = child != AST_INVALID_INDEX ? child : index;
-    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_NON_LEAF, sloc, (unsigned)child, 0 } );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_NON_LEAF, false, sloc, (unsigned)child, 0 } );
     return index;
 }
 
 size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size )
 {
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_STRING, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_STRING, false, sloc, (unsigned)index, 0 } );
     _fstack.back()->nodes.push_back( {} );
     *( (syntax_leaf_string*)&_fstack.back()->nodes.back() ) = { text, size };
     return index;
@@ -138,7 +143,7 @@ size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text
 size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
 {
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_NUMBER, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_NUMBER, false, sloc, (unsigned)index, 0 } );
     _fstack.back()->nodes.push_back( {} );
     ( (syntax_leaf_number*)&_fstack.back()->nodes.back() )->n = n;
     return index;
@@ -147,7 +152,7 @@ size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
 size_t parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function )
 {
     size_t index = _fstack.back()->nodes.size();
-    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_FUNCTION, sloc, (unsigned)index, 0 } );
+    _fstack.back()->nodes.push_back( { (uint16_t)kind, AST_LEAF_FUNCTION, false, sloc, (unsigned)index, 0 } );
     _fstack.back()->nodes.push_back( {} );
     ( (syntax_leaf_function*)&_fstack.back()->nodes.back() )->function = function;
     return index;
