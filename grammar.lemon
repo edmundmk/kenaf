@@ -18,21 +18,44 @@ using namespace kf;
 
 enum expr_kind
 {
-    EXPR_NONE,      // Empty expression list.
-    EXPR_NAME,      // name
-    EXPR_LVAL,      // name.key / name[ index ]
-    EXPR_CALL,      // name( args )
-    EXPR_FULL,      // any other expression
-    EXPR_NAME_LIST, // name, name
-    EXPR_LVAL_LIST, // name, name.key, expr(x)[ index ]
-    EXPR_FULL_LIST, // any other expression list
-    EXPR_UNPACK,    // expression list with ... at end
+    EXPR_NAME,          // name
+    EXPR_LVAL,          // name.key / name[ index ]
+    EXPR_CALL,          // name( args )
+    EXPR_FULL,          // any other expression
+    EXPR_NAME_LIST,     // name, name
+    EXPR_LVAL_LIST,     // name, name.key, expr(x)[ index ]
+    EXPR_FULL_LIST,     // any other expression list
+    EXPR_EMPTY_LIST,    // ()
+    EXPR_UNPACK_LIST,   // expression list with ... at end
 };
+
+static expr_kind expr_list_kind( expr_kind u, expr_kind v )
+{
+    // Upgrade u to a list.
+    if ( u == EXPR_NAME ) u = EXPR_NAME_LIST;
+    else if ( u == EXPR_LVAL ) u = EXPR_LVAL_LIST;
+    else u = EXPR_FULL_LIST;
+
+    // Upgrade v to a list.
+    if ( v == EXPR_NAME ) v = EXPR_NAME_LIST;
+    else if ( v == EXPR_LVAL ) v = EXPR_LVAL_LIST;
+    else v = EXPR_FULL_LIST;
+
+    // Return the widest kind of list.
+    return (expr_kind)std::max( u, v );
+}
 
 struct expr_type
 {
     expr_kind kind;
     size_t index;
+};
+
+struct term_list_type
+{
+    expr_kind kind;
+    size_t index;
+    size_t ilast;
 };
 
 }
@@ -142,10 +165,10 @@ op_assign ::= BITOR_ASSIGN .
 %type expr_not { expr_type }
 %type expr_and { expr_type }
 %type expr_or { expr_type }
+%type expr_if { expr_type }
 %type expr { expr_type }
 %type unpack_list_opt { expr_type }
 %type unpack_list { expr_type }
-%type term_list { expr_type }
 
 expr_lval(x) ::= IDENTIFIER(tok) .
     {
@@ -161,15 +184,8 @@ expr_lval(x) ::= expr_prefix(u) LSQ(op) expr RSQ .
         x = { EXPR_LVAL, p->node( AST_EXPR_INDEX, op.sloc, u.index ) };
     }
 
-lval_list(x) ::= expr_lval(u) . { x = u; }
-lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .
-    {
-        // Check if it's a name list.
-        expr_kind k = EXPR_NAME_LIST;
-        if ( u.kind != EXPR_NAME && u.kind != EXPR_NAME_LIST ) k = EXPR_LVAL_LIST;
-        if ( v.kind != EXPR_NAME ) k = EXPR_LVAL_LIST;
-        x = u;
-    }
+lval_list(x) ::= expr_lval(u) .                                 { x = u; }
+lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .              { x = { expr_list_kind( u.kind, v.kind ), u.index }; }
 
 expr_prefix(x) ::= expr_lval(u) .                               { x = u; }
 expr_prefix(x) ::= expr_call(u) . [LPN]                         { x = u; }
@@ -236,22 +252,26 @@ expr_and(x) ::= expr_and(u) AND(op) expr_not .                  { x = { EXPR_FUL
 expr_or(x) ::= expr_and(u) .                                    { x = u; }
 expr_or(x) ::= expr_or(u) OR(op) expr_and .                     { x = { EXPR_FULL, p->node( AST_EXPR_OR, op.sloc, u.index ) }; }
 
-expr_if ::= IF expr_or THEN expr expr_elif_list_opt ELSE expr .
+expr_if(x) ::= expr_or(u) . { x = u; }
+expr_if(x) ::= IF(kw) expr_or(u) THEN expr expr_elif_list_opt ELSE expr .
+    { x = { EXPR_FULL, p->node( AST_EXPR_IF, kw.sloc, u.index ) }; }
 
-expr_elif_list_opt ::= .
-expr_elif_list_opt ::= expr_elif_list_opt ELIF expr THEN expr .
+expr_elif_list_opt(x) ::= . { x = p->no_child(); }
+expr_elif_list_opt(x) ::= expr_elif_list_opt ELIF(kw) expr(u) THEN expr .
+    { x = p->node( AST_EXPR_ELIF, kw.sloc, u.index ); }
 
-expr ::= expr_if .
-expr ::= constructor .
+expr(x) ::= expr_if(u) .                        { x = u; }
+expr(x) ::= constructor(u) .                    { x = { EXPR_FULL, u }; }
 
-unpack_list_opt ::= .
-unpack_list_opt ::= unpack_list .
+unpack_list_opt(x) ::= .                        { x = { EXPR_EMPTY_LIST, p->no_child() }; }
+unpack_list_opt(x) ::= unpack_list(u) .         { x = u; }
 
-unpack_list ::= term_list .
-unpack_list ::= term_list ELLIPSIS .
+unpack_list(x) ::= term_list(u) .               { x = { u.kind, u.index }; }
+unpack_list(x) ::= term_list(u) ELLIPSIS(op) .  { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = { EXPR_UNPACK_LIST, u.index }; }
 
-term_list ::= expr .
-term_list ::= term_list COMMA expr .
+%type term_list { term_list_type }
+term_list(x) ::= expr(u) .                      { x = { u.kind, u.index, u.index }; }
+term_list(x) ::= term_list(u) COMMA expr(v) .   { x = { expr_list_kind( u.kind, v.kind ), u.index, v.index }; }
 
 
 // CONSTRUCTOR EXPRESSIONS
