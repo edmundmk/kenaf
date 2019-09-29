@@ -62,11 +62,11 @@ script ::= block .
 
 block ::= stmt_list .
 block ::= stmt_list last_stmt .
-block ::= stmt_list last_stmt SEMICOLON .
 
 stmt_list ::= .
 stmt_list ::= stmt_list stmt .
 stmt_list ::= stmt_list stmt SEMICOLON .
+stmt_list ::= stmt_list last_stmt SEMICOLON .
 
 stmt ::= expr_call . [PREFER_CALL]
 stmt ::= stmt_assign .
@@ -82,6 +82,9 @@ stmt ::= FOR name_list ASSIGN expr COLON expr step_opt DO block END .
 stmt ::= FOR name_list COLON expr DO block END .
 stmt ::= WHILE expr DO block END .
 stmt ::= REPEAT block UNTIL expr .
+stmt ::= RETURN unpack_list .
+stmt ::= BREAK .
+stmt ::= CONTINUE .
 
 elif_list_opt ::= .
 elif_list_opt ::= elif_list_opt ELIF expr THEN block .
@@ -96,9 +99,6 @@ name_list ::= IDENTIFIER .
 name_list ::= name_list COMMA IDENTIFIER .
 
 last_stmt ::= RETURN .
-last_stmt ::= RETURN unpack_list .
-last_stmt ::= BREAK .
-last_stmt ::= CONTINUE .
 
 stmt_assign ::= lval_list op_assign assign_rval .
 
@@ -236,16 +236,12 @@ expr_and(x) ::= expr_and(u) AND(op) expr_not .                  { x = { EXPR_FUL
 expr_or(x) ::= expr_and(u) .                                    { x = u; }
 expr_or(x) ::= expr_or(u) OR(op) expr_and .                     { x = { EXPR_FULL, p->node( AST_EXPR_OR, op.sloc, u.index ) }; }
 
-constructor ::= DEF LPN parameters RPN lambda_body .
-constructor ::= DEF YIELD LPN parameters RPN lambda_body .
-constructor ::= DEF prototype_opt object_keys END .
-constructor ::= LSQ unpack_list_opt RSQ .
-constructor ::= LBR keyval_list_opt RBR .
+expr_if ::= IF expr_or THEN expr expr_elif_list_opt ELSE expr .
 
-lambda_body ::= COLON expr .
-lambda_body ::= block END .
+expr_elif_list_opt ::= .
+expr_elif_list_opt ::= expr_elif_list_opt ELIF expr THEN expr .
 
-expr ::= expr_or .
+expr ::= expr_if .
 expr ::= constructor .
 
 unpack_list_opt ::= .
@@ -256,6 +252,18 @@ unpack_list ::= term_list ELLIPSIS .
 
 term_list ::= expr .
 term_list ::= term_list COMMA expr .
+
+
+// CONSTRUCTOR EXPRESSIONS
+
+constructor ::= DEF LPN parameters RPN lambda_body .
+constructor ::= DEF YIELD LPN parameters RPN lambda_body .
+constructor ::= DEF prototype_opt object_keys END .
+constructor ::= LSQ unpack_list_opt RSQ .
+constructor ::= LBR keyval_list_opt RBR .
+
+lambda_body ::= COLON expr .
+lambda_body ::= block END .
 
 parameters ::= .
 parameters ::= param_list .
