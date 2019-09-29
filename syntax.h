@@ -41,17 +41,22 @@ struct syntax_tree
     syntax_tree();
     ~syntax_tree();
 
-    syntax_function* new_function();
+    syntax_function* new_function( srcloc sloc, syntax_function* outer );
 
     std::vector< std::unique_ptr< syntax_function > > functions;
 };
 
 struct syntax_function
 {
-    syntax_function();
+    syntax_function( srcloc sloc, syntax_function* outer );
     ~syntax_function();
 
+    srcloc sloc;
+    syntax_function* outer;
     std::vector< syntax_node > nodes;
+    bool implicit_self;
+    bool is_generator;
+
 };
 
 enum syntax_node_leaf
@@ -59,7 +64,7 @@ enum syntax_node_leaf
     AST_NON_LEAF,
     AST_LEAF_STRING,
     AST_LEAF_NUMBER,
-    AST_LEAF_OPERATOR,
+    AST_LEAF_FUNCTION,
 };
 
 enum syntax_node_kind
@@ -135,9 +140,12 @@ enum syntax_node_kind
     AST_OP_IS,
     AST_OP_IS_NOT,
 
-    AST_DEF_FUNCTION,
-    AST_DEF_GENERATOR,
-    AST_DEF_OBJECT,
+    AST_DEFINITION,         // name|qual_name def
+    AST_DEF_FUNCTION,       // leaf function
+    AST_DEF_OBJECT,         // prototype object_key|definition*
+
+    AST_PARAMETERS,         // name* vararg_param?
+    AST_VARARG_PARAM,       // name
 };
 
 const size_t AST_INVALID_INDEX = ~(size_t)0;
@@ -159,6 +167,8 @@ struct syntax_node
         struct { const char* text; size_t size; } s;
         // Leaf node with number value.
         double n;
+        // Leaf node with function.
+        syntax_function* function;
     };
 };
 

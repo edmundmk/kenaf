@@ -11,6 +11,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <vector>
 #include "lexer.h"
 #include "syntax.h"
 
@@ -29,6 +30,9 @@ public:
     void syntax_error( token token );
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
 
+    syntax_function* push_function( srcloc sloc );
+    void pop_function();
+
     srcloc current_sloc();
     srcloc node_sloc( size_t index );
     void update_sloc( size_t index, srcloc sloc );
@@ -36,6 +40,7 @@ public:
     size_t node( syntax_node_kind kind, srcloc sloc, size_t child );
     size_t string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size );
     size_t number_node( syntax_node_kind kind, srcloc sloc, double n );
+    size_t function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
 
 private:
 
@@ -45,7 +50,7 @@ private:
     token _token;
 
     std::unique_ptr< syntax_tree > _syntax_tree;
-    syntax_function* _syntax_function;
+    std::vector< syntax_function* > _fstack;
 
 };
 

@@ -8,13 +8,48 @@
 //  full license information.
 //
 
+%name KenafParse
+%token_prefix TOKEN_
+%extra_argument { parser* p }
+%token_type { token }
+%token_destructor { (void)p; }
+%syntax_error { p->syntax_error( TOKEN ); }
+%default_type { size_t }
+
+
+// ( expr )( expr ) is ambiguous, resolve as a function call.
+
+%nonassoc PREFER_CALL .
+%nonassoc LPN .
+
+
 %include
 {
+
 #include <assert.h>
 #include "lexer.h"
 #include "parser.h"
 
 using namespace kf;
+
+enum expr_kind
+{
+    EXPR_NAME,          // name
+    EXPR_LVAL,          // name.key / name[ index ]
+    EXPR_CALL,          // name( args )
+    EXPR_FULL,          // any other expression
+    EXPR_NAME_LIST,     // name, name
+    EXPR_LVAL_LIST,     // name, name.key, expr(x)[ index ]
+    EXPR_FULL_LIST,     // any other expression list
+    EXPR_UNPACK_LIST,   // expression list with ... at end
+    EXPR_EMPTY_LIST,    // ()
+};
+
+struct expr_type
+{
+    expr_kind kind;
+    size_t index;
+};
 
 struct maybe_list_type
 {
@@ -27,6 +62,36 @@ struct op_assign_type
     size_t index;
     token token;
 };
+
+struct term_list_type
+{
+    expr_kind kind;
+    size_t index;
+    size_t ilast;
+};
+
+struct open_function_type
+{
+    syntax_function* function;
+    size_t name_index;
+    srcloc sloc;
+};
+
+static expr_kind expr_list_kind( expr_kind u, expr_kind v )
+{
+    // Upgrade u to a list.
+    if ( u == EXPR_NAME ) u = EXPR_NAME_LIST;
+    else if ( u == EXPR_LVAL ) u = EXPR_LVAL_LIST;
+    else u = EXPR_FULL_LIST;
+
+    // Upgrade v to a list.
+    if ( v == EXPR_NAME ) v = EXPR_NAME_LIST;
+    else if ( v == EXPR_LVAL ) v = EXPR_LVAL_LIST;
+    else v = EXPR_FULL_LIST;
+
+    // Return the widest kind of list.
+    return (expr_kind)std::max( u, v );
+}
 
 static maybe_list_type assignment( parser* p, maybe_list_type lval, op_assign_type op, maybe_list_type rval )
 {
@@ -46,64 +111,7 @@ static maybe_list_type assignment( parser* p, maybe_list_type lval, op_assign_ty
     }
 }
 
-enum expr_kind
-{
-    EXPR_NAME,          // name
-    EXPR_LVAL,          // name.key / name[ index ]
-    EXPR_CALL,          // name( args )
-    EXPR_FULL,          // any other expression
-    EXPR_NAME_LIST,     // name, name
-    EXPR_LVAL_LIST,     // name, name.key, expr(x)[ index ]
-    EXPR_FULL_LIST,     // any other expression list
-    EXPR_UNPACK_LIST,   // expression list with ... at end
-    EXPR_EMPTY_LIST,    // ()
-};
-
-static expr_kind expr_list_kind( expr_kind u, expr_kind v )
-{
-    // Upgrade u to a list.
-    if ( u == EXPR_NAME ) u = EXPR_NAME_LIST;
-    else if ( u == EXPR_LVAL ) u = EXPR_LVAL_LIST;
-    else u = EXPR_FULL_LIST;
-
-    // Upgrade v to a list.
-    if ( v == EXPR_NAME ) v = EXPR_NAME_LIST;
-    else if ( v == EXPR_LVAL ) v = EXPR_LVAL_LIST;
-    else v = EXPR_FULL_LIST;
-
-    // Return the widest kind of list.
-    return (expr_kind)std::max( u, v );
 }
-
-struct expr_type
-{
-    expr_kind kind;
-    size_t index;
-};
-
-struct term_list_type
-{
-    expr_kind kind;
-    size_t index;
-    size_t ilast;
-};
-
-}
-
-
-%name KenafParse
-%token_prefix TOKEN_
-%extra_argument { parser* p }
-%token_type { token }
-%token_destructor { (void)p; }
-%syntax_error { p->syntax_error( TOKEN ); }
-%default_type { size_t }
-
-
-// ( expr )( expr ) is ambiguous, resolve as a function call.
-
-%nonassoc PREFER_CALL .
-%nonassoc LPN .
 
 
 // SCRIPT
@@ -114,7 +122,7 @@ script ::= block .
 // STATEMENTS
 
 block(x) ::= stmt_list(u) .                             { x = p->node( AST_BLOCK, p->node_sloc( u ), u ); }
-block(x) ::= stmt_list(u) last_stmt .                   { x = p->node( AST_BLOCK, p->node_sloc( u ), u ); }
+block(x) ::= stmt_list(u) last_stmt(v) .                { x = u != AST_INVALID_INDEX ? u : v; x = p->node( AST_BLOCK, p->node_sloc( x ), x ); }
 
 stmt_list(x) ::= .                                      { x = AST_INVALID_INDEX; }
 stmt_list(x) ::= stmt_list(u) stmt(v) .                 { x = u != AST_INVALID_INDEX ? u : v; }
@@ -412,7 +420,12 @@ unpack_list_opt(x) ::= .                            { x = { EXPR_EMPTY_LIST, AST
 unpack_list_opt(x) ::= unpack_list(u) .             { x = u; }
 
 unpack_list(x) ::= term_list(u) .                   { x = { u.kind, u.index }; }
-unpack_list(x) ::= term_list(u) ELLIPSIS(op) .      { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = { EXPR_UNPACK_LIST, u.index }; }
+unpack_list(x) ::= term_list(u) ELLIPSIS(op) .
+    {
+        size_t z = p->node( AST_EXPR_UNPACK, op.sloc, u.ilast );
+        z = u.index == u.ilast ? z : u.index;
+        x = { EXPR_UNPACK_LIST, z };
+    }
 
 %type term_list { term_list_type }
 term_list(x) ::= expr(u) .                          { x = { u.kind, u.index, u.index }; }
@@ -421,26 +434,101 @@ term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.ki
 
 // CONSTRUCTORS / DEFINITIONS
 
-constructor ::= DEF LPN parameters RPN lambda_body .
-constructor ::= DEF YIELD LPN parameters RPN lambda_body .
+%type open_lambda { open_function_type }
+%type open_function { open_function_type }
+%type qual_name { expr_type }
+%type param_list { term_list_type }
+
 constructor ::= DEF prototype_opt object_keys END .
+constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
+    {
+        p->update_sloc( params, lpn.sloc );
+        p->pop_function();
+        x = p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
+    }
 
-definition ::= DEF qual_name LPN parameters RPN block END .
-definition ::= DEF YIELD qual_name LPN parameters RPN block END .
+open_lambda(x) ::= DEF(def) .
+    {
+        syntax_function* f = p->push_function( def.sloc );
+        x = { f, AST_INVALID_INDEX, def.sloc };
+    }
+open_lambda(x) ::= DEF(def) YIELD .
+    {
+        syntax_function* f = p->push_function( def.sloc );
+        f->is_generator = true;
+        x = { f, AST_INVALID_INDEX, def.sloc };
+    }
+
+lambda_body(x) ::= RPN(bdo) COLON(op) expr(u) .
+    {
+        size_t z = p->node( AST_STMT_RETURN, op.sloc, u.index );
+        x = p->node( AST_BLOCK, bdo.sloc, z );
+    }
+lambda_body(x) ::= RPN(bdo) block(block) END .
+    {
+        p->update_sloc( block, bdo.sloc );
+        x = block;
+    }
+
 definition ::= DEF qual_name prototype_opt object_keys END .
+definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
+    {
+        p->update_sloc( params, lpn.sloc );
+        p->update_sloc( block, bdo.sloc );
+        p->pop_function();
+        size_t z = p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
+        x = p->node( AST_DEFINITION, u.sloc, z );
+    }
 
-qual_name ::= IDENTIFIER .
-qual_name ::= qual_name PERIOD IDENTIFIER .
+open_function(x) ::= DEF(def) qual_name(u) LPN .
+    {
+        syntax_function* f = p->push_function( def.sloc );
+        f->implicit_self = u.kind != EXPR_NAME;
+        x = { f, u.index, def.sloc };
+    }
+open_function(x) ::= DEF(def) YIELD qual_name(u) LPN .
+    {
+        syntax_function* f = p->push_function( def.sloc );
+        f->implicit_self = u.kind != EXPR_NAME;
+        f->is_generator = true;
+        x = { f, u.index, def.sloc };
+    }
 
-lambda_body ::= COLON expr .
-lambda_body ::= block END .
+qual_name(x) ::= IDENTIFIER(tok) .
+    {
+        x = { EXPR_NAME, p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ) };
+    }
+qual_name(x) ::= qual_name(u) PERIOD(op) IDENTIFIER(tok) .
+    {
+        p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        x = { EXPR_LVAL, p->node( AST_EXPR_KEY, op.sloc, u.index ) };
+    }
 
-parameters ::= .
-parameters ::= param_list .
-parameters ::= param_list ELLIPSIS .
+parameters(x) ::= .
+    {
+        x = p->node( AST_PARAMETERS, 0, AST_INVALID_INDEX );
+    }
+parameters(x) ::= param_list(u) .
+    {
+        x = p->node( AST_PARAMETERS, 0, u.index );
+    }
+parameters(x) ::= param_list(u) ELLIPSIS(op) .
+    {
+        size_t z = p->node( AST_EXPR_UNPACK, op.sloc, u.ilast );
+        z = u.index == u.ilast ? z : u.index;
+        x = p->node( AST_PARAMETERS, 0, z );
+    }
 
-param_list ::= IDENTIFIER .
-param_list ::= param_list COMMA IDENTIFIER .
+param_list(x) ::= IDENTIFIER(tok) .
+    {
+        size_t z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        x = { EXPR_NAME, z, z };
+    }
+param_list(x) ::= param_list(u) COMMA IDENTIFIER(tok) .
+    {
+        size_t z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        x = { EXPR_NAME, u.index, z };
+    }
 
 prototype_opt ::= .
 prototype_opt ::= IS expr .

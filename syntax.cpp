@@ -21,13 +21,17 @@ syntax_tree::~syntax_tree()
 {
 }
 
-syntax_function* syntax_tree::new_function()
+syntax_function* syntax_tree::new_function( srcloc sloc, syntax_function* outer )
 {
-    functions.push_back( std::make_unique< syntax_function >() );
+    functions.push_back( std::make_unique< syntax_function >( sloc, outer ) );
     return functions.back().get();
 }
 
-syntax_function::syntax_function()
+syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
+    :   sloc( sloc )
+    ,   outer( outer )
+    ,   implicit_self( false )
+    ,   is_generator( true )
 {
 }
 

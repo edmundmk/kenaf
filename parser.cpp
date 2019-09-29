@@ -26,7 +26,7 @@ parser::parser( source* source, lexer* lexer )
     ,   _lexer( lexer )
     ,   _yyp( KenafParseAlloc( malloc ) )
     ,   _syntax_tree( std::make_unique< syntax_tree >() )
-    ,   _syntax_function( _syntax_tree->new_function() )
+    ,   _fstack{ _syntax_tree->new_function( 0, nullptr ) }
 {
 }
 
@@ -62,6 +62,7 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
     while ( _token.kind != TOKEN_EOF );
 
+    _fstack.clear();
     return std::move( _syntax_tree );
 }
 
@@ -78,6 +79,17 @@ void parser::error( srcloc sloc, const char* message, ... )
     va_end( ap );
 }
 
+syntax_function* parser::push_function( srcloc sloc )
+{
+    _fstack.push_back( _syntax_tree->new_function( sloc, _fstack.back() ) );
+    return _fstack.back();
+}
+
+void parser::pop_function()
+{
+    _fstack.pop_back();
+}
+
 srcloc parser::current_sloc()
 {
     return _token.sloc;
@@ -85,12 +97,15 @@ srcloc parser::current_sloc()
 
 srcloc parser::node_sloc( size_t index )
 {
-    return _syntax_function->nodes.at( index ).sloc;
+    if ( index != AST_INVALID_INDEX )
+        return _fstack.back()->nodes.at( index ).sloc;
+    else
+        return 0;
 }
 
 void parser::update_sloc( size_t index, srcloc sloc )
 {
-    _syntax_function->nodes.at( index ).sloc = sloc;
+    _fstack.back()->nodes.at( index ).sloc = sloc;
 }
 
 size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
@@ -101,8 +116,8 @@ size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
     node.sloc = sloc;
     node.child_index = child;
     node.next_index = AST_INVALID_INDEX;
-    size_t index = _syntax_function->nodes.size();
-    _syntax_function->nodes.push_back( node );
+    size_t index = _fstack.back()->nodes.size();
+    _fstack.back()->nodes.push_back( node );
     return index;
 }
 
@@ -114,8 +129,8 @@ size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text
     node.sloc = sloc;
     node.s.text = text;
     node.s.size = size;
-    size_t index = _syntax_function->nodes.size();
-    _syntax_function->nodes.push_back( node );
+    size_t index = _fstack.back()->nodes.size();
+    _fstack.back()->nodes.push_back( node );
     return index;
 }
 
@@ -126,8 +141,20 @@ size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
     node.leaf = AST_LEAF_NUMBER;
     node.sloc = sloc;
     node.n = n;
-    size_t index = _syntax_function->nodes.size();
-    _syntax_function->nodes.push_back( node );
+    size_t index = _fstack.back()->nodes.size();
+    _fstack.back()->nodes.push_back( node );
+    return index;
+}
+
+size_t parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function )
+{
+    syntax_node node;
+    node.kind = kind;
+    node.leaf = AST_LEAF_FUNCTION;
+    node.sloc = sloc;
+    node.function = function;
+    size_t index = _fstack.back()->nodes.size();
+    _fstack.back()->nodes.push_back( node );
     return index;
 }
 
