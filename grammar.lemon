@@ -546,21 +546,3 @@ object_key(x) ::= definition(u) .                       { x = u; }
 object_key(x) ::= name(u) COLON(op) expr .              { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 object_key(x) ::= name(u) COLON(op) expr SEMICOLON .    { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 
-
-
-
-// TRY CATCH
-/*
-stmt ::= WITH unpack_list DO block END .
-stmt ::= WITH unpack_list /* name_list *//* ASSIGN unpack_list DO block END .
-stmt ::= TRY block catch_list_opt finally_opt END .
-
-catch_list_opt ::= .
-catch_list_opt ::= catch_list_opt catch .
-
-catch ::= CATCH IDENTIFIER THEN block .
-catch ::= CATCH IDENTIFIER IS expr THEN block .
-
-finally_opt ::= FINALLY block .
-*/
-
