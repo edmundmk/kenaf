@@ -64,12 +64,36 @@ enum syntax_node_leaf
 
 enum syntax_node_kind
 {
+    AST_BLOCK,              // stmt|call-expr|yield-expr*
+
+    AST_STMT_IF,            // expr block elif* block?
+    AST_STMT_FOR_STEP,      // name expr expr expr block
+    AST_STMT_FOR_EACH,      // name|name_list expr block
+    AST_STMT_WHILE,         // expr block
+    AST_STMT_REPEAT,        // block expr
+    AST_STMT_BREAK,
+    AST_STMT_CONTINUE,
+    AST_STMT_RETURN,        // expr*
+    AST_STMT_THROW,         // expr
+
+    AST_NAME_LIST,          // name+
+    AST_ELIF,               // expr block
+
+    AST_VAR,                // name|name_list rval|rval_list
+    AST_ASSIGN,             // lval|lval_list rval|rval_list
+    AST_OP_ASSIGN,          // lval [AST_OP_MUL] expr
+    AST_LVAL_LIST,          // expr+
+    AST_RVAL_LIST,          // expr+
+
+    AST_EXPR_YIELD,         // expr+
+    AST_EXPR_YIELD_FOR,     // expr
+
     AST_EXPR_NULL,
     AST_EXPR_FALSE,
     AST_EXPR_TRUE,
     AST_EXPR_NUMBER,
     AST_EXPR_STRING,
-    AST_EXPR_IDENTIFIER,
+    AST_EXPR_NAME,
     AST_EXPR_KEY,
     AST_EXPR_INDEX,
     AST_EXPR_CALL,
@@ -91,6 +115,13 @@ enum syntax_node_kind
     AST_EXPR_BITXOR,
     AST_EXPR_BITOR,
     AST_EXPR_COMPARE,
+    AST_EXPR_NOT,
+    AST_EXPR_AND,
+    AST_EXPR_OR,
+    AST_EXPR_IF,
+    AST_EXPR_ELIF,
+    AST_EXPR_UNPACK,        // last expression in list with ...
+
     AST_OP_EQ,
     AST_OP_NE,
     AST_OP_LT,
@@ -99,18 +130,15 @@ enum syntax_node_kind
     AST_OP_GE,
     AST_OP_IS,
     AST_OP_IS_NOT,
-    AST_EXPR_NOT,
-    AST_EXPR_AND,
-    AST_EXPR_OR,
-    AST_EXPR_IF,
-    AST_EXPR_ELIF,
-    AST_EXPR_UNPACK,
+
     AST_CONSTRUCT_LAMBDA,
     AST_CONSTRUCT_LAMBDA_GENERATOR,
     AST_CONSTRUCT_OBJECT,
     AST_CONSTRUCT_ARRAY,
     AST_CONSTRUCT_TABLE,
 };
+
+const size_t AST_INVALID_INDEX = ~(size_t)0;
 
 struct syntax_node
 {
@@ -122,7 +150,7 @@ struct syntax_node
         // Non-leaf node.
         struct
         {
-            size_t child_index;     // Index of first child, or this index if no children.
+            size_t child_index;     // Index of first child, or invalid.
             size_t next_index;      // Index of next sibling, fixed up afterwards.
         };
         // Leaf node with string value.

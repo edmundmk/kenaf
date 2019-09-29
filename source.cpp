@@ -10,7 +10,6 @@
 
 #include "source.h"
 #include <assert.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <algorithm>
 
@@ -64,14 +63,26 @@ source_location source::location( srcloc sloc ) const
 
 void source::error( srcloc sloc, const char* message, ... )
 {
-    va_list vap, ap;
-    va_start( vap, message );
-    va_copy( ap, vap );
-    int size = vsnprintf( nullptr, 0, message, ap );
+    va_list ap;
+    va_start( ap, message );
+    error( sloc, message, ap );
     va_end( ap );
+}
+
+void source::error( srcloc sloc, const char* message, va_list ap )
+{
+    va_list aq;
+
+    va_copy( aq, ap );
+    int size = vsnprintf( nullptr, 0, message, aq );
+    va_end( aq );
+
     std::string text( size + 1, '\0' );
-    vsnprintf( text.data(), text.size(), message, vap );
-    va_end( vap );
+
+    va_copy( aq, ap );
+    vsnprintf( text.data(), text.size(), message, aq );
+    va_end( aq );
+
     text.pop_back();
     diagnostics.push_back( { ERROR, location( sloc ), std::move( text ) } );
 }

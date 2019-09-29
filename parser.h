@@ -27,14 +27,15 @@ public:
     std::unique_ptr< syntax_tree > parse();
 
     void syntax_error( token token );
+    void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
 
     srcloc current_sloc();
     srcloc node_sloc( size_t index );
+    void update_sloc( size_t index, srcloc sloc );
 
     size_t node( syntax_node_kind kind, srcloc sloc, size_t child );
     size_t string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size );
     size_t number_node( syntax_node_kind kind, srcloc sloc, double n );
-    size_t no_child();
 
 private:
 

@@ -13,6 +13,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -89,6 +90,7 @@ struct source
     const source_string* new_string( const char* text, size_t size );
 
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
+    void error( srcloc sloc, const char* message, va_list ap );
 
     std::string filename;
     std::vector< char > text;

@@ -70,6 +70,14 @@ void parser::syntax_error( token token )
     _source->error( token.sloc, "unexpected %s", spelling( token ).c_str() );
 }
 
+void parser::error( srcloc sloc, const char* message, ... )
+{
+    va_list ap;
+    va_start( ap, message );
+    _source->error( sloc, message, ap );
+    va_end( ap );
+}
+
 srcloc parser::current_sloc()
 {
     return _token.sloc;
@@ -80,6 +88,11 @@ srcloc parser::node_sloc( size_t index )
     return _syntax_function->nodes.at( index ).sloc;
 }
 
+void parser::update_sloc( size_t index, srcloc sloc )
+{
+    _syntax_function->nodes.at( index ).sloc = sloc;
+}
+
 size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
 {
     syntax_node node;
@@ -87,7 +100,7 @@ size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
     node.leaf = AST_NON_LEAF;
     node.sloc = sloc;
     node.child_index = child;
-    node.next_index = 0;
+    node.next_index = AST_INVALID_INDEX;
     size_t index = _syntax_function->nodes.size();
     _syntax_function->nodes.push_back( node );
     return index;
@@ -116,11 +129,6 @@ size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
     size_t index = _syntax_function->nodes.size();
     _syntax_function->nodes.push_back( node );
     return index;
-}
-
-size_t parser::no_child()
-{
-    return _syntax_function->nodes.size();
 }
 
 }

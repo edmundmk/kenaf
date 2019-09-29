@@ -16,6 +16,18 @@
 
 using namespace kf;
 
+struct maybe_list_type
+{
+    size_t index;
+    bool is_list;
+};
+
+struct op_assign_type
+{
+    size_t index;
+    srcloc sloc;
+};
+
 enum expr_kind
 {
     EXPR_NAME,          // name
@@ -83,68 +95,164 @@ script ::= block .
 
 // STATEMENTS
 
-block ::= stmt_list .
-block ::= stmt_list last_stmt .
+block(x) ::= stmt_list(u) .                             { x = p->node( AST_BLOCK, p->node_sloc( u ), u ); }
+block(x) ::= stmt_list(u) last_stmt .                   { x = p->node( AST_BLOCK, p->node_sloc( u ), u ); }
 
-stmt_list ::= .
-stmt_list ::= stmt_list stmt .
-stmt_list ::= stmt_list stmt SEMICOLON .
-stmt_list ::= stmt_list last_stmt SEMICOLON .
+stmt_list(x) ::= .                                      { x = AST_INVALID_INDEX; }
+stmt_list(x) ::= stmt_list(u) stmt(v) .                 { x = u != AST_INVALID_INDEX ? u : v; }
+stmt_list(x) ::= stmt_list(u) stmt(v) SEMICOLON .       { x = u != AST_INVALID_INDEX ? u : v; }
+stmt_list(x) ::= stmt_list(u) last_stmt(v) SEMICOLON .  { x = u != AST_INVALID_INDEX ? u : v; }
 
-stmt ::= expr_call . [PREFER_CALL]
-stmt ::= stmt_assign .
-stmt ::= definition .
-stmt ::= VAR name_list .
-stmt ::= VAR name_list ASSIGN assign_rval .
-stmt ::= YIELD unpack_list .
-stmt ::= YIELD FOR expr_call . [PREFER_CALL]
-stmt ::= THROW expr .
-stmt ::= DO block END .
-stmt ::= IF expr THEN block elif_list_opt else_opt END .
-stmt ::= FOR name_list ASSIGN expr COLON expr step_opt DO block END .
-stmt ::= FOR name_list COLON expr DO block END .
-stmt ::= WHILE expr DO block END .
-stmt ::= REPEAT block UNTIL expr .
-stmt ::= RETURN unpack_list .
-stmt ::= BREAK .
-stmt ::= CONTINUE .
+stmt(x) ::= expr_call(u) . [PREFER_CALL]                { x = u.index; }
+stmt(x) ::= definition(u) .                             { x = u; }
+stmt(x) ::= stmt_var(u) .                               { x = u; }
+stmt(x) ::= stmt_assign(u) .                            { x = u; }
+stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_EXPR_YIELD, kw.sloc, u.index ); }
+stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ); }
+stmt(x) ::= DO(kw) block(u) END .                       { p->update_sloc( u, kw.sloc ); x = u; }
+stmt(x) ::= IF(kw) expr(u) THEN(bdo) block(block) elif_list_opt else_opt END .
+    {
+        p->update_sloc( block, bdo.sloc );
+        x = p->node( AST_STMT_IF, kw.sloc, u.index );
+    }
+stmt(x) ::= FOR(kw) r_name_list(u) ASSIGN expr COLON expr step_opt DO(bdo) block(block) END .
+    {
+        if ( u.is_list )
+        {
+            p->error( p->node_sloc( u.index ), "for step must declare a single variable, not a list" );
+        }
+        p->update_sloc( block, bdo.sloc );
+        x = p->node( AST_STMT_FOR_STEP, kw.sloc, u.index );
+    }
+stmt(x) ::= FOR(kw) r_name_list(u) COLON expr DO(bdo) block(block) END .
+    {
+        p->update_sloc( block, bdo.sloc );
+        x = p->node( AST_STMT_FOR_EACH, kw.sloc, u.index );
+    }
+stmt(x) ::= WHILE(kw) expr(u) DO(bdo) block(block) END .
+    {
+        p->update_sloc( block, bdo.sloc );
+        x = p->node( AST_STMT_WHILE, kw.sloc, u.index );
+    }
+stmt(x) ::= REPEAT(kw) block(u) UNTIL expr .
+    {
+        p->update_sloc( u, kw.sloc );
+        x = p->node( AST_STMT_REPEAT, kw.sloc, u );
+    }
+stmt(x) ::= BREAK(kw) .                                 { x = p->node( AST_STMT_BREAK, kw.sloc, AST_INVALID_INDEX ); }
+stmt(x) ::= CONTINUE(kw) .                              { x = p->node( AST_STMT_CONTINUE, kw.sloc, AST_INVALID_INDEX ); }
+stmt(x) ::= RETURN(kw) unpack_list(u) .                 { x = p->node( AST_STMT_RETURN, kw.sloc, u.index ); }
+stmt(x) ::= THROW(kw) expr(u) .                         { x = p->node( AST_STMT_THROW, kw.sloc, u.index ); }
 
-elif_list_opt ::= .
-elif_list_opt ::= elif_list_opt ELIF expr THEN block .
+// Bare return is ambiguous when an expression follows, so it is restricted to
+// appear only as the last statement in a block.
+last_stmt(x) ::= RETURN(kw) .                           { x = p->node( AST_STMT_RETURN, kw.sloc, AST_INVALID_INDEX ); }
 
-else_opt ::= .
-else_opt ::= ELSE block .
+elif_list_opt(x) ::= . { x = AST_INVALID_INDEX; }
+elif_list_opt(x) ::= elif_list_opt ELIF(kw) expr(u) THEN(bdo) block(block) .
+    {
+        x = AST_INVALID_INDEX;
+        p->update_sloc( block, bdo.sloc );
+        p->node( AST_ELIF, kw.sloc, u.index );
+    }
 
-step_opt ::= .
-step_opt ::= COLON expr .
+else_opt(x) ::= . { x = AST_INVALID_INDEX; }
+else_opt(x) ::= ELSE(bdo) block(block) .
+    {
+        x = AST_INVALID_INDEX;
+        p->update_sloc( block, bdo.sloc );
+    }
 
-name_list ::= IDENTIFIER .
-name_list ::= name_list COMMA IDENTIFIER .
+step_opt(x) ::= . { x = p->number_node( AST_EXPR_NUMBER, p->current_sloc(), 1.0 ); }
+step_opt(x) ::= COLON expr(u) . { x = u.index; }
 
-last_stmt ::= RETURN .
 
-stmt_assign ::= lval_list op_assign assign_rval .
+// ASSIGNMENTS
+
+%type r_name_list { maybe_list_type }
+%type r_lval_list { maybe_list_type }
+%type r_lval_list_from_unpack_list { maybe_list_type }
+%type assign_rval { maybe_list_type }
+%type name_list { maybe_list_type }
+%type op_assign { op_assign_type }
+
+stmt_var ::= VAR r_name_list .
+stmt_var ::= VAR r_name_list ASSIGN assign_rval .
+
+stmt_assign ::= r_lval_list op_assign assign_rval .
+
+r_name_list(x) ::= name_list(u) .
+    {
+        if ( ! u.is_list )
+        {
+            x = u;
+        }
+        else
+        {
+            x = { p->node( AST_NAME_LIST, p->node_sloc( u.index ), u.index ), true };
+        }
+    }
+
+r_lval_list(x) ::= lval_list(u) .
+    {
+        if ( u.kind == EXPR_NAME || u.kind == EXPR_LVAL )
+        {
+            x = { u.index, false };
+        }
+        else if ( u.kind == EXPR_NAME_LIST || u.kind == EXPR_LVAL_LIST )
+        {
+            x = { p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), true };
+        }
+        else
+        {
+            assert( ! "lval_list produced a non-lval" );
+            x = { u.index, true };
+        }
+    }
+
+r_lval_list_from_unpack_list(x) ::= unpack_list(u) .
+    {
+        if ( u.kind == EXPR_NAME || u.kind == EXPR_LVAL )
+        {
+            x = { u.index, false };
+        }
+        else if ( u.kind == EXPR_NAME_LIST || u.kind == EXPR_LVAL_LIST )
+        {
+            x = { p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), true };
+        }
+        else
+        {
+            p->error( p->node_sloc( u.index ), "left hand side is not assignable" );
+            x = { u.index, true };
+        }
+    }
 
 assign_rval ::= unpack_list .
 assign_rval ::= YIELD unpack_list .
 assign_rval ::= YIELD FOR expr_call . [PREFER_CALL]
 assign_rval ::= YIELD FOR expr_call ELLIPSIS .
-assign_rval ::= unpack_list /* lval_list */ op_assign assign_rval .
+assign_rval ::= r_lval_list_from_unpack_list op_assign assign_rval .
 
-op_assign ::= ASSIGN .
-op_assign ::= MUL_ASSIGN .
-op_assign ::= DIV_ASSIGN .
-op_assign ::= INTDIV_ASSIGN .
-op_assign ::= MOD_ASSIGN .
-op_assign ::= ADD_ASSIGN .
-op_assign ::= SUB_ASSIGN .
-op_assign ::= CONCAT_ASSIGN .
-op_assign ::= LSHIFT_ASSIGN .
-op_assign ::= RSHIFT_ASSIGN .
-op_assign ::= ASHIFT_ASSIGN .
-op_assign ::= BITAND_ASSIGN .
-op_assign ::= BITXOR_ASSIGN .
-op_assign ::= BITOR_ASSIGN .
+name(x) ::= IDENTIFIER(tok) .
+    { x = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ); }
+
+name_list(x) ::= name(u) . { x = { u, false }; }
+name_list(x) ::= name_list(u) COMMA name . { x = { u.index, true }; }
+
+op_assign(x) ::= ASSIGN(tok) .          { x = { AST_INVALID_INDEX, tok.sloc }; }
+op_assign(x) ::= MUL_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MUL, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= DIV_ASSIGN(tok) .      { x = { p->node( AST_EXPR_DIV, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= INTDIV_ASSIGN(tok) .   { x = { p->node( AST_EXPR_INTDIV, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= MOD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MOD, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= ADD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_ADD, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= SUB_ASSIGN(tok) .      { x = { p->node( AST_EXPR_SUB, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= CONCAT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_CONCAT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= LSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_LSHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= RSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_RSHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= ASHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_ASHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= BITAND_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITAND, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= BITXOR_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITXOR, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
 
 
 // EXPRESSIONS
@@ -172,11 +280,11 @@ op_assign ::= BITOR_ASSIGN .
 
 expr_lval(x) ::= IDENTIFIER(tok) .
     {
-        x = { EXPR_NAME, p->string_node( AST_EXPR_IDENTIFIER, tok.sloc, tok.text, tok.size ) };
+        x = { EXPR_NAME, p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ) };
     }
 expr_lval(x) ::= expr_prefix(u) PERIOD(op) IDENTIFIER(tok) .
     {
-        p->string_node( AST_EXPR_IDENTIFIER, tok.sloc, tok.text, tok.size );
+        p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
         x = { EXPR_LVAL, p->node( AST_EXPR_KEY, op.sloc, u.index ) };
     }
 expr_lval(x) ::= expr_prefix(u) LSQ(op) expr RSQ .
@@ -194,9 +302,9 @@ expr_prefix(x) ::= LPN expr(u) RPN .                            { x = { EXPR_FUL
 expr_call(x) ::= expr_prefix(u) LPN(op) unpack_list_opt RPN .   { x = { EXPR_CALL, p->node( AST_EXPR_CALL, op.sloc, u.index ) }; }
 
 expr_literal(x) ::= expr_prefix(u) . [PREFER_CALL]              { x = u; }
-expr_literal(x) ::= NULL(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_NULL, tok.sloc, p->no_child() ) }; }
-expr_literal(x) ::= FALSE(tok) .                                { x = { EXPR_FULL, p->node( AST_EXPR_FALSE, tok.sloc, p->no_child() ) }; }
-expr_literal(x) ::= TRUE(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_TRUE, tok.sloc, p->no_child() ) }; }
+expr_literal(x) ::= NULL(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_NULL, tok.sloc, AST_INVALID_INDEX ) }; }
+expr_literal(x) ::= FALSE(tok) .                                { x = { EXPR_FULL, p->node( AST_EXPR_FALSE, tok.sloc, AST_INVALID_INDEX ) }; }
+expr_literal(x) ::= TRUE(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_TRUE, tok.sloc, AST_INVALID_INDEX ) }; }
 expr_literal(x) ::= NUMBER(tok) .                               { x = { EXPR_FULL, p->number_node( AST_EXPR_NUMBER, tok.sloc, tok.n ) }; }
 expr_literal(x) ::= STRING(tok) .                               { x = { EXPR_FULL, p->string_node( AST_EXPR_STRING, tok.sloc, tok.text, tok.size ) }; }
 
@@ -234,14 +342,14 @@ expr_bitor(x) ::= expr_bitor(u) VBAR(op) expr_bitxor .          { x = { EXPR_FUL
 expr_compare(x) ::= expr_bitor(u) .                             { x = u; }
 expr_compare(x) ::= expr_compare(u) op_compare expr_bitor .     { x = { EXPR_FULL, p->node( AST_EXPR_COMPARE, p->node_sloc( u.index ), u.index ) }; }
 
-op_compare(x) ::= EQ(op) .                                      { x = p->node( AST_OP_EQ, op.sloc, p->no_child() ); }
-op_compare(x) ::= NE(op) .                                      { x = p->node( AST_OP_NE, op.sloc, p->no_child() ); }
-op_compare(x) ::= LT(op) .                                      { x = p->node( AST_OP_LT, op.sloc, p->no_child() ); }
-op_compare(x) ::= LE(op) .                                      { x = p->node( AST_OP_LE, op.sloc, p->no_child() ); }
-op_compare(x) ::= GT(op) .                                      { x = p->node( AST_OP_GT, op.sloc, p->no_child() ); }
-op_compare(x) ::= GE(op) .                                      { x = p->node( AST_OP_GE, op.sloc, p->no_child() ); }
-op_compare(x) ::= IS(op) .                                      { x = p->node( AST_OP_IS, op.sloc, p->no_child() ); }
-op_compare(x) ::= IS(op) NOT .                                  { x = p->node( AST_OP_IS_NOT, op.sloc, p->no_child() ); }
+op_compare(x) ::= EQ(op) .      { x = p->node( AST_OP_EQ, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= NE(op) .      { x = p->node( AST_OP_NE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= LT(op) .      { x = p->node( AST_OP_LT, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= LE(op) .      { x = p->node( AST_OP_LE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= GT(op) .      { x = p->node( AST_OP_GT, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= GE(op) .      { x = p->node( AST_OP_GE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= IS(op) .      { x = p->node( AST_OP_IS, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= IS(op) NOT .  { x = p->node( AST_OP_IS_NOT, op.sloc, AST_INVALID_INDEX ); }
 
 expr_not(x) ::= expr_compare(u) .                               { x = u; }
 expr_not(x) ::= NOT(op) expr_not(u) .                           { x = { EXPR_FULL, p->node( AST_EXPR_NOT, op.sloc, u.index ) }; }
@@ -252,18 +360,20 @@ expr_and(x) ::= expr_and(u) AND(op) expr_not .                  { x = { EXPR_FUL
 expr_or(x) ::= expr_and(u) .                                    { x = u; }
 expr_or(x) ::= expr_or(u) OR(op) expr_and .                     { x = { EXPR_FULL, p->node( AST_EXPR_OR, op.sloc, u.index ) }; }
 
-expr_if(x) ::= expr_or(u) . { x = u; }
+expr_if(x) ::= expr_or(u) .
+    { x = u; }
 expr_if(x) ::= IF(kw) expr_or(u) THEN expr expr_elif_list_opt ELSE expr .
     { x = { EXPR_FULL, p->node( AST_EXPR_IF, kw.sloc, u.index ) }; }
 
-expr_elif_list_opt(x) ::= . { x = p->no_child(); }
+expr_elif_list_opt(x) ::= .
+    { x = AST_INVALID_INDEX; }
 expr_elif_list_opt(x) ::= expr_elif_list_opt ELIF(kw) expr(u) THEN expr .
-    { x = p->node( AST_EXPR_ELIF, kw.sloc, u.index ); }
+    { x = AST_INVALID_INDEX; p->node( AST_EXPR_ELIF, kw.sloc, u.index ); }
 
 expr(x) ::= expr_if(u) .                        { x = u; }
 expr(x) ::= constructor(u) .                    { x = { EXPR_FULL, u }; }
 
-unpack_list_opt(x) ::= .                        { x = { EXPR_EMPTY_LIST, p->no_child() }; }
+unpack_list_opt(x) ::= .                        { x = { EXPR_EMPTY_LIST, AST_INVALID_INDEX }; }
 unpack_list_opt(x) ::= unpack_list(u) .         { x = u; }
 
 unpack_list(x) ::= term_list(u) .               { x = { u.kind, u.index }; }
@@ -274,7 +384,7 @@ term_list(x) ::= expr(u) .                      { x = { u.kind, u.index, u.index
 term_list(x) ::= term_list(u) COMMA expr(v) .   { x = { expr_list_kind( u.kind, v.kind ), u.index, v.index }; }
 
 
-// CONSTRUCTOR EXPRESSIONS
+// CONSTRUCTORS
 
 constructor ::= DEF LPN parameters RPN lambda_body .
 constructor ::= DEF YIELD LPN parameters RPN lambda_body .
