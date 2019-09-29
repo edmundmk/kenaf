@@ -80,13 +80,13 @@ struct open_function_type
 static expr_kind expr_list_kind( expr_kind u, expr_kind v )
 {
     // Upgrade u to a list.
-    if ( u == EXPR_NAME ) u = EXPR_NAME_LIST;
-    else if ( u == EXPR_LVAL ) u = EXPR_LVAL_LIST;
+    if ( u == EXPR_NAME || u == EXPR_NAME_LIST ) u = EXPR_NAME_LIST;
+    else if ( u == EXPR_LVAL || u == EXPR_LVAL_LIST ) u = EXPR_LVAL_LIST;
     else u = EXPR_FULL_LIST;
 
     // Upgrade v to a list.
-    if ( v == EXPR_NAME ) v = EXPR_NAME_LIST;
-    else if ( v == EXPR_LVAL ) v = EXPR_LVAL_LIST;
+    if ( v == EXPR_NAME || v == EXPR_NAME_LIST ) v = EXPR_NAME_LIST;
+    else if ( v == EXPR_LVAL || v == EXPR_LVAL_LIST ) v = EXPR_LVAL_LIST;
     else v = EXPR_FULL_LIST;
 
     // Return the widest kind of list.

@@ -1,5 +1,7 @@
 --
 --  fannkuch-redux.kf
+--  Based on code from the Computer Language Benchmarks Game
+--  https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
 --
 
 def fannkuch( n )
@@ -84,6 +86,6 @@ def fannkuch( n )
 end
 
 n = args ...
-n = number( n )
+n = if n then number( n ) else 7
 print( "Pfannkuchen(" ~ string( n ) ~ ") = " ~ fannkuch( n ) ~ "\n" )
 

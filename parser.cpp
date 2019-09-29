@@ -97,11 +97,8 @@ syntax_function* parser::push_function( srcloc sloc )
 
 void parser::pop_function()
 {
-//    if ( _source->diagnostics.empty() )
-    {
-        _fstack.back()->fixup_nodes();
-        _fstack.back()->debug_print();
-    }
+    _fstack.back()->fixup_nodes();
+    _fstack.back()->debug_print();
     _fstack.pop_back();
 }
 
