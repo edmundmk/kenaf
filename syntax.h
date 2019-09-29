@@ -66,6 +66,7 @@ enum syntax_node_kind
 {
     AST_BLOCK,              // stmt|call-expr|yield-expr*
 
+    AST_STMT_VAR,           // name|name_list rval|rval_list?
     AST_STMT_IF,            // expr block elif* block?
     AST_STMT_FOR_STEP,      // name expr expr expr block
     AST_STMT_FOR_EACH,      // name|name_list expr block
@@ -79,7 +80,6 @@ enum syntax_node_kind
     AST_NAME_LIST,          // name+
     AST_ELIF,               // expr block
 
-    AST_VAR,                // name|name_list rval|rval_list
     AST_ASSIGN,             // lval|lval_list rval|rval_list
     AST_OP_ASSIGN,          // lval [AST_OP_MUL] expr
     AST_LVAL_LIST,          // expr+
@@ -118,8 +118,8 @@ enum syntax_node_kind
     AST_EXPR_NOT,
     AST_EXPR_AND,
     AST_EXPR_OR,
-    AST_EXPR_IF,
-    AST_EXPR_ELIF,
+    AST_EXPR_IF,            // expr expr expr_elif* expr
+    AST_EXPR_ELIF,          // expr expr
     AST_EXPR_UNPACK,        // last expression in list with ...
 
     AST_OP_EQ,

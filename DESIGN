@@ -118,6 +118,24 @@ to delegate to a child generator use 'yield for'
 
     yield for subgenerator()
 
+yield and unpacking
+
+    yield a, b, c                   -- yields values a, b, c, discards results
+    yield a, b, c ...               -- yields values a, b, unpack(c), discards results
+    yield for a()                   -- calls generator a(), yields its values, discards values returned from a
+
+    x = yield a, b, c               -- yields values a, b, c, assigns single result to x
+    x = yield a, b, c ...           -- yields values a, b, unpack(c), assigns single result to x
+    x, y, z = yield ... a, b, c     -- yields values a, b, c, assigns unpacked results to x, y, z
+    x, y, z = yield ... a, b, c ... -- yields values a, b, unpack(c), assigns unpacked results to x, y, z
+    x = yield for a()               -- calls generator a(), yielding, assigns single returned result to x
+    x, y, z = yield for a() ...     -- calls generator a(), yielding, assigns unpacked results from a to x, y, z
+
+    value = value           -- results in value
+    list = value            -- results in list
+    value = list            -- results in list
+    list = list             -- results in list
+
 statements
 
     a, b = b, a = c, d = e, f
