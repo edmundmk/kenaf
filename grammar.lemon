@@ -375,14 +375,14 @@ expr_bitor(x) ::= expr_bitor(u) VBAR(op) expr_bitxor .          { x = { EXPR_FUL
 expr_compare(x) ::= expr_bitor(u) .                             { x = u; }
 expr_compare(x) ::= expr_compare(u) op_compare expr_bitor .     { x = { EXPR_FULL, p->node( AST_EXPR_COMPARE, p->node_sloc( u.index ), u.index ) }; }
 
-op_compare(x) ::= EQ(op) .      { x = p->node( AST_OP_EQ, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= NE(op) .      { x = p->node( AST_OP_NE, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= LT(op) .      { x = p->node( AST_OP_LT, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= LE(op) .      { x = p->node( AST_OP_LE, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= GT(op) .      { x = p->node( AST_OP_GT, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= GE(op) .      { x = p->node( AST_OP_GE, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= IS(op) .      { x = p->node( AST_OP_IS, op.sloc, AST_INVALID_INDEX ); }
-op_compare(x) ::= IS(op) NOT .  { x = p->node( AST_OP_IS_NOT, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= EQ(op) .                                      { x = p->node( AST_OP_EQ, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= NE(op) .                                      { x = p->node( AST_OP_NE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= LT(op) .                                      { x = p->node( AST_OP_LT, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= LE(op) .                                      { x = p->node( AST_OP_LE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= GT(op) .                                      { x = p->node( AST_OP_GT, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= GE(op) .                                      { x = p->node( AST_OP_GE, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= IS(op) .                                      { x = p->node( AST_OP_IS, op.sloc, AST_INVALID_INDEX ); }
+op_compare(x) ::= IS(op) NOT .                                  { x = p->node( AST_OP_IS_NOT, op.sloc, AST_INVALID_INDEX ); }
 
 expr_not(x) ::= expr_compare(u) .                               { x = u; }
 expr_not(x) ::= NOT(op) expr_not(u) .                           { x = { EXPR_FULL, p->node( AST_EXPR_NOT, op.sloc, u.index ) }; }
@@ -439,7 +439,10 @@ term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.ki
 %type qual_name { expr_type }
 %type param_list { term_list_type }
 
-constructor ::= DEF prototype_opt object_keys END .
+constructor(x) ::= DEF(def) prototype_opt(u) object_keys(v) END .
+    {
+        x = p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
+    }
 constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
     {
         p->update_sloc( params, lpn.sloc );
@@ -470,14 +473,18 @@ lambda_body(x) ::= RPN(bdo) block(block) END .
         x = block;
     }
 
-definition ::= DEF qual_name prototype_opt object_keys END .
+definition(x) ::= DEF(def) qual_name(w) prototype_opt(u) object_keys(v) END .
+    {
+        p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
+        x = p->node( AST_DEFINITION, def.sloc, w.index );
+    }
 definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
     {
         p->update_sloc( params, lpn.sloc );
         p->update_sloc( block, bdo.sloc );
         p->pop_function();
-        size_t z = p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
-        x = p->node( AST_DEFINITION, u.sloc, z );
+        p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
+        x = p->node( AST_DEFINITION, u.sloc, u.name_index );
     }
 
 open_function(x) ::= DEF(def) qual_name(u) LPN .
@@ -494,13 +501,12 @@ open_function(x) ::= DEF(def) YIELD qual_name(u) LPN .
         x = { f, u.index, def.sloc };
     }
 
-qual_name(x) ::= IDENTIFIER(tok) .
+qual_name(x) ::= name(u) .
     {
-        x = { EXPR_NAME, p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ) };
+        x = { EXPR_NAME, u };
     }
-qual_name(x) ::= qual_name(u) PERIOD(op) IDENTIFIER(tok) .
+qual_name(x) ::= qual_name(u) PERIOD(op) name .
     {
-        p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
         x = { EXPR_LVAL, p->node( AST_EXPR_KEY, op.sloc, u.index ) };
     }
 
@@ -530,15 +536,17 @@ param_list(x) ::= param_list(u) COMMA IDENTIFIER(tok) .
         x = { EXPR_NAME, u.index, z };
     }
 
-prototype_opt ::= .
-prototype_opt ::= IS expr .
+prototype_opt(x) ::= .                                  { x = AST_INVALID_INDEX; }
+prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_PROTOTYPE, kw.sloc, u.index ); }
 
-object_keys ::= .
-object_keys ::= object_keys object_key .
+object_keys(x) ::= .                                    { x = AST_INVALID_INDEX; }
+object_keys(x) ::= object_keys(u) object_key(v) .       { x = u != AST_INVALID_INDEX ? u : v; }
 
-object_key ::= IDENTIFIER COLON expr .
-object_key ::= IDENTIFIER COLON expr SEMICOLON .
-object_key ::= definition .
+object_key(x) ::= definition(u) .                       { x = u; }
+object_key(x) ::= name(u) COLON(op) expr .              { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
+object_key(x) ::= name(u) COLON(op) expr SEMICOLON .    { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
+
+
 
 
 // TRY CATCH

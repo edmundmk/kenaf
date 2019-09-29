@@ -142,10 +142,13 @@ enum syntax_node_kind
 
     AST_DEFINITION,         // name|qual_name def
     AST_DEF_FUNCTION,       // leaf function
-    AST_DEF_OBJECT,         // prototype object_key|definition*
+    AST_DEF_OBJECT,         // prototype? object_key|definition*
 
     AST_PARAMETERS,         // name* vararg_param?
     AST_VARARG_PARAM,       // name
+
+    AST_PROTOTYPE,          // expr
+    AST_OBJECT_KEY,         // name expr
 };
 
 const size_t AST_INVALID_INDEX = ~(size_t)0;
