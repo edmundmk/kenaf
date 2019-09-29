@@ -171,73 +171,70 @@ lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .
         x = u;
     }
 
-expr_prefix(x) ::= expr_lval(u) .                   { x = u; }
-expr_prefix(x) ::= expr_call(u) . [LPN]             { x = u; }
-expr_prefix(x) ::= LPN expr(u) RPN .                { x = { EXPR_FULL, u.index }; }
+expr_prefix(x) ::= expr_lval(u) .                               { x = u; }
+expr_prefix(x) ::= expr_call(u) . [LPN]                         { x = u; }
+expr_prefix(x) ::= LPN expr(u) RPN .                            { x = { EXPR_FULL, u.index }; }
 
-expr_call(x) ::= expr_prefix(u) LPN(op) unpack_list_opt RPN .
-    {
-        x = { EXPR_CALL, p->node( AST_EXPR_CALL, op.sloc, u.index ) };
-    }
+expr_call(x) ::= expr_prefix(u) LPN(op) unpack_list_opt RPN .   { x = { EXPR_CALL, p->node( AST_EXPR_CALL, op.sloc, u.index ) }; }
 
-expr_literal(x) ::= expr_prefix(u) . [PREFER_CALL]  { x = u; }
-expr_literal(x) ::= NULL(tok) .                     { x = { EXPR_FULL, p->leaf_node( AST_EXPR_NULL, tok.sloc ) }; }
-expr_literal(x) ::= FALSE(tok) .                    { x = { EXPR_FULL, p->leaf_node( AST_EXPR_FALSE, tok.sloc ) }; }
-expr_literal(x) ::= TRUE(tok) .                     { x = { EXPR_FULL, p->leaf_node( AST_EXPR_TRUE, tok.sloc ) }; }
-expr_literal(x) ::= NUMBER(tok) .                   { x = { EXPR_FULL, p->number_node( AST_EXPR_NUMBER, tok.sloc, tok.n ) }; }
-expr_literal(x) ::= STRING(tok) .                   { x = { EXPR_FULL, p->string_node( AST_EXPR_STRING, tok.sloc, tok.text, tok.size ) }; }
+expr_literal(x) ::= expr_prefix(u) . [PREFER_CALL]              { x = u; }
+expr_literal(x) ::= NULL(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_NULL, tok.sloc, p->no_child() ) }; }
+expr_literal(x) ::= FALSE(tok) .                                { x = { EXPR_FULL, p->node( AST_EXPR_FALSE, tok.sloc, p->no_child() ) }; }
+expr_literal(x) ::= TRUE(tok) .                                 { x = { EXPR_FULL, p->node( AST_EXPR_TRUE, tok.sloc, p->no_child() ) }; }
+expr_literal(x) ::= NUMBER(tok) .                               { x = { EXPR_FULL, p->number_node( AST_EXPR_NUMBER, tok.sloc, tok.n ) }; }
+expr_literal(x) ::= STRING(tok) .                               { x = { EXPR_FULL, p->string_node( AST_EXPR_STRING, tok.sloc, tok.text, tok.size ) }; }
 
-expr_unary(x) ::= expr_literal(u) .                 { x = u; }
-expr_unary(x) ::= HASH(op) expr_unary(u) .          { x = { EXPR_FULL, p->node( AST_EXPR_LENGTH, op.sloc, u.index ) }; }
-expr_unary(x) ::= MINUS(op) expr_unary(u) .         { x = { EXPR_FULL, p->node( AST_EXPR_NEG, op.sloc, u.index ) }; }
-expr_unary(x) ::= PLUS(op) expr_unary(u) .          { x = { EXPR_FULL, p->node( AST_EXPR_POS, op.sloc, u.index ) }; }
-expr_unary(x) ::= TILDE(op) expr_unary(u) .         { x = { EXPR_FULL, p->node( AST_EXPR_BITNOT, op.sloc, u.index ) }; }
+expr_unary(x) ::= expr_literal(u) .                             { x = u; }
+expr_unary(x) ::= HASH(op) expr_unary(u) .                      { x = { EXPR_FULL, p->node( AST_EXPR_LENGTH, op.sloc, u.index ) }; }
+expr_unary(x) ::= MINUS(op) expr_unary(u) .                     { x = { EXPR_FULL, p->node( AST_EXPR_NEG, op.sloc, u.index ) }; }
+expr_unary(x) ::= PLUS(op) expr_unary(u) .                      { x = { EXPR_FULL, p->node( AST_EXPR_POS, op.sloc, u.index ) }; }
+expr_unary(x) ::= TILDE(op) expr_unary(u) .                     { x = { EXPR_FULL, p->node( AST_EXPR_BITNOT, op.sloc, u.index ) }; }
 
-expr_muldiv ::= expr_unary .
-expr_muldiv ::= expr_muldiv ASTERISK expr_unary .
-expr_muldiv ::= expr_muldiv SOLIDUS expr_unary .
-expr_muldiv ::= expr_muldiv INTDIV expr_unary .
-expr_muldiv ::= expr_muldiv PERCENT expr_unary .
+expr_muldiv(x) ::= expr_unary(u) .                              { x = u; }
+expr_muldiv(x) ::= expr_muldiv(u) ASTERISK(op) expr_unary .     { x = { EXPR_FULL, p->node( AST_EXPR_MUL, op.sloc, u.index ) }; }
+expr_muldiv(x) ::= expr_muldiv(u) SOLIDUS(op) expr_unary .      { x = { EXPR_FULL, p->node( AST_EXPR_DIV, op.sloc, u.index ) }; }
+expr_muldiv(x) ::= expr_muldiv(u) INTDIV(op) expr_unary .       { x = { EXPR_FULL, p->node( AST_EXPR_INTDIV, op.sloc, u.index ) }; }
+expr_muldiv(x) ::= expr_muldiv(u) PERCENT(op) expr_unary .      { x = { EXPR_FULL, p->node( AST_EXPR_MOD, op.sloc, u.index ) }; }
 
-expr_addsub ::= expr_muldiv .
-expr_addsub ::= expr_addsub PLUS expr_muldiv .
-expr_addsub ::= expr_addsub MINUS expr_muldiv .
-expr_addsub ::= expr_addsub TILDE expr_muldiv .
+expr_addsub(x) ::= expr_muldiv(u) .                             { x = u; }
+expr_addsub(x) ::= expr_addsub(u) PLUS(op) expr_muldiv .        { x = { EXPR_FULL, p->node( AST_EXPR_ADD, op.sloc, u.index ) }; }
+expr_addsub(x) ::= expr_addsub(u) MINUS(op) expr_muldiv .       { x = { EXPR_FULL, p->node( AST_EXPR_SUB, op.sloc, u.index ) }; }
+expr_addsub(x) ::= expr_addsub(u) TILDE(op) expr_muldiv .       { x = { EXPR_FULL, p->node( AST_EXPR_CONCAT, op.sloc, u.index ) }; }
 
-expr_shift ::= expr_addsub .
-expr_shift ::= expr_shift LSHIFT expr_addsub .
-expr_shift ::= expr_shift RSHIFT expr_addsub .
-expr_shift ::= expr_shift ASHIFT expr_addsub .
+expr_shift(x) ::= expr_addsub(u) .                              { x = u; }
+expr_shift(x) ::= expr_shift(u) LSHIFT(op) expr_addsub .        { x = { EXPR_FULL, p->node( AST_EXPR_LSHIFT, op.sloc, u.index ) }; }
+expr_shift(x) ::= expr_shift(u) RSHIFT(op) expr_addsub .        { x = { EXPR_FULL, p->node( AST_EXPR_RSHIFT, op.sloc, u.index ) }; }
+expr_shift(x) ::= expr_shift(u) ASHIFT(op) expr_addsub .        { x = { EXPR_FULL, p->node( AST_EXPR_ASHIFT, op.sloc, u.index ) }; }
 
-expr_bitand ::= expr_shift .
-expr_bitand ::= expr_bitand AMPERSAND expr_shift .
+expr_bitand(x) ::= expr_shift(u) .                              { x = u; }
+expr_bitand(x) ::= expr_bitand(u) AMPERSAND(op) expr_shift .    { x = { EXPR_FULL, p->node( AST_EXPR_BITAND, op.sloc, u.index ) }; }
 
-expr_bitxor ::= expr_bitand .
-expr_bitxor ::= expr_bitxor CARET expr_bitand .
+expr_bitxor(x) ::= expr_bitand(u) .                             { x = u; }
+expr_bitxor(x) ::= expr_bitxor(u) CARET(op) expr_bitand .       { x = { EXPR_FULL, p->node( AST_EXPR_BITXOR, op.sloc, u.index ) }; }
 
-expr_bitor ::= expr_bitxor .
-expr_bitor ::= expr_bitor VBAR expr_bitxor .
+expr_bitor(x) ::= expr_bitxor(u) .                              { x = u; }
+expr_bitor(x) ::= expr_bitor(u) VBAR(op) expr_bitxor .          { x = { EXPR_FULL, p->node( AST_EXPR_BITOR, op.sloc, u.index ) }; }
 
-expr_compare ::= expr_bitor .
-expr_compare ::= expr_compare op_compare expr_bitor .
+expr_compare(x) ::= expr_bitor(u) .                             { x = u; }
+expr_compare(x) ::= expr_compare(u) op_compare expr_bitor .     { x = { EXPR_FULL, p->node( AST_EXPR_COMPARE, p->node_sloc( u.index ), u.index ) }; }
 
-op_compare ::= EQ .
-op_compare ::= NE .
-op_compare ::= LT .
-op_compare ::= LE .
-op_compare ::= GT .
-op_compare ::= GE .
-op_compare ::= IS .
-op_compare ::= IS NOT .
+op_compare(x) ::= EQ(op) .                                      { x = p->node( AST_OP_EQ, op.sloc, p->no_child() ); }
+op_compare(x) ::= NE(op) .                                      { x = p->node( AST_OP_NE, op.sloc, p->no_child() ); }
+op_compare(x) ::= LT(op) .                                      { x = p->node( AST_OP_LT, op.sloc, p->no_child() ); }
+op_compare(x) ::= LE(op) .                                      { x = p->node( AST_OP_LE, op.sloc, p->no_child() ); }
+op_compare(x) ::= GT(op) .                                      { x = p->node( AST_OP_GT, op.sloc, p->no_child() ); }
+op_compare(x) ::= GE(op) .                                      { x = p->node( AST_OP_GE, op.sloc, p->no_child() ); }
+op_compare(x) ::= IS(op) .                                      { x = p->node( AST_OP_IS, op.sloc, p->no_child() ); }
+op_compare(x) ::= IS(op) NOT .                                  { x = p->node( AST_OP_IS_NOT, op.sloc, p->no_child() ); }
 
-expr_not ::= expr_compare .
-expr_not ::= NOT expr_not .
+expr_not(x) ::= expr_compare(u) .                               { x = u; }
+expr_not(x) ::= NOT(op) expr_not(u) .                           { x = { EXPR_FULL, p->node( AST_EXPR_NOT, op.sloc, u.index ) }; }
 
-expr_and ::= expr_not .
-expr_and ::= expr_and AND expr_not .
+expr_and(x) ::= expr_not(u) .                                   { x = u; }
+expr_and(x) ::= expr_and(u) AND(op) expr_not .                  { x = { EXPR_FULL, p->node( AST_EXPR_AND, op.sloc, u.index ) }; }
 
-expr_or ::= expr_and .
-expr_or ::= expr_or OR expr_and .
+expr_or(x) ::= expr_and(u) .                                    { x = u; }
+expr_or(x) ::= expr_or(u) OR(op) expr_and .                     { x = { EXPR_FULL, p->node( AST_EXPR_OR, op.sloc, u.index ) }; }
 
 constructor ::= DEF LPN parameters RPN lambda_body .
 constructor ::= DEF YIELD LPN parameters RPN lambda_body .

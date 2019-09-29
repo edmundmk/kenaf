@@ -28,17 +28,20 @@ public:
 
     void syntax_error( token token );
 
-    size_t leaf_node( syntax_node_kind kind, srcloc sloc );
+    srcloc current_sloc();
+    srcloc node_sloc( size_t index );
+
+    size_t node( syntax_node_kind kind, srcloc sloc, size_t child );
     size_t string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size );
     size_t number_node( syntax_node_kind kind, srcloc sloc, double n );
-    size_t operator_node( syntax_node_kind kind, srcloc sloc, unsigned op );
-    size_t node( syntax_node_kind kind, srcloc sloc, size_t child );
+    size_t no_child();
 
 private:
 
     source* _source;
     lexer* _lexer;
     void* _yyp;
+    token _token;
 
     std::unique_ptr< syntax_tree > _syntax_tree;
     syntax_function* _syntax_function;

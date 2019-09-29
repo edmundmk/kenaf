@@ -1,6 +1,31 @@
 kenaf is a lua-like language with a prototype-based object model.
 it is designed to be as simple as possible.
 
+goals of this language
+
+    be simple
+    be fast even without jit
+    be easy to interface with C++
+    look unintimidating and understadable for non-programmers
+    make writing code for game objects straightforward
+
+lua does a lot of this, so kenaf looks a lot like lua.  differences from lua:
+
+    multiple value expressions are explicit, using trailing ...
+    more operators (e.g. bitwise)
+    operator precedence and comparisons are python-like
+    generators/coroutines are usable without a coroutine library
+    no metatables, instead have a prototype-based object model
+        means kenaf is much less configurable but mostly the first thing
+        everyone does is hack together objects anyway.
+    objects (with keys), arrays (with integer indexes) and tables (with
+        arbitrary indexes) are distinct types
+    array indexes start at 0.
+    0 is false.
+
+
+automatic self/super:
+
 a call x.y always passes x as first argument
 a definition x.y declares 'self', and 'super' as 'superof( self )'
 
@@ -36,7 +61,7 @@ bitwise operators, including shifts
 
 tables and arrays
 
-    var table = { 'key' : value }
+    var table = { "key" : value }
     var array = [ a, b, c ]
 
 objects:
@@ -177,6 +202,7 @@ builtins:
     end
 
     def table is object
+        def has( k )
         def get( k, default )
         def del( k )
     end
@@ -196,6 +222,19 @@ with.
     end
 
 
+choices for symbols, and why:
+
+    //      floored division, seems most popular, \ is weird, ~ doesn't look enough like division
+    >>      logical right shift, the opposite of <<.  shifts nowadays are more common on unsigned values
+    ~>>     arithmetic right shift, because to call it >>> would be confusing with java/js logical shift.
+                standard ml apparently uses this
+    ~       for string concatenation, because .. just seems a little bit odd to me.
+    --      inline comment, becuase // is already used.  similar to lua.
+    /**/    for block comment.  using -- and /**/ together happens in a few languages, e.g. some SQL dialects.
+    #       for length, like lua
+    a:b:c   in range for loops, looks like python slicing, commas look too much like an unpack list
+    :g      in foreach loops, I like colons ok, would be a bit weird to use keywords for one style of
+                for but symbols for the other.
 
 
 VM

@@ -46,24 +46,21 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
 #endif
 
-    while ( true )
+    do
     {
-        token token = _lexer->lex();
+        _token = _lexer->lex();
 
 #ifndef NDEBUG
         if ( trace )
         {
-            source_location location = _source->location( token.sloc );
-            printf( "%s:%u:%u: %s\n", _source->filename.c_str(), location.line, location.column, spelling( token ).c_str() );
+            source_location location = _source->location( _token.sloc );
+            printf( "%s:%u:%u: %s\n", _source->filename.c_str(), location.line, location.column, spelling( _token ).c_str() );
         }
 #endif
 
-        KenafParse( _yyp, token.kind, token, this );
-        if ( token.kind == TOKEN_EOF )
-        {
-            break;
-        }
+        KenafParse( _yyp, _token.kind, _token, this );
     }
+    while ( _token.kind != TOKEN_EOF );
 
     return std::move( _syntax_tree );
 }
@@ -73,12 +70,24 @@ void parser::syntax_error( token token )
     _source->error( token.sloc, "unexpected %s", spelling( token ).c_str() );
 }
 
-size_t parser::leaf_node( syntax_node_kind kind, srcloc sloc )
+srcloc parser::current_sloc()
+{
+    return _token.sloc;
+}
+
+srcloc parser::node_sloc( size_t index )
+{
+    return _syntax_function->nodes.at( index ).sloc;
+}
+
+size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
 {
     syntax_node node;
     node.kind = kind;
-    node.leaf = AST_LEAF_NODE;
+    node.leaf = AST_NON_LEAF;
     node.sloc = sloc;
+    node.child_index = child;
+    node.next_index = 0;
     size_t index = _syntax_function->nodes.size();
     _syntax_function->nodes.push_back( node );
     return index;
@@ -109,29 +118,9 @@ size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
     return index;
 }
 
-size_t parser::operator_node( syntax_node_kind kind, srcloc sloc, unsigned op )
+size_t parser::no_child()
 {
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_LEAF_OPERATOR;
-    node.sloc = sloc;
-    node.op = op;
-    size_t index = _syntax_function->nodes.size();
-    _syntax_function->nodes.push_back( node );
-    return index;
-}
-
-size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
-{
-    syntax_node node;
-    node.kind = kind;
-    node.leaf = AST_NON_LEAF;
-    node.sloc = sloc;
-    node.child_index = child;
-    node.next_index = 0;
-    size_t index = _syntax_function->nodes.size();
-    _syntax_function->nodes.push_back( node );
-    return index;
+    return _syntax_function->nodes.size();
 }
 
 }
