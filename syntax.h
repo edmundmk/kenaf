@@ -52,6 +52,7 @@ struct syntax_function
     ~syntax_function();
 
     srcloc sloc;
+    std::string name;
     syntax_function* outer;
     std::vector< syntax_node > nodes;
     bool implicit_self;

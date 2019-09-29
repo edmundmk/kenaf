@@ -158,5 +158,28 @@ size_t parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_functio
     return index;
 }
 
+std::string parser::qual_name_string( size_t index )
+{
+    const syntax_node& n = _fstack.back()->nodes.at( index );
+    if ( n.kind == AST_EXPR_NAME )
+    {
+        return std::string( n.s.text, n.s.size );
+    }
+    else if ( n.kind == AST_EXPR_KEY )
+    {
+        const syntax_node& o = _fstack.back()->nodes.at( index + 1 );
+        assert( o.kind == AST_EXPR_NAME );
+        std::string qual_name = qual_name_string( n.child_index );
+        qual_name.append( "." );
+        qual_name.append( o.s.text, o.s.size );
+        return qual_name;
+    }
+    else
+    {
+        assert( ! "malformed qual_name AST" );
+        return "";
+    }
+}
+
 }
 

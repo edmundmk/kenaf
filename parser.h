@@ -42,6 +42,8 @@ public:
     size_t number_node( syntax_node_kind kind, srcloc sloc, double n );
     size_t function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
 
+    std::string qual_name_string( size_t index );
+
 private:
 
     source* _source;

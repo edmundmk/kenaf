@@ -447,6 +447,7 @@ constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
     {
         p->update_sloc( params, lpn.sloc );
         p->pop_function();
+        u.function->name = "[lambda]";
         x = p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
     }
 
@@ -484,6 +485,7 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
         p->update_sloc( block, bdo.sloc );
         p->pop_function();
         p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
+        u.function->name = p->qual_name_string( u.name_index );
         x = p->node( AST_DEFINITION, u.sloc, u.name_index );
     }
 
