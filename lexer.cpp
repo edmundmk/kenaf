@@ -22,6 +22,9 @@ std::string spelling( const token& token )
     std::string spelling;
     switch ( token.kind )
     {
+    case TOKEN_EOF:
+        return "end of file";
+
     case TOKEN_NULL:
     case TOKEN_FALSE:
     case TOKEN_TRUE:
@@ -400,6 +403,8 @@ token lexer::lex_identifier()
     const keyword KEYWORDS[] =
     {
         { "and",        TOKEN_AND       },
+        { "break",      TOKEN_BREAK     },
+        { "continue",   TOKEN_CONTINUE  },
         { "def",        TOKEN_DEF       },
         { "do",         TOKEN_DO        },
         { "elif",       TOKEN_ELIF      },
@@ -413,6 +418,7 @@ token lexer::lex_identifier()
         { "null",       TOKEN_NULL      },
         { "or",         TOKEN_OR        },
         { "repeat",     TOKEN_REPEAT    },
+        { "return",     TOKEN_RETURN    },
         { "then",       TOKEN_THEN      },
         { "throw",      TOKEN_THROW     },
         { "true",       TOKEN_TRUE      },
@@ -420,9 +426,6 @@ token lexer::lex_identifier()
         { "var",        TOKEN_VAR       },
         { "while",      TOKEN_WHILE     },
         { "yield",      TOKEN_YIELD     },
-        { "return",     TOKEN_RETURN    },
-        { "break",      TOKEN_BREAK     },
-        { "continue",   TOKEN_CONTINUE  },
     };
 
     std::string_view text( token.text, token.size );

@@ -25,8 +25,26 @@ struct maybe_list_type
 struct op_assign_type
 {
     size_t index;
-    srcloc sloc;
+    token token;
 };
+
+static maybe_list_type assignment( parser* p, maybe_list_type lval, op_assign_type op, maybe_list_type rval )
+{
+    if ( op.index == AST_INVALID_INDEX )
+    {
+        // Straightforward assignment.
+        return { p->node( AST_ASSIGN, op.token.sloc, lval.index ), lval.is_list || rval.is_list };
+    }
+    else
+    {
+        // For op assign operations both sides must be single values.
+        if ( lval.is_list )
+            p->error( op.token.sloc, "left hand side of %s has multiple values", spelling( op.token ).c_str() );
+        if ( rval.is_list )
+            p->error( op.token.sloc, "right hand side of %s has multiple values", spelling( op.token ).c_str() );
+        return { p->node( AST_OP_ASSIGN, op.token.sloc, lval.index ), lval.is_list || rval.is_list };
+    }
+}
 
 enum expr_kind
 {
@@ -179,18 +197,7 @@ step_opt(x) ::= COLON expr(u) . { x = u.index; }
 
 stmt_assign(x) ::= r_lval_list(lval) op_assign(op) assign_rval(rval) .
     {
-        if ( op.index == AST_INVALID_INDEX )
-        {
-            // Straightforward assignment.
-            x = p->node( AST_ASSIGN, op.sloc, lval.index );
-        }
-        else
-        {
-            // For op assign operations both sides must be single values.
-            if ( lval.is_list || rval.is_list )
-                p->error( op.sloc, "compound assignment operation cannot operate on value lists" );
-            x = p->node( AST_OP_ASSIGN, op.sloc, lval.index );
-        }
+        x = assignment( p, lval, op, rval ).index;
     }
 
 r_name_list(x) ::= name_list(u) .
@@ -248,18 +255,7 @@ assign_rval(x) ::= YIELD(kw) FOR expr_call(u) ELLIPSIS(op) .
     }
 assign_rval(x) ::= r_lval_list_from_unpack_list(lval) op_assign(op) assign_rval(rval) .
     {
-        if ( op.index == AST_INVALID_INDEX )
-        {
-            // Straightforward assignment.
-            x = { p->node( AST_ASSIGN, op.sloc, lval.index ), lval.is_list || rval.is_list };
-        }
-        else
-        {
-            // For op assign operations both sides must be single values.
-            if ( lval.is_list || rval.is_list )
-                p->error( op.sloc, "compound assignment operation cannot operate on value lists" );
-            x = { p->node( AST_OP_ASSIGN, op.sloc, lval.index ), lval.is_list || rval.is_list };
-        }
+        x = assignment( p, lval, op, rval );
     }
 
 name(x) ::= IDENTIFIER(tok) .
@@ -268,20 +264,20 @@ name(x) ::= IDENTIFIER(tok) .
 name_list(x) ::= name(u) . { x = { u, false }; }
 name_list(x) ::= name_list(u) COMMA name . { x = { u.index, true }; }
 
-op_assign(x) ::= ASSIGN(tok) .          { x = { AST_INVALID_INDEX, tok.sloc }; }
-op_assign(x) ::= MUL_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MUL, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= DIV_ASSIGN(tok) .      { x = { p->node( AST_EXPR_DIV, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= INTDIV_ASSIGN(tok) .   { x = { p->node( AST_EXPR_INTDIV, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= MOD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MOD, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= ADD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_ADD, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= SUB_ASSIGN(tok) .      { x = { p->node( AST_EXPR_SUB, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= CONCAT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_CONCAT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= LSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_LSHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= RSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_RSHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= ASHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_ASHIFT, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= BITAND_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITAND, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= BITXOR_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITXOR, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
-op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.sloc, AST_INVALID_INDEX ), tok.sloc }; }
+op_assign(x) ::= ASSIGN(tok) .          { x = { AST_INVALID_INDEX, tok }; }
+op_assign(x) ::= MUL_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MUL, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= DIV_ASSIGN(tok) .      { x = { p->node( AST_EXPR_DIV, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= INTDIV_ASSIGN(tok) .   { x = { p->node( AST_EXPR_INTDIV, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= MOD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MOD, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= ADD_ASSIGN(tok) .      { x = { p->node( AST_EXPR_ADD, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= SUB_ASSIGN(tok) .      { x = { p->node( AST_EXPR_SUB, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= CONCAT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_CONCAT, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= LSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_LSHIFT, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= RSHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_RSHIFT, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= ASHIFT_ASSIGN(tok) .   { x = { p->node( AST_EXPR_ASHIFT, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= BITAND_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITAND, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= BITXOR_ASSIGN(tok) .   { x = { p->node( AST_EXPR_BITXOR, tok.sloc, AST_INVALID_INDEX ), tok }; }
+op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.sloc, AST_INVALID_INDEX ), tok }; }
 
 
 // EXPRESSIONS
