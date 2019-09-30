@@ -103,17 +103,16 @@ private:
 
     struct scope
     {
-        syntax_function* function;      // Function this scope is in.
-        unsigned block_index;           // Index of block in AST.
-
-        bool is_loop;                   // Is this block a loop?
-        bool after_continue;            // Are we currently in code that can be skipped by continue?
-
+        syntax_function* function;  // Function this scope is in.
+        unsigned block_index;       // Index of block in AST.
+        unsigned floop_index;       // Index of loop or function in AST.
+        bool after_continue;        // Are we currently in code that can be skipped by continue?
         std::unordered_map< std::string_view, variable > variables;
     };
 
     void visit( syntax_function* f, unsigned index );
-    void open_scope( syntax_function* f, unsigned block_index, unsigned loop_index );
+    void open_scope( syntax_function* f, unsigned block_index, unsigned floop_index );
+    void declare_implicit_self( syntax_function* f );
     void declare( syntax_function* f, unsigned index );
     void lookup( syntax_function* f, unsigned index );
     void close_scope();

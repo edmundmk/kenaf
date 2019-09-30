@@ -9,6 +9,9 @@
 //
 
 #include "lexer.h"
+#include <limits.h>
+#include <assert.h>
+#include <algorithm>
 
 namespace kf
 {

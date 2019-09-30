@@ -60,7 +60,7 @@ struct maybe_list_type
 struct op_assign_type
 {
     unsigned index;
-    token token;
+    struct token token;
 };
 
 struct term_list_type

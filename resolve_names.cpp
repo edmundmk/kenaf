@@ -30,11 +30,18 @@ void resolve_names::resolve()
 
 void resolve_names::visit( syntax_function* f, unsigned index )
 {
-    const syntax_node* n = &f->nodes[ index ];
+    syntax_node* n = &f->nodes[ index ];
     unsigned until_index = AST_INVALID_INDEX;
 
     switch ( n->kind )
     {
+    case AST_DEF_FUNCTION:
+    {
+        // Visit leaf function.
+        visit( n->leaf_function().function, 0 );
+        return;
+    }
+
     case AST_FUNCTION:
     {
         // Functions declare parameters into the block scope.
@@ -42,7 +49,11 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         unsigned block_index = f->nodes[ parameters_index ].next_index;
 
         // Open scope and declare parameters.
-        open_scope( f, block_index, AST_INVALID_INDEX );
+        open_scope( f, block_index, index );
+        if ( f->implicit_self )
+        {
+            declare_implicit_self( f );
+        }
         declare( f, parameters_index );
 
         // Continue with block.
@@ -187,8 +198,19 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     }
 }
 
-void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsigned loop_index )
+void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsigned floop_index )
 {
+    std::unique_ptr< scope > s = std::make_unique< scope >();
+    s->function = f;
+    s->block_index = block_index;
+    s->floop_index = floop_index;
+    s->after_continue = false;
+    _scopes.push_back( std::move( s ) );
+}
+
+void resolve_names::declare_implicit_self( syntax_function* f )
+{
+
 }
 
 void resolve_names::declare( syntax_function* f, unsigned index )
@@ -203,6 +225,7 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
 
 void resolve_names::close_scope()
 {
+    _scopes.pop_back();
 }
 
 }
