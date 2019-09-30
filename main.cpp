@@ -29,7 +29,15 @@ int main( int argc, char* argv[] )
 
     kf::lexer lexer( &source );
     kf::parser parser( &source, &lexer );
-    parser.parse();
+    std::unique_ptr< kf::syntax_tree > syntax_tree = parser.parse();
+
+    if ( ! source.has_error )
+    {
+        for ( const auto& function : syntax_tree->functions )
+        {
+            function->debug_print();
+        }
+    }
 
     for ( const kf::source_diagnostic& diagnostic : source.diagnostics )
     {

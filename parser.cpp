@@ -98,7 +98,6 @@ syntax_function* parser::push_function( srcloc sloc )
 void parser::pop_function()
 {
     _fstack.back()->fixup_nodes();
-    _fstack.back()->debug_print();
     _fstack.pop_back();
 }
 

@@ -11,6 +11,11 @@
 #ifndef RESOLVE_NAMES_H
 #define RESOLVE_NAMES_H
 
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include "syntax.h"
+
 namespace kf
 {
 
@@ -78,7 +83,38 @@ namespace kf
 
 */
 
+class resolve_names
+{
+public:
 
+    resolve_names( source* source, syntax_tree* syntax_tree );
+    ~resolve_names();
+
+    void resolve();
+
+
+private:
+
+    struct variable
+    {
+        unsigned local_index;
+        bool implicit_super;
+        bool after_continue;
+    };
+
+    struct scope
+    {
+        syntax_function* function;
+        unsigned block_node;
+        unsigned downval_index;
+        std::unordered_map< std::string_view, variable > variables;
+    };
+
+    source* _source;
+    syntax_tree* _syntax_tree;
+    std::vector< std::unique_ptr< scope > > _scopes;
+
+};
 
 }
 

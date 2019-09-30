@@ -18,6 +18,7 @@ sources = [
     'lexer.cpp',
     'source.cpp',
     'parser.cpp',
+    'resolve_names.cpp',
     'syntax.cpp',
 ]
 

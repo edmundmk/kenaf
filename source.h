@@ -97,6 +97,7 @@ struct source
     std::vector< srcloc > newlines;
     std::vector< source_string* > strings;
     std::vector< source_diagnostic > diagnostics;
+    bool has_error;
 
 };
 

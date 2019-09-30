@@ -19,6 +19,7 @@ namespace kf
 source::source()
     :   text( SOURCE_LOOKAHEAD, '\0' )
     ,   newlines{ 0 }
+    ,   has_error( false )
 {
 }
 
@@ -85,6 +86,7 @@ void source::error( srcloc sloc, const char* message, va_list ap )
 
     text.pop_back();
     diagnostics.push_back( { ERROR, location( sloc ), std::move( text ) } );
+    has_error = true;
 }
 
 }
