@@ -182,6 +182,14 @@ static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned 
         const syntax_leaf_function& l = n.leaf_function();
         printf( " FUNCTION %p %s\n", l.function, l.function->name.c_str() );
     }
+    else if ( n.leaf == AST_LEAF_INDEX )
+    {
+        const syntax_leaf_index& l = n.leaf_index();
+        if ( l.index != AST_INVALID_INDEX )
+            printf( " INDEX %u\n", l.index );
+        else
+            printf( " INVALID INDEX\n" );
+    }
     else
     {
         printf( "\n" );

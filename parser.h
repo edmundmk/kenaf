@@ -34,15 +34,16 @@ public:
     void pop_function();
 
     srcloc current_sloc();
-    srcloc node_sloc( size_t index );
-    void update_sloc( size_t index, srcloc sloc );
+    srcloc node_sloc( unsigned index );
+    void update_sloc( unsigned index, srcloc sloc );
 
-    size_t node( syntax_node_kind kind, srcloc sloc, size_t child );
-    size_t string_node( syntax_node_kind kind, srcloc sloc, const char* text, size_t size );
-    size_t number_node( syntax_node_kind kind, srcloc sloc, double n );
-    size_t function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
+    unsigned node( syntax_node_kind kind, srcloc sloc, unsigned child );
+    unsigned string_node( syntax_node_kind kind, srcloc sloc, const char* text, unsigned size );
+    unsigned number_node( syntax_node_kind kind, srcloc sloc, double n );
+    unsigned function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
+    unsigned index_node( syntax_node_kind kind, srcloc sloc, unsigned child );
 
-    std::string qual_name_string( size_t index );
+    std::string qual_name_string( unsigned index );
 
 private:
 
