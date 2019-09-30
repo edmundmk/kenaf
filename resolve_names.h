@@ -97,18 +97,23 @@ private:
 
     struct variable
     {
-        unsigned local_index;
-        bool implicit_super;
-        bool after_continue;
+        unsigned local_index;           // Index of local variable.
+        bool implicit_super;            // Use superof when referencing.
+        bool after_continue;            // Is this value declared after first continue?
     };
 
     struct scope
     {
-        syntax_function* function;
-        unsigned block_node;
-        unsigned downval_index;
+        syntax_function* function;      // Function this scope is in.
+        unsigned block_node;            // Index of block in AST.
+
+        bool is_loop;                   // Is this block a loop?
+        bool after_continue;            // Are we currently in code that can be skipped by continue?
+
         std::unordered_map< std::string_view, variable > variables;
     };
+
+    void visit( syntax_function* f, unsigned index );
 
     source* _source;
     syntax_tree* _syntax_tree;

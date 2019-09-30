@@ -379,7 +379,12 @@ expr_bitor(x) ::= expr_bitxor(u) .                              { x = u; }
 expr_bitor(x) ::= expr_bitor(u) VBAR(op) expr_bitxor .          { x = { EXPR_FULL, p->node( AST_EXPR_BITOR, op.sloc, u.index ) }; }
 
 expr_compare(x) ::= expr_bitor(u) .                             { x = u; }
-expr_compare(x) ::= expr_compare(u) op_compare expr_bitor .     { x = { EXPR_FULL, p->node( AST_EXPR_COMPARE, p->node_sloc( u.index ), u.index ) }; }
+expr_compare(x) ::= expr_bitor(u) compare_term_list .           { x = { EXPR_FULL, p->node( AST_EXPR_COMPARE, p->node_sloc( u.index ), u.index ) }; }
+
+compare_term_list(x) ::= compare_term(u) .                      { x = u; }
+compare_term_list(x) ::= compare_term_list(u) compare_term .    { x = u; }
+
+compare_term(x) ::= op_compare(u) expr_bitor .                  { x = u; }
 
 op_compare(x) ::= EQ(op) .                                      { x = p->node( AST_OP_EQ, op.sloc, AST_INVALID_INDEX ); }
 op_compare(x) ::= NE(op) .                                      { x = p->node( AST_OP_NE, op.sloc, AST_INVALID_INDEX ); }

@@ -102,8 +102,8 @@ enum syntax_node_kind : uint16_t
     AST_STMT_FOR_EACH,          // name|name_list expr block
     AST_STMT_WHILE,             // expr block
     AST_STMT_REPEAT,            // block expr
-    AST_STMT_BREAK,
-    AST_STMT_CONTINUE,
+    AST_STMT_BREAK,             // -
+    AST_STMT_CONTINUE,          // -
     AST_STMT_RETURN,            // expr*
     AST_STMT_THROW,             // expr
     AST_NAME_LIST,              // name+
@@ -114,33 +114,33 @@ enum syntax_node_kind : uint16_t
     AST_RVAL_LIST,              // expr+
     AST_EXPR_YIELD,             // expr+
     AST_EXPR_YIELD_FOR,         // expr
-    AST_EXPR_NULL,
-    AST_EXPR_FALSE,
-    AST_EXPR_TRUE,
-    AST_EXPR_NUMBER,
-    AST_EXPR_STRING,
-    AST_EXPR_NAME,
-    AST_EXPR_KEY,
-    AST_EXPR_INDEX,
-    AST_EXPR_CALL,
-    AST_EXPR_LENGTH,
-    AST_EXPR_NEG,
-    AST_EXPR_POS,
-    AST_EXPR_BITNOT,
-    AST_EXPR_MUL,
-    AST_EXPR_DIV,
-    AST_EXPR_INTDIV,
-    AST_EXPR_MOD,
-    AST_EXPR_ADD,
-    AST_EXPR_SUB,
-    AST_EXPR_CONCAT,
-    AST_EXPR_LSHIFT,
-    AST_EXPR_RSHIFT,
-    AST_EXPR_ASHIFT,
-    AST_EXPR_BITAND,
-    AST_EXPR_BITXOR,
-    AST_EXPR_BITOR,
-    AST_EXPR_COMPARE,
+    AST_EXPR_NULL,              // -
+    AST_EXPR_FALSE,             // -
+    AST_EXPR_TRUE,              // -
+    AST_EXPR_NUMBER,            // leaf 0.0
+    AST_EXPR_STRING,            // leaf "string"
+    AST_EXPR_NAME,              // leaf "name"
+    AST_EXPR_KEY,               // expr name
+    AST_EXPR_INDEX,             // expr expr
+    AST_EXPR_CALL,              // expr expr*
+    AST_EXPR_LENGTH,            // expr
+    AST_EXPR_NEG,               // expr
+    AST_EXPR_POS,               // expr
+    AST_EXPR_BITNOT,            // expr
+    AST_EXPR_MUL,               // expr expr
+    AST_EXPR_DIV,               // expr expr
+    AST_EXPR_INTDIV,            // expr expr
+    AST_EXPR_MOD,               // expr expr
+    AST_EXPR_ADD,               // expr expr
+    AST_EXPR_SUB,               // expr expr
+    AST_EXPR_CONCAT,            // expr expr
+    AST_EXPR_LSHIFT,            // expr expr
+    AST_EXPR_RSHIFT,            // expr expr
+    AST_EXPR_ASHIFT,            // expr expr
+    AST_EXPR_BITAND,            // expr expr
+    AST_EXPR_BITXOR,            // expr expr
+    AST_EXPR_BITOR,             // expr expr
+    AST_EXPR_COMPARE,           // expr ( op expr )+
     AST_EXPR_NOT,
     AST_EXPR_AND,
     AST_EXPR_OR,
@@ -150,14 +150,14 @@ enum syntax_node_kind : uint16_t
     AST_EXPR_ARRAY,
     AST_EXPR_TABLE,
     AST_KEYVAL,
-    AST_OP_EQ,
-    AST_OP_NE,
-    AST_OP_LT,
-    AST_OP_LE,
-    AST_OP_GT,
-    AST_OP_GE,
-    AST_OP_IS,
-    AST_OP_IS_NOT,
+    AST_OP_EQ,                  // -
+    AST_OP_NE,                  // -
+    AST_OP_LT,                  // -
+    AST_OP_LE,                  // -
+    AST_OP_GT,                  // -
+    AST_OP_GE,                  // -
+    AST_OP_IS,                  // -
+    AST_OP_IS_NOT,              // -
     AST_DEFINITION,             // name|qual_name def
     AST_DEF_FUNCTION,           // leaf function
     AST_DEF_OBJECT,             // prototype? object_key|definition*

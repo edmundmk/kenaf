@@ -1,2 +1,4 @@
 
-a.b, c.d, e.f = x
+if a == b < c <= d then end
+
+if a == ( b < c ) <= d  then end

@@ -159,6 +159,7 @@ unsigned parser::index_node( syntax_node_kind kind, srcloc sloc, unsigned child 
 {
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
+    child = child != AST_INVALID_INDEX ? child : index;
     syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_INDEX, false, sloc, child, AST_INVALID_INDEX }, {} } );
     node.leaf_index().index = AST_INVALID_INDEX;
     return index;
