@@ -4,20 +4,20 @@
 --  https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
 --
 
-def tree_node
-    def self( left, right )
-        self.left = left
-        self.right = right
-    end
+def tree_node end
 
-    def check()
-        if self.left == null then
-            return 1
-        else
-            var count = 1 + self.left.check()
-            if self.right != null then count += self.right.check() end
-            return count
-        end
+def tree_node.self( left, right )
+    self.left = left
+    self.right = right
+end
+
+def tree_node.check()
+    if self.left == null then
+        return 1
+    else
+        var count = 1 + self.left.check()
+        if self.right != null then count += self.right.check() end
+        return count
     end
 end
 

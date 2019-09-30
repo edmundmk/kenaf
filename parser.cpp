@@ -125,7 +125,7 @@ size_t parser::node( syntax_node_kind kind, srcloc sloc, size_t child )
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     size_t index = nodes.size();
     child = child != AST_INVALID_INDEX ? child : index;
-    nodes.push_back( { (uint16_t)kind, AST_NON_LEAF, false, sloc, (unsigned)child, 0 } );
+    nodes.push_back( { kind, AST_NON_LEAF, false, sloc, (unsigned)child, 0 } );
     return index;
 }
 
@@ -133,7 +133,7 @@ size_t parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text
 {
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     size_t index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { (uint16_t)kind, AST_LEAF_STRING, false, sloc, (unsigned)index, 0 }, {} } );
+    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_STRING, false, sloc, (unsigned)index, 0 }, {} } );
     node.leaf_string() = { text, size };
     return index;
 }
@@ -142,7 +142,7 @@ size_t parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
 {
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     size_t index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { (uint16_t)kind, AST_LEAF_NUMBER, false, sloc, (unsigned)index, 0 }, {} } );
+    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_NUMBER, false, sloc, (unsigned)index, 0 }, {} } );
     node.leaf_number().n = n;
     return index;
 }
@@ -151,14 +151,16 @@ size_t parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_functio
 {
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     size_t index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { (uint16_t)kind, AST_LEAF_FUNCTION, false, sloc, (unsigned)index, 0 }, {} } );
+    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_FUNCTION, false, sloc, (unsigned)index, 0 }, {} } );
     node.leaf_function().function = function;
     return index;
 }
 
 std::string parser::qual_name_string( size_t index )
 {
-    const syntax_node& n = _fstack.back()->nodes.at( index );
+    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    const syntax_node& n = nodes.at( index );
+
     if ( n.kind == AST_EXPR_NAME )
     {
         const syntax_leaf_string& s = n.leaf_string();
@@ -166,14 +168,16 @@ std::string parser::qual_name_string( size_t index )
     }
     else if ( n.kind == AST_EXPR_KEY )
     {
-        const syntax_node& o = _fstack.back()->nodes.at( index + 1 );
-        assert( o.kind == AST_EXPR_NAME );
-        const syntax_leaf_string& s = o.leaf_string();
+        // Find child indexes.  Next indexes aren't valid yet.
+        size_t u_index = n.child_index;
+        size_t v_index = u_index + ( nodes.at( u_index ).leaf ? 2 : 1 );
 
-        std::string qual_name = qual_name_string( n.child_index );
+        // Build name.
+        std::string qual_name = qual_name_string( u_index );
         qual_name.append( "." );
-        qual_name.append( s.text, s.size );
+        qual_name.append( qual_name_string( v_index ) );
 
+        // Ok.
         return qual_name;
     }
     else

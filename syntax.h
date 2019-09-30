@@ -68,15 +68,7 @@ struct syntax_function
 
 };
 
-enum syntax_node_leaf
-{
-    AST_NON_LEAF,
-    AST_LEAF_STRING,
-    AST_LEAF_NUMBER,
-    AST_LEAF_FUNCTION,
-};
-
-enum syntax_node_kind
+enum syntax_node_kind : uint16_t
 {
     AST_FUNCTION,           // parameters block
 
@@ -162,12 +154,20 @@ enum syntax_node_kind
     AST_OBJECT_KEY,         // name expr
 };
 
+enum syntax_node_leaf : uint8_t
+{
+    AST_NON_LEAF,
+    AST_LEAF_STRING,
+    AST_LEAF_NUMBER,
+    AST_LEAF_FUNCTION,
+};
+
 const size_t AST_INVALID_INDEX = ~(size_t)0;
 
 struct syntax_node
 {
-    uint16_t kind;          // AST node kind.
-    uint8_t leaf;           // Leaf or non leaf?
+    syntax_node_kind kind;  // AST node kind.
+    syntax_node_leaf leaf;  // Leaf or non leaf?
     uint8_t prev_leaf;      // Is the previous node a leaf?.
     srcloc sloc;            // Source location.
     unsigned child_index;   // Index of first child, or invalid.
