@@ -1,0 +1,55 @@
+--
+--  binary-trees.kf
+--  Based on code from the Computer Language Benchmarks Game
+--  https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+--
+
+def tree_node
+    def self( left, right )
+        self.left = left
+        self.right = right
+    end
+
+    def check()
+        if self.left == null then
+            return 1
+        else
+            var count = 1 + self.left.check()
+            if self.right != null then count += self.right.check() end
+            return count
+        end
+    end
+end
+
+def bottom_up_tree( depth )
+    if depth > 0 then
+        depth -= 1
+        var left = bottom_up_tree( depth )
+        var right = bottom_up_tree( depth )
+        return tree_node( left, right )
+    else
+        return tree_node( null, null )
+    end
+end
+
+var _, n = args ...
+var min_depth = 4
+var max_depth = max( min_depth + 2, if n then number( n ) else 0 )
+var stretch_depth = max_depth + 1
+
+var check = bottom_up_tree( stretch_depth ).check()
+print( "stretch tree of depth " ~ string( stretch_depth ) ~ "\t check: " ~ string( check ) )
+
+var long_lived_tree = bottom_up_tree( max_depth )
+
+for depth = min_depth : max_depth + 1 : 2 do
+    var iterations = 1 << ( max_depth - depth + min_depth )
+    var check = 0
+    for i = 0 : iterations do
+        check += bottom_up_tree( depth ).check()
+    end
+    print( string( iterations ) ~ "\t trees of depth " + string( depth ) + "\t check: " + string( check ) )
+end
+
+print( "long lived tree of depth " + string( max_depth ) + "\t check: " + long_lived_tree.check() )
+

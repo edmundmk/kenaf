@@ -626,6 +626,16 @@ token lexer::lex_string()
                 c = next();
                 break;
 
+            case 't':
+                _text.push_back( '\t' );
+                c = next();
+                break;
+
+            case 'v':
+                _text.push_back( '\v' );
+                c = next();
+                break;
+
             case 'x':
                 c = next();
                 c = string_hex( c, 2, &x );

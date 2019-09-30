@@ -119,7 +119,7 @@ def offset_momentum( bodies )
     sun.vz -= pz / SOLAR_MASS;
 end
 
-n = args ...
+var _, n = args ...
 n = if n then number( n ) else 1000
 offset_momentum( bodies )
 print( string( energy( bodies ) ) ~ "\n" )

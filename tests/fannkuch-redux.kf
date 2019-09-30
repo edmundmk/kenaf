@@ -85,7 +85,7 @@ def fannkuch( n )
 
 end
 
-n = args ...
+var _, n = args ...
 n = if n then number( n ) else 7
 print( "Pfannkuchen(" ~ string( n ) ~ ") = " ~ fannkuch( n ) ~ "\n" )
 
