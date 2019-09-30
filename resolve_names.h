@@ -29,9 +29,8 @@ namespace kf
       - Declare a local.
       - Refer to an upval.
 
-    Names not found by name lookup are global references.  It's an error to
-    assign to an unqualified global name - code must explicitly use something
-    like 'global.new_global', assuming 'global' is provided by the environment.
+    Names not found by name lookup are global references.  Assigning to an
+    unqualified global name is an error (but this is not checked in this step).
 
     The 'until' clause of a repeat until loop has a special rule where it can
     only refer to variables that were declared before the first 'continue' in
@@ -121,7 +120,6 @@ private:
     source* _source;
     syntax_tree* _syntax_tree;
     std::vector< std::unique_ptr< scope > > _scopes;
-
 };
 
 }

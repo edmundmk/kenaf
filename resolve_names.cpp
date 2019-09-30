@@ -320,12 +320,60 @@ void resolve_names::declare( syntax_function* f, unsigned index )
 
 void resolve_names::lookup( syntax_function* f, unsigned index )
 {
-    const syntax_node* n = &f->nodes[ index ];
+    syntax_node* n = &f->nodes[ index ];
+    scope* current_scope = _scopes.back().get();
+
     assert( n->kind == AST_EXPR_NAME );
+    std::string_view name( n->leaf_string().text, n->leaf_string().size );
 
+    // Search for name in each scope in turn.
+    variable* v = nullptr;
+    size_t scope_index = _scopes.size();
+    while ( scope_index-- )
+    {
+        // Search for it.
+        scope* s = _scopes.at( scope_index ).get();
+        auto i = s->variables.find( name );
+        if ( i != s->variables.end() )
+        {
+            // Found, complete the search.
+            v = &i->second;
+            break;
+        }
 
+        if ( scope_index != 0 )
+        {
+            // Not found.
+            continue;
+        }
+        else
+        {
+            // Not found at all.
+            n->kind = AST_GLOBAL_NAME;
+            return;
+        }
+    }
 
+    assert( v );
 
+    // Check for continue/until scope restriction.
+    if ( current_scope->repeat_until && v->after_continue )
+    {
+        _source->error( n->sloc, "variable '%.*s', declared after continue, cannot be used in until expression", (int)name.size(), name.data() );
+    }
+
+    // Found in scope at scope_index.
+    scope* s = _scopes.at( scope_index ).get();
+    if ( s->function == current_scope->function )
+    {
+        // Not an upval.
+        assert( n->leaf );
+        n->kind = v->implicit_super ? AST_LOCAL_NAME_SUPER : AST_LOCAL_NAME;
+        n->leaf = AST_LEAF_INDEX;
+        n->leaf_index().index = v->local_index;
+    }
+
+    // It's an upval, need to ensure downvals.
 }
 
 void resolve_names::close_scope()

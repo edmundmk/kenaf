@@ -231,7 +231,7 @@ void syntax_function::debug_print()
         const syntax_upval& upval = upvals[ i ];
         printf
         (
-            "    %zu %s %u\n", i,
+            "    %zu : %s %u\n", i,
             upval.outer_upval ? "OUTER_UPVAL" : "OUTER_LOCAL",
             upval.outer_index
         );
@@ -241,7 +241,7 @@ void syntax_function::debug_print()
     for ( size_t i = 0; i < locals.size(); ++i )
     {
         const syntax_local& local = locals[ i ];
-        printf( "    %.*s", (int)local.name.size(), local.name.data() );
+        printf( "    %zu : %.*s", i, (int)local.name.size(), local.name.data() );
         if ( local.downval_index != AST_INVALID_INDEX )
             printf( " DOWNVAL %u", local.downval_index );
         if ( local.is_implicit_self )
