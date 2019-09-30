@@ -323,8 +323,7 @@ expr_lval(x) ::= IDENTIFIER(tok) .
     }
 expr_lval(x) ::= expr_prefix(u) PERIOD(op) IDENTIFIER(tok) .
     {
-        p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
-        x = { EXPR_LVAL, p->node( AST_EXPR_KEY, op.sloc, u.index ) };
+        x = { EXPR_LVAL, p->string_node( AST_EXPR_KEY, op.sloc, u.index, tok.text, tok.size ) };
     }
 expr_lval(x) ::= expr_prefix(u) LSQ(op) expr RSQ .
     {
@@ -521,9 +520,9 @@ qual_name(x) ::= name(u) .
     {
         x = { EXPR_NAME, u };
     }
-qual_name(x) ::= qual_name(u) PERIOD(op) name .
+qual_name(x) ::= qual_name(u) PERIOD(op) IDENTIFIER(tok) .
     {
-        x = { EXPR_LVAL, p->node( AST_EXPR_KEY, op.sloc, u.index ) };
+        x = { EXPR_LVAL, p->string_node( AST_EXPR_KEY, op.sloc, u.index, tok.text, tok.size ) };
     }
 
 parameters(x) ::= .

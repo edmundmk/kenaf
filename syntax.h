@@ -89,7 +89,6 @@ struct syntax_function
     std::vector< syntax_upval > upvals;
     std::vector< syntax_local > locals;
     std::vector< syntax_node > nodes;
-
 };
 
 enum syntax_node_kind : uint16_t
@@ -120,7 +119,7 @@ enum syntax_node_kind : uint16_t
     AST_EXPR_NUMBER,            // leaf 0.0
     AST_EXPR_STRING,            // leaf "string"
     AST_EXPR_NAME,              // leaf "name"
-    AST_EXPR_KEY,               // expr name
+    AST_EXPR_KEY,               // expr leaf "key"
     AST_EXPR_INDEX,             // expr expr
     AST_EXPR_CALL,              // expr expr*
     AST_EXPR_LENGTH,            // expr
@@ -141,15 +140,15 @@ enum syntax_node_kind : uint16_t
     AST_EXPR_BITXOR,            // expr expr
     AST_EXPR_BITOR,             // expr expr
     AST_EXPR_COMPARE,           // expr ( op expr )+
-    AST_EXPR_NOT,
-    AST_EXPR_AND,
-    AST_EXPR_OR,
+    AST_EXPR_NOT,               // expr
+    AST_EXPR_AND,               // expr expr
+    AST_EXPR_OR,                // expr expr
     AST_EXPR_IF,                // expr expr expr_elif* expr
     AST_EXPR_ELIF,              // expr expr
     AST_EXPR_UNPACK,            // last expression in list with ...
-    AST_EXPR_ARRAY,
-    AST_EXPR_TABLE,
-    AST_KEYVAL,
+    AST_EXPR_ARRAY,             // expr*
+    AST_EXPR_TABLE,             // keyval*
+    AST_KEYVAL,                 // expr expr
     AST_OP_EQ,                  // -
     AST_OP_NE,                  // -
     AST_OP_LT,                  // -

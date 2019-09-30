@@ -39,6 +39,7 @@ public:
 
     unsigned node( syntax_node_kind kind, srcloc sloc, unsigned child );
     unsigned string_node( syntax_node_kind kind, srcloc sloc, const char* text, unsigned size );
+    unsigned string_node( syntax_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size );
     unsigned number_node( syntax_node_kind kind, srcloc sloc, double n );
     unsigned function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
     unsigned index_node( syntax_node_kind kind, srcloc sloc, unsigned child );

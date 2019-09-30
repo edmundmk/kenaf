@@ -130,9 +130,15 @@ unsigned parser::node( syntax_node_kind kind, srcloc sloc, unsigned child )
 
 unsigned parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text, unsigned size )
 {
+    return string_node( kind, sloc, AST_INVALID_INDEX, text, size );
+}
+
+unsigned parser::string_node( syntax_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size )
+{
     std::vector< syntax_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_STRING, false, sloc, index, AST_INVALID_INDEX }, {} } );
+    child = child != AST_INVALID_INDEX ? child : index;
+    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_STRING, false, sloc, child, AST_INVALID_INDEX }, {} } );
     node.leaf_string() = { text, size };
     return index;
 }
@@ -178,16 +184,10 @@ std::string parser::qual_name_string( unsigned index )
     }
     else if ( n.kind == AST_EXPR_KEY )
     {
-        // Find child indexes.  Next indexes aren't valid yet.
-        unsigned u_index = n.child_index;
-        unsigned v_index = u_index + ( nodes.at( u_index ).leaf ? 2 : 1 );
-
-        // Build name.
-        std::string qual_name = qual_name_string( u_index );
+        const syntax_leaf_string& s = n.leaf_string();
+        std::string qual_name = qual_name_string( n.child_index );
         qual_name.append( "." );
-        qual_name.append( qual_name_string( v_index ) );
-
-        // Ok.
+        qual_name.append( std::string_view( s.text, s.size ) );
         return qual_name;
     }
     else

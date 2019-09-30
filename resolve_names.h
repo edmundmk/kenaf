@@ -92,7 +92,6 @@ public:
 
     void resolve();
 
-
 private:
 
     struct variable
@@ -105,7 +104,7 @@ private:
     struct scope
     {
         syntax_function* function;      // Function this scope is in.
-        unsigned block_node;            // Index of block in AST.
+        unsigned block_index;           // Index of block in AST.
 
         bool is_loop;                   // Is this block a loop?
         bool after_continue;            // Are we currently in code that can be skipped by continue?
@@ -114,6 +113,10 @@ private:
     };
 
     void visit( syntax_function* f, unsigned index );
+    void open_scope( syntax_function* f, unsigned block_index, unsigned loop_index );
+    void declare( syntax_function* f, unsigned index );
+    void lookup( syntax_function* f, unsigned index );
+    void close_scope();
 
     source* _source;
     syntax_tree* _syntax_tree;
