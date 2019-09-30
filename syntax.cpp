@@ -86,6 +86,13 @@ const char* const SYNTAX_NODE_NAME[] =
     [ AST_VARARG_PARAM      ] = "VARARG_PARAM",
     [ AST_PROTOTYPE         ] = "PROTOTYPE",
     [ AST_OBJECT_KEY        ] = "OBJECT_KEY",
+
+    [ AST_LOCAL_DECL        ] = "LOCAL_DECL",
+    [ AST_GLOBAL_NAME       ] = "GLOBAL_NAME",
+    [ AST_UPVAL_NAME        ] = "UPVAL_NAME",
+    [ AST_LOCAL_NAME        ] = "LOCAL_NAME",
+    [ AST_UPVAL_NAME_SUPER  ] = "UPVAL_NAME_SUPER",
+    [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
 };
 
 syntax_tree::syntax_tree()
@@ -105,9 +112,12 @@ syntax_function* syntax_tree::new_function( srcloc sloc, syntax_function* outer 
 syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
     :   sloc( sloc )
     ,   outer( outer )
+    ,   parameter_count( 0 )
+    ,   max_downval_stack( 0 )
     ,   implicit_self( false )
     ,   is_generator( false )
     ,   is_top_level( false )
+    ,   is_varargs( false )
 {
 }
 
@@ -203,7 +213,47 @@ static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned 
 
 void syntax_function::debug_print()
 {
-    debug_print_tree( nodes, nodes.size() - 1, 0 );
+    printf( "FUNCTION %s\n", name.c_str() );
+    printf( "  %u PARAMETERS\n", parameter_count );
+    printf( "  %u DOWNVAL_STACK\n", max_downval_stack );
+    if ( implicit_self )
+        printf( "  IMPLICIT_SELF\n" );
+    if ( is_generator )
+        printf( "  GENERATOR\n" );
+    if ( is_top_level )
+        printf( "  TOP_LEVEL\n" );
+    if ( is_varargs )
+        printf( "  VARARGS\n" );
+
+    printf( "  UPVALS\n" );
+    for ( size_t i = 0; i < upvals.size(); ++i )
+    {
+        const syntax_upval& upval = upvals[ i ];
+        printf
+        (
+            "    %zu %s %u\n", i,
+            upval.outer_upval ? "OUTER_UPVAL" : "OUTER_LOCAL",
+            upval.outer_index
+        );
+    }
+
+    printf( "  LOCALS\n" );
+    for ( size_t i = 0; i < locals.size(); ++i )
+    {
+        const syntax_local& local = locals[ i ];
+        printf( "    %.*s", (int)local.name.size(), local.name.data() );
+        if ( local.downval_index != AST_INVALID_INDEX )
+            printf( " DOWNVAL %u", local.downval_index );
+        if ( local.is_implicit_self )
+            printf( " IMPLICIT_SELF" );
+        if ( local.is_parameter )
+            printf( " PARAMETER" );
+        if ( local.is_vararg_param )
+            printf( " VARARG_PARAM" );
+        printf( "\n" );
+    }
+
+    debug_print_tree( nodes, nodes.size() - 1, 2 );
 }
 
 }

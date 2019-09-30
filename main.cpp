@@ -12,6 +12,7 @@
 #include "source.h"
 #include "lexer.h"
 #include "parser.h"
+#include "resolve_names.h"
 
 int main( int argc, char* argv[] )
 {
@@ -33,6 +34,9 @@ int main( int argc, char* argv[] )
 
     if ( ! source.has_error )
     {
+        kf::resolve_names resolve( &source, syntax_tree.get() );
+        resolve.resolve();
+
         for ( const auto& function : syntax_tree->functions )
         {
             function->debug_print();

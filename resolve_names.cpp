@@ -25,7 +25,8 @@ resolve_names::~resolve_names()
 
 void resolve_names::resolve()
 {
-
+    syntax_function* function = _syntax_tree->functions.at( 0 ).get();
+    visit( function, function->nodes.size() - 1 );
 }
 
 void resolve_names::visit( syntax_function* f, unsigned index )
@@ -38,7 +39,8 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     case AST_DEF_FUNCTION:
     {
         // Visit leaf function.
-        visit( n->leaf_function().function, 0 );
+        syntax_function* function = n->leaf_function().function;
+        visit( function, function->nodes.size() - 1 );
         return;
     }
 
@@ -57,7 +59,8 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         declare( f, parameters_index );
 
         // Continue with block.
-        n = &f->nodes[ block_index ];
+        index = block_index;
+        n = &f->nodes[ index ];
         break;
     }
 
@@ -78,7 +81,8 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         visit( f, step_index );
 
         // Continue with contents of block.
-        n = &f->nodes[ block_index ];
+        index = block_index;
+        n = &f->nodes[ index ];
         break;
     }
 
@@ -95,7 +99,8 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         visit( f, expr_index );
 
         // Continue with contents of block.
-        n = &f->nodes[ block_index ];
+        index = block_index;
+        n = &f->nodes[ index ];
         break;
     }
 
@@ -110,7 +115,8 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         visit( f, expr_index );
 
         // Continue with contents of block.
-        n = &f->nodes[ block_index ];
+        index = block_index;
+        n = &f->nodes[ index ];
         break;
     }
 
@@ -124,21 +130,31 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         open_scope( f, block_index, index );
 
         // Continue with contents of block.
-        n = &f->nodes[ block_index ];
-        return;
+        index = block_index;
+        n = &f->nodes[ index ];
+        break;
     }
 
     case AST_STMT_CONTINUE:
     {
         // Handle continue.
-        // TODO.
+        for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
+        {
+            syntax_node* n = &f->nodes[ ( *i )->node_index ];
+            if ( n->kind == AST_STMT_FOR_STEP || n->kind == AST_STMT_FOR_EACH
+                || n->kind == AST_STMT_WHILE || n->kind == AST_STMT_REPEAT )
+            {
+                ( *i )->after_continue = true;
+                break;
+            }
+        }
         return;
     }
 
     case AST_BLOCK:
     {
         // Open scope at start of any other block.
-        open_scope( f, index, AST_INVALID_INDEX );
+        open_scope( f, index, index );
         break;
     }
 
@@ -187,7 +203,7 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     // Deal with 'until' expression, which cannot use names after continue.
     if ( until_index != AST_INVALID_INDEX )
     {
-        // TODO.
+        _scopes.back()->repeat_until = true;
         visit( f, until_index );
     }
 
@@ -198,29 +214,118 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     }
 }
 
-void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsigned floop_index )
+void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsigned node_index )
 {
     std::unique_ptr< scope > s = std::make_unique< scope >();
     s->function = f;
     s->block_index = block_index;
-    s->floop_index = floop_index;
+    s->node_index = node_index;
     s->after_continue = false;
+    s->repeat_until = _scopes.size() ? _scopes.back()->repeat_until : false;
     _scopes.push_back( std::move( s ) );
 }
 
 void resolve_names::declare_implicit_self( syntax_function* f )
 {
+    scope* scope = _scopes.back().get();
 
+    syntax_local local = {};
+    local.name = "self";
+    local.downval_index = AST_INVALID_INDEX;
+    local.is_implicit_self = true;
+    local.is_parameter = true;
+
+    unsigned local_index = f->locals.size();
+    scope->variables.emplace( local.name, variable{ local_index, false, scope->after_continue } );
+    scope->variables.emplace( "super", variable{ local_index, true, scope->after_continue } );
+    f->locals.push_back( local );
+
+    f->parameter_count += 1;
 }
 
 void resolve_names::declare( syntax_function* f, unsigned index )
 {
+    scope* scope = _scopes.back().get();
+    syntax_node* n = &f->nodes[ index ];
+
+    assert( n->kind == AST_EXPR_NAME || n->kind == AST_NAME_LIST || n->kind == AST_PARAMETERS );
+    bool is_parameter = n->kind == AST_PARAMETERS;
+
+    // Might be a name list.
+    unsigned name_index;
+    unsigned last_index;
+    if ( n->kind == AST_EXPR_NAME )
+    {
+        name_index = index;
+        last_index = n->next_index;
+    }
+    else
+    {
+        name_index = n->child_index;
+        last_index = index;
+    }
+
+    // Declare all names in list.
+    unsigned next_index;
+    for ( ; name_index < last_index; name_index = next_index )
+    {
+        n = &f->nodes[ name_index ];
+        next_index = n->next_index;
+
+        // Check for varargs param.
+        bool is_vararg_param = false;
+        if ( n->kind == AST_VARARG_PARAM )
+        {
+            assert( is_parameter );
+            n = &f->nodes[ n->child_index ];
+            is_vararg_param = true;
+            f->is_varargs = true;
+        }
+
+        // Find name.
+        assert( n->kind == AST_EXPR_NAME );
+        std::string_view name( n->leaf_string().text, n->leaf_string().size );
+
+        // Check if this scope already has a local with this name.
+        auto i = scope->variables.find( name );
+        if ( i != scope->variables.end() )
+        {
+            _source->error( n->sloc, "redeclaration of '%.*s'", (int)name.size(), name.data() );
+            continue;
+        }
+
+        // Add local.
+        syntax_local local = {};
+        local.name = name;
+        local.downval_index = AST_INVALID_INDEX;
+        local.is_parameter = is_parameter;
+        local.is_vararg_param = is_vararg_param;
+
+        unsigned local_index = f->locals.size();
+        scope->variables.emplace( local.name, variable{ local_index, false, scope->after_continue } );
+        f->locals.push_back( local );
+
+        if ( is_parameter )
+        {
+            f->parameter_count += 1;
+        }
+
+        // Replace EXPR_NAME with LOCAL_DECL.
+        assert( n->leaf );
+        n->kind = AST_LOCAL_DECL;
+        n->leaf = AST_LEAF_INDEX;
+        n->leaf_index().index = local_index;
+    }
 }
 
 void resolve_names::lookup( syntax_function* f, unsigned index )
 {
     const syntax_node* n = &f->nodes[ index ];
     assert( n->kind == AST_EXPR_NAME );
+
+
+
+
 }
 
 void resolve_names::close_scope()

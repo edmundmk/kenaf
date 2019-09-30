@@ -65,7 +65,7 @@ struct syntax_local
     unsigned downval_index;     // Index in downval stack, or AST_INVALID_INDEX.
     bool is_implicit_self;      // Is it implicit self?
     bool is_parameter;          // Is it a parameter?
-    bool is_varargs;            // Is it the variable argument parameter?
+    bool is_vararg_param;       // Is it the variable argument parameter?
 };
 
 struct syntax_function
@@ -84,7 +84,7 @@ struct syntax_function
     bool implicit_self;         // Does the function have implicit self?
     bool is_generator;          // Is it a generator?
     bool is_top_level;          // Is it the top-level function of a script?
-    bool is_varargs;            // Does it have a
+    bool is_varargs;            // Does it have a varargs parameter.
 
     std::vector< syntax_upval > upvals;
     std::vector< syntax_local > locals;
@@ -165,9 +165,9 @@ enum syntax_node_kind : uint16_t
     AST_PROTOTYPE,              // expr
     AST_OBJECT_KEY,             // name expr
 
+    AST_LOCAL_DECL,             // Declaration of a local variable.
     AST_GLOBAL_NAME,            // Reference to global value.
     AST_UPVAL_NAME,             // Reference to upval.
-    AST_LOCAL_DECL,             // Declaration of a local variable.
     AST_LOCAL_NAME,             // Reference to local variable.
     AST_UPVAL_NAME_SUPER,       // superof( upval ).
     AST_LOCAL_NAME_SUPER,       // superof( local variable ).
