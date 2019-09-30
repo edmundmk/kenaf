@@ -11,6 +11,7 @@
 #ifndef SYNTAX_H
 #define SYNTAX_H
 
+#include <assert.h>
 #include <vector>
 #include "source.h"
 
@@ -35,6 +36,9 @@ namespace kf
 struct syntax_tree;
 struct syntax_function;
 struct syntax_node;
+struct syntax_leaf_string;
+struct syntax_leaf_number;
+struct syntax_leaf_function;
 
 struct syntax_tree
 {
@@ -168,6 +172,14 @@ struct syntax_node
     srcloc sloc;            // Source location.
     unsigned child_index;   // Index of first child, or invalid.
     unsigned next_index;    // Index of next sibling, fixed up afterwards.
+
+    const syntax_leaf_string& leaf_string() const;
+    const syntax_leaf_number& leaf_number() const;
+    const syntax_leaf_function& leaf_function() const;
+
+    syntax_leaf_string& leaf_string();
+    syntax_leaf_number& leaf_number();
+    syntax_leaf_function& leaf_function();
 };
 
 struct syntax_leaf_string
@@ -186,9 +198,47 @@ struct syntax_leaf_function
     syntax_function* function;
 };
 
-static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
-static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
-static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
+inline const syntax_leaf_string& syntax_node::leaf_string() const
+{
+    static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_STRING );
+    return *(const syntax_leaf_string*)( this + 1 );
+}
+
+inline const syntax_leaf_number& syntax_node::leaf_number() const
+{
+    static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_NUMBER );
+    return *(const syntax_leaf_number*)( this + 1 );
+}
+
+inline const syntax_leaf_function& syntax_node::leaf_function() const
+{
+    static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_FUNCTION );
+    return *(const syntax_leaf_function*)( this + 1 );
+}
+
+inline syntax_leaf_string& syntax_node::leaf_string()
+{
+    static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_STRING );
+    return *(syntax_leaf_string*)( this + 1 );
+}
+
+inline syntax_leaf_number& syntax_node::leaf_number()
+{
+    static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_NUMBER );
+    return *(syntax_leaf_number*)( this + 1 );
+}
+
+inline syntax_leaf_function& syntax_node::leaf_function()
+{
+    static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
+    assert( leaf == AST_LEAF_FUNCTION );
+    return *(syntax_leaf_function*)( this + 1 );
+}
 
 }
 

@@ -169,18 +169,18 @@ static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned 
     printf( "%*s%s", indent, "", SYNTAX_NODE_NAME[ n.kind ] );
     if ( n.leaf == AST_LEAF_STRING )
     {
-        syntax_leaf_string* l = (syntax_leaf_string*)( &n + 1 );
-        printf( " STRING '%.*s'\n", (int)l->size, l->text );
+        const syntax_leaf_string& l = n.leaf_string();
+        printf( " STRING '%.*s'\n", (int)l.size, l.text );
     }
     else if ( n.leaf == AST_LEAF_NUMBER )
     {
-        syntax_leaf_number* l = (syntax_leaf_number*)( &n + 1 );
-        printf( " NUMBER %f\n", l->n );
+        const syntax_leaf_number& l = n.leaf_number();
+        printf( " NUMBER %f\n", l.n );
     }
     else if ( n.leaf == AST_LEAF_FUNCTION )
     {
-        syntax_leaf_function* l = (syntax_leaf_function*)( &n + 1 );
-        printf( " FUNCTION %p %s\n", l->function, l->function->name.c_str() );
+        const syntax_leaf_function& l = n.leaf_function();
+        printf( " FUNCTION %p %s\n", l.function, l.function->name.c_str() );
     }
     else
     {

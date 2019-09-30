@@ -70,6 +70,12 @@ struct term_list_type
     size_t ilast;
 };
 
+struct definition_type
+{
+    size_t index;
+    syntax_function* function;
+};
+
 struct open_function_type
 {
     syntax_function* function;
@@ -130,7 +136,7 @@ stmt_list(x) ::= stmt_list(u) stmt(v) SEMICOLON .       { x = u != AST_INVALID_I
 stmt_list(x) ::= stmt_list(u) last_stmt(v) SEMICOLON .  { x = u != AST_INVALID_INDEX ? u : v; }
 
 stmt(x) ::= expr_call(u) . [PREFER_CALL]                { x = u.index; }
-stmt(x) ::= definition(u) .                             { x = u; }
+stmt(x) ::= definition(u) .                             { x = u.index; }
 stmt(x) ::= stmt_assign(u) .                            { x = u; }
 stmt(x) ::= VAR(kw) r_name_list(u) .                    { x = p->node( AST_STMT_VAR, kw.sloc, u.index ); }
 stmt(x) ::= VAR(kw) r_name_list(u) ASSIGN assign_rval . { x = p->node( AST_STMT_VAR, kw.sloc, u.index ); }
@@ -434,6 +440,7 @@ term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.ki
 
 // CONSTRUCTORS / DEFINITIONS
 
+%type definition { definition_type }
 %type open_lambda { open_function_type }
 %type open_function { open_function_type }
 %type qual_name { expr_type }
@@ -478,7 +485,7 @@ lambda_body(x) ::= RPN(bdo) block(block) END .
 definition(x) ::= DEF(def) qual_name(w) prototype_opt(u) object_keys(v) END .
     {
         p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
-        x = p->node( AST_DEFINITION, def.sloc, w.index );
+        x = { p->node( AST_DEFINITION, def.sloc, w.index ), nullptr };
     }
 definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
     {
@@ -488,7 +495,7 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
         p->pop_function();
         p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
         u.function->name = p->qual_name_string( u.name_index );
-        x = p->node( AST_DEFINITION, u.sloc, u.name_index );
+        x = { p->node( AST_DEFINITION, u.sloc, u.name_index ), u.function };
     }
 
 open_function(x) ::= DEF(def) qual_name(u) .
@@ -546,7 +553,7 @@ prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_PROTO
 object_keys(x) ::= .                                    { x = AST_INVALID_INDEX; }
 object_keys(x) ::= object_keys(u) object_key(v) .       { x = u != AST_INVALID_INDEX ? u : v; }
 
-object_key(x) ::= definition(u) .                       { x = u; }
+object_key(x) ::= definition(u) .                       { x = u.index; u.function->implicit_self = true; }
 object_key(x) ::= name(u) COLON(op) expr .              { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 object_key(x) ::= name(u) COLON(op) expr SEMICOLON .    { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 
