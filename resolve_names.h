@@ -143,6 +143,8 @@ private:
     void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
     void close_upstack( upstack* upstack, unsigned block_index, unsigned close_index );
 
+    void debug_print( const upstack* upstack );
+
     source* _source;
     syntax_tree* _syntax_tree;
     std::vector< std::unique_ptr< scope > > _scopes;

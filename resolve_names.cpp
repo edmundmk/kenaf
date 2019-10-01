@@ -175,7 +175,10 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         unsigned name_list_index = n->child_index;
         unsigned rval_list_index = f->nodes[ name_list_index ].next_index;
         declare( f, name_list_index );
-        visit( f, rval_list_index );
+        if ( rval_list_index < index )
+        {
+            visit( f, rval_list_index );
+        }
         return;
     }
 
@@ -501,49 +504,61 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
     {
         // Pushing a new upval onto the end of the stack is straightforward.
         upstack->upstack_slots.push_back( variable->index );
-
-        // Update maximum upstack size.
-        unsigned upstack_size = upstack->upstack_slots.size();
-        upstack->function->max_upstack_size = std::max( upstack->function->max_upstack_size, upstack_size );
-
-        // Done.
-        return;
+//      printf( "PUSH " );
     }
-
-    /*
-        Otherwise, we must move upvals higher in the stack to open a slot.
-        This means updating their upval indexes, and also updating the close
-        index for blocks which close the stack above the insertion.
-    */
-    upstack->upstack_slots.insert( upstack->upstack_slots.begin() + insert_index, variable->index );
-
-    // Update upval indexes for subsequent locals.
-    for ( unsigned i = insert_index + 1; i < upstack->upstack_slots.size(); ++i )
+    else
     {
-        unsigned local_index = upstack->upstack_slots.at( i );
-        syntax_local& local = upstack->function->locals.at( local_index );
-        assert( local.upstack_index == i - 1 );
-        local.upstack_index = i;
-    }
+        /*
+            Otherwise, we must move upvals higher in the stack to open a slot.
+            This means updating their upval indexes, and also updating the
+            close index for blocks which close the stack above the insertion.
+        */
+        upstack->upstack_slots.insert( upstack->upstack_slots.begin() + insert_index, variable->index );
 
-    // Update all blocks which are anchored below the inserted index, and which
-    // close to an index above it.
-    for ( upstack_block& close : upstack->upstack_close )
-    {
-        syntax_node& node = upstack->function->nodes.at( close.block_index );
-        assert( node.kind == AST_BLOCK );
-        assert( node.leaf == AST_LEAF_INDEX );
-        assert( node.leaf_index().index >= close.floor_index );
-
-        if ( close.floor_index < insert_index && node.leaf_index().index > insert_index )
+        // Update upval indexes for subsequent locals.
+        for ( unsigned i = insert_index + 1; i < upstack->upstack_slots.size(); ++i )
         {
-            node.leaf_index().index += 1;
+            unsigned local_index = upstack->upstack_slots.at( i );
+            syntax_local& local = upstack->function->locals.at( local_index );
+            assert( local.upstack_index == i - 1 );
+            local.upstack_index = i;
         }
+
+        // Update all blocks which are anchored below the inserted index, and which
+        // close to an index above it.
+        for ( upstack_block& close : upstack->upstack_close )
+        {
+            syntax_node& node = upstack->function->nodes.at( close.block_index );
+            assert( node.kind == AST_BLOCK );
+            assert( node.leaf == AST_LEAF_INDEX );
+            assert( node.leaf_index().index >= close.floor_index );
+
+            if ( close.floor_index < insert_index && node.leaf_index().index > insert_index )
+            {
+                node.leaf_index().index += 1;
+            }
+        }
+
+//      printf( "INSERT " );
+    }
+
+    // Update all unclosed scopes in same function as the variable.
+    for ( size_t i = scope_index + 1; i < _scopes.size(); ++i )
+    {
+        scope* s = _scopes.at( i ).get();
+        if ( s->function != upstack->function )
+        {
+            break;
+        }
+
+        s->close_index += 1;
     }
 
     // Update max upstack size.
     unsigned upstack_size = upstack->upstack_slots.size();
     upstack->function->max_upstack_size = std::max( upstack->function->max_upstack_size, upstack_size );
+
+//  debug_print( upstack );
 }
 
 void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
@@ -558,6 +573,8 @@ void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsig
     assert( close_index <= upstack->upstack_slots.size() );
     if ( close_index >= upstack->upstack_slots.size() )
     {
+//      printf( "CLOSE NOTHING " );
+//      debug_print( upstack );
         return;
     }
 
@@ -582,6 +599,27 @@ void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsig
     for ( upstack_block& close : upstack->upstack_close )
     {
         close.floor_index = std::min( close.floor_index, close_index );
+    }
+
+//  printf( "CLOSE BLOCK " );
+//  debug_print( upstack );
+}
+
+void resolve_names::debug_print( const upstack* upstack )
+{
+    printf( "UPSTACK %s\n", upstack->function->name.c_str() );
+    printf( "  SLOTS\n" );
+    for ( unsigned i = 0; i < upstack->upstack_slots.size(); ++i )
+    {
+        unsigned local_index = upstack->upstack_slots.at( i );
+        const syntax_local& local = upstack->function->locals.at( local_index );
+        printf( "    %u : %u %.*s\n", i, local_index, (int)local.name.size(), local.name.data() );
+    }
+    printf( "  CLOSE\n" );
+    for ( const upstack_block& close : upstack->upstack_close )
+    {
+        syntax_node& node = upstack->function->nodes.at( close.block_index );
+        printf( "    %u : FLOOR %u CLOSE %u\n", close.block_index, close.floor_index, node.leaf_index().index );
     }
 }
 

@@ -3,12 +3,13 @@
     UPSTACK SHOULD BE:
 
         0 a
-        1 u b x
-        2 c y
-        3 d z
-        4 e p
-        5 q
-        6 r
+        1 u b
+        2 c x
+        3 d y
+        4 e z
+        5 p
+        6 q
+        7 r
 
 */
 
@@ -24,12 +25,15 @@ do -- close to 1
         end
     end
 end
-do -- close to 1
+do -- close to 2
     var x, y, z
     def f1()
         var junk = [ x, y ]
     end
-    do -- close to 4
+    def f4()
+        var n = u
+    end
+    do -- close to 5
         var p, q, r
         def f2()
             var junk = [ p, q, r ]
@@ -38,9 +42,6 @@ do -- close to 1
             var junk = [ z, p, q, r ]
         end
     end
-end
-def f4()
-    var n = u
 end
 
 
