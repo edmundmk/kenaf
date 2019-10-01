@@ -213,7 +213,9 @@ static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned 
 
 void syntax_function::debug_print()
 {
-    printf( "FUNCTION %s\n", name.c_str() );
+    printf( "FUNCTION %p %s\n", this, name.c_str() );
+    if ( outer )
+        printf( "  OUTER %p %s\n", outer, outer->name.c_str() );
     printf( "  %u PARAMETERS\n", parameter_count );
     printf( "  %u MAX_UPSTACK_SIZE\n", max_upstack_size );
     if ( implicit_self )
@@ -231,7 +233,9 @@ void syntax_function::debug_print()
         const syntax_upval& upval = upvals[ i ];
         printf
         (
-            "    %zu : %s %u\n", i,
+            "    %zu : %p %s %s %u\n", i,
+            upval.outer,
+            upval.outer->name.c_str(),
             upval.outer_upval ? "OUTER_UPVAL" : "OUTER_LOCAL",
             upval.outer_index
         );

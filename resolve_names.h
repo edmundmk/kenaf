@@ -50,7 +50,7 @@ namespace kf
     referred to by index.  The first n locals are the function's parameters.
 
 
-    -- Upvals and Downvals
+    -- Upvals
 
     Upvals and implement closures.  A variable captured by a function closure
     is an upval.
@@ -75,7 +75,7 @@ namespace kf
 
     If a function has an implicit self parameter, then references to 'super'
     actually mean 'superof( self )'.  This happens even when 'super' is used
-    as a downval - the actual downval is 'self' and the child function performs
+    as an upval - the actual upval is 'self' and the child function performs
     'superof( self )'.
 
 */
@@ -94,6 +94,7 @@ private:
     struct variable
     {
         unsigned index;             // Index in function's upvals or locals.
+        bool is_upval;              // Is this an upval?
         bool implicit_super;        // Use superof when referencing.
         bool after_continue;        // Is this value declared after first continue?
     };
@@ -101,15 +102,12 @@ private:
     struct scope
     {
         syntax_function* function;  // Function this scope is in.
-//        upstack* upstack;           // Upstack.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
-        unsigned upstack_index;     // Size of upstack on entry to the scope.
         bool after_continue;        // Are we currently in code that can be skipped by continue?
         bool repeat_until;          // Are we currently in the until part of a loop?
         bool is_function() const;   // Is this the scope of a function?
         bool is_loop() const;       // Is this the scope of a loop?
-
         std::unordered_map< std::string_view, variable > variables;
     };
 

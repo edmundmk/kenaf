@@ -247,8 +247,8 @@ void resolve_names::declare_implicit_self( syntax_function* f )
     local.is_parameter = true;
 
     unsigned local_index = f->locals.size();
-    scope->variables.emplace( local.name, variable{ local_index, false, scope->after_continue } );
-    scope->variables.emplace( "super", variable{ local_index, true, scope->after_continue } );
+    scope->variables.emplace( local.name, variable{ local_index, false, false, scope->after_continue } );
+    scope->variables.emplace( "super", variable{ local_index, false, true, scope->after_continue } );
     f->locals.push_back( local );
 
     f->parameter_count += 1;
@@ -301,7 +301,10 @@ void resolve_names::declare( syntax_function* f, unsigned index )
         auto i = scope->variables.find( name );
         if ( i != scope->variables.end() )
         {
-            _source->error( n->sloc, "redeclaration of '%.*s'", (int)name.size(), name.data() );
+            if ( i->second.is_upval )
+                _source->error( n->sloc, "redeclaration of captured variable '%.*s'", (int)name.size(), name.data() );
+            else
+                _source->error( n->sloc, "redeclaration of '%.*s'", (int)name.size(), name.data() );
             continue;
         }
 
@@ -313,7 +316,7 @@ void resolve_names::declare( syntax_function* f, unsigned index )
         local.is_vararg_param = is_vararg_param;
 
         unsigned local_index = f->locals.size();
-        scope->variables.emplace( local.name, variable{ local_index, false, scope->after_continue } );
+        scope->variables.emplace( local.name, variable{ local_index, false, false, scope->after_continue } );
         f->locals.push_back( local );
 
         if ( is_parameter )
@@ -374,17 +377,63 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
     }
 
     // Found in scope at scope_index.
-    scope* s = _scopes.at( scope_index ).get();
-    if ( s->function == current_scope->function )
+    scope* vscope = _scopes.at( scope_index++ ).get();
+
+    // Check for upval.
+    if ( vscope->function != current_scope->function )
     {
-        // Not an upval.
-        assert( n->leaf );
-        n->kind = v->implicit_super ? AST_LOCAL_NAME_SUPER : AST_LOCAL_NAME;
-        n->leaf = AST_LEAF_INDEX;
-        n->leaf_index().index = v->index;
+        // We end up with an upval index.
+        unsigned upval_index = AST_INVALID_INDEX;
+
+        // Import into each function.
+        scope* outer = vscope;
+        while ( outer->function != current_scope->function )
+        {
+            // Find next function scope.
+            scope* inner = vscope;
+            while ( inner->function == outer->function )
+            {
+                inner = _scopes.at( scope_index++ ).get();
+            }
+            assert( inner->is_function() );
+
+            // Capture variable into the inner function.
+            for ( upval_index = 0; upval_index < inner->function->upvals.size(); ++upval_index )
+            {
+                const syntax_upval& uv = inner->function->upvals.at( upval_index );
+                assert( ! uv.outer_upval );
+                if ( uv.outer == vscope->function && uv.outer_index == v->index )
+                {
+                    break;
+                }
+            }
+
+            if ( upval_index >= inner->function->upvals.size() )
+            {
+                inner->function->upvals.push_back( { vscope->function, v->index, false } );
+            }
+
+            // Continue.
+            outer = inner;
+        }
+
+        // Add to scope so we don't import it again.  Lookup finds this new
+        // upval variable.
+        auto ib = outer->variables.emplace( name, variable{ v->index, true, v->implicit_super, false } );
+        assert( ib.second );
+        v = &ib.first->second;
+        vscope = outer;
     }
 
-    // It's an upval, need to ensure downvals.
+    // Make reference to variable.
+    assert( vscope->function == current_scope->function );
+    assert( n->leaf );
+    if ( v->is_upval )
+        n->kind = v->implicit_super ? AST_UPVAL_NAME_SUPER : AST_UPVAL_NAME;
+    else
+        n->kind = v->implicit_super ? AST_LOCAL_NAME_SUPER : AST_LOCAL_NAME;
+    n->leaf = AST_LEAF_INDEX;
+    n->leaf_index().index = v->index;
 }
 
 void resolve_names::close_scope()

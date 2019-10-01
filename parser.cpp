@@ -47,6 +47,7 @@ std::unique_ptr< syntax_tree > parser::parse()
     _syntax_tree = std::make_unique< syntax_tree >();
 
     _fstack.push_back( _syntax_tree->new_function( 0, nullptr ) );
+    _fstack.back()->name = _source->filename;
     _fstack.back()->is_top_level = true;
 
     unsigned z = string_node( AST_EXPR_NAME, 0, "args", 4 );
