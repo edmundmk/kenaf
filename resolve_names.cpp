@@ -419,12 +419,16 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
         // If we didn't find it, we have to add it.
         if ( upval_index >= inner->function->upvals.size() )
         {
-            // If the variable is a local in the outer function, we have to
-            // allocate it a slot on the outer function's upstack.
+            // If the variable is a local in the outer function, it must be
+            // located on the outer function's upstack.
             if ( ! v->is_upval )
             {
-                insert_upstack( vscope->upstack.get(), vscope_index, v );
-                assert( outer->function->locals.at( v->index ).upstack_index != AST_INVALID_INDEX );
+                syntax_local* local = &outer->function->locals.at( v->index );
+                if ( local->upstack_index == AST_INVALID_INDEX )
+                {
+                    insert_upstack( vscope->upstack.get(), vscope_index, v );
+                    assert( local->upstack_index != AST_INVALID_INDEX );
+                }
             }
 
             // Add to inner function's upval list.
