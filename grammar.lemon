@@ -415,16 +415,22 @@ expr_elif_list_opt(x) ::= expr_elif_list_opt ELIF(kw) expr(u) THEN expr .
 
 expr(x) ::= expr_if(u) .                            { x = u; }
 expr(x) ::= constructor(u) .                        { x = { EXPR_FULL, u }; }
-expr(x) ::= LSQ(op) unpack_list_opt(u) RSQ .        { x = { EXPR_FULL, p->node( AST_EXPR_ARRAY, op.sloc, u.index ) }; }
+expr(x) ::= LSQ(op) avalue_list_opt(u) RSQ .        { x = { EXPR_FULL, p->node( AST_EXPR_ARRAY, op.sloc, u ) }; }
 expr(x) ::= LBR(op) keyval_list_opt(u) RBR .        { x = { EXPR_FULL, p->node( AST_EXPR_TABLE, op.sloc, u ) }; }
 
 keyval_list_opt(x) ::= .                            { x = AST_INVALID_INDEX; }
 keyval_list_opt(x) ::= keyval_list(u) .             { x = u; }
+keyval_list_opt(x) ::= keyval_list(u) COMMA .       { x = u; }
 
 keyval_list(x) ::= keyval(u) .                      { x = u; }
 keyval_list(x) ::= keyval_list(u) COMMA keyval .    { x = u; }
 
 keyval(x) ::= expr(u) COLON(op) expr .              { x = p->node( AST_KEYVAL, op.sloc, u.index ); }
+
+avalue_list_opt(x) ::= .                            { x = AST_INVALID_INDEX; }
+avalue_list_opt(x) ::= term_list(u) .               { x = u.index; }
+avalue_list_opt(x) ::= term_list(u) COMMA .         { x = u.index; }
+avalue_list_opt(x) ::= term_list(u) ELLIPSIS(op) .  { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = u.index; }
 
 unpack_list_opt(x) ::= .                            { x = { EXPR_EMPTY_LIST, AST_INVALID_INDEX }; }
 unpack_list_opt(x) ::= unpack_list(u) .             { x = u; }

@@ -64,7 +64,7 @@ var bodies = [
         1.62824170038242295e-03 * DAYS_PER_YEAR,
         -9.51592254519715870e-05 * DAYS_PER_YEAR,
         5.15138902046611451e-05 * SOLAR_MASS
-    )
+    ),
 ]
 
 def advance( bodies, dt )
