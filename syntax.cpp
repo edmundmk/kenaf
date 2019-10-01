@@ -233,9 +233,7 @@ void syntax_function::debug_print()
         const syntax_upval& upval = upvals[ i ];
         printf
         (
-            "    %zu : %p %s %s %u\n", i,
-            upval.outer,
-            upval.outer->name.c_str(),
+            "    %zu : %s %u\n", i,
             upval.outer_upval ? "OUTER_UPVAL" : "OUTER_LOCAL",
             upval.outer_index
         );

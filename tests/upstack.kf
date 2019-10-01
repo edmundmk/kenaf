@@ -1,0 +1,32 @@
+
+
+var a, u
+do
+    var b, c
+    do
+        var d, e
+        def f0()
+            var junk = [ a, b, c, d, e ]
+        end
+    end
+end
+do
+    var x, y, z
+    def f1()
+        var junk = [ x, y ]
+    end
+    do
+        var p, q, r
+        def f2()
+            var junk = [ p, q, r ]
+        end
+        def f3()
+            var junk = [ z, p, q, r ]
+        end
+    end
+end
+def f4()
+    var n = u
+end
+
+

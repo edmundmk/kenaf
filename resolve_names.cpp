@@ -233,6 +233,19 @@ void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsign
     s->node_index = node_index;
     s->after_continue = false;
     s->repeat_until = false;
+
+    if ( s->is_function() )
+    {
+        s->upstack = std::make_shared< upstack >();
+        s->upstack->function = f;
+    }
+    else
+    {
+        s->upstack = _scopes.back()->upstack;
+        assert( s->upstack->function == f );
+    }
+    s->close_index = s->upstack->upstack_slots.size();
+
     _scopes.push_back( std::move( s ) );
 }
 
@@ -354,10 +367,9 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
             v = &i->second;
             break;
         }
-
-        if ( scope_index != 0 )
+        else if ( scope_index != 0 )
         {
-            // Not found.
+            // Not found in this scope, continue search.
             continue;
         }
         else
@@ -377,52 +389,57 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
     }
 
     // Found in scope at scope_index.
-    scope* vscope = _scopes.at( scope_index++ ).get();
+    size_t vscope_index = scope_index++;
+    scope* vscope = _scopes.at( vscope_index ).get();
 
-    // Check for upval.
-    if ( vscope->function != current_scope->function )
+    // Capture upvals into inner functions.
+    while ( vscope->function != current_scope->function )
     {
-        // We end up with an upval index.
-        unsigned upval_index = AST_INVALID_INDEX;
-
-        // Import into each function.
+        // Find next inner function scope.
         scope* outer = vscope;
-        while ( outer->function != current_scope->function )
+        scope* inner = vscope;
+        while ( inner->function == outer->function )
         {
-            // Find next function scope.
-            scope* inner = vscope;
-            while ( inner->function == outer->function )
-            {
-                inner = _scopes.at( scope_index++ ).get();
-            }
-            assert( inner->is_function() );
+            inner = _scopes.at( scope_index++ ).get();
+        }
+        assert( inner->is_function() );
 
-            // Capture variable into the inner function.
-            for ( upval_index = 0; upval_index < inner->function->upvals.size(); ++upval_index )
+        // Upval might already have been added to inner function's upval list,
+        // e.g. if a function captures both 'self' and 'super'.
+        unsigned upval_index = 0;
+        for ( ; upval_index < inner->function->upvals.size(); ++upval_index )
+        {
+            const syntax_upval& upval = inner->function->upvals[ upval_index ];
+            if ( upval.outer_index == v->index && upval.outer_upval == v->is_upval )
             {
-                const syntax_upval& uv = inner->function->upvals.at( upval_index );
-                assert( ! uv.outer_upval );
-                if ( uv.outer == vscope->function && uv.outer_index == v->index )
-                {
-                    break;
-                }
+                break;
             }
-
-            if ( upval_index >= inner->function->upvals.size() )
-            {
-                inner->function->upvals.push_back( { vscope->function, v->index, false } );
-            }
-
-            // Continue.
-            outer = inner;
         }
 
-        // Add to scope so we don't import it again.  Lookup finds this new
-        // upval variable.
-        auto ib = outer->variables.emplace( name, variable{ v->index, true, v->implicit_super, false } );
-        assert( ib.second );
-        v = &ib.first->second;
-        vscope = outer;
+        // If we didn't find it, we have to add it.
+        if ( upval_index >= inner->function->upvals.size() )
+        {
+            // If the variable is a local in the outer function, we have to
+            // allocate it a slot on the outer function's upstack.
+            if ( ! v->is_upval )
+            {
+                insert_upstack( vscope->upstack.get(), vscope_index, v );
+                assert( outer->function->locals.at( v->index ).upstack_index != AST_INVALID_INDEX );
+            }
+
+            // Add to inner function's upval list.
+            inner->function->upvals.push_back( { v->index, v->is_upval } );
+        }
+
+        // Add entry to inner function's scope to accelerate subsequent
+        // searches for this same upval, and to disallow redeclaration of
+        // captured variables at function scope.
+        auto inserted = inner->variables.emplace( name, variable{ upval_index, true, v->implicit_super, false } );
+        assert( inserted.second );
+
+        // Variable capture continues with this new variable.
+        v = &inserted.first->second;
+        vscope = inner;
     }
 
     // Make reference to variable.
@@ -438,7 +455,130 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
 
 void resolve_names::close_scope()
 {
+    // Pop scope.
+    std::unique_ptr< scope > s = std::move( _scopes.back() );
     _scopes.pop_back();
+
+    // Close upvals.
+    close_upstack( s->upstack.get(), s->block_index, s->close_index );
+}
+
+void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const variable* variable )
+{
+    assert( upstack->function == _scopes.at( scope_index)->function );
+    assert( ! variable->is_upval );
+
+    /*
+        Variables must be inserted into the upstack before any variables in
+        child scopes.  This is because closing a child scope must close upstack
+        slots for variables declared in that scope, but leave open variables
+        declared in parent scopes.  However, upstack insertion happens when a
+        variable is first captured, not when it is declared.  Work out which
+        index this means.
+    */
+    unsigned insert_index = upstack->upstack_slots.size();
+    if ( scope_index + 1 < _scopes.size() )
+    {
+        const scope* next_scope = _scopes.at( scope_index + 1 ).get();
+        if ( next_scope->function == upstack->function )
+        {
+            insert_index = next_scope->close_index;
+        }
+    }
+
+    /*
+        Assign local to upstack slot.
+    */
+    syntax_local& local = upstack->function->locals.at( variable->index );
+    assert( local.upstack_index == AST_INVALID_INDEX );
+    local.upstack_index = insert_index;
+
+    if ( insert_index >= upstack->upstack_slots.size() )
+    {
+        // Pushing a new upval onto the end of the stack is straightforward.
+        upstack->upstack_slots.push_back( variable->index );
+
+        // Update maximum upstack size.
+        unsigned upstack_size = upstack->upstack_slots.size();
+        upstack->function->max_upstack_size = std::max( upstack->function->max_upstack_size, upstack_size );
+
+        // Done.
+        return;
+    }
+
+    /*
+        Otherwise, we must move upvals higher in the stack to open a slot.
+        This means updating their upval indexes, and also updating the close
+        index for blocks which close the stack above the insertion.
+    */
+    upstack->upstack_slots.insert( upstack->upstack_slots.begin() + insert_index, variable->index );
+
+    // Update upval indexes for subsequent locals.
+    for ( unsigned i = insert_index + 1; i < upstack->upstack_slots.size(); ++i )
+    {
+        unsigned local_index = upstack->upstack_slots.at( i );
+        syntax_local& local = upstack->function->locals.at( local_index );
+        assert( local.upstack_index == i - 1 );
+        local.upstack_index = i;
+    }
+
+    // Update all blocks which are anchored below the inserted index, and which
+    // close to an index above it.
+    for ( upstack_block& close : upstack->upstack_close )
+    {
+        syntax_node& node = upstack->function->nodes.at( close.block_index );
+        assert( node.kind == AST_BLOCK );
+        assert( node.leaf == AST_LEAF_INDEX );
+        assert( node.leaf_index().index >= close.floor_index );
+
+        if ( close.floor_index < insert_index && node.leaf_index().index > insert_index )
+        {
+            node.leaf_index().index += 1;
+        }
+    }
+
+    // Update max upstack size.
+    unsigned upstack_size = upstack->upstack_slots.size();
+    upstack->function->max_upstack_size = std::max( upstack->function->max_upstack_size, upstack_size );
+}
+
+void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
+{
+    // Get block node to close.
+    syntax_node& node = upstack->function->nodes.at( block_index );
+    assert( node.kind == AST_BLOCK );
+    assert( node.leaf == AST_LEAF_INDEX );
+    assert( node.leaf_index().index == AST_INVALID_INDEX );
+
+    // If there were no new upvals in the block, then there's nothing to do.
+    assert( close_index <= upstack->upstack_slots.size() );
+    if ( close_index >= upstack->upstack_slots.size() )
+    {
+        return;
+    }
+
+    // Close upstack.
+    upstack->upstack_slots.resize( close_index );
+    node.leaf_index().index = close_index;
+
+    // If the entire upstack has been closed, then we can throw away all our
+    // bookkeeping, its as if we start again (or its the end of the function).
+    if ( close_index == 0 )
+    {
+        assert( upstack->upstack_slots.empty() );
+        upstack->upstack_close.clear();
+        return;
+    }
+
+    // Add new block close entry in case it needs to be updated later due to
+    // an upstack slot being allocated underneath us.
+    upstack->upstack_close.push_back( { block_index, close_index } );
+
+    // Update the anchor index of all existing block close entries.
+    for ( upstack_block& close : upstack->upstack_close )
+    {
+        close.floor_index = std::min( close.floor_index, close_index );
+    }
 }
 
 }

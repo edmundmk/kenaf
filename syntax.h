@@ -55,7 +55,6 @@ struct syntax_tree
 
 struct syntax_upval
 {
-    syntax_function* outer;     // Outer function, used during name resolution.
     unsigned outer_index;       // Index in outer function's upvals or locals.
     bool outer_upval;           // If true, upval was an upval for the outer function.
 };

@@ -91,6 +91,22 @@ public:
 
 private:
 
+    struct upstack_block
+    {
+        unsigned block_index;       // Index of block in AST.
+        unsigned floor_index;       // Index in upstack which anchors this block.
+    };
+
+    struct upstack
+    {
+        // Function this is the upstack of.
+        syntax_function* function;
+        // Stack of unclosed upstack slots, indexing function locals.
+        std::vector< unsigned > upstack_slots;
+        // List of blocks which may need their close index updated.
+        std::vector< upstack_block > upstack_close;
+    };
+
     struct variable
     {
         unsigned index;             // Index in function's upvals or locals.
@@ -104,19 +120,28 @@ private:
         syntax_function* function;  // Function this scope is in.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
+        unsigned close_index;       // Upstack index on entry to this scope.
         bool after_continue;        // Are we currently in code that can be skipped by continue?
         bool repeat_until;          // Are we currently in the until part of a loop?
         bool is_function() const;   // Is this the scope of a function?
         bool is_loop() const;       // Is this the scope of a loop?
+
+        // Map of names to variables.
         std::unordered_map< std::string_view, variable > variables;
+        // Reference to function upstack.
+        std::shared_ptr< upstack > upstack;
     };
 
     void visit( syntax_function* f, unsigned index );
+
     void open_scope( syntax_function* f, unsigned block_index, unsigned node_index );
     void declare_implicit_self( syntax_function* f );
     void declare( syntax_function* f, unsigned index );
     void lookup( syntax_function* f, unsigned index );
     void close_scope();
+
+    void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
+    void close_upstack( upstack* upstack, unsigned block_index, unsigned close_index );
 
     source* _source;
     syntax_tree* _syntax_tree;
