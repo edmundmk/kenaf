@@ -15,17 +15,18 @@ lemon_buildsh = find_program( 'lemon.sh' )
 lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ lemon_program.path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
 
 sources = [
-    'lexer.cpp',
-    'source.cpp',
-    'parser.cpp',
-    'resolve_names.cpp',
-    'syntax.cpp',
+    'parser/lexer.cpp',
+    'parser/source.cpp',
+    'parser/parser.cpp',
+    'parser/resolve_names.cpp',
+    'parser/syntax.cpp',
 ]
 
-sources += lemon.process( 'grammar.lemon' )
+sources += lemon.process( 'parser/grammar.lemon' )
 
 libkenaf = library(
     'kenaf',
+    include_directories : include_directories( 'parser' ),
     sources : sources,
     install : true
 )

@@ -9,10 +9,10 @@
 //
 
 #include <stdlib.h>
-#include "source.h"
-#include "lexer.h"
-#include "parser.h"
-#include "resolve_names.h"
+#include "parser/source.h"
+#include "parser/lexer.h"
+#include "parser/parser.h"
+#include "parser/resolve_names.h"
 
 int main( int argc, char* argv[] )
 {
