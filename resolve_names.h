@@ -52,25 +52,23 @@ namespace kf
 
     -- Upvals and Downvals
 
-    Upvals and downvals implement closures.
+    Upvals and implement closures.  A variable captured by a function closure
+    is an upval.
 
-    A variable is a downval if it is referenced by a child function.  A
-    variable is an upval if it is declared in a parent function.
+    There is an upstack, separate from the call stack.  This stack holds upval
+    objects.  Like in Lua, an upval object either references a slot in the
+    call stack, or stores its captured value in itself.
 
-    There is a downval stack, separate from the call stack.  Each downval is
-    allocated a slot on this stack when it is declared.  At the end of each
-    block that declares at least one downval, the downval stack is popped down
-    to some index, closing all downvals declared in the block.
+    At the end of each block, the upstack is closed down to the same size that
+    it had on entry to the block, disconnecting upvals from the call stack.
 
-    When a function closure is created, the new function's upval slots are
-    filled by copying upval objects from the downval stack into the function
-    object.  If a slot in the downval stack is empty, a new upval object is
-    created.  In this way, downvals used by multiple functions use the same
-    upval object.
+    When each function closure is created, upval objects are created and pushed
+    onto the upstack.  If the variable was already captured by another
+    function, there will be an existing upval on the stack.  Upval references
+    from the upstack are copied into the function object's list of upvals.
+    Inside a function, its upvals are identified by an index into this list.
 
-    Upval objects use the Lua strategy of referring to the original variable's
-    stack slot until they are closed, at which point the value is copied into
-    the upval object itself.
+    Upstack indexes are allocated statically in this name resolution pass.
 
 
     -- Super
@@ -95,7 +93,7 @@ private:
 
     struct variable
     {
-        unsigned local_index;       // Index of local variable.
+        unsigned index;             // Index in function's upvals or locals.
         bool implicit_super;        // Use superof when referencing.
         bool after_continue;        // Is this value declared after first continue?
     };
@@ -103,10 +101,15 @@ private:
     struct scope
     {
         syntax_function* function;  // Function this scope is in.
+//        upstack* upstack;           // Upstack.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
+        unsigned upstack_index;     // Size of upstack on entry to the scope.
         bool after_continue;        // Are we currently in code that can be skipped by continue?
         bool repeat_until;          // Are we currently in the until part of a loop?
+        bool is_function() const;   // Is this the scope of a function?
+        bool is_loop() const;       // Is this the scope of a loop?
+
         std::unordered_map< std::string_view, variable > variables;
     };
 

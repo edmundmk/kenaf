@@ -62,7 +62,7 @@ struct syntax_upval
 struct syntax_local
 {
     std::string_view name;      // Name of local or parameter.
-    unsigned downval_index;     // Index in downval stack, or AST_INVALID_INDEX.
+    unsigned upstack_index;     // Index in upval stack, or AST_INVALID_INDEX.
     bool is_implicit_self;      // Is it implicit self?
     bool is_parameter;          // Is it a parameter?
     bool is_vararg_param;       // Is it the variable argument parameter?
@@ -80,7 +80,7 @@ struct syntax_function
     std::string name;           // Name of function.
     syntax_function* outer;     // Lexically outer function.
     unsigned parameter_count;   // First count locals are parameters.
-    unsigned max_downval_stack; // Maximum size of downval stack
+    unsigned max_upstack_size;  // Maximum size of upstack.
     bool implicit_self;         // Does the function have implicit self?
     bool is_generator;          // Is it a generator?
     bool is_top_level;          // Is it the top-level function of a script?

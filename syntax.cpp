@@ -113,7 +113,7 @@ syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
     :   sloc( sloc )
     ,   outer( outer )
     ,   parameter_count( 0 )
-    ,   max_downval_stack( 0 )
+    ,   max_upstack_size( 0 )
     ,   implicit_self( false )
     ,   is_generator( false )
     ,   is_top_level( false )
@@ -215,7 +215,7 @@ void syntax_function::debug_print()
 {
     printf( "FUNCTION %s\n", name.c_str() );
     printf( "  %u PARAMETERS\n", parameter_count );
-    printf( "  %u DOWNVAL_STACK\n", max_downval_stack );
+    printf( "  %u MAX_UPSTACK_SIZE\n", max_upstack_size );
     if ( implicit_self )
         printf( "  IMPLICIT_SELF\n" );
     if ( is_generator )
@@ -242,8 +242,8 @@ void syntax_function::debug_print()
     {
         const syntax_local& local = locals[ i ];
         printf( "    %zu : %.*s", i, (int)local.name.size(), local.name.data() );
-        if ( local.downval_index != AST_INVALID_INDEX )
-            printf( " DOWNVAL %u", local.downval_index );
+        if ( local.upstack_index != AST_INVALID_INDEX )
+            printf( " UPSTACK %u", local.upstack_index );
         if ( local.is_implicit_self )
             printf( " IMPLICIT_SELF" );
         if ( local.is_parameter )

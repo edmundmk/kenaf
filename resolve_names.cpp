@@ -13,6 +13,18 @@
 namespace kf
 {
 
+inline bool resolve_names::scope::is_function() const
+{
+    return function->nodes.at( node_index ).kind == AST_FUNCTION;
+}
+
+inline bool resolve_names::scope::is_loop() const
+{
+    syntax_node_kind kind = function->nodes.at( node_index ).kind;
+    return kind == AST_STMT_FOR_STEP || kind == AST_STMT_FOR_EACH
+        || kind == AST_STMT_WHILE || kind == AST_STMT_REPEAT;
+}
+
 resolve_names::resolve_names( source* source, syntax_tree* syntax_tree )
     :   _source( source )
     ,   _syntax_tree( syntax_tree )
@@ -140,11 +152,10 @@ void resolve_names::visit( syntax_function* f, unsigned index )
         // Handle continue.
         for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
         {
-            syntax_node* n = &f->nodes[ ( *i )->node_index ];
-            if ( n->kind == AST_STMT_FOR_STEP || n->kind == AST_STMT_FOR_EACH
-                || n->kind == AST_STMT_WHILE || n->kind == AST_STMT_REPEAT )
+            scope* s = i->get();
+            if ( s->is_loop() )
             {
-                ( *i )->after_continue = true;
+                s->after_continue = true;
                 break;
             }
         }
@@ -221,7 +232,7 @@ void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsign
     s->block_index = block_index;
     s->node_index = node_index;
     s->after_continue = false;
-    s->repeat_until = _scopes.size() ? _scopes.back()->repeat_until : false;
+    s->repeat_until = false;
     _scopes.push_back( std::move( s ) );
 }
 
@@ -231,7 +242,7 @@ void resolve_names::declare_implicit_self( syntax_function* f )
 
     syntax_local local = {};
     local.name = "self";
-    local.downval_index = AST_INVALID_INDEX;
+    local.upstack_index = AST_INVALID_INDEX;
     local.is_implicit_self = true;
     local.is_parameter = true;
 
@@ -297,7 +308,7 @@ void resolve_names::declare( syntax_function* f, unsigned index )
         // Add local.
         syntax_local local = {};
         local.name = name;
-        local.downval_index = AST_INVALID_INDEX;
+        local.upstack_index = AST_INVALID_INDEX;
         local.is_parameter = is_parameter;
         local.is_vararg_param = is_vararg_param;
 
@@ -370,7 +381,7 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
         assert( n->leaf );
         n->kind = v->implicit_super ? AST_LOCAL_NAME_SUPER : AST_LOCAL_NAME;
         n->leaf = AST_LEAF_INDEX;
-        n->leaf_index().index = v->local_index;
+        n->leaf_index().index = v->index;
     }
 
     // It's an upval, need to ensure downvals.
