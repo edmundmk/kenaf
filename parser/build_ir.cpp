@@ -1,5 +1,5 @@
 //
-//  build_icode.cpp
+//  build_ir.cpp
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,30 +8,30 @@
 //  full license information.
 //
 
-#include "build_icode.h"
+#include "build_ir.h"
 #include "syntax.h"
 
 namespace kf
 {
 
-build_icode::build_icode()
+build_ir::build_ir()
     :   _ast_function( nullptr )
 {
 }
 
-build_icode::~build_icode()
+build_ir::~build_ir()
 {
 }
 
-std::unique_ptr< icode_function > build_icode::build( syntax_function* function )
+std::unique_ptr< ir_function > build_ir::build( syntax_function* function )
 {
     // Set up for building.
     _ast_function = function;
-    _ir_function = std::make_unique< icode_function >();
+    _ir_function = std::make_unique< ir_function >();
     _ir_function->ast = function;
 
     // Create initial block.
-    _ir_function->blocks.push_back( std::make_unique< icode_block >() );
+    _ir_function->blocks.push_back( std::make_unique< ir_block >() );
     _block = _ir_function->blocks.back().get();
     _block->block_index = _ir_function->blocks.size() - 1;
     _block->function = _ir_function.get();
@@ -48,7 +48,7 @@ std::unique_ptr< icode_function > build_icode::build( syntax_function* function 
     return std::move( _ir_function );
 }
 
-void build_icode::visit( unsigned ast_index )
+void build_ir::visit( unsigned ast_index )
 {
     syntax_node* n = &_ast_function->nodes[ ast_index ];
 
@@ -77,7 +77,7 @@ void build_icode::visit( unsigned ast_index )
         double f = n->leaf_number().n;
         int8_t i = (int8_t)f;
         if ( i == f )
-            _eval.push_back( icode_pack_integer_operand( i ) );
+            _eval.push_back( ir_pack_integer_operand( i ) );
         else
             _eval.push_back( { IR_O_AST_NUMBER, ast_index } );
         return;
@@ -292,9 +292,9 @@ void build_icode::visit( unsigned ast_index )
     }
 }
 
-unsigned build_icode::op( srcloc sloc, icode_opcode opcode, unsigned operand_count, bool head )
+unsigned build_ir::op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head )
 {
-    icode_op op;
+    ir_op op;
     op.opcode = opcode;
     op.operand_count = operand_count;
     op.operands = operand_count ? _block->operands.size() : IR_INVALID_INDEX;
@@ -325,7 +325,7 @@ unsigned build_icode::op( srcloc sloc, icode_opcode opcode, unsigned operand_cou
     return op_index;
 }
 
-void build_icode::def( unsigned local_index, icode_block* block, unsigned op_index )
+void build_ir::def( unsigned local_index, ir_block* block, unsigned op_index )
 {
     _def_map.insert_or_assign( std::make_pair( local_index, block ), op_index );
 }

@@ -661,7 +661,7 @@ token lexer::lex_string()
                 }
                 else
                 {
-                    _source->error( xloc, "Unicode escape must have form 'U+000000'" );
+                    _source->error( xloc, "Unir escape must have form 'U+000000'" );
                     _text.push_back( 'U' );
                 }
                 break;
@@ -775,7 +775,7 @@ void lexer::string_utf8( srcloc xloc, unsigned codepoint )
         _text.push_back( 0xBD );
 
         // Report error.
-        _source->error( xloc, "invalid Unicode codepoint U+%06X", codepoint );
+        _source->error( xloc, "invalid Unir codepoint U+%06X", codepoint );
     }
 }
 

@@ -1,5 +1,5 @@
 //
-//  icode.cpp
+//  ir.cpp
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,23 +8,23 @@
 //  full license information.
 //
 
-#include "icode.h"
+#include "ir.h"
 #include <string.h>
 #include "syntax.h"
 
 namespace kf
 {
 
-icode_function::icode_function()
+ir_function::ir_function()
     :   ast( nullptr )
 {
 }
 
-icode_function::~icode_function()
+ir_function::~ir_function()
 {
 }
 
-void icode_function::debug_print()
+void ir_function::debug_print()
 {
     for ( const auto& block : blocks )
     {
@@ -32,7 +32,7 @@ void icode_function::debug_print()
     }
 }
 
-icode_oplist::icode_oplist()
+ir_oplist::ir_oplist()
     :   _ops( nullptr )
     ,   _body_size( 0 )
     ,   _head_size( 0 )
@@ -41,19 +41,19 @@ icode_oplist::icode_oplist()
 {
 }
 
-icode_oplist::~icode_oplist()
+ir_oplist::~ir_oplist()
 {
     free( _ops );
 }
 
-void icode_oplist::clear()
+void ir_oplist::clear()
 {
     _head_size = 0;
     _body_size = 0;
     _watermark = ( _capacity / 4 ) * 3;
 }
 
-unsigned icode_oplist::push_head( const icode_op& op )
+unsigned ir_oplist::push_head( const ir_op& op )
 {
     if ( _watermark + _head_size >= _capacity )
     {
@@ -63,7 +63,7 @@ unsigned icode_oplist::push_head( const icode_op& op )
     return _head_size++;
 }
 
-unsigned icode_oplist::push_body( const icode_op& op )
+unsigned ir_oplist::push_body( const ir_op& op )
 {
     if ( _body_size >= _watermark )
     {
@@ -73,7 +73,7 @@ unsigned icode_oplist::push_body( const icode_op& op )
     return _body_size++;
 }
 
-void icode_oplist::grow( bool grow_body, bool grow_head )
+void ir_oplist::grow( bool grow_body, bool grow_head )
 {
     // Calculate updated sizes.
     size_t body_capacity = _watermark;
@@ -83,14 +83,14 @@ void icode_oplist::grow( bool grow_body, bool grow_head )
 
     // Reallocate.
     _capacity = body_capacity + head_capacity;
-    _ops = (icode_op*)realloc( _ops, _capacity * sizeof( icode_op ) );
+    _ops = (ir_op*)realloc( _ops, _capacity * sizeof( ir_op ) );
 
     // Move head ops.
-    memmove( _ops + body_capacity, _ops + _watermark, _head_size * sizeof( icode_op ) );
+    memmove( _ops + body_capacity, _ops + _watermark, _head_size * sizeof( ir_op ) );
     _watermark = body_capacity;
 }
 
-icode_block::icode_block()
+ir_block::ir_block()
     :   loop_kind( IR_LOOP_NONE )
     ,   test_kind( IR_TEST_NONE )
     ,   block_index( IR_INVALID_INDEX )
@@ -101,7 +101,7 @@ icode_block::icode_block()
 {
 }
 
-icode_block::~icode_block()
+ir_block::~ir_block()
 {
 }
 
@@ -135,13 +135,13 @@ const char* const OPCODE_NAMES[] =
     [ IR_CALL       ] = "CALL",
 };
 
-static void debug_print_op( icode_block* block, unsigned i )
+static void debug_print_op( ir_block* block, unsigned i )
 {
-    const icode_op& op = block->ops.at( i );
+    const ir_op& op = block->ops.at( i );
     printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : "@", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.operand_count; ++o )
     {
-        icode_operand operand = block->operands[ op.operands + o ];
+        ir_operand operand = block->operands[ op.operands + o ];
 
         if ( o )
         {
@@ -158,9 +158,9 @@ static void debug_print_op( icode_block* block, unsigned i )
 
         case IR_O_PHI_BLOCK:
         {
-            icode_operand opvalue = block->operands[ op.operands + ++o ];
+            ir_operand opvalue = block->operands[ op.operands + ++o ];
             assert( opvalue.kind == IR_O_PHI_VALUE );
-            icode_block* opblock = block->function->blocks.at( operand.index ).get();
+            ir_block* opblock = block->function->blocks.at( operand.index ).get();
             printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : "@", opvalue.index & ~IR_HEAD_BIT );
             break;
         }
@@ -186,7 +186,7 @@ static void debug_print_op( icode_block* block, unsigned i )
 
         case IR_O_INTEGER:
         {
-            printf( " %i", icode_unpack_integer_operand( operand ) );
+            printf( " %i", ir_unpack_integer_operand( operand ) );
             break;
         }
 
@@ -240,7 +240,7 @@ static void debug_print_op( icode_block* block, unsigned i )
     printf( "\n" );
 }
 
-void icode_block::debug_print()
+void ir_block::debug_print()
 {
     printf( "[%u] BLOCK:\n", block_index );
     for ( unsigned i = 0; i < ops.head_size(); ++i )

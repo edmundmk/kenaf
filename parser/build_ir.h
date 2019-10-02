@@ -1,5 +1,5 @@
 //
-//  build_icode.h
+//  build_ir.h
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef BUILD_ICODE_H
-#define BUILD_ICODE_H
+#ifndef BUILD_IR_H
+#define BUILD_IR_H
 
 /*
     -- IR Building
@@ -63,42 +63,42 @@
 #include <utility>
 #include <functional>
 #include <unordered_map>
-#include "icode.h"
+#include "ir.h"
 
-template <> struct std::hash< std::pair< unsigned, kf::icode_block* > >
-    :   private std::hash< unsigned >, private std::hash< kf::icode_block* >
+template <> struct std::hash< std::pair< unsigned, kf::ir_block* > >
+    :   private std::hash< unsigned >, private std::hash< kf::ir_block* >
 {
-    inline size_t operator () ( std::pair< unsigned, kf::icode_block* > key ) const
+    inline size_t operator () ( std::pair< unsigned, kf::ir_block* > key ) const
     {
-        return std::hash< unsigned >::operator () ( key.first ) ^ std::hash< kf::icode_block* >::operator () ( key.second );
+        return std::hash< unsigned >::operator () ( key.first ) ^ std::hash< kf::ir_block* >::operator () ( key.second );
     }
 };
 
 namespace kf
 {
 
-class build_icode
+class build_ir
 {
 public:
 
-    build_icode();
-    ~build_icode();
+    build_ir();
+    ~build_ir();
 
-    std::unique_ptr< icode_function > build( syntax_function* function );
+    std::unique_ptr< ir_function > build( syntax_function* function );
 
 private:
 
     void visit( unsigned ast_index );
 
-    unsigned op( srcloc sloc, icode_opcode opcode, unsigned operand_count, bool head = false );
-    void def( unsigned local_index, icode_block* block, unsigned op_index );
+    unsigned op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head = false );
+    void def( unsigned local_index, ir_block* block, unsigned op_index );
 
     syntax_function* _ast_function;
-    std::unique_ptr< icode_function > _ir_function;
-    std::unordered_map< std::pair< unsigned, icode_block* >, unsigned > _def_map;
-    icode_block* _block;
+    std::unique_ptr< ir_function > _ir_function;
+    std::unordered_map< std::pair< unsigned, ir_block* >, unsigned > _def_map;
+    ir_block* _block;
 
-    std::vector< icode_operand > _eval;
+    std::vector< ir_operand > _eval;
 
 };
 

@@ -1,5 +1,5 @@
 //
-//  icode.h
+//  ir.h
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,12 +8,12 @@
 //  full license information.
 //
 
-#ifndef ICODE_H
-#define ICODE_H
+#ifndef IR_H
+#define IR_H
 
 /*
     This is an intermediate representation that sits between the syntax tree
-    and the bytecode.  We are trying to produce good bytecode.  icode is
+    and the bytecode.  We are trying to produce good bytecode.  ir is
     designed to help us do this.
 
     First, constant folding.  Calculations involving literal values should be
@@ -61,11 +61,11 @@ namespace kf
 
 struct syntax_function;
 
-struct icode_function;
-struct icode_block;
-class icode_oplist;
-struct icode_op;
-struct icode_operand;
+struct ir_function;
+struct ir_block;
+class ir_oplist;
+struct ir_op;
+struct ir_operand;
 
 /*
     Op indexes are 24-bit.
@@ -79,15 +79,15 @@ const unsigned IR_TEMPORARY = 0xFF;
     Stores the intermediate representation for a function.
 */
 
-struct icode_function
+struct ir_function
 {
-    icode_function();
-    ~icode_function();
+    ir_function();
+    ~ir_function();
 
     void debug_print();
 
     syntax_function* ast;
-    std::vector< std::unique_ptr< icode_block > > blocks;
+    std::vector< std::unique_ptr< ir_block > > blocks;
 };
 
 /*
@@ -104,35 +104,35 @@ struct icode_function
 
 const unsigned IR_HEAD_BIT = 0x800000;
 
-class icode_oplist
+class ir_oplist
 {
 public:
 
-    icode_oplist();
-    ~icode_oplist();
+    ir_oplist();
+    ~ir_oplist();
 
     unsigned head_size() const;
     unsigned body_size() const;
 
     void clear();
-    unsigned push_head( const icode_op& op );
-    unsigned push_body( const icode_op& op );
+    unsigned push_head( const ir_op& op );
+    unsigned push_body( const ir_op& op );
 
-    const icode_op& operator [] ( unsigned i ) const;
-    const icode_op& at( unsigned i ) const;
-    icode_op& operator [] ( unsigned i );
-    icode_op& at( unsigned i );
+    const ir_op& operator [] ( unsigned i ) const;
+    const ir_op& at( unsigned i ) const;
+    ir_op& operator [] ( unsigned i );
+    ir_op& at( unsigned i );
 
 private:
 
     static const unsigned INDEX_MASK = 0x7FFFFF;
 
-    icode_oplist( icode_oplist& ) = delete;
-    icode_oplist& operator = ( icode_oplist& ) = delete;
+    ir_oplist( ir_oplist& ) = delete;
+    ir_oplist& operator = ( ir_oplist& ) = delete;
 
     void grow( bool grow_body, bool grow_head );
 
-    icode_op* _ops;
+    ir_op* _ops;
     size_t _body_size;
     size_t _head_size;
     size_t _watermark;
@@ -144,7 +144,7 @@ private:
     A block is a sequence of instructions without branches.
 */
 
-enum icode_loop_kind : unsigned
+enum ir_loop_kind : unsigned
 {
     IR_LOOP_NONE,                   // Not a loop header.
     IR_LOOP_FOR_STEP,               // Loop header of for i = start : stop : step do
@@ -153,16 +153,16 @@ enum icode_loop_kind : unsigned
     IR_LOOP_REPEAT,                 // Loop header of repeat/until loop.
 };
 
-enum icode_test_kind : unsigned
+enum ir_test_kind : unsigned
 {
     IR_TEST_NONE,                   // No test.  Successor is if_true.
     IR_TEST_IF,                     // Block ends with an if test between two sucessors.
 };
 
-struct icode_block
+struct ir_block
 {
-    icode_block();
-    ~icode_block();
+    ir_block();
+    ~ir_block();
 
     void debug_print();
 
@@ -170,17 +170,17 @@ struct icode_block
     unsigned test_kind : 4;  // Test kind.
     unsigned block_index : 24;      // Index in function's list of blocks.
 
-    icode_function* function;       // Function containing this block.
-    icode_block* loop;              // Loop containing this block.
-    icode_block* if_true;           // Successor if test is true.
-    icode_block* if_false;          // Successor if test is false.
+    ir_function* function;       // Function containing this block.
+    ir_block* loop;              // Loop containing this block.
+    ir_block* if_true;           // Successor if test is true.
+    ir_block* if_false;          // Successor if test is false.
 
     // List of predecessor block indices.
     std::vector< unsigned > predecessor_blocks;
 
     // Oplist and operands.
-    icode_oplist ops;
-    std::vector< icode_operand > operands;
+    ir_oplist ops;
+    std::vector< ir_operand > operands;
 };
 
 /*
@@ -192,7 +192,7 @@ struct icode_block
     the op may appear in phi instructions in successor blocks.
 */
 
-enum icode_opcode : uint8_t
+enum ir_opcode : uint8_t
 {
     IR_NOP,
 
@@ -235,7 +235,7 @@ enum icode_opcode : uint8_t
     IR_ARRAY_UNPACK,            // value ...
 };
 
-enum icode_operand_kind : uint8_t
+enum ir_operand_kind : uint8_t
 {
     IR_O_VALUE,                 // Index of op in this block.
     IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
@@ -252,14 +252,14 @@ enum icode_operand_kind : uint8_t
     IR_O_FALSE,                 // false
 };
 
-struct icode_op
+struct ir_op
 {
-    icode_op() : opcode( IR_NOP ), r( IR_INVALID_REGISTER ),
+    ir_op() : opcode( IR_NOP ), r( IR_INVALID_REGISTER ),
         stack_top( IR_INVALID_REGISTER ), temp_r( IR_INVALID_REGISTER ),
         operand_count( 0 ), operands( IR_INVALID_INDEX ),
         variable( IR_TEMPORARY ), live_range( IR_INVALID_INDEX ), sloc( 0 ) {}
 
-    icode_opcode opcode;        // Opcode.
+    ir_opcode opcode;        // Opcode.
     uint8_t r;                  // Allocated register.
     uint8_t stack_top;          // Stack top at this op.
     uint8_t temp_r;             // Temporary register for literal loading.
@@ -273,18 +273,18 @@ struct icode_op
     srcloc sloc;                // Source location.
 };
 
-struct icode_operand
+struct ir_operand
 {
-    icode_operand_kind kind : 8;    // Operand kind.
+    ir_operand_kind kind : 8;    // Operand kind.
     unsigned index : 24;            // Index of op used as result.
 };
 
-inline icode_operand icode_pack_integer_operand( int8_t i )
+inline ir_operand ir_pack_integer_operand( int8_t i )
 {
     return { IR_O_INTEGER, (unsigned)(int)i };
 }
 
-inline int8_t icode_unpack_integer_operand( icode_operand operand )
+inline int8_t ir_unpack_integer_operand( ir_operand operand )
 {
     return (int8_t)(int)(unsigned)operand.index;
 }
@@ -292,17 +292,17 @@ inline int8_t icode_unpack_integer_operand( icode_operand operand )
 /*
 */
 
-inline unsigned icode_oplist::head_size() const
+inline unsigned ir_oplist::head_size() const
 {
     return _head_size;
 }
 
-inline unsigned icode_oplist::body_size() const
+inline unsigned ir_oplist::body_size() const
 {
     return _body_size;
 }
 
-inline const icode_op& icode_oplist::operator [] ( unsigned i ) const
+inline const ir_op& ir_oplist::operator [] ( unsigned i ) const
 {
     if ( ( i & IR_HEAD_BIT ) == 0 )
     {
@@ -317,7 +317,7 @@ inline const icode_op& icode_oplist::operator [] ( unsigned i ) const
     }
 }
 
-inline const icode_op& icode_oplist::at( unsigned i ) const
+inline const ir_op& ir_oplist::at( unsigned i ) const
 {
     if ( ( i & IR_HEAD_BIT ) == 0 )
     {
@@ -332,7 +332,7 @@ inline const icode_op& icode_oplist::at( unsigned i ) const
     }
 }
 
-inline icode_op& icode_oplist::operator [] ( unsigned i )
+inline ir_op& ir_oplist::operator [] ( unsigned i )
 {
     if ( ( i & IR_HEAD_BIT ) == 0 )
     {
@@ -347,7 +347,7 @@ inline icode_op& icode_oplist::operator [] ( unsigned i )
     }
 }
 
-inline icode_op& icode_oplist::at( unsigned i )
+inline ir_op& ir_oplist::at( unsigned i )
 {
     if ( ( i & IR_HEAD_BIT ) == 0 )
     {
