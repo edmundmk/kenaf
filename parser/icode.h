@@ -125,7 +125,7 @@ public:
 
 private:
 
-    const unsigned INDEX_MASK = 0x7FFFFF;
+    static const unsigned INDEX_MASK = 0x7FFFFF;
 
     icode_oplist( icode_oplist& ) = delete;
     icode_oplist& operator = ( icode_oplist& ) = delete;

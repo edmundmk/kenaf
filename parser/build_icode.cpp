@@ -216,49 +216,49 @@ void build_icode::visit( unsigned ast_index )
         return;
     }
 
-    case IR_CONCAT:
+    case AST_EXPR_CONCAT:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUB, 2 ) } );
         return;
     }
 
-    case IR_LSHIFT:
+    case AST_EXPR_LSHIFT:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_LSHIFT, 2 ) } );
         return;
     }
 
-    case IR_RSHIFT:
+    case AST_EXPR_RSHIFT:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_RSHIFT, 2 ) } );
         return;
     }
 
-    case IR_ASHIFT:
+    case AST_EXPR_ASHIFT:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_ASHIFT, 2 ) } );
         return;
     }
 
-    case IR_BITAND:
+    case AST_EXPR_BITAND:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_BITAND, 2 ) } );
         return;
     }
 
-    case IR_BITXOR:
+    case AST_EXPR_BITXOR:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_BITXOR, 2 ) } );
         return;
     }
 
-    case IR_BITOR:
+    case AST_EXPR_BITOR:
     {
 //        assert( child_count == 2 );
         _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUB, 2 ) } );

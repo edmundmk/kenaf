@@ -83,10 +83,10 @@ void icode_oplist::grow( bool grow_body, bool grow_head )
 
     // Reallocate.
     _capacity = body_capacity + head_capacity;
-    _ops = (icode_op*)realloc( _ops, _capacity );
+    _ops = (icode_op*)realloc( _ops, _capacity * sizeof( icode_op ) );
 
     // Move head ops.
-    memmove( _ops + _watermark, _ops + body_capacity, _head_size );
+    memmove( _ops + body_capacity, _ops + _watermark, _head_size * sizeof( icode_op ) );
     _watermark = body_capacity;
 }
 
