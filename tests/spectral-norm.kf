@@ -31,7 +31,7 @@ def multiplyAtAv( n, v, AtAv )
     multiplyAtv( n, x, AtAv )
 end
 
-n = args ...
+var _, n = args ...
 n = if n then number( n ) else 100
 
 var u, v = [], []

@@ -182,13 +182,55 @@ void resolve_names::visit( ast_function* f, unsigned index )
         return;
     }
 
+    case AST_ASSIGN:
+    case AST_OP_ASSIGN:
+    {
+        // Visit lvals.
+        unsigned lval_index = n->child_index;
+        ast_node* lval_list = &f->nodes[ lval_index ];
+
+        // Might be a single value or a list.
+        unsigned head_index;
+        unsigned last_index;
+        if ( lval_list->kind != AST_LVAL_LIST )
+        {
+            head_index = lval_index;
+            last_index = lval_list->next_index;
+        }
+        else
+        {
+            head_index = lval_list->child_index;
+            last_index = lval_index;
+        }
+
+        // Visit all expressions on lhs, disallowing bare global names.
+        unsigned next_index;
+        for ( unsigned c = head_index; c < last_index; c = next_index )
+        {
+            ast_node* lval = &f->nodes[ c ];
+            if ( lval->kind == AST_EXPR_NAME )
+                lookup( f, c, LOOKUP_ASSIGN );
+            else
+                visit( f, c );
+            next_index = lval->next_index;
+        }
+
+        // Visit remaining parts of expression.
+        for ( unsigned c = lval_list->next_index; c < index; c = f->nodes[ c ].next_index )
+        {
+            visit( f, c );
+        }
+
+        return;
+    }
+
     case AST_EXPR_UNPACK:
     {
         // Look up name inside unpack, allow vararg parameters.
         unsigned value_index = n->child_index;
         if ( f->nodes[ value_index ].kind == AST_EXPR_NAME )
         {
-            lookup( f, value_index, true );
+            lookup( f, value_index, LOOKUP_UNPACK );
             return;
         }
     }
@@ -212,7 +254,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
     case AST_EXPR_NAME:
     {
         // Look up unqualified name.  Disallow vararg parameters.
-        lookup( f, index, false );
+        lookup( f, index, LOOKUP_NORMAL );
         return;
     }
 
@@ -359,7 +401,7 @@ void resolve_names::declare( ast_function* f, unsigned index )
     }
 }
 
-void resolve_names::lookup( ast_function* f, unsigned index, bool vararg_unpack )
+void resolve_names::lookup( ast_function* f, unsigned index, unsigned context )
 {
     ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();
@@ -381,15 +423,17 @@ void resolve_names::lookup( ast_function* f, unsigned index, bool vararg_unpack 
             v = &i->second;
             break;
         }
-        else if ( scope_index != 0 )
+        else if ( scope_index == 0 )
         {
-            // Not found in this scope, continue search.
-            continue;
-        }
-        else
-        {
-            // Not found at all.
+            // Name was not found at all.
             n->kind = AST_GLOBAL_NAME;
+
+            // Can't assign to a bare global.
+            if ( context == LOOKUP_ASSIGN )
+            {
+                _source->error( n->sloc, "cannot assign to undeclared identifier '%.*s'", (int)name.size(), name.data() );
+            }
+
             return;
         }
     }
@@ -411,7 +455,7 @@ void resolve_names::lookup( ast_function* f, unsigned index, bool vararg_unpack 
     const ast_local& local = vscope->function->locals.at( v->index );
     if ( local.is_vararg_param )
     {
-        if ( ! vararg_unpack )
+        if ( context != LOOKUP_UNPACK )
         {
             _source->error( n->sloc, "variable argument parameter '%.*s' cannot be used in an expression", (int)name.size(), name.data() );
         }
