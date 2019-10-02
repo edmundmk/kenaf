@@ -37,9 +37,8 @@
         evaluate( b ) <- t1
         evaluate( c ) <- t2
 
-    In this pass we finally check if the number of values on either side of
-    the assignment is equal.  If the right hand side ends in an unpack, there
-    may be any number of extra values on the left hand side.
+    We must be careful to ensure we preserve our intermediate representation's
+    invariant that there is only one live definition of each local at any time.
 
 
     -- SSA Construction
@@ -47,16 +46,13 @@
     To generate live ranges for locals, we perform SSA construction by finding
     the definitions which reach each use of the local.
 
-    Whenever a local is pushed onto the evaluation stack, we perform a search
-    for the definition in predecessor blocks.  This extends the live ranges of
-    those defnitions which reach the current point.
-
     The algorithm is based on this paper:
 
         http://www.cdl.uni-saarland.de/papers/bbhlmz13cc.pdf
 
-    We must be careful to ensure we preserve our intermediate representation's
-    invariant that there is only one live definition of each local at any time.
+    Whenever a local is pushed onto the evaluation stack, we perform a search
+    for the definition in predecessor blocks.  This extends the live ranges of
+    those defnitions which reach the current point.
 
 */
 

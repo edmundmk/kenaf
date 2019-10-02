@@ -38,11 +38,7 @@ enum expr_kind
     EXPR_LVAL,          // name.key / name[ index ]
     EXPR_CALL,          // name( args )
     EXPR_FULL,          // any other expression
-    EXPR_NAME_LIST,     // name, name
-    EXPR_LVAL_LIST,     // name, name.key, expr(x)[ index ]
-    EXPR_FULL_LIST,     // any other expression list
-    EXPR_UNPACK_LIST,   // expression list with ... at end
-    EXPR_EMPTY_LIST,    // ()
+    EXPR_UNPACK,        // expression list with unpack
 };
 
 struct expr_type
@@ -51,23 +47,18 @@ struct expr_type
     unsigned index;
 };
 
-struct maybe_list_type
+struct list_type
 {
+    expr_kind kind;
     unsigned index;
-    bool is_list;
+    unsigned count;
+    unsigned ilast;
 };
 
 struct op_assign_type
 {
     unsigned index;
     struct token token;
-};
-
-struct term_list_type
-{
-    expr_kind kind;
-    unsigned index;
-    unsigned ilast;
 };
 
 struct definition_type
@@ -85,36 +76,47 @@ struct open_function_type
 
 static expr_kind expr_list_kind( expr_kind u, expr_kind v )
 {
-    // Upgrade u to a list.
-    if ( u == EXPR_NAME || u == EXPR_NAME_LIST ) u = EXPR_NAME_LIST;
-    else if ( u == EXPR_LVAL || u == EXPR_LVAL_LIST ) u = EXPR_LVAL_LIST;
-    else u = EXPR_FULL_LIST;
-
-    // Upgrade v to a list.
-    if ( v == EXPR_NAME || v == EXPR_NAME_LIST ) v = EXPR_NAME_LIST;
-    else if ( v == EXPR_LVAL || v == EXPR_LVAL_LIST ) v = EXPR_LVAL_LIST;
-    else v = EXPR_FULL_LIST;
-
     // Return the widest kind of list.
     return (expr_kind)std::max( u, v );
 }
 
-static maybe_list_type assignment( parser* p, maybe_list_type lval, op_assign_type op, maybe_list_type rval )
+static list_type assign( parser* p, ast_node_kind kind, srcloc sloc, list_type lval, list_type rval )
 {
-    if ( op.index == AST_INVALID_INDEX )
+    if ( lval.kind != EXPR_NAME && lval.kind != EXPR_LVAL )
     {
-        // Straightforward assignment.
-        return { p->node( AST_ASSIGN, op.token.sloc, lval.index ), lval.is_list || rval.is_list };
+        p->error( p->node_sloc( lval.index ), "left hand side is not assignable" );
     }
-    else
+
+    if ( lval.count < rval.count )
     {
-        // For op assign operations both sides must be single values.
-        if ( lval.is_list )
-            p->error( op.token.sloc, "left hand side of %s has multiple values", spelling( op.token ).c_str() );
-        if ( rval.is_list )
-            p->error( op.token.sloc, "right hand side of %s has multiple values", spelling( op.token ).c_str() );
-        return { p->node( AST_OP_ASSIGN, op.token.sloc, lval.index ), lval.is_list || rval.is_list };
+        p->error( p->node_sloc( lval.index ), "too many values on right hand side of assignment" );
     }
+    else if ( lval.count > rval.count && rval.kind != EXPR_UNPACK )
+    {
+        p->error( p->node_sloc( lval.index ), "too many values on left hand side of assignment" );
+    }
+
+    return { EXPR_FULL, p->node( kind, sloc, lval.index ), lval.count, AST_INVALID_INDEX };
+}
+
+static list_type op_assign( parser* p, op_assign_type op, list_type lval, list_type rval )
+{
+    if ( lval.kind != EXPR_NAME && lval.kind != EXPR_LVAL )
+    {
+        p->error( p->node_sloc( lval.index ), "left hand side is not assignable" );
+    }
+
+    if ( lval.count != 1 )
+    {
+        p->error( op.token.sloc, "left hand side of %s has multiple values", spelling( op.token ).c_str() );
+    }
+
+    if ( rval.count != 1 || rval.kind == EXPR_UNPACK )
+    {
+        p->error( op.token.sloc, "right hand side of %s has multiple values", spelling( op.token ).c_str() );
+    }
+
+    return { EXPR_FULL, p->node( AST_OP_ASSIGN, op.token.sloc, lval.index ), lval.count, AST_INVALID_INDEX };
 }
 
 }
@@ -138,8 +140,6 @@ stmt_list(x) ::= stmt_list(u) last_stmt(v) SEMICOLON .  { x = u != AST_INVALID_I
 stmt(x) ::= expr_call(u) . [PREFER_CALL]                { x = u.index; }
 stmt(x) ::= definition(u) .                             { x = u.index; }
 stmt(x) ::= stmt_assign(u) .                            { x = u; }
-stmt(x) ::= VAR(kw) r_name_list(u) .                    { x = p->node( AST_STMT_VAR, kw.sloc, u.index ); }
-stmt(x) ::= VAR(kw) r_name_list(u) ASSIGN assign_rval . { x = p->node( AST_STMT_VAR, kw.sloc, u.index ); }
 stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_EXPR_YIELD, kw.sloc, u.index ); }
 stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ); }
 stmt(x) ::= DO(kw) block(u) END .                       { p->update_sloc( u, kw.sloc ); x = u; }
@@ -150,7 +150,7 @@ stmt(x) ::= IF(kw) expr(u) THEN(bdo) block(block) elif_list_opt else_opt END .
     }
 stmt(x) ::= FOR(kw) r_name_list(u) ASSIGN expr COLON expr step_opt DO(bdo) block(block) END .
     {
-        if ( u.is_list )
+        if ( u.count != 1 )
         {
             p->error( p->node_sloc( u.index ), "for step must declare a single variable, not a list" );
         }
@@ -202,83 +202,104 @@ step_opt(x) ::= COLON expr(u) . { x = u.index; }
 
 // ASSIGNMENTS
 
-%type r_name_list { maybe_list_type }
-%type r_lval_list { maybe_list_type }
-%type r_lval_list_from_unpack_list { maybe_list_type }
-%type assign_rval { maybe_list_type }
-%type name_list { maybe_list_type }
+%type r_name_list { list_type }
+%type r_lval_list { list_type }
+%type r_lval_list_from_unpack_list { list_type }
+%type assign_rval { list_type }
+%type name_list { list_type }
 %type op_assign { op_assign_type }
 
+stmt_assign(x) ::= r_lval_list(lval) ASSIGN(op) assign_rval(rval ).
+    {
+        x = assign( p, AST_ASSIGN, op.sloc, lval, rval ).index;
+    }
 stmt_assign(x) ::= r_lval_list(lval) op_assign(op) assign_rval(rval) .
     {
-        x = assignment( p, lval, op, rval ).index;
+        x = op_assign( p, op, lval, rval ).index;
+    }
+stmt_assign(x) ::= VAR(kw) r_name_list(u) .
+    {
+        x = p->node( AST_STMT_VAR, kw.sloc, u.index );
+    }
+stmt_assign(x) ::= VAR(kw) r_name_list(u) ASSIGN assign_rval(v) .
+    {
+        x = assign( p, AST_STMT_VAR, kw.sloc, u, v ).index;
     }
 
 r_name_list(x) ::= name_list(u) .
     {
-        if ( ! u.is_list )
+        assert( u.kind == EXPR_NAME );
+        if ( u.count == 1 )
             x = u;
         else
-            x = { p->node( AST_NAME_LIST, p->node_sloc( u.index ), u.index ), true };
+            x = { u.kind, p->node( AST_NAME_LIST, p->node_sloc( u.index ), u.index ), u.count, AST_INVALID_INDEX };
     }
 
 r_lval_list(x) ::= lval_list(u) .
     {
-        if ( u.kind == EXPR_NAME || u.kind == EXPR_LVAL )
-            x = { u.index, false };
-        else if ( u.kind == EXPR_NAME_LIST || u.kind == EXPR_LVAL_LIST )
-            x = { p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), true };
+        assert( u.kind == EXPR_NAME || u.kind == EXPR_LVAL );
+        if ( u.count == 1 )
+            x = u;
         else
-            { assert( ! "lval_list produced a non-lval" ); x = { u.index, true }; }
+            x = { u.kind, p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), u.count, AST_INVALID_INDEX };
     }
 
 r_lval_list_from_unpack_list(x) ::= unpack_list(u) .
     {
-        if ( u.kind == EXPR_NAME || u.kind == EXPR_LVAL )
-            x = { u.index, false };
-        else if ( u.kind == EXPR_NAME_LIST || u.kind == EXPR_LVAL_LIST )
-            x = { p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), true };
+        if ( u.count == 1 )
+            x = u;
         else
-            { p->error( p->node_sloc( u.index ), "left hand side is not assignable" ); x = { u.index, true }; }
+            x = { u.kind, p->node( AST_LVAL_LIST, p->node_sloc( u.index ), u.index ), u.count, AST_INVALID_INDEX };
     }
 
 assign_rval(x) ::= unpack_list(u) .
     {
-        if ( u.kind == EXPR_NAME || u.kind == EXPR_LVAL || u.kind == EXPR_CALL || u.kind == EXPR_FULL )
-            x = { u.index, false };
+        if ( u.count == 1 )
+            x = u;
         else
-            x = { p->node( AST_RVAL_LIST, p->node_sloc( u.index ), u.index ), true };
+            x = { u.kind, p->node( AST_RVAL_LIST, p->node_sloc( u.index ), u.index ), u.count, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) unpack_list(u) .
     {
-        x = { p->node( AST_EXPR_YIELD, kw.sloc, u.index ), false /* not unpacked */ };
+        x = { EXPR_FULL, p->node( AST_EXPR_YIELD, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) ELLIPSIS(op) unpack_list(u) .
     {
         unsigned z = p->node( AST_EXPR_YIELD, kw.sloc, u.index );
-        x = { p->node( AST_EXPR_UNPACK, op.sloc, z ), true /* incoming values are unpacked */ };
+        x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* incoming values are unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]
     {
-        x = { p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ), false /* not unpacked */ };
+        x = { EXPR_FULL, p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) ELLIPSIS(op) .
     {
         unsigned z = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index );
-        x = { p->node( AST_EXPR_UNPACK, op.sloc, z ), true /* results from call are unpacked */ };
+        x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* results from call are unpacked */, AST_INVALID_INDEX };
+    }
+assign_rval(x) ::= r_lval_list_from_unpack_list(lval) ASSIGN(op) assign_rval(rval) .
+    {
+        x = assign( p, AST_ASSIGN, op.sloc, lval, rval );
     }
 assign_rval(x) ::= r_lval_list_from_unpack_list(lval) op_assign(op) assign_rval(rval) .
     {
-        x = assignment( p, lval, op, rval );
+        x = op_assign( p, op, lval, rval );
     }
 
 name(x) ::= IDENTIFIER(tok) .
-    { x = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ); }
+    {
+        x = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+    }
 
-name_list(x) ::= name(u) . { x = { u, false }; }
-name_list(x) ::= name_list(u) COMMA name . { x = { u.index, true }; }
+name_list(x) ::= name(u) .
+    {
+        x = { EXPR_NAME, u, 1, u };
+    }
+name_list(x) ::= name_list(u) COMMA name(v) .
+    {
+        x = { u.kind, u.index, u.count + 1, v };
+    }
 
-op_assign(x) ::= ASSIGN(tok) .          { x = { AST_INVALID_INDEX, tok }; }
 op_assign(x) ::= MUL_ASSIGN(tok) .      { x = { p->node( AST_EXPR_MUL, tok.sloc, AST_INVALID_INDEX ), tok }; }
 op_assign(x) ::= DIV_ASSIGN(tok) .      { x = { p->node( AST_EXPR_DIV, tok.sloc, AST_INVALID_INDEX ), tok }; }
 op_assign(x) ::= INTDIV_ASSIGN(tok) .   { x = { p->node( AST_EXPR_INTDIV, tok.sloc, AST_INVALID_INDEX ), tok }; }
@@ -297,7 +318,7 @@ op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.slo
 // EXPRESSIONS
 
 %type expr_lval { expr_type }
-%type lval_list { expr_type }
+%type lval_list { list_type }
 %type expr_prefix { expr_type }
 %type expr_call { expr_type }
 %type expr_literal { expr_type }
@@ -314,8 +335,9 @@ op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.slo
 %type expr_or { expr_type }
 %type expr_if { expr_type }
 %type expr { expr_type }
-%type unpack_list_opt { expr_type }
-%type unpack_list { expr_type }
+%type unpack_list_opt { list_type }
+%type unpack_list { list_type }
+%type term_list { list_type }
 
 expr_lval(x) ::= IDENTIFIER(tok) .
     {
@@ -330,8 +352,8 @@ expr_lval(x) ::= expr_prefix(u) LSQ(op) expr RSQ .
         x = { EXPR_LVAL, p->node( AST_EXPR_INDEX, op.sloc, u.index ) };
     }
 
-lval_list(x) ::= expr_lval(u) .                                 { x = u; }
-lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .              { x = { expr_list_kind( u.kind, v.kind ), u.index }; }
+lval_list(x) ::= expr_lval(u) .                                 { x = { EXPR_LVAL, u.index, 1, u.index }; }
+lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .              { x = { expr_list_kind( u.kind, v.kind ), u.index, u.count + 1, v.index }; }
 
 expr_prefix(x) ::= expr_lval(u) .                               { x = u; }
 expr_prefix(x) ::= expr_call(u) . [LPN]                         { x = u; }
@@ -432,20 +454,18 @@ avalue_list_opt(x) ::= term_list(u) .               { x = u.index; }
 avalue_list_opt(x) ::= term_list(u) COMMA .         { x = u.index; }
 avalue_list_opt(x) ::= term_list(u) ELLIPSIS(op) .  { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = u.index; }
 
-unpack_list_opt(x) ::= .                            { x = { EXPR_EMPTY_LIST, AST_INVALID_INDEX }; }
+unpack_list_opt(x) ::= .                            { x = { EXPR_FULL, AST_INVALID_INDEX, 0, AST_INVALID_INDEX }; }
 unpack_list_opt(x) ::= unpack_list(u) .             { x = u; }
 
-unpack_list(x) ::= term_list(u) .                   { x = { u.kind, u.index }; }
+unpack_list(x) ::= term_list(u) .                   { x = u; }
 unpack_list(x) ::= term_list(u) ELLIPSIS(op) .
     {
         unsigned z = p->node( AST_EXPR_UNPACK, op.sloc, u.ilast );
-        z = u.index == u.ilast ? z : u.index;
-        x = { EXPR_UNPACK_LIST, z };
+        x = { EXPR_UNPACK, u.index == u.ilast ? z : u.index, u.count - 1, AST_INVALID_INDEX };
     }
 
-%type term_list { term_list_type }
-term_list(x) ::= expr(u) .                          { x = { u.kind, u.index, u.index }; }
-term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.kind, v.kind ), u.index, v.index }; }
+term_list(x) ::= expr(u) .                          { x = { u.kind, u.index, 1, u.index }; }
+term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.kind, v.kind ), u.index, u.count + 1, v.index }; }
 
 
 // CONSTRUCTORS / DEFINITIONS
@@ -454,7 +474,7 @@ term_list(x) ::= term_list(u) COMMA expr(v) .       { x = { expr_list_kind( u.ki
 %type open_lambda { open_function_type }
 %type open_function { open_function_type }
 %type qual_name { expr_type }
-%type param_list { term_list_type }
+%type param_list { list_type }
 
 constructor(x) ::= DEF(def) prototype_opt(u) object_keys(v) END .
     {
@@ -542,19 +562,18 @@ parameters(x) ::= param_list(u) .
 parameters(x) ::= param_list(u) ELLIPSIS(op) .
     {
         unsigned z = p->node( AST_VARARG_PARAM, op.sloc, u.ilast );
-        z = u.index == u.ilast ? z : u.index;
-        x = p->node( AST_PARAMETERS, 0, z );
+        x = p->node( AST_PARAMETERS, 0, u.index == u.ilast ? z : u.index );
     }
 
 param_list(x) ::= IDENTIFIER(tok) .
     {
         unsigned z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
-        x = { EXPR_NAME, z, z };
+        x = { EXPR_NAME, z, 1, z };
     }
 param_list(x) ::= param_list(u) COMMA IDENTIFIER(tok) .
     {
         unsigned z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
-        x = { EXPR_NAME, u.index, z };
+        x = { EXPR_NAME, u.index, u.count + 1, z };
     }
 
 prototype_opt(x) ::= .                                  { x = AST_INVALID_INDEX; }

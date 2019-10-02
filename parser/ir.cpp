@@ -138,7 +138,7 @@ const char* const OPCODE_NAMES[] =
 static void debug_print_op( ir_block* block, unsigned i )
 {
     const ir_op& op = block->ops.at( i );
-    printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : "=", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
+    printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : ":", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.operand_count; ++o )
     {
         ir_operand operand = block->operands[ op.operands + o ];
@@ -152,7 +152,7 @@ static void debug_print_op( ir_block* block, unsigned i )
         {
         case IR_O_VALUE:
         {
-            printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : "=", operand.index & ~IR_HEAD_BIT );
+            printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : ":", operand.index & ~IR_HEAD_BIT );
             break;
         }
 
@@ -161,7 +161,7 @@ static void debug_print_op( ir_block* block, unsigned i )
             ir_operand opvalue = block->operands[ op.operands + ++o ];
             assert( opvalue.kind == IR_O_PHI_VALUE );
             ir_block* opblock = block->function->blocks.at( operand.index ).get();
-            printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : "=", opvalue.index & ~IR_HEAD_BIT );
+            printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : ":", opvalue.index & ~IR_HEAD_BIT );
             break;
         }
 
