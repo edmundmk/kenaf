@@ -1,2 +1,2 @@
-when resolving names only allow vararg params inside unpack expression
+when resolving names disallow assignments to globals
 

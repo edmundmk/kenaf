@@ -182,6 +182,17 @@ void resolve_names::visit( ast_function* f, unsigned index )
         return;
     }
 
+    case AST_EXPR_UNPACK:
+    {
+        // Look up name inside unpack, allow vararg parameters.
+        unsigned value_index = n->child_index;
+        if ( f->nodes[ value_index ].kind == AST_EXPR_NAME )
+        {
+            lookup( f, value_index, true );
+            return;
+        }
+    }
+
     case AST_DEFINITION:
     {
         // Declare a def of an object.
@@ -200,8 +211,8 @@ void resolve_names::visit( ast_function* f, unsigned index )
 
     case AST_EXPR_NAME:
     {
-        // Look up unqualified name.
-        lookup( f, index );
+        // Look up unqualified name.  Disallow vararg parameters.
+        lookup( f, index, false );
         return;
     }
 
@@ -348,7 +359,7 @@ void resolve_names::declare( ast_function* f, unsigned index )
     }
 }
 
-void resolve_names::lookup( ast_function* f, unsigned index )
+void resolve_names::lookup( ast_function* f, unsigned index, bool vararg_unpack )
 {
     ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();
@@ -394,6 +405,22 @@ void resolve_names::lookup( ast_function* f, unsigned index )
     // Found in scope at scope_index.
     size_t vscope_index = scope_index++;
     scope* vscope = _scopes.at( vscope_index ).get();
+
+    // Can't use a varargs param in anything other than an unpack expression,
+    // and we can't capture a varargs param in a function closure.
+    const ast_local& local = vscope->function->locals.at( v->index );
+    if ( local.is_vararg_param )
+    {
+        if ( ! vararg_unpack )
+        {
+            _source->error( n->sloc, "variable argument parameter '%.*s' cannot be used in an expression", (int)name.size(), name.data() );
+        }
+
+        if ( vscope->function != current_scope->function )
+        {
+            _source->error( n->sloc, "variable argument parameter '%.*s' cannot be captured by a closure", (int)name.size(), name.data() );
+        }
+    }
 
     // Capture upvals into inner functions.
     while ( vscope->function != current_scope->function )

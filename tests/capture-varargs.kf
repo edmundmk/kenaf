@@ -1,0 +1,13 @@
+
+
+def test( args ... )
+
+    var a = args * args
+    var b = [ args ]
+
+    def q()
+        var b, c = args ...
+    end
+
+end
+
