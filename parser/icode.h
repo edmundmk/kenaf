@@ -12,6 +12,7 @@
 #define ICODE_H
 
 #include <stdint.h>
+#include <stdexcept>
 #include "source.h"
 
 namespace kf
@@ -59,13 +60,32 @@ namespace kf
 
 struct syntax_function;
 
-class icode_op_list;
+struct icode_function;
+struct icode_block;
+class icode_oplist;
 struct icode_op;
 struct icode_operand;
-struct icode_block;
-struct icode_function;
 
-const unsigned ICODE_INVALID_INDEX = ~(unsigned)0;
+/*
+    Op indexes are 24-bit.
+*/
+
+const unsigned IR_INVALID_INDEX = 0xFFFFFF;
+
+/*
+    Stores the intermediate representation for a function.
+*/
+
+struct icode_function
+{
+    icode_function();
+    ~icode_function();
+
+    void debug_print();
+
+    syntax_function* ast;
+    std::vector< std::unique_ptr< icode_block > > blocks;
+};
 
 /*
     An op list is a flat array of ops, divided into two halves, the head and
@@ -74,36 +94,89 @@ const unsigned ICODE_INVALID_INDEX = ~(unsigned)0;
 
     The op list reallocates when either the head or body half grows too large.
     This allows clients to insert ops at both the beginning and end of a block.
+
+    In the actual memory the head is stored *after* the body, to make the more
+    common case of accessing the body simpler.
 */
 
-class icode_op_list
+class icode_oplist
 {
 public:
 
-    icode_op_list();
-    ~icode_op_list();
+    icode_oplist();
+    ~icode_oplist();
 
-    size_t head_size() const;
-    size_t body_size() const;
+    unsigned head_size() const;
+    unsigned body_size() const;
 
     void clear();
     unsigned push_head( const icode_op& op );
-    unsigned push_head( const icode_operand& operand );
     unsigned push_body( const icode_op& op );
-    unsigned push_body( const icode_operand& operand );
 
-    const icode_op& operator [] ( size_t i ) const;
-    const icode_op& at( size_t i ) const;
-    icode_op& operator [] ( size_t i );
-    icode_op& at( size_t i );
+    const icode_op& operator [] ( unsigned i ) const;
+    const icode_op& at( unsigned i ) const;
+    icode_op& operator [] ( unsigned i );
+    icode_op& at( unsigned i );
 
 private:
 
+    const unsigned INDEX_TBIT = 0x800000;
+    const unsigned INDEX_MASK = 0x7FFFFF;
+
+    icode_oplist( icode_oplist& ) = delete;
+    icode_oplist& operator = ( icode_oplist& ) = delete;
+
+    void grow( bool grow_body, bool grow_head );
+
     icode_op* _ops;
+    size_t _body_size;
     size_t _head_size;
-    size_t _total_size;
+    size_t _watermark;
     size_t _capacity;
 
+};
+
+/*
+    A block is a sequence of instructions without branches.
+*/
+
+enum icode_loop_kind : unsigned
+{
+    IR_LOOP_NONE,                   // Not a loop header.
+    IR_LOOP_FOR_STEP,               // Loop header of for i = start : stop : step do
+    IR_LOOP_FOR_EACH,               // Loop header of for i : generator do
+    IR_LOOP_WHILE,                  // Loop header of while loop.
+    IR_LOOP_REPEAT,                 // Loop header of repeat/until loop.
+};
+
+enum icode_test_kind : unsigned
+{
+    IR_TEST_NONE,                   // No test.  Successor is if_true.
+    IR_TEST_IF,                     // Block ends with an if test between two sucessors.
+};
+
+struct icode_block
+{
+    icode_block();
+    ~icode_block();
+
+    void debug_print();
+
+    icode_loop_kind loop_kind : 4;  // Loop kind.
+    icode_test_kind test_kind : 4;  // Test kind.
+    unsigned block_index : 24;      // Index in function's list of blocks.
+
+    icode_function* function;       // Function containing this block.
+    icode_block* loop;              // Loop containing this block.
+    icode_block* if_true;           // Successor if test is true.
+    icode_block* if_false;          // Successor if test is false.
+
+    // List of predecessor block indices.
+    std::vector< unsigned > predecessor_blocks;
+
+    // Oplist and operands.
+    icode_oplist ops;
+    std::vector< icode_operand > operands;
 };
 
 /*
@@ -126,7 +199,7 @@ enum icode_opcode : uint8_t
 
 };
 
-enum icode_operand_kind
+enum icode_operand_kind : unsigned
 {
     IR_OPERAND_VALUE,           // Index of op in this block.
     IR_OPERAND_PHI_BLOCK,       // Index of block for phi operand.
@@ -158,69 +231,91 @@ struct icode_op
 
 struct icode_operand
 {
-    unsigned kind : 8;          // Operand kind.
+    icode_operand_kind kind : 8;          // Operand kind.
     unsigned index : 24;        // Index of op used as result.
 };
 
-icode_operand icode_pack_integer_operand( int8_t i );
-int8_t icode_unpack_integer_operand( icode_operand operand );
-
-/*
-    A block is a sequence of instructions without branches.
-*/
-
-enum icode_loop_kind : unsigned
+inline icode_operand icode_pack_integer_operand( int8_t i )
 {
-    IR_LOOP_NONE,                   // Not a loop header.
-    IR_LOOP_FOR_STEP,               // Loop header of for i = start : stop : step do
-    IR_LOOP_FOR_EACH,               // Loop header of for i : generator do
-    IR_LOOP_WHILE,                  // Loop header of while loop.
-    IR_LOOP_REPEAT,                 // Loop header of repeat/until loop.
-};
+    return { IR_OPERAND_INTEGER, (unsigned)(int)i };
+}
 
-enum icode_test_kind : unsigned
+int8_t icode_unpack_integer_operand( icode_operand operand )
 {
-    IR_TEST_NONE,                   // No test.
-    IR_TEST_IF,                     // Block ends with an if test between two sucessors.
-};
+    return (int8_t)(int)(unsigned)operand.index;
+}
 
-struct icode_block
+/**/
+
+inline unsigned icode_oplist::head_size() const
 {
-    icode_block();
-    ~icode_block();
+    return _head_size;
+}
 
-    icode_loop_kind loop_kind : 4;  // Loop kind.
-    icode_test_kind test_kind : 4;  // Test kind.
-    unsigned block_index : 24;      // Index in function's list of blocks.
-
-    icode_function* function;       // Function containing this block.
-    icode_block* loop;              // Loop containing this block.
-    icode_block* if_true;           // Successor if test is true.
-    icode_block* if_false;          // Successor if test is false.
-
-    // List of predecessor block indices.
-    std::vector< unsigned > predecessor_blocks;
-
-    // Op list and operands.
-    icode_op_list ops;
-    std::vector< icode_operand > operands;
-};
-
-/*
-    Stores the intermediate representation for a function.
-*/
-
-struct icode_function
+inline unsigned icode_oplist::body_size() const
 {
-    icode_function();
-    ~icode_function();
+    return _body_size;
+}
 
-    void debug_print();
+inline const icode_op& icode_oplist::operator [] ( unsigned i ) const
+{
+    if ( ( i & INDEX_TBIT ) == 0 )
+    {
+        assert( i < _body_size );
+        return _ops[ i ];
+    }
+    else
+    {
+        i &= INDEX_MASK;
+        assert( i < _head_size );
+        return _ops[ _watermark + i ];
+    }
+}
 
-    syntax_function* ast;
-    std::vector< std::unique_ptr< icode_block > > blocks;
-};
+inline const icode_op& icode_oplist::at( unsigned i ) const
+{
+    if ( ( i & INDEX_TBIT ) == 0 )
+    {
+        if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
+        return _ops[ i ];
+    }
+    else
+    {
+        i &= INDEX_MASK;
+        if ( i >= _head_size ) throw std::out_of_range( "op index is out of range" );
+        return _ops[ _watermark + i ];
+    }
+}
 
+inline icode_op& icode_oplist::operator [] ( unsigned i )
+{
+    if ( ( i & INDEX_TBIT ) == 0 )
+    {
+        assert( i < _body_size );
+        return _ops[ i ];
+    }
+    else
+    {
+        i &= INDEX_MASK;
+        assert( i < _head_size );
+        return _ops[ _watermark + i ];
+    }
+}
+
+inline icode_op& icode_oplist::at( unsigned i )
+{
+    if ( ( i & INDEX_TBIT ) == 0 )
+    {
+        if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
+        return _ops[ i ];
+    }
+    else
+    {
+        i &= INDEX_MASK;
+        if ( i >= _head_size ) throw std::out_of_range( "op index is out of range" );
+        return _ops[ _watermark + i ];
+    }
+}
 }
 
 #endif
