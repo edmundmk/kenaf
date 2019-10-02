@@ -193,10 +193,6 @@ enum icode_opcode : uint8_t
     // Head
     IR_REF,                     // Reference to op in predecessor block.
     IR_PHI,                     // phi function.
-
-    // Body.
-    IR_MAKE_TEMPORARY,          // Copy value into a new temporary.
-
 };
 
 enum icode_operand_kind : unsigned
