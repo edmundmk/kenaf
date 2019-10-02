@@ -11,14 +11,6 @@
 #ifndef ICODE_H
 #define ICODE_H
 
-#include <stdint.h>
-#include <assert.h>
-#include <stdexcept>
-#include "source.h"
-
-namespace kf
-{
-
 /*
     This is an intermediate representation that sits between the syntax tree
     and the bytecode.  We are trying to produce good bytecode.  icode is
@@ -58,6 +50,14 @@ namespace kf
     backwards search through the CFG - effectively we get liveness information
     'for free' when we perform SSA construction.
 */
+
+#include <stdint.h>
+#include <assert.h>
+#include <stdexcept>
+#include "source.h"
+
+namespace kf
+{
 
 struct syntax_function;
 
@@ -223,9 +223,16 @@ enum icode_opcode : uint8_t
     IR_GET_UPVAL,               // Get upval at index.
     IR_GET_KEY,                 // a.b
     IR_GET_INDEX,               // a[ b ]
-    IR_SUPEROF,                 // Find prototype of value.
-    IR_CALL,                    // a( b, c, d .. )
+    IR_SUPEROF,                 // superof( a )
 
+    IR_CALL,                    // a( b, c, d ... )
+
+    IR_ARRAY_APPEND,            // [ a ]
+    IR_ARRAY_EXTEND,            // [ a ... ]
+
+    IR_CALL_UNPACK,             // a( b, c, d ... ) ...
+    IR_VARARG_UNPACK,           // args ...
+    IR_ARRAY_UNPACK,            // value ...
 };
 
 enum icode_operand_kind : uint8_t

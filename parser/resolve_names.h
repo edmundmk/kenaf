@@ -11,14 +11,6 @@
 #ifndef RESOLVE_NAMES_H
 #define RESOLVE_NAMES_H
 
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include "syntax.h"
-
-namespace kf
-{
-
 /*
     -- Name Resolution
 
@@ -79,6 +71,14 @@ namespace kf
     'superof( self )'.
 
 */
+
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include "syntax.h"
+
+namespace kf
+{
 
 class resolve_names
 {

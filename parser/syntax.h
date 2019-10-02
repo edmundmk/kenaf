@@ -11,13 +11,6 @@
 #ifndef SYNTAX_H
 #define SYNTAX_H
 
-#include <assert.h>
-#include <vector>
-#include "source.h"
-
-namespace kf
-{
-
 /*
     The parser builds an AST for each function.  The AST is stored in a linear
     fashion, with parent nodes occuring after child nodes:
@@ -32,6 +25,13 @@ namespace kf
             next sibling
         parent
 */
+
+#include <assert.h>
+#include <vector>
+#include "source.h"
+
+namespace kf
+{
 
 struct syntax_tree;
 struct syntax_function;

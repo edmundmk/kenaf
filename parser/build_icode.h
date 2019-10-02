@@ -11,23 +11,6 @@
 #ifndef BUILD_ICODE_H
 #define BUILD_ICODE_H
 
-#include <utility>
-#include <functional>
-#include <unordered_map>
-#include "icode.h"
-
-template <> struct std::hash< std::pair< unsigned, kf::icode_block* > >
-    :   private std::hash< unsigned >, private std::hash< kf::icode_block* >
-{
-    inline size_t operator () ( std::pair< unsigned, kf::icode_block* > key ) const
-    {
-        return std::hash< unsigned >::operator () ( key.first ) ^ std::hash< kf::icode_block* >::operator () ( key.second );
-    }
-};
-
-namespace kf
-{
-
 /*
     -- IR Building
 
@@ -54,30 +37,6 @@ namespace kf
         evaluate( b ) <- t1
         evaluate( c ) <- t2
 
-    But we can reduce the lifetime of temporaries by attempting to move the
-    evaluation of the left hand side directly after the evaluation of the right
-    hand side, e.g.:
-
-        t0 <- evaluate x
-        evaluate( a ) <- t0
-        t1 <- evaluate y
-        evaluate( b ) <- t1
-        t2 <- evaluate z
-        evaluate( c ) <- t2
-
-    Moving a left hand side is only possible if:
-
-      - expressions y and z do not clobber any locals used in a
-      - expression a does not clobber any locals used in y and/or z
-
-    Clobbering a local happens when:
-
-      - the local is assigned.
-      - the local is an upval, and any function is called.
-
-    Because assignment is a statement, the only assignment which is possible
-    is the assignment to a itself.
-
     In this pass we finally check if the number of values on either side of
     the assignment is equal.  If the right hand side ends in an unpack, there
     may be any number of extra values on the left hand side.
@@ -100,6 +59,23 @@ namespace kf
     invariant that there is only one live definition of each local at any time.
 
 */
+
+#include <utility>
+#include <functional>
+#include <unordered_map>
+#include "icode.h"
+
+template <> struct std::hash< std::pair< unsigned, kf::icode_block* > >
+    :   private std::hash< unsigned >, private std::hash< kf::icode_block* >
+{
+    inline size_t operator () ( std::pair< unsigned, kf::icode_block* > key ) const
+    {
+        return std::hash< unsigned >::operator () ( key.first ) ^ std::hash< kf::icode_block* >::operator () ( key.second );
+    }
+};
+
+namespace kf
+{
 
 class build_icode
 {
