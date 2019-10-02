@@ -84,7 +84,7 @@ class resolve_names
 {
 public:
 
-    resolve_names( source* source, ast_tree* ast_tree );
+    resolve_names( source* source, ast_script* ast_script );
     ~resolve_names();
 
     void resolve();
@@ -146,7 +146,7 @@ private:
     void debug_print( const upstack* upstack );
 
     source* _source;
-    ast_tree* _ast_tree;
+    ast_script* _ast_script;
     std::vector< std::unique_ptr< scope > > _scopes;
 };
 

@@ -95,15 +95,15 @@ const char* const AST_NODE_NAME[] =
     [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
 };
 
-ast_tree::ast_tree()
+ast_script::ast_script()
 {
 }
 
-ast_tree::~ast_tree()
+ast_script::~ast_script()
 {
 }
 
-ast_function* ast_tree::new_function( srcloc sloc, ast_function* outer )
+ast_function* ast_script::new_function( srcloc sloc, ast_function* outer )
 {
     functions.push_back( std::make_unique< ast_function >( sloc, outer ) );
     return functions.back().get();

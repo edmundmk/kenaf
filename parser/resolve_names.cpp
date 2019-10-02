@@ -25,9 +25,9 @@ inline bool resolve_names::scope::is_loop() const
         || kind == AST_STMT_WHILE || kind == AST_STMT_REPEAT;
 }
 
-resolve_names::resolve_names( source* source, ast_tree* ast_tree )
+resolve_names::resolve_names( source* source, ast_script* ast_script )
     :   _source( source )
-    ,   _ast_tree( ast_tree )
+    ,   _ast_script( ast_script )
 {
 }
 
@@ -37,7 +37,7 @@ resolve_names::~resolve_names()
 
 void resolve_names::resolve()
 {
-    ast_function* function = _ast_tree->functions.at( 0 ).get();
+    ast_function* function = _ast_script->functions.at( 0 ).get();
     visit( function, function->nodes.size() - 1 );
 }
 

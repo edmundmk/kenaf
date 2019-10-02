@@ -33,7 +33,7 @@
 namespace kf
 {
 
-struct ast_tree;
+struct ast_script;
 struct ast_function;
 struct ast_node;
 struct ast_leaf_string;
@@ -43,10 +43,10 @@ struct ast_leaf_index;
 
 const unsigned AST_INVALID_INDEX = ~(unsigned)0;
 
-struct ast_tree
+struct ast_script
 {
-    ast_tree();
-    ~ast_tree();
+    ast_script();
+    ~ast_script();
 
     ast_function* new_function( srcloc sloc, ast_function* outer );
 

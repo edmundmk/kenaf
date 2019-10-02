@@ -33,7 +33,7 @@ parser::~parser()
     KenafParseFree( _yyp, free );
 }
 
-std::unique_ptr< ast_tree > parser::parse()
+std::unique_ptr< ast_script > parser::parse()
 {
 #ifndef NDEBUG
     bool trace = false;
@@ -44,9 +44,9 @@ std::unique_ptr< ast_tree > parser::parse()
     }
 #endif
 
-    _ast_tree = std::make_unique< ast_tree >();
+    _ast_script = std::make_unique< ast_script >();
 
-    _fstack.push_back( _ast_tree->new_function( 0, nullptr ) );
+    _fstack.push_back( _ast_script->new_function( 0, nullptr ) );
     _fstack.back()->name = _source->filename;
     _fstack.back()->is_top_level = true;
 
@@ -74,7 +74,7 @@ std::unique_ptr< ast_tree > parser::parse()
     pop_function();
     _fstack.clear();
 
-    return std::move( _ast_tree );
+    return std::move( _ast_script );
 }
 
 void parser::syntax_error( token token )
@@ -92,7 +92,7 @@ void parser::error( srcloc sloc, const char* message, ... )
 
 ast_function* parser::push_function( srcloc sloc )
 {
-    _fstack.push_back( _ast_tree->new_function( sloc, _fstack.back() ) );
+    _fstack.push_back( _ast_script->new_function( sloc, _fstack.back() ) );
     return _fstack.back();
 }
 

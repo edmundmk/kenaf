@@ -25,7 +25,7 @@ public:
     parser( source* source, lexer* lexer );
     ~parser();
 
-    std::unique_ptr< ast_tree > parse();
+    std::unique_ptr< ast_script > parse();
 
     void syntax_error( token token );
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
@@ -53,7 +53,7 @@ private:
     void* _yyp;
     token _token;
 
-    std::unique_ptr< ast_tree > _ast_tree;
+    std::unique_ptr< ast_script > _ast_script;
     std::vector< ast_function* > _fstack;
 
 };
