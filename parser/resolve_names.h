@@ -129,7 +129,7 @@ private:
         // Map of names to variables.
         std::unordered_map< std::string_view, variable > variables;
         // Reference to function upstack.
-        std::shared_ptr< upstack > upstack;
+        std::shared_ptr< struct upstack > upstack;
     };
 
     void visit( syntax_function* f, unsigned index );

@@ -12,6 +12,7 @@
 #define ICODE_H
 
 #include <stdint.h>
+#include <assert.h>
 #include <stdexcept>
 #include "source.h"
 
@@ -162,8 +163,8 @@ struct icode_block
 
     void debug_print();
 
-    icode_loop_kind loop_kind : 4;  // Loop kind.
-    icode_test_kind test_kind : 4;  // Test kind.
+    unsigned loop_kind : 4;  // Loop kind.
+    unsigned test_kind : 4;  // Test kind.
     unsigned block_index : 24;      // Index in function's list of blocks.
 
     icode_function* function;       // Function containing this block.
@@ -195,7 +196,7 @@ enum icode_opcode : uint8_t
     IR_PHI,                     // phi function.
 };
 
-enum icode_operand_kind : unsigned
+enum icode_operand_kind : uint8_t
 {
     IR_OPERAND_VALUE,           // Index of op in this block.
     IR_OPERAND_PHI_BLOCK,       // Index of block for phi operand.

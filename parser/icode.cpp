@@ -9,6 +9,7 @@
 //
 
 #include "icode.h"
+#include <string.h>
 
 namespace kf
 {
