@@ -10,7 +10,7 @@
 
 #include "ir.h"
 #include <string.h>
-#include "syntax.h"
+#include "ast.h"
 
 namespace kf
 {
@@ -173,7 +173,7 @@ static void debug_print_op( ir_block* block, unsigned i )
 
         case IR_O_PARAM_INDEX:
         {
-            const syntax_local& local = block->function->ast->locals.at( operand.index );
+            const ast_local& local = block->function->ast->locals.at( operand.index );
             printf( " %.*s", (int)local.name.size(), local.name.data() );
             break;
         }
@@ -192,21 +192,21 @@ static void debug_print_op( ir_block* block, unsigned i )
 
         case IR_O_AST_NUMBER:
         {
-            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = block->function->ast->nodes.at( operand.index );
             printf( " %f", n.leaf_number().n );
             break;
         }
 
         case IR_O_AST_STRING:
         {
-            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = block->function->ast->nodes.at( operand.index );
             printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
         case IR_O_AST_KEY:
         {
-            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = block->function->ast->nodes.at( operand.index );
             printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }

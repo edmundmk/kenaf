@@ -75,7 +75,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
-#include "syntax.h"
+#include "ast.h"
 
 namespace kf
 {
@@ -84,7 +84,7 @@ class resolve_names
 {
 public:
 
-    resolve_names( source* source, syntax_tree* syntax_tree );
+    resolve_names( source* source, ast_tree* ast_tree );
     ~resolve_names();
 
     void resolve();
@@ -100,7 +100,7 @@ private:
     struct upstack
     {
         // Function this is the upstack of.
-        syntax_function* function;
+        ast_function* function;
         // Stack of unclosed upstack slots, indexing function locals.
         std::vector< unsigned > upstack_slots;
         // List of blocks which may need their close index updated.
@@ -117,7 +117,7 @@ private:
 
     struct scope
     {
-        syntax_function* function;  // Function this scope is in.
+        ast_function* function;  // Function this scope is in.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
         unsigned close_index;       // Upstack index on entry to this scope.
@@ -132,12 +132,12 @@ private:
         std::shared_ptr< struct upstack > upstack;
     };
 
-    void visit( syntax_function* f, unsigned index );
+    void visit( ast_function* f, unsigned index );
 
-    void open_scope( syntax_function* f, unsigned block_index, unsigned node_index );
-    void declare_implicit_self( syntax_function* f );
-    void declare( syntax_function* f, unsigned index );
-    void lookup( syntax_function* f, unsigned index );
+    void open_scope( ast_function* f, unsigned block_index, unsigned node_index );
+    void declare_implicit_self( ast_function* f );
+    void declare( ast_function* f, unsigned index );
+    void lookup( ast_function* f, unsigned index );
     void close_scope();
 
     void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
@@ -146,7 +146,7 @@ private:
     void debug_print( const upstack* upstack );
 
     source* _source;
-    syntax_tree* _syntax_tree;
+    ast_tree* _ast_tree;
     std::vector< std::unique_ptr< scope > > _scopes;
 };
 

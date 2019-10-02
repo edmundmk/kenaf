@@ -59,7 +59,7 @@
 namespace kf
 {
 
-struct syntax_function;
+struct ast_function;
 
 struct ir_function;
 struct ir_block;
@@ -86,7 +86,7 @@ struct ir_function
 
     void debug_print();
 
-    syntax_function* ast;
+    ast_function* ast;
     std::vector< std::unique_ptr< ir_block > > blocks;
 };
 

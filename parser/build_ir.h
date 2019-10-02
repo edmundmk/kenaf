@@ -84,7 +84,7 @@ public:
     build_ir();
     ~build_ir();
 
-    std::unique_ptr< ir_function > build( syntax_function* function );
+    std::unique_ptr< ir_function > build( ast_function* function );
 
 private:
 
@@ -93,7 +93,7 @@ private:
     unsigned op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head = false );
     void def( unsigned local_index, ir_block* block, unsigned op_index );
 
-    syntax_function* _ast_function;
+    ast_function* _ast_function;
     std::unique_ptr< ir_function > _ir_function;
     std::unordered_map< std::pair< unsigned, ir_block* >, unsigned > _def_map;
     ir_block* _block;

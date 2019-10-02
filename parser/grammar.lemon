@@ -73,12 +73,12 @@ struct term_list_type
 struct definition_type
 {
     unsigned index;
-    syntax_function* function;
+    ast_function* function;
 };
 
 struct open_function_type
 {
-    syntax_function* function;
+    ast_function* function;
     unsigned name_index;
     srcloc sloc;
 };
@@ -471,12 +471,12 @@ constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
 
 open_lambda(x) ::= DEF(def) .
     {
-        syntax_function* f = p->push_function( def.sloc );
+        ast_function* f = p->push_function( def.sloc );
         x = { f, AST_INVALID_INDEX, def.sloc };
     }
 open_lambda(x) ::= DEF(def) YIELD .
     {
-        syntax_function* f = p->push_function( def.sloc );
+        ast_function* f = p->push_function( def.sloc );
         f->is_generator = true;
         x = { f, AST_INVALID_INDEX, def.sloc };
     }
@@ -510,13 +510,13 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
 
 open_function(x) ::= DEF(def) qual_name(u) .
     {
-        syntax_function* f = p->push_function( def.sloc );
+        ast_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;
         x = { f, u.index, def.sloc };
     }
 open_function(x) ::= DEF(def) YIELD qual_name(u) .
     {
-        syntax_function* f = p->push_function( def.sloc );
+        ast_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;
         f->is_generator = true;
         x = { f, u.index, def.sloc };

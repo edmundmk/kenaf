@@ -1,5 +1,5 @@
 //
-//  syntax.h
+//  ast.h
 //
 //  Created by Edmund Kapusniak on 28/09/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef SYNTAX_H
-#define SYNTAX_H
+#ifndef AST_H
+#define AST_H
 
 /*
     The parser builds an AST for each function.  The AST is stored in a linear
@@ -33,33 +33,33 @@
 namespace kf
 {
 
-struct syntax_tree;
-struct syntax_function;
-struct syntax_node;
-struct syntax_leaf_string;
-struct syntax_leaf_number;
-struct syntax_leaf_function;
-struct syntax_leaf_index;
+struct ast_tree;
+struct ast_function;
+struct ast_node;
+struct ast_leaf_string;
+struct ast_leaf_number;
+struct ast_leaf_function;
+struct ast_leaf_index;
 
 const unsigned AST_INVALID_INDEX = ~(unsigned)0;
 
-struct syntax_tree
+struct ast_tree
 {
-    syntax_tree();
-    ~syntax_tree();
+    ast_tree();
+    ~ast_tree();
 
-    syntax_function* new_function( srcloc sloc, syntax_function* outer );
+    ast_function* new_function( srcloc sloc, ast_function* outer );
 
-    std::vector< std::unique_ptr< syntax_function > > functions;
+    std::vector< std::unique_ptr< ast_function > > functions;
 };
 
-struct syntax_upval
+struct ast_upval
 {
     unsigned outer_index;       // Index in outer function's upvals or locals.
     bool outer_upval;           // If true, upval was an upval for the outer function.
 };
 
-struct syntax_local
+struct ast_local
 {
     std::string_view name;      // Name of local or parameter.
     unsigned upstack_index;     // Index in upval stack, or AST_INVALID_INDEX.
@@ -68,17 +68,17 @@ struct syntax_local
     bool is_vararg_param;       // Is it the variable argument parameter?
 };
 
-struct syntax_function
+struct ast_function
 {
-    syntax_function( srcloc sloc, syntax_function* outer );
-    ~syntax_function();
+    ast_function( srcloc sloc, ast_function* outer );
+    ~ast_function();
 
     void fixup_nodes();
     void debug_print();
 
     srcloc sloc;                // Source location of function.
     std::string name;           // Name of function.
-    syntax_function* outer;     // Lexically outer function.
+    ast_function* outer;     // Lexically outer function.
     unsigned parameter_count;   // First count locals are parameters.
     unsigned max_upstack_size;  // Maximum size of upstack.
     bool implicit_self;         // Does the function have implicit self?
@@ -86,12 +86,12 @@ struct syntax_function
     bool is_top_level;          // Is it the top-level function of a script?
     bool is_varargs;            // Does it have a varargs parameter.
 
-    std::vector< syntax_upval > upvals;
-    std::vector< syntax_local > locals;
-    std::vector< syntax_node > nodes;
+    std::vector< ast_upval > upvals;
+    std::vector< ast_local > locals;
+    std::vector< ast_node > nodes;
 };
 
-enum syntax_node_kind : uint16_t
+enum ast_node_kind : uint16_t
 {
     AST_FUNCTION,               // parameters block
     AST_BLOCK,                  // stmt|call-expr|yield-expr*
@@ -173,7 +173,7 @@ enum syntax_node_kind : uint16_t
     AST_LOCAL_NAME_SUPER,       // superof( local variable ).
 };
 
-enum syntax_node_leaf : uint8_t
+enum ast_node_leaf : uint8_t
 {
     AST_NO_LEAF,                // No leaf data.
     AST_LEAF_STRING,            // String literal.
@@ -182,101 +182,101 @@ enum syntax_node_leaf : uint8_t
     AST_LEAF_INDEX,             // Index into function's upvals or locals, or block close index.
 };
 
-struct syntax_node
+struct ast_node
 {
-    syntax_node_kind kind;      // AST node kind.
-    syntax_node_leaf leaf;      // Is there associated leaf data?
+    ast_node_kind kind;      // AST node kind.
+    ast_node_leaf leaf;      // Is there associated leaf data?
     uint8_t prev_leaf;          // Does the previous node have leaf data?
     srcloc sloc;                // Source location.
     unsigned child_index;       // Index of first child, or invalid.
     unsigned next_index;        // Index of next sibling, fixed up afterwards.
 
-    const syntax_leaf_string& leaf_string() const;
-    const syntax_leaf_number& leaf_number() const;
-    const syntax_leaf_function& leaf_function() const;
-    const syntax_leaf_index& leaf_index() const;
+    const ast_leaf_string& leaf_string() const;
+    const ast_leaf_number& leaf_number() const;
+    const ast_leaf_function& leaf_function() const;
+    const ast_leaf_index& leaf_index() const;
 
-    syntax_leaf_string& leaf_string();
-    syntax_leaf_number& leaf_number();
-    syntax_leaf_function& leaf_function();
-    syntax_leaf_index& leaf_index();
+    ast_leaf_string& leaf_string();
+    ast_leaf_number& leaf_number();
+    ast_leaf_function& leaf_function();
+    ast_leaf_index& leaf_index();
 };
 
-struct syntax_leaf_string
+struct ast_leaf_string
 {
     const char* text;
     size_t size;
 };
 
-struct syntax_leaf_number
+struct ast_leaf_number
 {
     double n;
 };
 
-struct syntax_leaf_function
+struct ast_leaf_function
 {
-    syntax_function* function;
+    ast_function* function;
 };
 
-struct syntax_leaf_index
+struct ast_leaf_index
 {
     unsigned index;
 };
 
-inline const syntax_leaf_string& syntax_node::leaf_string() const
+inline const ast_leaf_string& ast_node::leaf_string() const
 {
-    static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_string ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_STRING );
-    return *(const syntax_leaf_string*)( this + 1 );
+    return *(const ast_leaf_string*)( this + 1 );
 }
 
-inline const syntax_leaf_number& syntax_node::leaf_number() const
+inline const ast_leaf_number& ast_node::leaf_number() const
 {
-    static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_number ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_NUMBER );
-    return *(const syntax_leaf_number*)( this + 1 );
+    return *(const ast_leaf_number*)( this + 1 );
 }
 
-inline const syntax_leaf_function& syntax_node::leaf_function() const
+inline const ast_leaf_function& ast_node::leaf_function() const
 {
-    static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_function ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_FUNCTION );
-    return *(const syntax_leaf_function*)( this + 1 );
+    return *(const ast_leaf_function*)( this + 1 );
 }
 
-inline const syntax_leaf_index& syntax_node::leaf_index() const
+inline const ast_leaf_index& ast_node::leaf_index() const
 {
-    static_assert( sizeof( syntax_leaf_index ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_index ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_INDEX );
-    return *(const syntax_leaf_index*)( this + 1 );
+    return *(const ast_leaf_index*)( this + 1 );
 }
 
-inline syntax_leaf_string& syntax_node::leaf_string()
+inline ast_leaf_string& ast_node::leaf_string()
 {
-    static_assert( sizeof( syntax_leaf_string ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_string ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_STRING );
-    return *(syntax_leaf_string*)( this + 1 );
+    return *(ast_leaf_string*)( this + 1 );
 }
 
-inline syntax_leaf_number& syntax_node::leaf_number()
+inline ast_leaf_number& ast_node::leaf_number()
 {
-    static_assert( sizeof( syntax_leaf_number ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_number ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_NUMBER );
-    return *(syntax_leaf_number*)( this + 1 );
+    return *(ast_leaf_number*)( this + 1 );
 }
 
-inline syntax_leaf_function& syntax_node::leaf_function()
+inline ast_leaf_function& ast_node::leaf_function()
 {
-    static_assert( sizeof( syntax_leaf_function ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_function ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_FUNCTION );
-    return *(syntax_leaf_function*)( this + 1 );
+    return *(ast_leaf_function*)( this + 1 );
 }
 
-inline syntax_leaf_index& syntax_node::leaf_index()
+inline ast_leaf_index& ast_node::leaf_index()
 {
-    static_assert( sizeof( syntax_leaf_index ) <= sizeof( syntax_node ) );
+    static_assert( sizeof( ast_leaf_index ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_INDEX );
-    return *(syntax_leaf_index*)( this + 1 );
+    return *(ast_leaf_index*)( this + 1 );
 }
 
 }

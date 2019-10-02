@@ -9,7 +9,7 @@
 //
 
 #include "build_ir.h"
-#include "syntax.h"
+#include "ast.h"
 
 namespace kf
 {
@@ -23,7 +23,7 @@ build_ir::~build_ir()
 {
 }
 
-std::unique_ptr< ir_function > build_ir::build( syntax_function* function )
+std::unique_ptr< ir_function > build_ir::build( ast_function* function )
 {
     // Set up for building.
     _ast_function = function;
@@ -50,7 +50,7 @@ std::unique_ptr< ir_function > build_ir::build( syntax_function* function )
 
 void build_ir::visit( unsigned ast_index )
 {
-    syntax_node* n = &_ast_function->nodes[ ast_index ];
+    ast_node* n = &_ast_function->nodes[ ast_index ];
 
     switch ( n->kind )
     {
@@ -118,7 +118,7 @@ void build_ir::visit( unsigned ast_index )
         // Declare parameters.
         for ( unsigned c = n->child_index; c < ast_index; c = _ast_function->nodes[ c ].next_index )
         {
-            syntax_node* pn = &_ast_function->nodes[ c ];
+            ast_node* pn = &_ast_function->nodes[ c ];
             if ( pn->kind == AST_VARARG_PARAM )
             {
                 continue;

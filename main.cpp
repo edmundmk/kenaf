@@ -31,15 +31,15 @@ int main( int argc, char* argv[] )
 
     kf::lexer lexer( &source );
     kf::parser parser( &source, &lexer );
-    std::unique_ptr< kf::syntax_tree > syntax_tree = parser.parse();
+    std::unique_ptr< kf::ast_tree > ast_tree = parser.parse();
 
     if ( ! source.has_error )
     {
-        kf::resolve_names resolve( &source, syntax_tree.get() );
+        kf::resolve_names resolve( &source, ast_tree.get() );
         resolve.resolve();
 
         kf::build_ir build_ir;
-        for ( const auto& function : syntax_tree->functions )
+        for ( const auto& function : ast_tree->functions )
         {
             function->debug_print();
             std::unique_ptr< kf::ir_function > ir = build_ir.build( function.get() );

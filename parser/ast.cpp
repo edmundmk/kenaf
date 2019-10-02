@@ -1,5 +1,5 @@
 //
-//  syntax.cpp
+//  ast.cpp
 //
 //  Created by Edmund Kapusniak on 28/09/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,12 +8,12 @@
 //  full license information.
 //
 
-#include "syntax.h"
+#include "ast.h"
 
 namespace kf
 {
 
-const char* const SYNTAX_NODE_NAME[] =
+const char* const AST_NODE_NAME[] =
 {
     [ AST_FUNCTION          ] = "FUNCTION",
     [ AST_BLOCK             ] = "BLOCK",
@@ -95,21 +95,21 @@ const char* const SYNTAX_NODE_NAME[] =
     [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
 };
 
-syntax_tree::syntax_tree()
+ast_tree::ast_tree()
 {
 }
 
-syntax_tree::~syntax_tree()
+ast_tree::~ast_tree()
 {
 }
 
-syntax_function* syntax_tree::new_function( srcloc sloc, syntax_function* outer )
+ast_function* ast_tree::new_function( srcloc sloc, ast_function* outer )
 {
-    functions.push_back( std::make_unique< syntax_function >( sloc, outer ) );
+    functions.push_back( std::make_unique< ast_function >( sloc, outer ) );
     return functions.back().get();
 }
 
-syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
+ast_function::ast_function( srcloc sloc, ast_function* outer )
     :   sloc( sloc )
     ,   outer( outer )
     ,   parameter_count( 0 )
@@ -121,11 +121,11 @@ syntax_function::syntax_function( srcloc sloc, syntax_function* outer )
 {
 }
 
-syntax_function::~syntax_function()
+ast_function::~ast_function()
 {
 }
 
-void syntax_function::fixup_nodes()
+void ast_function::fixup_nodes()
 {
     // Calculate next sibling pointers.
     unsigned last_index = 0;
@@ -172,29 +172,29 @@ void syntax_function::fixup_nodes()
     }
 }
 
-static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned index, int indent )
+static void debug_print_tree( const std::vector< ast_node >& nodes, unsigned index, int indent )
 {
-    const syntax_node& n = nodes.at( index );
+    const ast_node& n = nodes.at( index );
 
-    printf( "%*s%s", indent, "", SYNTAX_NODE_NAME[ n.kind ] );
+    printf( "%*s%s", indent, "", AST_NODE_NAME[ n.kind ] );
     if ( n.leaf == AST_LEAF_STRING )
     {
-        const syntax_leaf_string& l = n.leaf_string();
+        const ast_leaf_string& l = n.leaf_string();
         printf( " STRING '%.*s'\n", (int)l.size, l.text );
     }
     else if ( n.leaf == AST_LEAF_NUMBER )
     {
-        const syntax_leaf_number& l = n.leaf_number();
+        const ast_leaf_number& l = n.leaf_number();
         printf( " NUMBER %f\n", l.n );
     }
     else if ( n.leaf == AST_LEAF_FUNCTION )
     {
-        const syntax_leaf_function& l = n.leaf_function();
+        const ast_leaf_function& l = n.leaf_function();
         printf( " FUNCTION %p %s\n", l.function, l.function->name.c_str() );
     }
     else if ( n.leaf == AST_LEAF_INDEX )
     {
-        const syntax_leaf_index& l = n.leaf_index();
+        const ast_leaf_index& l = n.leaf_index();
         if ( l.index != AST_INVALID_INDEX )
             printf( " INDEX %u\n", l.index );
         else
@@ -211,7 +211,7 @@ static void debug_print_tree( const std::vector< syntax_node >& nodes, unsigned 
     }
 }
 
-void syntax_function::debug_print()
+void ast_function::debug_print()
 {
     printf( "FUNCTION %p %s\n", this, name.c_str() );
     if ( outer )
@@ -230,7 +230,7 @@ void syntax_function::debug_print()
     printf( "  UPVALS:\n" );
     for ( size_t i = 0; i < upvals.size(); ++i )
     {
-        const syntax_upval& upval = upvals[ i ];
+        const ast_upval& upval = upvals[ i ];
         printf
         (
             "    %zu : %s %u\n", i,
@@ -242,7 +242,7 @@ void syntax_function::debug_print()
     printf( "  LOCALS:\n" );
     for ( size_t i = 0; i < locals.size(); ++i )
     {
-        const syntax_local& local = locals[ i ];
+        const ast_local& local = locals[ i ];
         printf( "    %zu : %.*s", i, (int)local.name.size(), local.name.data() );
         if ( local.upstack_index != AST_INVALID_INDEX )
             printf( " UPSTACK %u", local.upstack_index );

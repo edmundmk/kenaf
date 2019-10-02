@@ -33,7 +33,7 @@ parser::~parser()
     KenafParseFree( _yyp, free );
 }
 
-std::unique_ptr< syntax_tree > parser::parse()
+std::unique_ptr< ast_tree > parser::parse()
 {
 #ifndef NDEBUG
     bool trace = false;
@@ -44,9 +44,9 @@ std::unique_ptr< syntax_tree > parser::parse()
     }
 #endif
 
-    _syntax_tree = std::make_unique< syntax_tree >();
+    _ast_tree = std::make_unique< ast_tree >();
 
-    _fstack.push_back( _syntax_tree->new_function( 0, nullptr ) );
+    _fstack.push_back( _ast_tree->new_function( 0, nullptr ) );
     _fstack.back()->name = _source->filename;
     _fstack.back()->is_top_level = true;
 
@@ -74,7 +74,7 @@ std::unique_ptr< syntax_tree > parser::parse()
     pop_function();
     _fstack.clear();
 
-    return std::move( _syntax_tree );
+    return std::move( _ast_tree );
 }
 
 void parser::syntax_error( token token )
@@ -90,9 +90,9 @@ void parser::error( srcloc sloc, const char* message, ... )
     va_end( ap );
 }
 
-syntax_function* parser::push_function( srcloc sloc )
+ast_function* parser::push_function( srcloc sloc )
 {
-    _fstack.push_back( _syntax_tree->new_function( sloc, _fstack.back() ) );
+    _fstack.push_back( _ast_tree->new_function( sloc, _fstack.back() ) );
     return _fstack.back();
 }
 
@@ -120,54 +120,54 @@ void parser::update_sloc( unsigned index, srcloc sloc )
     _fstack.back()->nodes.at( index ).sloc = sloc;
 }
 
-unsigned parser::node( syntax_node_kind kind, srcloc sloc, unsigned child )
+unsigned parser::node( ast_node_kind kind, srcloc sloc, unsigned child )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
     child = child != AST_INVALID_INDEX ? child : index;
     nodes.push_back( { kind, AST_NO_LEAF, false, sloc, child, AST_INVALID_INDEX } );
     return index;
 }
 
-unsigned parser::string_node( syntax_node_kind kind, srcloc sloc, const char* text, unsigned size )
+unsigned parser::string_node( ast_node_kind kind, srcloc sloc, const char* text, unsigned size )
 {
     return string_node( kind, sloc, AST_INVALID_INDEX, text, size );
 }
 
-unsigned parser::string_node( syntax_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size )
+unsigned parser::string_node( ast_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
     child = child != AST_INVALID_INDEX ? child : index;
-    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_STRING, false, sloc, child, AST_INVALID_INDEX }, {} } );
+    ast_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_STRING, false, sloc, child, AST_INVALID_INDEX }, {} } );
     node.leaf_string() = { text, size };
     return index;
 }
 
-unsigned parser::number_node( syntax_node_kind kind, srcloc sloc, double n )
+unsigned parser::number_node( ast_node_kind kind, srcloc sloc, double n )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_NUMBER, false, sloc, index, AST_INVALID_INDEX }, {} } );
+    ast_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_NUMBER, false, sloc, index, AST_INVALID_INDEX }, {} } );
     node.leaf_number().n = n;
     return index;
 }
 
-unsigned parser::function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function )
+unsigned parser::function_node( ast_node_kind kind, srcloc sloc, ast_function* function )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
-    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_FUNCTION, false, sloc, index, AST_INVALID_INDEX }, {} } );
+    ast_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_FUNCTION, false, sloc, index, AST_INVALID_INDEX }, {} } );
     node.leaf_function().function = function;
     return index;
 }
 
-unsigned parser::index_node( syntax_node_kind kind, srcloc sloc, unsigned child )
+unsigned parser::index_node( ast_node_kind kind, srcloc sloc, unsigned child )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
     unsigned index = nodes.size();
     child = child != AST_INVALID_INDEX ? child : index;
-    syntax_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_INDEX, false, sloc, child, AST_INVALID_INDEX }, {} } );
+    ast_node& node = *nodes.insert( nodes.end(), { { kind, AST_LEAF_INDEX, false, sloc, child, AST_INVALID_INDEX }, {} } );
     node.leaf_index().index = AST_INVALID_INDEX;
     return index;
 
@@ -175,17 +175,17 @@ unsigned parser::index_node( syntax_node_kind kind, srcloc sloc, unsigned child 
 
 std::string parser::qual_name_string( unsigned index )
 {
-    std::vector< syntax_node >& nodes = _fstack.back()->nodes;
-    const syntax_node& n = nodes.at( index );
+    std::vector< ast_node >& nodes = _fstack.back()->nodes;
+    const ast_node& n = nodes.at( index );
 
     if ( n.kind == AST_EXPR_NAME )
     {
-        const syntax_leaf_string& s = n.leaf_string();
+        const ast_leaf_string& s = n.leaf_string();
         return std::string( s.text, s.size );
     }
     else if ( n.kind == AST_EXPR_KEY )
     {
-        const syntax_leaf_string& s = n.leaf_string();
+        const ast_leaf_string& s = n.leaf_string();
         std::string qual_name = qual_name_string( n.child_index );
         qual_name.append( "." );
         qual_name.append( std::string_view( s.text, s.size ) );

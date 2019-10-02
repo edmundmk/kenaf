@@ -13,7 +13,7 @@
 
 #include <vector>
 #include "lexer.h"
-#include "syntax.h"
+#include "ast.h"
 
 namespace kf
 {
@@ -25,24 +25,24 @@ public:
     parser( source* source, lexer* lexer );
     ~parser();
 
-    std::unique_ptr< syntax_tree > parse();
+    std::unique_ptr< ast_tree > parse();
 
     void syntax_error( token token );
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
 
-    syntax_function* push_function( srcloc sloc );
+    ast_function* push_function( srcloc sloc );
     void pop_function();
 
     srcloc current_sloc();
     srcloc node_sloc( unsigned index );
     void update_sloc( unsigned index, srcloc sloc );
 
-    unsigned node( syntax_node_kind kind, srcloc sloc, unsigned child );
-    unsigned string_node( syntax_node_kind kind, srcloc sloc, const char* text, unsigned size );
-    unsigned string_node( syntax_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size );
-    unsigned number_node( syntax_node_kind kind, srcloc sloc, double n );
-    unsigned function_node( syntax_node_kind kind, srcloc sloc, syntax_function* function );
-    unsigned index_node( syntax_node_kind kind, srcloc sloc, unsigned child );
+    unsigned node( ast_node_kind kind, srcloc sloc, unsigned child );
+    unsigned string_node( ast_node_kind kind, srcloc sloc, const char* text, unsigned size );
+    unsigned string_node( ast_node_kind kind, srcloc sloc, unsigned child, const char* text, unsigned size );
+    unsigned number_node( ast_node_kind kind, srcloc sloc, double n );
+    unsigned function_node( ast_node_kind kind, srcloc sloc, ast_function* function );
+    unsigned index_node( ast_node_kind kind, srcloc sloc, unsigned child );
 
     std::string qual_name_string( unsigned index );
 
@@ -53,8 +53,8 @@ private:
     void* _yyp;
     token _token;
 
-    std::unique_ptr< syntax_tree > _syntax_tree;
-    std::vector< syntax_function* > _fstack;
+    std::unique_ptr< ast_tree > _ast_tree;
+    std::vector< ast_function* > _fstack;
 
 };
 

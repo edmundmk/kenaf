@@ -20,14 +20,14 @@ inline bool resolve_names::scope::is_function() const
 
 inline bool resolve_names::scope::is_loop() const
 {
-    syntax_node_kind kind = function->nodes.at( node_index ).kind;
+    ast_node_kind kind = function->nodes.at( node_index ).kind;
     return kind == AST_STMT_FOR_STEP || kind == AST_STMT_FOR_EACH
         || kind == AST_STMT_WHILE || kind == AST_STMT_REPEAT;
 }
 
-resolve_names::resolve_names( source* source, syntax_tree* syntax_tree )
+resolve_names::resolve_names( source* source, ast_tree* ast_tree )
     :   _source( source )
-    ,   _syntax_tree( syntax_tree )
+    ,   _ast_tree( ast_tree )
 {
 }
 
@@ -37,13 +37,13 @@ resolve_names::~resolve_names()
 
 void resolve_names::resolve()
 {
-    syntax_function* function = _syntax_tree->functions.at( 0 ).get();
+    ast_function* function = _ast_tree->functions.at( 0 ).get();
     visit( function, function->nodes.size() - 1 );
 }
 
-void resolve_names::visit( syntax_function* f, unsigned index )
+void resolve_names::visit( ast_function* f, unsigned index )
 {
-    syntax_node* n = &f->nodes[ index ];
+    ast_node* n = &f->nodes[ index ];
     unsigned until_index = AST_INVALID_INDEX;
 
     switch ( n->kind )
@@ -51,7 +51,7 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     case AST_DEF_FUNCTION:
     {
         // Visit leaf function.
-        syntax_function* function = n->leaf_function().function;
+        ast_function* function = n->leaf_function().function;
         visit( function, function->nodes.size() - 1 );
         return;
     }
@@ -228,7 +228,7 @@ void resolve_names::visit( syntax_function* f, unsigned index )
     }
 }
 
-void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsigned node_index )
+void resolve_names::open_scope( ast_function* f, unsigned block_index, unsigned node_index )
 {
     std::unique_ptr< scope > s = std::make_unique< scope >();
     s->function = f;
@@ -252,11 +252,11 @@ void resolve_names::open_scope( syntax_function* f, unsigned block_index, unsign
     _scopes.push_back( std::move( s ) );
 }
 
-void resolve_names::declare_implicit_self( syntax_function* f )
+void resolve_names::declare_implicit_self( ast_function* f )
 {
     scope* scope = _scopes.back().get();
 
-    syntax_local local = {};
+    ast_local local = {};
     local.name = "self";
     local.upstack_index = AST_INVALID_INDEX;
     local.is_implicit_self = true;
@@ -270,10 +270,10 @@ void resolve_names::declare_implicit_self( syntax_function* f )
     f->parameter_count += 1;
 }
 
-void resolve_names::declare( syntax_function* f, unsigned index )
+void resolve_names::declare( ast_function* f, unsigned index )
 {
     scope* scope = _scopes.back().get();
-    syntax_node* n = &f->nodes[ index ];
+    ast_node* n = &f->nodes[ index ];
 
     assert( n->kind == AST_EXPR_NAME || n->kind == AST_NAME_LIST || n->kind == AST_PARAMETERS );
     bool is_parameter = n->kind == AST_PARAMETERS;
@@ -325,7 +325,7 @@ void resolve_names::declare( syntax_function* f, unsigned index )
         }
 
         // Add local.
-        syntax_local local = {};
+        ast_local local = {};
         local.name = name;
         local.upstack_index = AST_INVALID_INDEX;
         local.is_parameter = is_parameter;
@@ -348,9 +348,9 @@ void resolve_names::declare( syntax_function* f, unsigned index )
     }
 }
 
-void resolve_names::lookup( syntax_function* f, unsigned index )
+void resolve_names::lookup( ast_function* f, unsigned index )
 {
-    syntax_node* n = &f->nodes[ index ];
+    ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();
 
     assert( n->kind == AST_EXPR_NAME );
@@ -412,7 +412,7 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
         unsigned upval_index = 0;
         for ( ; upval_index < inner->function->upvals.size(); ++upval_index )
         {
-            const syntax_upval& upval = inner->function->upvals[ upval_index ];
+            const ast_upval& upval = inner->function->upvals[ upval_index ];
             if ( upval.outer_index == v->index && upval.outer_upval == v->is_upval )
             {
                 break;
@@ -426,7 +426,7 @@ void resolve_names::lookup( syntax_function* f, unsigned index )
             // located on the outer function's upstack.
             if ( ! v->is_upval )
             {
-                syntax_local* local = &outer->function->locals.at( v->index );
+                ast_local* local = &outer->function->locals.at( v->index );
                 if ( local->upstack_index == AST_INVALID_INDEX )
                 {
                     insert_upstack( vscope->upstack.get(), vscope_index, v );
@@ -496,7 +496,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
     /*
         Assign local to upstack slot.
     */
-    syntax_local& local = upstack->function->locals.at( variable->index );
+    ast_local& local = upstack->function->locals.at( variable->index );
     assert( local.upstack_index == AST_INVALID_INDEX );
     local.upstack_index = insert_index;
 
@@ -519,7 +519,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
         for ( unsigned i = insert_index + 1; i < upstack->upstack_slots.size(); ++i )
         {
             unsigned local_index = upstack->upstack_slots.at( i );
-            syntax_local& local = upstack->function->locals.at( local_index );
+            ast_local& local = upstack->function->locals.at( local_index );
             assert( local.upstack_index == i - 1 );
             local.upstack_index = i;
         }
@@ -528,7 +528,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
         // close to an index above it.
         for ( upstack_block& close : upstack->upstack_close )
         {
-            syntax_node& node = upstack->function->nodes.at( close.block_index );
+            ast_node& node = upstack->function->nodes.at( close.block_index );
             assert( node.kind == AST_BLOCK );
             assert( node.leaf == AST_LEAF_INDEX );
             assert( node.leaf_index().index >= close.floor_index );
@@ -564,7 +564,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
 void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
 {
     // Get block node to close.
-    syntax_node& node = upstack->function->nodes.at( block_index );
+    ast_node& node = upstack->function->nodes.at( block_index );
     assert( node.kind == AST_BLOCK );
     assert( node.leaf == AST_LEAF_INDEX );
     assert( node.leaf_index().index == AST_INVALID_INDEX );
@@ -612,13 +612,13 @@ void resolve_names::debug_print( const upstack* upstack )
     for ( unsigned i = 0; i < upstack->upstack_slots.size(); ++i )
     {
         unsigned local_index = upstack->upstack_slots.at( i );
-        const syntax_local& local = upstack->function->locals.at( local_index );
+        const ast_local& local = upstack->function->locals.at( local_index );
         printf( "    %u : %u %.*s\n", i, local_index, (int)local.name.size(), local.name.data() );
     }
     printf( "  CLOSE\n" );
     for ( const upstack_block& close : upstack->upstack_close )
     {
-        syntax_node& node = upstack->function->nodes.at( close.block_index );
+        ast_node& node = upstack->function->nodes.at( close.block_index );
         printf( "    %u : FLOOR %u CLOSE %u\n", close.block_index, close.floor_index, node.leaf_index().index );
     }
 }

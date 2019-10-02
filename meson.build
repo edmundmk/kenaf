@@ -21,7 +21,7 @@ sources = [
     'parser/source.cpp',
     'parser/parser.cpp',
     'parser/resolve_names.cpp',
-    'parser/syntax.cpp',
+    'parser/ast.cpp',
 ]
 
 sources += lemon.process( 'parser/grammar.lemon' )
