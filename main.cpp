@@ -13,6 +13,7 @@
 #include "parser/lexer.h"
 #include "parser/parser.h"
 #include "parser/resolve_names.h"
+#include "parser/build_icode.h"
 
 int main( int argc, char* argv[] )
 {
@@ -37,9 +38,12 @@ int main( int argc, char* argv[] )
         kf::resolve_names resolve( &source, syntax_tree.get() );
         resolve.resolve();
 
+        kf::build_icode build_icode;
         for ( const auto& function : syntax_tree->functions )
         {
             function->debug_print();
+            std::unique_ptr< kf::icode_function > ir = build_icode.build( function.get() );
+            ir->debug_print();
         }
     }
 

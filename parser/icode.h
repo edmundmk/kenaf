@@ -194,6 +194,7 @@ enum icode_opcode : uint8_t
     // Head
     IR_REF,                     // Reference to op in predecessor block.
     IR_PHI,                     // phi function.
+    IR_PARAM,                   // Parameter.
 };
 
 enum icode_operand_kind : uint8_t
@@ -237,7 +238,7 @@ inline icode_operand icode_pack_integer_operand( int8_t i )
     return { IR_OPERAND_INTEGER, (unsigned)(int)i };
 }
 
-int8_t icode_unpack_integer_operand( icode_operand operand )
+inline int8_t icode_unpack_integer_operand( icode_operand operand )
 {
     return (int8_t)(int)(unsigned)operand.index;
 }

@@ -11,6 +11,20 @@
 #ifndef BUILD_ICODE_H
 #define BUILD_ICODE_H
 
+#include <utility>
+#include <functional>
+#include <unordered_map>
+#include "icode.h"
+
+template <> struct std::hash< std::pair< unsigned, kf::icode_block* > >
+    :   private std::hash< unsigned >, private std::hash< kf::icode_block* >
+{
+    inline size_t operator () ( std::pair< unsigned, kf::icode_block* > key ) const
+    {
+        return std::hash< unsigned >::operator () ( key.first ) ^ std::hash< kf::icode_block* >::operator () ( key.second );
+    }
+};
+
 namespace kf
 {
 
@@ -87,7 +101,27 @@ namespace kf
 
 */
 
+class build_icode
+{
+public:
 
+  build_icode();
+  ~build_icode();
+
+  std::unique_ptr< icode_function > build( syntax_function* function );
+
+private:
+
+  void visit( unsigned ast_index );
+
+  void def( unsigned local_index, icode_block* block, unsigned op_index );
+
+  syntax_function* _ast_function;
+  std::unique_ptr< icode_function > _ir_function;
+  std::unordered_map< std::pair< unsigned, icode_block* >, unsigned > _def_map;
+  icode_block* _block;
+
+};
 
 }
 
