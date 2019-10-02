@@ -227,7 +227,7 @@ void syntax_function::debug_print()
     if ( is_varargs )
         printf( "  VARARGS\n" );
 
-    printf( "  UPVALS\n" );
+    printf( "  UPVALS:\n" );
     for ( size_t i = 0; i < upvals.size(); ++i )
     {
         const syntax_upval& upval = upvals[ i ];
@@ -239,7 +239,7 @@ void syntax_function::debug_print()
         );
     }
 
-    printf( "  LOCALS\n" );
+    printf( "  LOCALS:\n" );
     for ( size_t i = 0; i < locals.size(); ++i )
     {
         const syntax_local& local = locals[ i ];

@@ -105,21 +105,24 @@ class build_icode
 {
 public:
 
-  build_icode();
-  ~build_icode();
+    build_icode();
+    ~build_icode();
 
-  std::unique_ptr< icode_function > build( syntax_function* function );
+    std::unique_ptr< icode_function > build( syntax_function* function );
 
 private:
 
-  void visit( unsigned ast_index );
+    void visit( unsigned ast_index );
 
-  void def( unsigned local_index, icode_block* block, unsigned op_index );
+    unsigned op( srcloc sloc, icode_opcode opcode, unsigned operand_count, bool head = false );
+    void def( unsigned local_index, icode_block* block, unsigned op_index );
 
-  syntax_function* _ast_function;
-  std::unique_ptr< icode_function > _ir_function;
-  std::unordered_map< std::pair< unsigned, icode_block* >, unsigned > _def_map;
-  icode_block* _block;
+    syntax_function* _ast_function;
+    std::unique_ptr< icode_function > _ir_function;
+    std::unordered_map< std::pair< unsigned, icode_block* >, unsigned > _def_map;
+    icode_block* _block;
+
+    std::vector< icode_operand > _eval;
 
 };
 

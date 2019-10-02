@@ -72,6 +72,8 @@ struct icode_operand;
 */
 
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
+const unsigned IR_INVALID_REGISTER = 0xFF;
+const unsigned IR_TEMPORARY = 0xFF;
 
 /*
     Stores the intermediate representation for a function.
@@ -100,6 +102,8 @@ struct icode_function
     common case of accessing the body simpler.
 */
 
+const unsigned IR_HEAD_BIT = 0x800000;
+
 class icode_oplist
 {
 public:
@@ -121,7 +125,6 @@ public:
 
 private:
 
-    const unsigned INDEX_TBIT = 0x800000;
     const unsigned INDEX_MASK = 0x7FFFFF;
 
     icode_oplist( icode_oplist& ) = delete;
@@ -191,28 +194,64 @@ struct icode_block
 
 enum icode_opcode : uint8_t
 {
+    IR_NOP,
+
     // Head
     IR_REF,                     // Reference to op in predecessor block.
     IR_PHI,                     // phi function.
     IR_PARAM,                   // Parameter.
+
+    // Body.
+    IR_LENGTH,                  // #a
+    IR_NEG,                     // -a
+    IR_POS,                     // +a
+    IR_BITNOT,                  // ~a
+    IR_MUL,                     // a * b
+    IR_DIV,                     // a / b
+    IR_INTDIV,                  // a // b
+    IR_MOD,                     // a % b
+    IR_ADD,                     // a + b
+    IR_SUB,                     // a - b
+    IR_CONCAT,                  // a ~ b
+    IR_LSHIFT,                  // a << b
+    IR_RSHIFT,                  // a >> b
+    IR_ASHIFT,                  // a ~>> b
+    IR_BITAND,                  // a & b
+    IR_BITXOR,                  // a ^ b
+    IR_BITOR,                   // a | b
+
+    IR_GET_UPVAL,               // Get upval at index.
+    IR_GET_KEY,                 // a.b
+    IR_GET_INDEX,               // a[ b ]
+    IR_SUPEROF,                 // Find prototype of value.
+    IR_CALL,                    // a( b, c, d .. )
+
 };
 
 enum icode_operand_kind : uint8_t
 {
-    IR_OPERAND_VALUE,           // Index of op in this block.
-    IR_OPERAND_PHI_BLOCK,       // Index of block for phi operand.
-    IR_OPERAND_PHI_VALUE,       // Index of op in phi block for phi operand.
-    IR_OPERAND_INTEGER,         // Small integer encoded directly.
-    IR_OPERAND_AST_NUMBER,      // Number value in AST node.
-    IR_OPERAND_AST_STRING,      // String value in AST node.
-    IR_OPERAND_FUNCTION,        // Function, index into syntax tree.
-    IR_OPERAND_NULL,            // null
-    IR_OPERAND_TRUE,            // true
-    IR_OPERAND_FALSE,           // false
+    IR_O_VALUE,                 // Index of op in this block.
+    IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
+    IR_O_PHI_VALUE,             // Index of op in phi block for phi/ref operand.
+    IR_O_PARAM_INDEX,           // Index of parameter local.
+    IR_O_UPVAL_INDEX,           // Index of upval.
+    IR_O_INTEGER,               // Small integer encoded directly.
+    IR_O_AST_NUMBER,            // Number value in AST node.
+    IR_O_AST_STRING,            // String value in AST node.
+    IR_O_AST_KEY,               // Key string in AST node.
+    IR_O_FUNCTION,              // Function, index into syntax tree.
+    IR_O_NULL,                  // null
+    IR_O_TRUE,                  // true
+    IR_O_FALSE,                 // false
 };
 
 struct icode_op
 {
+    icode_op() : opcode( IR_NOP ), r( IR_INVALID_REGISTER ),
+        stack_top( IR_INVALID_REGISTER ), temp_r( IR_INVALID_REGISTER ),
+        operand_count( 0 ), operands( IR_INVALID_INDEX ),
+        variable( IR_TEMPORARY ), live_range( IR_INVALID_INDEX ), sloc( 0 ) {}
+
     icode_opcode opcode;        // Opcode.
     uint8_t r;                  // Allocated register.
     uint8_t stack_top;          // Stack top at this op.
@@ -229,13 +268,13 @@ struct icode_op
 
 struct icode_operand
 {
-    icode_operand_kind kind : 8;          // Operand kind.
-    unsigned index : 24;        // Index of op used as result.
+    icode_operand_kind kind : 8;    // Operand kind.
+    unsigned index : 24;            // Index of op used as result.
 };
 
 inline icode_operand icode_pack_integer_operand( int8_t i )
 {
-    return { IR_OPERAND_INTEGER, (unsigned)(int)i };
+    return { IR_O_INTEGER, (unsigned)(int)i };
 }
 
 inline int8_t icode_unpack_integer_operand( icode_operand operand )
@@ -243,7 +282,8 @@ inline int8_t icode_unpack_integer_operand( icode_operand operand )
     return (int8_t)(int)(unsigned)operand.index;
 }
 
-/**/
+/*
+*/
 
 inline unsigned icode_oplist::head_size() const
 {
@@ -257,7 +297,7 @@ inline unsigned icode_oplist::body_size() const
 
 inline const icode_op& icode_oplist::operator [] ( unsigned i ) const
 {
-    if ( ( i & INDEX_TBIT ) == 0 )
+    if ( ( i & IR_HEAD_BIT ) == 0 )
     {
         assert( i < _body_size );
         return _ops[ i ];
@@ -272,7 +312,7 @@ inline const icode_op& icode_oplist::operator [] ( unsigned i ) const
 
 inline const icode_op& icode_oplist::at( unsigned i ) const
 {
-    if ( ( i & INDEX_TBIT ) == 0 )
+    if ( ( i & IR_HEAD_BIT ) == 0 )
     {
         if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
         return _ops[ i ];
@@ -287,7 +327,7 @@ inline const icode_op& icode_oplist::at( unsigned i ) const
 
 inline icode_op& icode_oplist::operator [] ( unsigned i )
 {
-    if ( ( i & INDEX_TBIT ) == 0 )
+    if ( ( i & IR_HEAD_BIT ) == 0 )
     {
         assert( i < _body_size );
         return _ops[ i ];
@@ -302,7 +342,7 @@ inline icode_op& icode_oplist::operator [] ( unsigned i )
 
 inline icode_op& icode_oplist::at( unsigned i )
 {
-    if ( ( i & INDEX_TBIT ) == 0 )
+    if ( ( i & IR_HEAD_BIT ) == 0 )
     {
         if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
         return _ops[ i ];

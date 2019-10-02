@@ -10,6 +10,7 @@
 
 #include "icode.h"
 #include <string.h>
+#include "syntax.h"
 
 namespace kf
 {
@@ -25,6 +26,10 @@ icode_function::~icode_function()
 
 void icode_function::debug_print()
 {
+    for ( const auto& block : blocks )
+    {
+        block->debug_print();
+    }
 }
 
 icode_oplist::icode_oplist()
@@ -100,8 +105,152 @@ icode_block::~icode_block()
 {
 }
 
+const char* const OPCODE_NAMES[] =
+{
+    [ IR_NOP        ] = "NOP",
+    [ IR_REF        ] = "REF",
+    [ IR_PHI        ] = "PHI",
+    [ IR_PARAM      ] = "PARAM",
+    [ IR_LENGTH     ] = "LENGTH",
+    [ IR_NEG        ] = "NEG",
+    [ IR_POS        ] = "POS",
+    [ IR_BITNOT     ] = "BITNOT",
+    [ IR_MUL        ] = "MUL",
+    [ IR_DIV        ] = "DIV",
+    [ IR_INTDIV     ] = "INTDIV",
+    [ IR_MOD        ] = "MOD",
+    [ IR_ADD        ] = "ADD",
+    [ IR_SUB        ] = "SUB",
+    [ IR_CONCAT     ] = "CONCAT",
+    [ IR_LSHIFT     ] = "LSHIFT",
+    [ IR_RSHIFT     ] = "RSHIFT",
+    [ IR_ASHIFT     ] = "ASHIFT",
+    [ IR_BITAND     ] = "BITAND",
+    [ IR_BITXOR     ] = "BITXOR",
+    [ IR_BITOR      ] = "BITOR",
+    [ IR_GET_UPVAL  ] = "GET_UPVAL",
+    [ IR_GET_KEY    ] = "GET_KEY",
+    [ IR_GET_INDEX  ] = "GET_INDEX",
+    [ IR_SUPEROF    ] = "SUPEROF",
+    [ IR_CALL       ] = "CALL",
+};
+
+static void debug_print_op( icode_block* block, unsigned i )
+{
+    const icode_op& op = block->ops.at( i );
+    printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : "@", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
+    for ( unsigned o = 0; o < op.operand_count; ++o )
+    {
+        icode_operand operand = block->operands[ op.operands + o ];
+
+        if ( o )
+        {
+            printf( "," );
+        }
+
+        switch ( operand.kind )
+        {
+        case IR_O_VALUE:
+        {
+            printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : "@", operand.index & ~IR_HEAD_BIT );
+            break;
+        }
+
+        case IR_O_PHI_BLOCK:
+        {
+            icode_operand opvalue = block->operands[ op.operands + ++o ];
+            assert( opvalue.kind == IR_O_PHI_VALUE );
+            icode_block* opblock = block->function->blocks.at( operand.index ).get();
+            printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : "@", opvalue.index & ~IR_HEAD_BIT );
+            break;
+        }
+
+        case IR_O_PHI_VALUE:
+        {
+            assert( ! "malformed phi op" );
+            break;
+        }
+
+        case IR_O_PARAM_INDEX:
+        {
+            const syntax_local& local = block->function->ast->locals.at( operand.index );
+            printf( " %.*s", (int)local.name.size(), local.name.data() );
+            break;
+        }
+
+        case IR_O_UPVAL_INDEX:
+        {
+            printf( " UPVAL %u", operand.index );
+            break;
+        }
+
+        case IR_O_INTEGER:
+        {
+            printf( " %i", icode_unpack_integer_operand( operand ) );
+            break;
+        }
+
+        case IR_O_AST_NUMBER:
+        {
+            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            printf( " %f", n.leaf_number().n );
+            break;
+        }
+
+        case IR_O_AST_STRING:
+        {
+            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
+            break;
+        }
+
+        case IR_O_AST_KEY:
+        {
+            const syntax_node& n = block->function->ast->nodes.at( operand.index );
+            printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
+            break;
+        }
+
+        case IR_O_FUNCTION:
+        {
+            printf( " FUNCTION %u", operand.index );
+            break;
+        }
+
+        case IR_O_NULL:
+        {
+            printf( " NULL" );
+            break;
+        }
+
+        case IR_O_TRUE:
+        {
+            printf( " TRUE" );
+            break;
+        }
+
+        case IR_O_FALSE:
+        {
+            printf( " FALSE" );
+            break;
+        }
+        }
+    }
+
+    printf( "\n" );
+}
+
 void icode_block::debug_print()
 {
+    printf( "[%u] BLOCK:\n", block_index );
+    for ( unsigned i = 0; i < ops.head_size(); ++i )
+    {
+        debug_print_op( this, IR_HEAD_BIT | i );
+    }
+    for ( unsigned i = 0; i < ops.body_size(); ++i )
+    {
+        debug_print_op( this, i );
+    }
 }
 
 }
