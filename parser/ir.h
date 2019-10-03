@@ -111,6 +111,7 @@ public:
     ir_oplist();
     ~ir_oplist();
 
+    bool empty() const;
     unsigned head_size() const;
     unsigned body_size() const;
 
@@ -190,24 +191,27 @@ enum ir_opcode : uint8_t
     IR_CALL_UNPACK,             // a( b, c, d ... ) ...
     IR_VARARG_UNPACK,           // args ...
     IR_ARRAY_UNPACK,            // value ...
+
+    IR_CLOSE_UPSTACK,           // close upstack
 };
 
 enum ir_operand_kind : uint8_t
 {
     IR_O_NONE,                  // No operand.
-    IR_O_VALUE,                 // Index of op in this block.
-    IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
-    IR_O_PHI_VALUE,             // Index of op in phi block for phi/ref operand.
-    IR_O_PARAM_INDEX,           // Index of parameter local.
-    IR_O_UPVAL_INDEX,           // Index of upval.
+    IR_O_OP,                    // Index of op in this block.
+    IR_O_NULL,                  // null
+    IR_O_TRUE,                  // true
+    IR_O_FALSE,                 // false
     IR_O_INTEGER,               // Small integer encoded directly.
     IR_O_AST_NUMBER,            // Number value in AST node.
     IR_O_AST_STRING,            // String value in AST node.
     IR_O_AST_KEY,               // Key string in AST node.
+    IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
+    IR_O_PHI_VALUE,             // Index of op in phi block for phi/ref operand.
+    IR_O_PARAM_INDEX,           // Index of parameter local.
+    IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION,              // Function, index into syntax tree.
-    IR_O_NULL,                  // null
-    IR_O_TRUE,                  // true
-    IR_O_FALSE,                 // false
+    IR_O_VM_INDEX,              // virtual machine index.
 };
 
 struct ir_op
@@ -218,6 +222,7 @@ struct ir_op
         variable( IR_TEMPORARY ), live_range( IR_INVALID_INDEX ), sloc( 0 ) {}
 
     ir_opcode opcode;           // Opcode.
+
     uint8_t r;                  // Allocated register.
     uint8_t stack_top;          // Stack top at this op.
     uint8_t temp_r;             // Temporary register for literal loading.
@@ -276,7 +281,7 @@ struct ir_block
     ir_operand test;            // Operand to test.
 
     // List of predecessor block indices.
-    std::vector< unsigned > predecessor_blocks;
+    std::vector< ir_block* > predecessors;
 
     // Oplist and operands.
     ir_oplist ops;
@@ -285,6 +290,11 @@ struct ir_block
 
 /*
 */
+
+inline bool ir_oplist::empty() const
+{
+    return _head_size == 0 && _body_size == 0;
+}
 
 inline unsigned ir_oplist::head_size() const
 {

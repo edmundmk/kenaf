@@ -85,7 +85,6 @@ public:
 
 private:
 
-    // Simplify traversal of AST.
     struct node_index
     {
         inline ast_node* operator -> () const { return node; }
@@ -93,6 +92,14 @@ private:
         unsigned index;
     };
 
+    struct build_loop
+    {
+        ir_block* loop;
+        ir_block* continue_block;
+        ir_block* break_block;
+    };
+
+    // AST traversal.
     node_index child_node( node_index node );
     node_index next_node( node_index node );
 
@@ -100,7 +107,7 @@ private:
     ir_operand visit( node_index node );
 
     // Visit child nodes and evaluate them.
-    struct operand_pair { ir_operand a; ir_operand b; };
+    struct operand_pair { ir_operand o[ 2 ]; };
     operand_pair visit_pair( node_index node, node_index last );
     unsigned visit_eval( node_index node, node_index last );
     void visit_list( node_index node, node_index last );
@@ -110,13 +117,14 @@ private:
     bool check_number( operand_pair operands, double n[ 2 ] );
 
     // Control flow graph.
-    ir_block* make_block( ir_loop_kind loop_kind = IR_LOOP_NONE );
-    ir_block* jump_block( ir_block* block );
+    ir_block* make_block();
+    ir_block* jump_block( ir_block* block = nullptr );
     ir_block* link_next_block( ir_block* block, ir_block* next );
     ir_block* link_fail_block( ir_block* block, ir_block* fail );
+    ir_block* test( ir_operand operand );
 
     // Emit ops.
-    unsigned op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head = false );
+    unsigned op( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount, bool head = false );
 
     // Variable use/def.
     void def( unsigned local_index, ir_block* block, unsigned op_index );
@@ -131,7 +139,6 @@ private:
     std::vector< ir_operand > _v;
 
     // Loop hierarchy.  First element is the function's entry block.
-    struct build_loop { ir_block* loop; ir_block* break_block; };
     std::vector< build_loop > _loop_stack;
 
     // Block under construction.

@@ -155,9 +155,54 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
             break;
         }
 
-        case IR_O_VALUE:
+        case IR_O_OP:
         {
             printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : ":", operand.index & ~IR_HEAD_BIT );
+            break;
+        }
+
+        case IR_O_NULL:
+        {
+            printf( " NULL" );
+            break;
+        }
+
+        case IR_O_TRUE:
+        {
+            printf( " TRUE" );
+            break;
+        }
+
+        case IR_O_FALSE:
+        {
+            printf( " FALSE" );
+            break;
+        }
+
+        case IR_O_INTEGER:
+        {
+            printf( " %i", ir_unpack_integer_operand( operand ) );
+            break;
+        }
+
+        case IR_O_AST_NUMBER:
+        {
+            const ast_node& n = function->ast->nodes.at( operand.index );
+            printf( " %f", n.leaf_number().n );
+            break;
+        }
+
+        case IR_O_AST_STRING:
+        {
+            const ast_node& n = function->ast->nodes.at( operand.index );
+            printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
+            break;
+        }
+
+        case IR_O_AST_KEY:
+        {
+            const ast_node& n = function->ast->nodes.at( operand.index );
+            printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
@@ -189,54 +234,15 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
             break;
         }
 
-        case IR_O_INTEGER:
-        {
-            printf( " %i", ir_unpack_integer_operand( operand ) );
-            break;
-        }
-
-        case IR_O_AST_NUMBER:
-        {
-            const ast_node& n = function->ast->nodes.at( operand.index );
-            printf( " %f", n.leaf_number().n );
-            break;
-        }
-
-        case IR_O_AST_STRING:
-        {
-            const ast_node& n = function->ast->nodes.at( operand.index );
-            printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
-            break;
-        }
-
-        case IR_O_AST_KEY:
-        {
-            const ast_node& n = function->ast->nodes.at( operand.index );
-            printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
-            break;
-        }
-
         case IR_O_FUNCTION:
         {
             printf( " FUNCTION %u", operand.index );
             break;
         }
 
-        case IR_O_NULL:
+        case IR_O_VM_INDEX:
         {
-            printf( " NULL" );
-            break;
-        }
-
-        case IR_O_TRUE:
-        {
-            printf( " TRUE" );
-            break;
-        }
-
-        case IR_O_FALSE:
-        {
-            printf( " FALSE" );
+            printf( " VM INDEX %u\n", operand.index );
             break;
         }
         }

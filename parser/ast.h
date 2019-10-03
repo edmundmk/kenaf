@@ -184,8 +184,8 @@ enum ast_node_leaf : uint8_t
 
 struct ast_node
 {
-    ast_node_kind kind;      // AST node kind.
-    ast_node_leaf leaf;      // Is there associated leaf data?
+    ast_node_kind kind;         // AST node kind.
+    ast_node_leaf leaf;         // Is there associated leaf data?
     uint8_t prev_leaf;          // Does the previous node have leaf data?
     srcloc sloc;                // Source location.
     unsigned child_index;       // Index of first child, or invalid.
