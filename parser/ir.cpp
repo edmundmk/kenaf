@@ -28,7 +28,7 @@ void ir_function::debug_print()
 {
     for ( const auto& block : blocks )
     {
-        block->debug_print();
+        block->debug_print( this );
     }
 }
 
@@ -92,12 +92,11 @@ void ir_oplist::grow( bool grow_body, bool grow_head )
 
 ir_block::ir_block()
     :   loop_kind( IR_LOOP_NONE )
-    ,   test_kind( IR_TEST_NONE )
     ,   block_index( IR_INVALID_INDEX )
-    ,   function( nullptr )
     ,   loop( nullptr )
-    ,   if_true( nullptr )
-    ,   if_false( nullptr )
+    ,   next_block( nullptr )
+    ,   fail_block( nullptr )
+    ,   test{ IR_O_NONE }
 {
 }
 
@@ -135,7 +134,7 @@ const char* const OPCODE_NAMES[] =
     [ IR_CALL       ] = "CALL",
 };
 
-static void debug_print_op( ir_block* block, unsigned i )
+static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
 {
     const ir_op& op = block->ops.at( i );
     printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : ":", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
@@ -150,6 +149,12 @@ static void debug_print_op( ir_block* block, unsigned i )
 
         switch ( operand.kind )
         {
+        case IR_O_NONE:
+        {
+            printf( " NONE" );
+            break;
+        }
+
         case IR_O_VALUE:
         {
             printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : ":", operand.index & ~IR_HEAD_BIT );
@@ -160,7 +165,7 @@ static void debug_print_op( ir_block* block, unsigned i )
         {
             ir_operand opvalue = block->operands[ op.operands + ++o ];
             assert( opvalue.kind == IR_O_PHI_VALUE );
-            ir_block* opblock = block->function->blocks.at( operand.index ).get();
+            ir_block* opblock = function->blocks.at( operand.index ).get();
             printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : ":", opvalue.index & ~IR_HEAD_BIT );
             break;
         }
@@ -173,7 +178,7 @@ static void debug_print_op( ir_block* block, unsigned i )
 
         case IR_O_PARAM_INDEX:
         {
-            const ast_local& local = block->function->ast->locals.at( operand.index );
+            const ast_local& local = function->ast->locals.at( operand.index );
             printf( " %.*s", (int)local.name.size(), local.name.data() );
             break;
         }
@@ -192,21 +197,21 @@ static void debug_print_op( ir_block* block, unsigned i )
 
         case IR_O_AST_NUMBER:
         {
-            const ast_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = function->ast->nodes.at( operand.index );
             printf( " %f", n.leaf_number().n );
             break;
         }
 
         case IR_O_AST_STRING:
         {
-            const ast_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = function->ast->nodes.at( operand.index );
             printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
         case IR_O_AST_KEY:
         {
-            const ast_node& n = block->function->ast->nodes.at( operand.index );
+            const ast_node& n = function->ast->nodes.at( operand.index );
             printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
@@ -240,16 +245,16 @@ static void debug_print_op( ir_block* block, unsigned i )
     printf( "\n" );
 }
 
-void ir_block::debug_print()
+void ir_block::debug_print( ir_function* function )
 {
     printf( "[%u] BLOCK:\n", block_index );
     for ( unsigned i = 0; i < ops.head_size(); ++i )
     {
-        debug_print_op( this, IR_HEAD_BIT | i );
+        debug_print_op( function, this, IR_HEAD_BIT | i );
     }
     for ( unsigned i = 0; i < ops.body_size(); ++i )
     {
-        debug_print_op( this, i );
+        debug_print_op( function, this, i );
     }
 }
 

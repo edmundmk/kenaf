@@ -141,49 +141,6 @@ private:
 };
 
 /*
-    A block is a sequence of instructions without branches.
-*/
-
-enum ir_loop_kind : unsigned
-{
-    IR_LOOP_NONE,                   // Not a loop header.
-    IR_LOOP_FOR_STEP,               // Loop header of for i = start : stop : step do
-    IR_LOOP_FOR_EACH,               // Loop header of for i : generator do
-    IR_LOOP_WHILE,                  // Loop header of while loop.
-    IR_LOOP_REPEAT,                 // Loop header of repeat/until loop.
-};
-
-enum ir_test_kind : unsigned
-{
-    IR_TEST_NONE,                   // No test.  Successor is if_true.
-    IR_TEST_IF,                     // Block ends with an if test between two sucessors.
-};
-
-struct ir_block
-{
-    ir_block();
-    ~ir_block();
-
-    void debug_print();
-
-    unsigned loop_kind : 4;  // Loop kind.
-    unsigned test_kind : 4;  // Test kind.
-    unsigned block_index : 24;      // Index in function's list of blocks.
-
-    ir_function* function;       // Function containing this block.
-    ir_block* loop;              // Loop containing this block.
-    ir_block* if_true;           // Successor if test is true.
-    ir_block* if_false;          // Successor if test is false.
-
-    // List of predecessor block indices.
-    std::vector< unsigned > predecessor_blocks;
-
-    // Oplist and operands.
-    ir_oplist ops;
-    std::vector< ir_operand > operands;
-};
-
-/*
     An op reads its operands and produces a result.
 
     Liveness information is stored for each op as the index of the last op in
@@ -237,6 +194,7 @@ enum ir_opcode : uint8_t
 
 enum ir_operand_kind : uint8_t
 {
+    IR_O_NONE,                  // No operand.
     IR_O_VALUE,                 // Index of op in this block.
     IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
     IR_O_PHI_VALUE,             // Index of op in phi block for phi/ref operand.
@@ -259,7 +217,7 @@ struct ir_op
         operand_count( 0 ), operands( IR_INVALID_INDEX ),
         variable( IR_TEMPORARY ), live_range( IR_INVALID_INDEX ), sloc( 0 ) {}
 
-    ir_opcode opcode;        // Opcode.
+    ir_opcode opcode;           // Opcode.
     uint8_t r;                  // Allocated register.
     uint8_t stack_top;          // Stack top at this op.
     uint8_t temp_r;             // Temporary register for literal loading.
@@ -288,6 +246,42 @@ inline int8_t ir_unpack_integer_operand( ir_operand operand )
 {
     return (int8_t)(int)(unsigned)operand.index;
 }
+
+/*
+    A block is a sequence of instructions without branches.
+*/
+
+enum ir_loop_kind : uint8_t
+{
+    IR_LOOP_NONE,               // Not a loop header.
+    IR_LOOP_FOR_STEP,           // Loop header of for i = start : stop : step do
+    IR_LOOP_FOR_EACH,           // Loop header of for i : generator do
+    IR_LOOP_WHILE,              // Loop header of while loop.
+    IR_LOOP_REPEAT,             // Loop header of repeat/until loop.
+};
+
+struct ir_block
+{
+    ir_block();
+    ~ir_block();
+
+    void debug_print( ir_function* function );
+
+    ir_loop_kind loop_kind : 8; // Loop kind.
+    unsigned block_index : 24;  // Index in function's list of blocks.
+
+    ir_block* loop;             // Loop containing this block.
+    ir_block* next_block;       // Next block.
+    ir_block* fail_block;       // Alternative next block when test fails.
+    ir_operand test;            // Operand to test.
+
+    // List of predecessor block indices.
+    std::vector< unsigned > predecessor_blocks;
+
+    // Oplist and operands.
+    ir_oplist ops;
+    std::vector< ir_operand > operands;
+};
 
 /*
 */

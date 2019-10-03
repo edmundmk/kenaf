@@ -60,6 +60,7 @@
 #include <functional>
 #include <unordered_map>
 #include "ir.h"
+#include "ast.h"
 
 template <> struct std::hash< std::pair< unsigned, kf::ir_block* > >
     :   private std::hash< unsigned >, private std::hash< kf::ir_block* >
@@ -84,17 +85,57 @@ public:
 
 private:
 
-    void visit( unsigned ast_index );
+    // Simplify traversal of AST.
+    struct node_index
+    {
+        inline ast_node* operator -> () const { return node; }
+        ast_node* node;
+        unsigned index;
+    };
 
+    node_index child_node( node_index node );
+    node_index next_node( node_index node );
+
+    // Visit AST node, producing a value.
+    ir_operand visit( node_index node );
+
+    // Visit child nodes and evaluate them.
+    struct operand_pair { ir_operand a; ir_operand b; };
+    operand_pair visit_pair( node_index node, node_index last );
+    unsigned visit_eval( node_index node, node_index last );
+    void visit_list( node_index node, node_index last );
+
+    // Check if operands are literals.
+    bool check_number( ir_operand operand, double* n );
+    bool check_number( operand_pair operands, double n[ 2 ] );
+
+    // Control flow graph.
+    ir_block* make_block( ir_loop_kind loop_kind = IR_LOOP_NONE );
+    ir_block* jump_block( ir_block* block );
+    ir_block* link_next_block( ir_block* block, ir_block* next );
+    ir_block* link_fail_block( ir_block* block, ir_block* fail );
+
+    // Emit ops.
     unsigned op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head = false );
+
+    // Variable use/def.
     void def( unsigned local_index, ir_block* block, unsigned op_index );
 
     ast_function* _ast_function;
     std::unique_ptr< ir_function > _ir_function;
-    std::unordered_map< std::pair< unsigned, ir_block* >, unsigned > _def_map;
-    ir_block* _block;
 
-    std::vector< ir_operand > _eval;
+    // The location of all defs of variables.
+    std::unordered_map< std::pair< unsigned, ir_block* >, unsigned > _def_map;
+
+    // Evaluation stack.
+    std::vector< ir_operand > _v;
+
+    // Loop hierarchy.  First element is the function's entry block.
+    struct build_loop { ir_block* loop; ir_block* break_block; };
+    std::vector< build_loop > _loop_stack;
+
+    // Block under construction.
+    ir_block* _block;
 
 };
 

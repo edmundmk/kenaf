@@ -78,7 +78,7 @@ struct ast_function
 
     srcloc sloc;                // Source location of function.
     std::string name;           // Name of function.
-    ast_function* outer;     // Lexically outer function.
+    ast_function* outer;        // Lexically outer function.
     unsigned parameter_count;   // First count locals are parameters.
     unsigned max_upstack_size;  // Maximum size of upstack.
     bool implicit_self;         // Does the function have implicit self?

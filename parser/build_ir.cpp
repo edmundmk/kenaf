@@ -9,13 +9,13 @@
 //
 
 #include "build_ir.h"
-#include "ast.h"
 
 namespace kf
 {
 
 build_ir::build_ir()
     :   _ast_function( nullptr )
+    ,   _block( nullptr )
 {
 }
 
@@ -31,269 +31,183 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
     _ir_function->ast = function;
 
     // Create initial block.
-    _ir_function->blocks.push_back( std::make_unique< ir_block >() );
-    _block = _ir_function->blocks.back().get();
-    _block->block_index = _ir_function->blocks.size() - 1;
-    _block->function = _ir_function.get();
-
-    // Declare parameters.
+    _block = make_block();
+    _loop_stack.push_back( { _block, nullptr } );
 
     // Visit AST.
-    visit( _ast_function->nodes.size() - 1 );
+    node_index node = { &_ast_function->nodes.back(), (unsigned)_ast_function->nodes.size() - 1 };
+    visit( node );
 
     // Done.
     _ast_function = nullptr;
-    _eval.clear();
+    _v.clear();
     _def_map.clear();
     return std::move( _ir_function );
 }
 
-void build_ir::visit( unsigned ast_index )
+build_ir::node_index build_ir::child_node( node_index node )
 {
-    ast_node* n = &_ast_function->nodes[ ast_index ];
+    unsigned child_index = node.node->child_index;
+    return { &_ast_function->nodes[ child_index ], child_index };
+}
 
-    switch ( n->kind )
-    {
-    case AST_EXPR_NULL:
-    {
-        _eval.push_back( { IR_O_NULL } );
-        return;
-    }
+build_ir::node_index build_ir::next_node( node_index node )
+{
+    unsigned next_index = node.node->next_index;
+    return { &_ast_function->nodes[ next_index ], next_index };
+}
 
-    case AST_EXPR_FALSE:
-    {
-        _eval.push_back( { IR_O_FALSE } );
-        return;
-    }
+ir_operand build_ir::visit( node_index node )
+{
+    double n[ 2 ];
 
-    case AST_EXPR_TRUE:
+    switch ( node->kind )
     {
-        _eval.push_back( { IR_O_TRUE } );
-        return;
-    }
+    case AST_STMT_VAR:
+        // TODO.
+        break;
 
-    case AST_EXPR_NUMBER:
+    case AST_STMT_IF:
     {
-        double f = n->leaf_number().n;
-        int8_t i = (int8_t)f;
-        if ( i == f )
-            _eval.push_back( ir_pack_integer_operand( i ) );
-        else
-            _eval.push_back( { IR_O_AST_NUMBER, ast_index } );
-        return;
-    }
+        node_index expr = child_node( node );
+        node_index body = next_node( expr );
+        node_index next = next_node( body );
 
-    case AST_EXPR_STRING:
-    {
-        _eval.push_back( { IR_O_AST_STRING, ast_index } );
-        return;
-    }
-
-    case AST_UPVAL_NAME:
-    case AST_UPVAL_NAME_SUPER:
-    {
-        _eval.push_back( { IR_O_UPVAL_INDEX, n->leaf_index().index } );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_GET_UPVAL, 1 ) } );
-        if ( n->kind == AST_UPVAL_NAME_SUPER )
+        ir_block* endif_block = nullptr;
+        while ( true )
         {
-            _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUPEROF, 1 ) } );
-        }
-        return;
-    }
+            // Evaluate test.  TODO: Ensure this is an actual use of operand.
+            assert( _block->test.kind == IR_O_NONE );
+            _block->test = visit( expr );
 
-    case AST_LOCAL_NAME:
-    case AST_LOCAL_NAME_SUPER:
-    {
-        // TODO.  This should perform SSA construction to find defs of local.
-        _eval.push_back( { IR_O_PARAM_INDEX, n->leaf_index().index } );
-        if ( n->kind == AST_LOCAL_NAME_SUPER )
-        {
-            _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUPEROF, 1 ) } );
-        }
-        return;
-    }
+            // Construct code for body.
+            ir_block* test_block = _block;
+            _block = link_next_block( test_block, make_block() );
+            visit( body );
 
-    case AST_PARAMETERS:
-    {
-        // Declare parameters.
-        for ( unsigned c = n->child_index; c < ast_index; c = _ast_function->nodes[ c ].next_index )
-        {
-            ast_node* pn = &_ast_function->nodes[ c ];
-            if ( pn->kind == AST_VARARG_PARAM )
+            // End of body is endif.
+            if ( _block )
             {
-                continue;
+                if ( ! endif_block )
+                    endif_block = jump_block( _block );
+                link_next_block( _block, endif_block );
             }
 
-            assert( pn->kind == AST_LOCAL_DECL );
-            unsigned local_index = pn->leaf_index().index;
-            _eval.push_back( { IR_O_PARAM_INDEX, local_index } );
-            def( local_index, _block, op( pn->sloc, IR_PARAM, 1, true ) );
+            // Repeat for elifs.
+            if ( next.index < node.index && next->kind == AST_ELIF )
+            {
+                _block = link_fail_block( test_block, make_block() );
+                expr = child_node( next );
+                body = next_node( expr );
+                next = next_node( next );
+                continue;
+            }
+            else
+            {
+                _block = test_block;
+                break;
+            }
         }
-        return;
-    }
+
+        // Check for else.
 
 
-
-    default: break;
-    }
-
-    unsigned child_count = 0;
-    for ( unsigned c = n->child_index; c < ast_index; c = _ast_function->nodes[ c ].next_index )
-    {
-        child_count += 1;
-        visit( c );
-    }
-
-    switch ( n->kind )
-    {
-    case AST_EXPR_LENGTH:
-    {
-//        assert( child_count == 1 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_LENGTH, 1 ) } );
-        return;
-    }
-
-    case AST_EXPR_NEG:
-    {
-//        assert( child_count == 1 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_NEG, 1 ) } );
-        return;
-    }
-
-    case AST_EXPR_POS:
-    {
-//        assert( child_count == 1 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_POS, 1 ) } );
-        return;
-    }
-
-    case AST_EXPR_BITNOT:
-    {
-//        assert( child_count == 1 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_BITNOT, 1 ) } );
-        return;
-    }
-
-    case AST_EXPR_MUL:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_MUL, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_DIV:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_DIV, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_INTDIV:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_INTDIV, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_MOD:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_MOD, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_ADD:
-    {
- //       assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_ADD, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_SUB:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUB, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_CONCAT:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUB, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_LSHIFT:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_LSHIFT, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_RSHIFT:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_RSHIFT, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_ASHIFT:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_ASHIFT, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_BITAND:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_BITAND, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_BITXOR:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_BITXOR, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_BITOR:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_SUB, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_KEY:
-    {
-//        assert( child_count == 1 );
-        _eval.push_back( { IR_O_AST_KEY, ast_index } );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_GET_KEY, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_INDEX:
-    {
-//        assert( child_count == 2 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_GET_INDEX, 2 ) } );
-        return;
-    }
-
-    case AST_EXPR_CALL:
-    {
-        // TODO: unpack at end?
-//        assert( child_count >= 1 );
-        _eval.push_back( { IR_O_VALUE, op( n->sloc, IR_CALL, child_count ) } );
-        return;
     }
 
     default: break;
     }
 }
 
+build_ir::operand_pair build_ir::visit_pair( node_index node, node_index last )
+{
+    // Visit lhs.
+    assert( node.index < last.index );
+    ir_operand a = visit( node );
+    assert( a.kind != IR_O_NONE );
+    node = next_node( node );
+
+    // Visit rhs.
+    assert( node.index < last.index );
+    ir_operand b = visit( node );
+    assert( b.kind != IR_O_NONE );
+    node = next_node( node );
+
+    // Done.
+    assert( node.index == last.index );
+    return { a, b };
+}
+
+unsigned build_ir::visit_eval( node_index node, node_index last )
+{
+    // Visit each node, pushing onto eval stack.
+    unsigned count = 0;
+    for ( ; node.index < last.index; node = next_node( node ) )
+    {
+        ir_operand operand = visit( node );
+        assert( operand.kind != IR_O_NONE );
+        _v.push_back( operand );
+        count += 1;
+    }
+    return count;
+}
+
+void build_ir::visit_list( node_index node, node_index last )
+{
+    // Visit each node, throwing away result.
+    for ( ; node.index < last.index; node = next_node( node ) )
+    {
+        visit( node );
+    }
+}
+
+bool build_ir::check_number( ir_operand operand, double* n )
+{
+    if ( operand.kind == IR_O_INTEGER )
+    {
+        *n = ir_unpack_integer_operand( operand );
+        return true;
+    }
+    if ( operand.kind == IR_O_AST_NUMBER )
+    {
+        *n = _ast_function->nodes.at( operand.index ).leaf_number().n;
+        return true;
+    }
+    return false;
+}
+
+bool build_ir::check_number( operand_pair operands, double n[ 2 ] )
+{
+    return check_number( operands.a, &n[ 0 ] ) && check_number( operands.b, &n[ 1 ] );
+}
+
+ir_block* build_ir::make_block( ir_loop_kind loop_kind )
+{
+    // TODO.
+    return nullptr;
+}
+
+ir_block* build_ir::jump_block( ir_block* block )
+{
+    // TODO.
+    return nullptr;
+}
+
+ir_block* build_ir::link_next_block( ir_block* block, ir_block* next )
+{
+    // TODO.
+    return nullptr;
+}
+
+ir_block* build_ir::link_fail_block( ir_block* block, ir_block* fail )
+{
+    // TODO.
+    return nullptr;
+}
+
 unsigned build_ir::op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bool head )
 {
+    assert( _block->next_block == nullptr );
+
     ir_op op;
     op.opcode = opcode;
     op.operand_count = operand_count;
@@ -313,14 +227,14 @@ unsigned build_ir::op( srcloc sloc, ir_opcode opcode, unsigned operand_count, bo
     }
 
     // TODO: REMOVE THIS.
-    operand_count = std::min< unsigned >( _eval.size(), operand_count );
+    operand_count = std::min< unsigned >( _v.size(), operand_count );
 
-    assert( _eval.size() >= operand_count );
-    for ( unsigned i = _eval.size() - operand_count; i < _eval.size(); ++i )
+    assert( _v.size() >= operand_count );
+    for ( unsigned i = _v.size() - operand_count; i < _v.size(); ++i )
     {
-        _block->operands.push_back( _eval.at( i ) );
+        _block->operands.push_back( _v.at( i ) );
     }
-    _eval.resize( _eval.size() - operand_count );
+    _v.resize( _v.size() - operand_count );
 
     return op_index;
 }
