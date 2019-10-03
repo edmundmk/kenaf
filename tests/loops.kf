@@ -1,0 +1,54 @@
+
+
+repeat
+
+    var x, y = 3, 3
+    def f()
+        global.x = x
+    end
+
+    do
+        var y = 43
+        def ff()
+            global.x = y
+        end
+
+        if something then continue end
+
+    end
+
+    do
+
+        var qq, pp
+
+        def nf()
+            var a = [ qq, pp, y ]
+        end
+
+        if something then continue end
+
+    end
+
+until yy == 3
+
+
+while yy == 3 do
+
+    var x = 3
+    def f()
+        global.x = x
+    end
+
+    do
+        var y = 43
+        def ff()
+            global.x = y
+        end
+
+        if something then continue end
+
+    end
+
+end
+
+
