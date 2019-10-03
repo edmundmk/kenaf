@@ -155,7 +155,7 @@ static void debug_print_op( ir_function* f, unsigned i )
 
         case IR_O_UPSTACK_INDEX:
         {
-            printf( " UPSTACK INDEX %u\n", operand.index );
+            printf( " UPSTACK INDEX %u", operand.index );
             break;
         }
         }

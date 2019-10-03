@@ -55,19 +55,16 @@ ir_operand build_ir::visit( node_index node )
     {
         block_head( node->sloc );
         visit_children( node );
+        ir_operand o[ 0 ];
+        o[ 0 ] = { IR_O_NULL };
+        op( node->sloc, IR_BLOCK_RETURN, o, 1 );
         break;
     }
 
     case AST_BLOCK:
     {
         visit_children( node );
-        unsigned close_index = node->leaf_index().index;
-        if ( close_index != AST_INVALID_INDEX )
-        {
-            ir_operand o[ 1 ];
-            o[ 0 ] = { IR_O_UPSTACK_INDEX, close_index };
-            op( node->sloc, IR_CLOSE_UPSTACK, o, 1 );
-        }
+        close_upstack( node );
         break;
     }
 
@@ -275,11 +272,107 @@ ir_operand build_ir::visit( node_index node )
         break;
     }
 
+    case AST_STMT_BREAK:
+    {
+        close_upstack( node );
+        _jump_break.push_back( block_jump( node->sloc ) );
+        break;
+    }
+
+    case AST_STMT_CONTINUE:
+    {
+        close_upstack( node );
+        _jump_continue.push_back( block_jump( node->sloc ) );
+        break;
+    }
+
+    case AST_STMT_RETURN:
+    {
+        if ( child_node( node ).index < node.index )
+        {
+            block_last( visit_children_op( node->sloc, IR_BLOCK_RETURN, node ) );
+        }
+        else
+        {
+            ir_operand o[ 1 ];
+            o[ 0 ] = { IR_O_NULL };
+            block_last( op( node->sloc, IR_BLOCK_RETURN, o, 1 ) );
+        }
+        break;
+    }
+
+    case AST_STMT_THROW:
+    {
+        ir_operand o[ 1 ];
+        o[ 0 ] = visit( child_node( node ) );
+        block_last( op( node->sloc, IR_BLOCK_THROW, o, 1 ) );
+        break;
+    }
+
+//  case AST_ASSIGN: TODO
+//  case AST_OP_ASSIGN: TODO
+
+    case AST_EXPR_NULL:
+    {
+        return { IR_O_NULL };
+    }
+
+    case AST_EXPR_FALSE:
+    {
+        return { IR_O_FALSE };
+    }
+
+    case AST_EXPR_TRUE:
+    {
+        return { IR_O_TRUE };
+    }
+
+    case AST_EXPR_NUMBER:
+    {
+        return { IR_O_AST_NUMBER, node.index };
+    }
+
+    case AST_EXPR_STRING:
+    {
+        return { IR_O_AST_STRING, node.index };
+    }
+
+    case AST_EXPR_NAME:
+    {
+        assert( ! "names should have been resolved" );
+        return { IR_O_NONE };
+    }
+
+    case AST_EXPR_KEY:
+    {
+        ir_operand o[ 2 ];
+        o[ 0 ] = visit( child_node( node ) );
+        o[ 1 ] = { IR_O_AST_KEY, node.index };
+        return op( node->sloc, IR_GET_KEY, o, 2 );
+    }
+
+    case AST_EXPR_INDEX:
+    {
+        return visit_children_op( node->sloc, IR_GET_INDEX, node );
+    }
+
+    case AST_EXPR_CALL:
+    {
+        return visit_children_op( node->sloc, IR_CALL, node );
+    }
+
+    case AST_EXPR_LENGTH:
+    {
+        return visit_children_op( node->sloc, IR_LENGTH, node );
+    }
+
     default:
         // TODO: remove this once all cases handled.
         visit_children( node );
         break;
     }
+
+    return { IR_O_NONE };
 }
 
 void build_ir::visit_children( node_index node )
@@ -288,6 +381,18 @@ void build_ir::visit_children( node_index node )
     {
         visit( child );
     }
+}
+
+ir_operand build_ir::visit_children_op( srcloc sloc, ir_opcode opcode, node_index node )
+{
+    size_t oindex = _o.size();
+    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
+    {
+        _o.push_back( visit( child ) );
+    }
+    ir_operand result_op = op( sloc, opcode, _o.data() + oindex, _o.size() - oindex );
+    _o.resize( oindex );
+    return result_op;
 }
 
 ir_operand build_ir::op( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount )
@@ -309,9 +414,22 @@ ir_operand build_ir::op( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned 
     return { IR_O_OP, op_index };
 }
 
+void build_ir::close_upstack( node_index node )
+{
+    unsigned close_index = node->leaf_index().index;
+    if ( close_index != AST_INVALID_INDEX )
+    {
+        ir_operand o[ 1 ];
+        o[ 0 ] = { IR_O_UPSTACK_INDEX, close_index };
+        op( node->sloc, IR_CLOSE_UPSTACK, o, 1 );
+    }
+}
+
 unsigned build_ir::block_head( srcloc sloc )
 {
     return op( sloc, IR_BLOCK_HEAD, nullptr, 0 ).index;
+    // TODO: setup block.
+    // TODO: reachable again?
 }
 
 build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_operand test )
@@ -321,7 +439,7 @@ build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_operand test )
     o[ 0 ] = test;
     o[ 1 ] = { IR_O_JUMP, IR_INVALID_INDEX };
     o[ 2 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    op( sloc, IR_BLOCK_TEST, o, 3 );
+    block_last( op( sloc, IR_BLOCK_TEST, o, 3 ) );
     return { { oindex + 1 }, { oindex + 2 } };
 }
 
@@ -330,8 +448,13 @@ build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
     unsigned oindex = _f->operands.size();
     ir_operand o[ 1 ];
     o[ 0 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    op( sloc, IR_BLOCK_JUMP, o, 1 );
+    block_last( op( sloc, IR_BLOCK_JUMP, o, 1 ) );
     return { oindex };
+}
+
+void build_ir::block_last( ir_operand last_op )
+{
+    // TODO: unreachable now.
 }
 
 void build_ir::fixup( jump_fixup fixup, unsigned target )
