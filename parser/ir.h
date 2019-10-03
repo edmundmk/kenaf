@@ -12,48 +12,40 @@
 #define IR_H
 
 /*
-    This is an intermediate representation that sits between the syntax tree
-    and the bytecode.  We are trying to produce good bytecode.  ir is
-    designed to help us do this.
+    -- Intermediate Representation
 
-    First, constant folding.  Calculations involving literal values should be
-    replaced by the result.
+    This intermediate representation sits between the syntax tree and the
+    bytecode.  The program is represented by a set of IR ops in a flat array.
 
-    Second, register allocation.  Performing 'real' register allocation has
-    two main benefits:
+    The ops describe a set of basic blocks, in program order.  Each block
+    begins with a BLOCK_HEAD op, and ends with a jump.
 
-      - The virtual machine we are targeting is a register machine, but one
-        where arguments to calls must be set up in adjacent registers used as a
-        stack.  We can eliminate one class of unecessary moves by generating
-        values in the register they need to end up in.
 
-      - Running 'real' register allocation using liveness information allows us
-        to make much better use of registers, reducing the size of the call
-        stack and again allowing elimination of some moves.
+    -- SSA Values
 
-    The intermediate representation is SSA-like, but with one major restriction
-    which make things simpler:
+    The intermediate representation is SSA-like.  Each operation produces a
+    value.  Values are used as operands by referencing the index of the op that
+    produced it.
 
-      - All definitions of a local variable will eventually map to the same
-        register.  Code that constructs the intermediate representation must
-        guarantee that an old definition of a variable is dead before
-        introducing a new definition.  Maintaining this guarantee might involve
-        *inserting* an extra copy to a temporary, to preserve the old value.
+    phi functions that merge definitions for locals are generated during IR
+    construction.  If only one definition of a local reaches a block, then a
+    phi function with one operand (a ref) is still generated, as phi ops are
+    used determine live ranges for locals.
 
-    Since our language has no goto, the control flow graph stays simple.  The
-    block structure of the original code is preserved - loop headers are
-    identified explicitly, including the type of loop.
+    Phi functions are used as operands like any other op.
 
-    Liveness information is constructed along with the intermediate
-    representation.  Temporary results typically die where they are used.  And
-    both SSA construction and liveness analysis require the same kind of
-    backwards search through the CFG - effectively we get liveness information
-    'for free' when we perform SSA construction.
+
+    -- Restrictions
+
+    The IR has one major restriction.  Only one definition of each local can be
+    live at any point.  This allows register allocation to allocate a single
+    register for each local.  Code that constructs the IR must enforce this
+    invariant.
+
 */
 
 #include <stdint.h>
 #include <assert.h>
-#include <stdexcept>
 #include "source.h"
 
 namespace kf
@@ -87,58 +79,10 @@ struct ir_function
     void debug_print();
 
     ast_function* ast;
-    std::vector< std::unique_ptr< ir_block > > blocks;
-};
-
-/*
-    An op list is a flat array of ops, divided into two halves, the head and
-    the body.  Ops are referenced by index.  Indexes into the head have the
-    top bit set.  Indexes into the body have the top bit clear.
-
-    The op list reallocates when either the head or body half grows too large.
-    This allows clients to insert ops at both the beginning and end of a block.
-
-    In the actual memory the head is stored *after* the body, to make the more
-    common case of accessing the body simpler.
-*/
-
-const unsigned IR_HEAD_BIT = 0x800000;
-
-class ir_oplist
-{
-public:
-
-    ir_oplist();
-    ~ir_oplist();
-
-    bool empty() const;
-    unsigned head_size() const;
-    unsigned body_size() const;
-
-    void clear();
-    unsigned push_head( const ir_op& op );
-    unsigned push_body( const ir_op& op );
-
-    const ir_op& operator [] ( unsigned i ) const;
-    const ir_op& at( unsigned i ) const;
-    ir_op& operator [] ( unsigned i );
-    ir_op& at( unsigned i );
-
-private:
-
-    static const unsigned INDEX_MASK = 0x7FFFFF;
-
-    ir_oplist( ir_oplist& ) = delete;
-    ir_oplist& operator = ( ir_oplist& ) = delete;
-
-    void grow( bool grow_body, bool grow_head );
-
-    ir_op* _ops;
-    size_t _body_size;
-    size_t _head_size;
-    size_t _watermark;
-    size_t _capacity;
-
+    std::vector< ir_op > ops;
+    std::vector< ir_operand > operands;
+//    std::vector< ir_phi > phi;
+//    std::vector< ir_phi
 };
 
 /*
@@ -154,12 +98,22 @@ enum ir_opcode : uint8_t
 {
     IR_NOP,
 
-    // Head
-    IR_REF,                     // Reference to op in predecessor block.
-    IR_PHI,                     // phi function.
-    IR_PARAM,                   // Parameter.
+    // Block instructions.
+    IR_BLOCK_HEAD,              // block index
+    IR_BLOCK_TEST,              // test, iftrue, iffalse
+    IR_BLOCK_JUMP,              // jump
+    IR_BLOCK_RETURN,            // value*
+    IR_BLOCK_THROW,             // value
 
-    // Body.
+    // Close upvals.
+    IR_CLOSE_UPSTACK,           // close upstack
+
+    // For loop magic instructions.
+    IR_GENERATE,                // g, i = make generator
+    IR_FOR_EACH,                //
+    IR_FOR_STEP,                // i, limit, step
+
+    // Arithmetic.
     IR_LENGTH,                  // #a
     IR_NEG,                     // -a
     IR_POS,                     // +a
@@ -192,34 +146,39 @@ enum ir_opcode : uint8_t
     IR_VARARG_UNPACK,           // args ...
     IR_ARRAY_UNPACK,            // value ...
 
-    IR_CLOSE_UPSTACK,           // close upstack
 };
 
 enum ir_operand_kind : uint8_t
 {
     IR_O_NONE,                  // No operand.
-    IR_O_OP,                    // Index of op in this block.
+    IR_O_OP,                    // Index of op.
+    IR_O_JUMP,                  // Index of op to jump to (must be BLOCK_HEAD).
     IR_O_NULL,                  // null
     IR_O_TRUE,                  // true
     IR_O_FALSE,                 // false
-    IR_O_INTEGER,               // Small integer encoded directly.
     IR_O_AST_NUMBER,            // Number value in AST node.
     IR_O_AST_STRING,            // String value in AST node.
     IR_O_AST_KEY,               // Key string in AST node.
-    IR_O_PHI_BLOCK,             // Index of block for phi/ref operand.
-    IR_O_PHI_VALUE,             // Index of op in phi block for phi/ref operand.
-    IR_O_PARAM_INDEX,           // Index of parameter local.
+    IR_O_LOCAL_INDEX,           // Index of local (for parameters).
     IR_O_UPVAL_INDEX,           // Index of upval.
-    IR_O_FUNCTION,              // Function, index into syntax tree.
-    IR_O_VM_INDEX,              // virtual machine index.
+    IR_O_FUNCTION,              // Index of function.
+    IR_O_UPSTACK_INDEX,         // Upstack index.
 };
 
 struct ir_op
 {
-    ir_op() : opcode( IR_NOP ), r( IR_INVALID_REGISTER ),
-        stack_top( IR_INVALID_REGISTER ), temp_r( IR_INVALID_REGISTER ),
-        operand_count( 0 ), operands( IR_INVALID_INDEX ),
-        variable( IR_TEMPORARY ), live_range( IR_INVALID_INDEX ), sloc( 0 ) {}
+    ir_op()
+        :   opcode( IR_NOP )
+        ,   r( IR_INVALID_REGISTER )
+        ,   stack_top( IR_INVALID_REGISTER )
+        ,   temp_r( IR_INVALID_REGISTER )
+        ,   ocount( 0 )
+        ,   oindex( IR_INVALID_INDEX )
+        ,   variable( IR_TEMPORARY )
+        ,   live_range( IR_INVALID_INDEX )
+        ,   sloc( 0 )
+    {
+    }
 
     ir_opcode opcode;           // Opcode.
 
@@ -227,8 +186,8 @@ struct ir_op
     uint8_t stack_top;          // Stack top at this op.
     uint8_t temp_r;             // Temporary register for literal loading.
 
-    unsigned operand_count : 8; // Number of operands which follow this op.
-    unsigned operands : 24;     // Index into block's operand list.
+    unsigned ocount : 8;        // Number of operands.
+    unsigned oindex : 24;       // Index into operand list.
 
     unsigned variable : 8;      // Index of variable result is assigned to.
     unsigned live_range : 24;   // Last use in this block.
@@ -242,129 +201,6 @@ struct ir_operand
     unsigned index : 24;            // Index of op used as result.
 };
 
-inline ir_operand ir_pack_integer_operand( int8_t i )
-{
-    return { IR_O_INTEGER, (unsigned)(int)i };
-}
-
-inline int8_t ir_unpack_integer_operand( ir_operand operand )
-{
-    return (int8_t)(int)(unsigned)operand.index;
-}
-
-/*
-    A block is a sequence of instructions without branches.
-*/
-
-enum ir_loop_kind : uint8_t
-{
-    IR_LOOP_NONE,               // Not a loop header.
-    IR_LOOP_FOR_STEP,           // Loop header of for i = start : stop : step do
-    IR_LOOP_FOR_EACH,           // Loop header of for i : generator do
-    IR_LOOP_WHILE,              // Loop header of while loop.
-    IR_LOOP_REPEAT,             // Loop header of repeat/until loop.
-};
-
-struct ir_block
-{
-    ir_block();
-    ~ir_block();
-
-    void debug_print( ir_function* function );
-
-    ir_loop_kind loop_kind : 8; // Loop kind.
-    unsigned block_index : 24;  // Index in function's list of blocks.
-
-    ir_block* loop;             // Loop containing this block.
-    ir_block* next_block;       // Next block.
-    ir_block* fail_block;       // Alternative next block when test fails.
-    ir_operand test;            // Operand to test.
-
-    // List of predecessor block indices.
-    std::vector< ir_block* > predecessors;
-
-    // Oplist and operands.
-    ir_oplist ops;
-    std::vector< ir_operand > operands;
-};
-
-/*
-*/
-
-inline bool ir_oplist::empty() const
-{
-    return _head_size == 0 && _body_size == 0;
-}
-
-inline unsigned ir_oplist::head_size() const
-{
-    return _head_size;
-}
-
-inline unsigned ir_oplist::body_size() const
-{
-    return _body_size;
-}
-
-inline const ir_op& ir_oplist::operator [] ( unsigned i ) const
-{
-    if ( ( i & IR_HEAD_BIT ) == 0 )
-    {
-        assert( i < _body_size );
-        return _ops[ i ];
-    }
-    else
-    {
-        i &= INDEX_MASK;
-        assert( i < _head_size );
-        return _ops[ _watermark + i ];
-    }
-}
-
-inline const ir_op& ir_oplist::at( unsigned i ) const
-{
-    if ( ( i & IR_HEAD_BIT ) == 0 )
-    {
-        if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
-        return _ops[ i ];
-    }
-    else
-    {
-        i &= INDEX_MASK;
-        if ( i >= _head_size ) throw std::out_of_range( "op index is out of range" );
-        return _ops[ _watermark + i ];
-    }
-}
-
-inline ir_op& ir_oplist::operator [] ( unsigned i )
-{
-    if ( ( i & IR_HEAD_BIT ) == 0 )
-    {
-        assert( i < _body_size );
-        return _ops[ i ];
-    }
-    else
-    {
-        i &= INDEX_MASK;
-        assert( i < _head_size );
-        return _ops[ _watermark + i ];
-    }
-}
-
-inline ir_op& ir_oplist::at( unsigned i )
-{
-    if ( ( i & IR_HEAD_BIT ) == 0 )
-    {
-        if ( i >= _body_size ) throw std::out_of_range( "op index is out of range" );
-        return _ops[ i ];
-    }
-    else
-    {
-        i &= INDEX_MASK;
-        if ( i >= _head_size ) throw std::out_of_range( "op index is out of range" );
-        return _ops[ _watermark + i ];
-    }
-}
 }
 
 #endif

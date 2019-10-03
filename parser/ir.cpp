@@ -24,123 +24,51 @@ ir_function::~ir_function()
 {
 }
 
-void ir_function::debug_print()
-{
-    for ( const auto& block : blocks )
-    {
-        block->debug_print( this );
-    }
-}
-
-ir_oplist::ir_oplist()
-    :   _ops( nullptr )
-    ,   _body_size( 0 )
-    ,   _head_size( 0 )
-    ,   _watermark( 0 )
-    ,   _capacity( 0 )
-{
-}
-
-ir_oplist::~ir_oplist()
-{
-    free( _ops );
-}
-
-void ir_oplist::clear()
-{
-    _head_size = 0;
-    _body_size = 0;
-    _watermark = ( _capacity / 4 ) * 3;
-}
-
-unsigned ir_oplist::push_head( const ir_op& op )
-{
-    if ( _watermark + _head_size >= _capacity )
-    {
-        grow( false, true );
-    }
-    _ops[ _watermark + _head_size ] = op;
-    return _head_size++;
-}
-
-unsigned ir_oplist::push_body( const ir_op& op )
-{
-    if ( _body_size >= _watermark )
-    {
-        grow( true, false );
-    }
-    _ops[ _body_size ] = op;
-    return _body_size++;
-}
-
-void ir_oplist::grow( bool grow_body, bool grow_head )
-{
-    // Calculate updated sizes.
-    size_t body_capacity = _watermark;
-    size_t head_capacity = _capacity - _watermark;
-    body_capacity = std::max< size_t >( body_capacity + ( grow_body ? body_capacity / 2 : 0 ), 8 );
-    head_capacity = std::max< size_t >( head_capacity + ( grow_head ? head_capacity / 2 : 0 ), 8 );
-
-    // Reallocate.
-    _capacity = body_capacity + head_capacity;
-    _ops = (ir_op*)realloc( _ops, _capacity * sizeof( ir_op ) );
-
-    // Move head ops.
-    memmove( _ops + body_capacity, _ops + _watermark, _head_size * sizeof( ir_op ) );
-    _watermark = body_capacity;
-}
-
-ir_block::ir_block()
-    :   loop_kind( IR_LOOP_NONE )
-    ,   block_index( IR_INVALID_INDEX )
-    ,   loop( nullptr )
-    ,   next_block( nullptr )
-    ,   fail_block( nullptr )
-    ,   test{ IR_O_NONE }
-{
-}
-
-ir_block::~ir_block()
-{
-}
-
 const char* const OPCODE_NAMES[] =
 {
-    [ IR_NOP        ] = "NOP",
-    [ IR_REF        ] = "REF",
-    [ IR_PHI        ] = "PHI",
-    [ IR_PARAM      ] = "PARAM",
-    [ IR_LENGTH     ] = "LENGTH",
-    [ IR_NEG        ] = "NEG",
-    [ IR_POS        ] = "POS",
-    [ IR_BITNOT     ] = "BITNOT",
-    [ IR_MUL        ] = "MUL",
-    [ IR_DIV        ] = "DIV",
-    [ IR_INTDIV     ] = "INTDIV",
-    [ IR_MOD        ] = "MOD",
-    [ IR_ADD        ] = "ADD",
-    [ IR_SUB        ] = "SUB",
-    [ IR_CONCAT     ] = "CONCAT",
-    [ IR_LSHIFT     ] = "LSHIFT",
-    [ IR_RSHIFT     ] = "RSHIFT",
-    [ IR_ASHIFT     ] = "ASHIFT",
-    [ IR_BITAND     ] = "BITAND",
-    [ IR_BITXOR     ] = "BITXOR",
-    [ IR_BITOR      ] = "BITOR",
-    [ IR_GET_UPVAL  ] = "GET_UPVAL",
-    [ IR_GET_KEY    ] = "GET_KEY",
-    [ IR_GET_INDEX  ] = "GET_INDEX",
-    [ IR_SUPEROF    ] = "SUPEROF",
-    [ IR_CALL       ] = "CALL",
+    [ IR_NOP            ] = "NOP",
+    [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
+    [ IR_BLOCK_TEST     ] = "BLOCK_TEST",
+    [ IR_BLOCK_JUMP     ] = "BLOCK_JUMP",
+    [ IR_BLOCK_RETURN   ] = "BLOCK_RETURN",
+    [ IR_BLOCK_THROW    ] = "BLOCK_THROW",
+    [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
+    [ IR_GENERATE       ] = "GENERATE",
+    [ IR_FOR_EACH       ] = "FOR_EACH",
+    [ IR_FOR_STEP       ] = "FOR_STEP",
+    [ IR_LENGTH         ] = "LENGTH",
+    [ IR_NEG            ] = "NEG",
+    [ IR_POS            ] = "POS",
+    [ IR_BITNOT         ] = "BITNOT",
+    [ IR_MUL            ] = "MUL",
+    [ IR_DIV            ] = "DIV",
+    [ IR_INTDIV         ] = "INTDIV",
+    [ IR_MOD            ] = "MOD",
+    [ IR_ADD            ] = "ADD",
+    [ IR_SUB            ] = "SUB",
+    [ IR_CONCAT         ] = "CONCAT",
+    [ IR_LSHIFT         ] = "LSHIFT",
+    [ IR_RSHIFT         ] = "RSHIFT",
+    [ IR_ASHIFT         ] = "ASHIFT",
+    [ IR_BITAND         ] = "BITAND",
+    [ IR_BITXOR         ] = "BITXOR",
+    [ IR_BITOR          ] = "BITOR",
+    [ IR_GET_UPVAL      ] = "GET_UPVAL",
+    [ IR_GET_KEY        ] = "GET_KEY",
+    [ IR_GET_INDEX      ] = "GET_INDEX",
+    [ IR_SUPEROF        ] = "SUPEROF",
+    [ IR_CALL           ] = "CALL",
+    [ IR_ARRAY_APPEND   ] = "ARRAY_APPEND",
+    [ IR_ARRAY_EXTEND   ] = "ARRAY_EXTEND",
 };
 
-static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
+static void debug_print_op( ir_function* f, unsigned i )
 {
-    const ir_op& op = block->ops.at( i );
-    printf( "    %s%04X %s", i & IR_HEAD_BIT ? "^" : ":", i & ~IR_HEAD_BIT, OPCODE_NAMES[ op.opcode ] );
-    for ( unsigned o = 0; o < op.operand_count; ++o )
+    const ir_op& op = f->ops.at( i );
+    printf( ":%04X %s", i, OPCODE_NAMES[ op.opcode ] );
+    for ( unsigned o = 0; o < op.ocount; ++o )
     {
-        ir_operand operand = block->operands[ op.operands + o ];
+        ir_operand operand = f->operands[ op.oindex + o ];
 
         if ( o )
         {
@@ -157,7 +85,13 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
 
         case IR_O_OP:
         {
-            printf( " %s%04X", operand.index & IR_HEAD_BIT ? "^" : ":", operand.index & ~IR_HEAD_BIT );
+            printf( " :%04X", operand.index );
+            break;
+        }
+
+        case IR_O_JUMP:
+        {
+            printf( " @%04X", operand.index );
             break;
         }
 
@@ -179,52 +113,31 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
             break;
         }
 
-        case IR_O_INTEGER:
-        {
-            printf( " %i", ir_unpack_integer_operand( operand ) );
-            break;
-        }
-
         case IR_O_AST_NUMBER:
         {
-            const ast_node& n = function->ast->nodes.at( operand.index );
+            const ast_node& n = f->ast->nodes.at( operand.index );
             printf( " %f", n.leaf_number().n );
             break;
         }
 
         case IR_O_AST_STRING:
         {
-            const ast_node& n = function->ast->nodes.at( operand.index );
+            const ast_node& n = f->ast->nodes.at( operand.index );
             printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
         case IR_O_AST_KEY:
         {
-            const ast_node& n = function->ast->nodes.at( operand.index );
+            const ast_node& n = f->ast->nodes.at( operand.index );
             printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
-        case IR_O_PHI_BLOCK:
+        case IR_O_LOCAL_INDEX:
         {
-            ir_operand opvalue = block->operands[ op.operands + ++o ];
-            assert( opvalue.kind == IR_O_PHI_VALUE );
-            ir_block* opblock = function->blocks.at( operand.index ).get();
-            printf( " [%u]%s%04X", opblock->block_index, opvalue.index & IR_HEAD_BIT ? "^" : ":", opvalue.index & ~IR_HEAD_BIT );
-            break;
-        }
-
-        case IR_O_PHI_VALUE:
-        {
-            assert( ! "malformed phi op" );
-            break;
-        }
-
-        case IR_O_PARAM_INDEX:
-        {
-            const ast_local& local = function->ast->locals.at( operand.index );
-            printf( " %.*s", (int)local.name.size(), local.name.data() );
+            const ast_local& local = f->ast->locals.at( operand.index );
+            printf( " LOCAL %.*s", (int)local.name.size(), local.name.data() );
             break;
         }
 
@@ -240,9 +153,9 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
             break;
         }
 
-        case IR_O_VM_INDEX:
+        case IR_O_UPSTACK_INDEX:
         {
-            printf( " VM INDEX %u\n", operand.index );
+            printf( " UPSTACK INDEX %u\n", operand.index );
             break;
         }
         }
@@ -251,16 +164,12 @@ static void debug_print_op( ir_function* function, ir_block* block, unsigned i )
     printf( "\n" );
 }
 
-void ir_block::debug_print( ir_function* function )
+void ir_function::debug_print()
 {
-    printf( "[%u] BLOCK:\n", block_index );
-    for ( unsigned i = 0; i < ops.head_size(); ++i )
+    printf( "FUNCTION %s\n", ast->name.c_str() );
+    for ( unsigned i = 0; i < ops.size(); ++i )
     {
-        debug_print_op( function, this, IR_HEAD_BIT | i );
-    }
-    for ( unsigned i = 0; i < ops.body_size(); ++i )
-    {
-        debug_print_op( function, this, i );
+        debug_print_op( this, i );
     }
 }
 
