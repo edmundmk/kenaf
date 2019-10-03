@@ -401,7 +401,7 @@ void resolve_names::declare( ast_function* f, unsigned index )
     }
 }
 
-void resolve_names::lookup( ast_function* f, unsigned index, unsigned context )
+void resolve_names::lookup( ast_function* f, unsigned index, lookup_context context )
 {
     ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();

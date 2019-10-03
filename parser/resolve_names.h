@@ -139,7 +139,7 @@ private:
     void open_scope( ast_function* f, unsigned block_index, unsigned node_index );
     void declare_implicit_self( ast_function* f );
     void declare( ast_function* f, unsigned index );
-    void lookup( ast_function* f, unsigned index, unsigned context );
+    void lookup( ast_function* f, unsigned index, lookup_context context );
     void close_scope();
 
     void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
