@@ -53,6 +53,7 @@ struct source_string
 enum source_diagnostic_kind
 {
     ERROR,
+    WARNING,
 };
 
 struct source_diagnostic
@@ -91,6 +92,9 @@ struct source
 
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
     void error( srcloc sloc, const char* message, va_list ap );
+    void warning( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
+    void warning( srcloc sloc, const char* message, va_list ap );
+    void diagnostic( source_diagnostic_kind kind, srcloc sloc, const char* message, va_list ap );
 
     std::string filename;
     std::vector< char > text;

@@ -26,7 +26,7 @@ class build_ir
 {
 public:
 
-    build_ir();
+    explicit build_ir( source* source );
     ~build_ir();
 
     std::unique_ptr< ir_function > build( ast_function* function );
@@ -55,15 +55,18 @@ private:
     node_index child_node( node_index node );
     node_index next_node( node_index node );
 
-    // Visit AST node, producing a value.
-    ir_operand visit( node_index node );
+    // Op helpers.
+    ir_operand list_op( ir_opcode opcode, node_index node );
+    template < typename F > ir_operand fold_unary( ir_opcode opcode, node_index node, F fold );
+    template < typename F > ir_operand fold_binary( ir_opcode opcode, node_index node, F fold );
+    ir_operand k_number( double n );
 
-    // Visit child nodes.
+    // Visiting AST.
+    ir_operand visit( node_index node );
     void visit_children( node_index node );
-    ir_operand visit_children_op( srcloc sloc, ir_opcode opcode, node_index node );
 
     // Emit ops.
-    ir_operand op( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount );
+    ir_operand emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount );
     void close_upstack( node_index node );
 
     // Control flow.
@@ -75,6 +78,7 @@ private:
     void break_continue( size_t break_index, unsigned loop_break, size_t continue_index, unsigned loop_continue );
 
     // Function under construction.
+    source* _source;
     std::unique_ptr< ir_function > _f;
 
     // Operand stack.

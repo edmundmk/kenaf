@@ -192,6 +192,7 @@ builtins:
     isnan( n )
     isinf( n )
     isfinite( n )
+    fmod( n, n )
 
     pi
     tau

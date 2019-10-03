@@ -113,17 +113,17 @@ static void debug_print_op( ir_function* f, unsigned i )
             break;
         }
 
-        case IR_O_AST_NUMBER:
+        case IR_O_K_NUMBER:
         {
-            const ast_node& n = f->ast->nodes.at( operand.index );
-            printf( " %f", n.leaf_number().n );
+            const ir_k_number& n = f->k_numbers.at( operand.index );
+            printf( " %f", n.n );
             break;
         }
 
-        case IR_O_AST_STRING:
+        case IR_O_K_STRING:
         {
-            const ast_node& n = f->ast->nodes.at( operand.index );
-            printf( " \"%.*s\"", (int)n.leaf_string().size, n.leaf_string().text );
+            const ir_k_string& s = f->k_strings.at( operand.index );
+            printf( " \"%.*s\"", (int)s.size, s.text );
             break;
         }
 

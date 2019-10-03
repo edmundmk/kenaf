@@ -38,7 +38,7 @@ int main( int argc, char* argv[] )
         kf::resolve_names resolve( &source, ast_script.get() );
         resolve.resolve();
 
-        kf::build_ir build_ir;
+        kf::build_ir build_ir( &source );
         for ( const auto& function : ast_script->functions )
         {
             function->debug_print();
@@ -49,7 +49,16 @@ int main( int argc, char* argv[] )
 
     for ( const kf::source_diagnostic& diagnostic : source.diagnostics )
     {
-        fprintf( stderr, "%s:%u:%u: error: %s\n", source.filename.c_str(), diagnostic.line_info.line, diagnostic.line_info.column, diagnostic.message.c_str() );
+        fprintf
+        (
+            stderr,
+            "%s:%u:%u: %s: %s\n",
+            source.filename.c_str(),
+            diagnostic.line_info.line,
+            diagnostic.line_info.column,
+            diagnostic.kind == kf::ERROR ? "error" : "warning",
+            diagnostic.message.c_str()
+        );
     }
 
     return EXIT_SUCCESS;

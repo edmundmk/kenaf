@@ -9,11 +9,13 @@
 //
 
 #include "build_ir.h"
+#include "../common/k_math.h"
 
 namespace kf
 {
 
-build_ir::build_ir()
+build_ir::build_ir( source* source )
+    :   _source( source )
 {
 }
 
@@ -47,6 +49,48 @@ build_ir::node_index build_ir::next_node( node_index node )
     return { &_f->ast->nodes[ next_index ], next_index };
 }
 
+ir_operand build_ir::list_op( ir_opcode opcode, node_index node )
+{
+    size_t oindex = _o.size();
+    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
+    {
+        _o.push_back( visit( child ) );
+    }
+    ir_operand result_op = emit( node->sloc, opcode, _o.data() + oindex, _o.size() - oindex );
+    _o.resize( oindex );
+    return result_op;
+}
+
+template < typename F > ir_operand build_ir::fold_unary( ir_opcode opcode, node_index node, F fold )
+{
+    ir_operand o[ 1 ];
+    o[ 0 ] = visit( child_node( node ) );
+    if ( o[ 0 ].kind != IR_O_K_NUMBER )
+        return emit( node->sloc, opcode, o, 1 );
+    else
+        return k_number( fold( _f->k_numbers.at( o[ 0 ].index ).n ) );
+}
+
+template < typename F > ir_operand build_ir::fold_binary( ir_opcode opcode, node_index node, F fold )
+{
+    ir_operand o[ 2 ];
+    node_index u = child_node( node );
+    node_index v = next_node( u );
+    o[ 0 ] = visit( u );
+    o[ 1 ] = visit( v );
+    if ( o[ 0 ].kind != IR_O_K_NUMBER || o[ 1 ].kind != IR_O_K_NUMBER )
+        return emit( node->sloc, opcode, o, 2 );
+    else
+        return k_number( fold( _f->k_numbers.at( o[ 0 ].index ).n, _f->k_numbers.at( o[ 1 ].index ).n ) );
+}
+
+ir_operand build_ir::k_number( double n )
+{
+    unsigned k = _f->k_numbers.size();
+    _f->k_numbers.push_back( { n } );
+    return { IR_O_K_NUMBER, k };
+}
+
 ir_operand build_ir::visit( node_index node )
 {
     switch ( node->kind )
@@ -57,7 +101,7 @@ ir_operand build_ir::visit( node_index node )
         visit_children( node );
         ir_operand o[ 0 ];
         o[ 0 ] = { IR_O_NULL };
-        op( node->sloc, IR_BLOCK_RETURN, o, 1 );
+        emit( node->sloc, IR_BLOCK_RETURN, o, 1 );
         break;
     }
 
@@ -153,7 +197,7 @@ ir_operand build_ir::visit( node_index node )
         unsigned loop_continue = block_head( node->sloc );
         fixup( link_previous, loop_continue );
         // TODO: Make phi/some kind of loop var for i/limit/step?
-        test_fixup link_loop = block_test( node->sloc, op( node->sloc, IR_FOR_STEP, o, 3 ) );
+        test_fixup link_loop = block_test( node->sloc, emit( node->sloc, IR_FOR_STEP, o, 3 ) );
         _jump_break.push_back( link_loop.if_false );
 
         // Loop body.
@@ -177,7 +221,7 @@ ir_operand build_ir::visit( node_index node )
         // Evaluate generator expression and construct generator from it.
         ir_operand o[ 1 ];
         o[ 0 ] = visit( expr );
-        o[ 0 ] = op( node->sloc, IR_GENERATE, o, 1 );
+        o[ 0 ] = emit( node->sloc, IR_GENERATE, o, 1 );
         // TODO: assign g/i from result of generate?
 
         // Close current block.
@@ -191,7 +235,7 @@ ir_operand build_ir::visit( node_index node )
         unsigned loop_continue = block_head( node->sloc );
         fixup( link_previous, loop_continue );
         // TODO: make phi/some kind of loop var for g/i
-        test_fixup link_loop = block_test( node->sloc, op( node->sloc, IR_FOR_EACH, o, 1 ) );
+        test_fixup link_loop = block_test( node->sloc, emit( node->sloc, IR_FOR_EACH, o, 1 ) );
         _jump_break.push_back( link_loop.if_false );
 
         // Loop body.
@@ -290,13 +334,13 @@ ir_operand build_ir::visit( node_index node )
     {
         if ( child_node( node ).index < node.index )
         {
-            block_last( visit_children_op( node->sloc, IR_BLOCK_RETURN, node ) );
+            block_last( list_op( IR_BLOCK_RETURN, node ) );
         }
         else
         {
             ir_operand o[ 1 ];
             o[ 0 ] = { IR_O_NULL };
-            block_last( op( node->sloc, IR_BLOCK_RETURN, o, 1 ) );
+            block_last( emit( node->sloc, IR_BLOCK_RETURN, o, 1 ) );
         }
         break;
     }
@@ -305,36 +349,78 @@ ir_operand build_ir::visit( node_index node )
     {
         ir_operand o[ 1 ];
         o[ 0 ] = visit( child_node( node ) );
-        block_last( op( node->sloc, IR_BLOCK_THROW, o, 1 ) );
+        block_last( emit( node->sloc, IR_BLOCK_THROW, o, 1 ) );
         break;
     }
 
 //  case AST_ASSIGN: TODO
-//  case AST_OP_ASSIGN: TODO
+
+    case AST_OP_ASSIGN:
+    {
+        node_index u = child_node( node );
+        node_index op = next_node( u );
+        node_index v = next_node( op );
+
+        // TODO!
+
+        visit( u );
+        visit( v );
+
+        return { IR_O_NONE };
+    }
 
     case AST_EXPR_NULL:
-    {
         return { IR_O_NULL };
-    }
-
     case AST_EXPR_FALSE:
-    {
         return { IR_O_FALSE };
-    }
-
     case AST_EXPR_TRUE:
-    {
         return { IR_O_TRUE };
-    }
 
     case AST_EXPR_NUMBER:
-    {
-        return { IR_O_AST_NUMBER, node.index };
-    }
+        return k_number( node->leaf_number().n );
+
+    case AST_EXPR_NEG:
+        return fold_unary( IR_NEG, node, []( double u ) { return -u; } );
+    case AST_EXPR_POS:
+        return fold_unary( IR_POS, node, []( double u ) { return +u; } );
+    case AST_EXPR_BITNOT:
+        return fold_unary( IR_BITNOT, node, []( double u ) { return k_bitnot( u ); } );
+
+    case AST_EXPR_MUL:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return u * v; } );
+    case AST_EXPR_DIV:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return u / v; } );
+    case AST_EXPR_INTDIV:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_floordiv( u, v ); } );
+    case AST_EXPR_MOD:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_floormod( u, v ); } );
+    case AST_EXPR_ADD:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return u + v; } );
+    case AST_EXPR_SUB:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return u - v; } );
+    case AST_EXPR_LSHIFT:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_lshift( u, v ); } );
+    case AST_EXPR_RSHIFT:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_rshift( u, v ); } );
+    case AST_EXPR_ASHIFT:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_ashift( u, v ); } );
+    case AST_EXPR_BITAND:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitand( u, v ); } );
+    case AST_EXPR_BITXOR:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitxor( u, v ); } );
+    case AST_EXPR_BITOR:
+        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitor( u, v ); } );
 
     case AST_EXPR_STRING:
     {
-        return { IR_O_AST_STRING, node.index };
+        unsigned k = _f->k_strings.size();
+        _f->k_strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+        return { IR_O_K_STRING, k };
+    }
+
+    case AST_EXPR_CONCAT:
+    {
+        return list_op( IR_CONCAT, node );
     }
 
     case AST_EXPR_NAME:
@@ -348,23 +434,15 @@ ir_operand build_ir::visit( node_index node )
         ir_operand o[ 2 ];
         o[ 0 ] = visit( child_node( node ) );
         o[ 1 ] = { IR_O_AST_KEY, node.index };
-        return op( node->sloc, IR_GET_KEY, o, 2 );
+        return emit( node->sloc, IR_GET_KEY, o, 2 );
     }
 
     case AST_EXPR_INDEX:
-    {
-        return visit_children_op( node->sloc, IR_GET_INDEX, node );
-    }
-
+        return list_op( IR_GET_INDEX, node );
     case AST_EXPR_CALL:
-    {
-        return visit_children_op( node->sloc, IR_CALL, node );
-    }
-
+        return list_op( IR_CALL, node );
     case AST_EXPR_LENGTH:
-    {
-        return visit_children_op( node->sloc, IR_LENGTH, node );
-    }
+        return list_op( IR_LENGTH, node );
 
     default:
         // TODO: remove this once all cases handled.
@@ -383,19 +461,7 @@ void build_ir::visit_children( node_index node )
     }
 }
 
-ir_operand build_ir::visit_children_op( srcloc sloc, ir_opcode opcode, node_index node )
-{
-    size_t oindex = _o.size();
-    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
-    {
-        _o.push_back( visit( child ) );
-    }
-    ir_operand result_op = op( sloc, opcode, _o.data() + oindex, _o.size() - oindex );
-    _o.resize( oindex );
-    return result_op;
-}
-
-ir_operand build_ir::op( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount )
+ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount )
 {
     ir_op op;
     op.opcode = opcode;
@@ -421,13 +487,13 @@ void build_ir::close_upstack( node_index node )
     {
         ir_operand o[ 1 ];
         o[ 0 ] = { IR_O_UPSTACK_INDEX, close_index };
-        op( node->sloc, IR_CLOSE_UPSTACK, o, 1 );
+        emit( node->sloc, IR_CLOSE_UPSTACK, o, 1 );
     }
 }
 
 unsigned build_ir::block_head( srcloc sloc )
 {
-    return op( sloc, IR_BLOCK_HEAD, nullptr, 0 ).index;
+    return emit( sloc, IR_BLOCK_HEAD, nullptr, 0 ).index;
     // TODO: setup block.
     // TODO: reachable again?
 }
@@ -439,7 +505,7 @@ build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_operand test )
     o[ 0 ] = test;
     o[ 1 ] = { IR_O_JUMP, IR_INVALID_INDEX };
     o[ 2 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    block_last( op( sloc, IR_BLOCK_TEST, o, 3 ) );
+    block_last( emit( sloc, IR_BLOCK_TEST, o, 3 ) );
     return { { oindex + 1 }, { oindex + 2 } };
 }
 
@@ -448,7 +514,7 @@ build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
     unsigned oindex = _f->operands.size();
     ir_operand o[ 1 ];
     o[ 0 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    block_last( op( sloc, IR_BLOCK_JUMP, o, 1 ) );
+    block_last( emit( sloc, IR_BLOCK_JUMP, o, 1 ) );
     return { oindex };
 }
 

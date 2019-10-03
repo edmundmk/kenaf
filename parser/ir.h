@@ -54,10 +54,10 @@ namespace kf
 struct ast_function;
 
 struct ir_function;
-struct ir_block;
-class ir_oplist;
 struct ir_op;
 struct ir_operand;
+struct ir_k_number;
+struct ir_k_string;
 
 /*
     Op indexes are 24-bit.
@@ -83,6 +83,8 @@ struct ir_function
     std::vector< ir_operand > operands;
 //    std::vector< ir_phi > phi;
 //    std::vector< ir_phi
+    std::vector< ir_k_number > k_numbers;
+    std::vector< ir_k_string > k_strings;
 };
 
 /*
@@ -156,8 +158,8 @@ enum ir_operand_kind : uint8_t
     IR_O_NULL,                  // null
     IR_O_TRUE,                  // true
     IR_O_FALSE,                 // false
-    IR_O_AST_NUMBER,            // Number value in AST node.
-    IR_O_AST_STRING,            // String value in AST node.
+    IR_O_K_NUMBER,              // Constant number.
+    IR_O_K_STRING,              // Constant string.
     IR_O_AST_KEY,               // Key string in AST node.
     IR_O_LOCAL_INDEX,           // Index of local (for parameters).
     IR_O_UPVAL_INDEX,           // Index of upval.
@@ -199,6 +201,17 @@ struct ir_operand
 {
     ir_operand_kind kind : 8;    // Operand kind.
     unsigned index : 24;            // Index of op used as result.
+};
+
+struct ir_k_number
+{
+    double n;
+};
+
+struct ir_k_string
+{
+    const char* text;
+    size_t size;
 };
 
 }

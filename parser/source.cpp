@@ -67,11 +67,29 @@ void source::error( srcloc sloc, const char* message, ... )
 {
     va_list ap;
     va_start( ap, message );
-    error( sloc, message, ap );
+    diagnostic( ERROR, sloc, message, ap );
     va_end( ap );
 }
 
 void source::error( srcloc sloc, const char* message, va_list ap )
+{
+    diagnostic( ERROR, sloc, message, ap );
+}
+
+void source::warning( srcloc sloc, const char* message, ... )
+{
+    va_list ap;
+    va_start( ap, message );
+    diagnostic( WARNING, sloc, message, ap );
+    va_end( ap );
+}
+
+void source::warning( srcloc sloc, const char* message, va_list ap )
+{
+    diagnostic( WARNING, sloc, message, ap );
+}
+
+void source::diagnostic( source_diagnostic_kind kind, srcloc sloc, const char* message, va_list ap )
 {
     va_list aq;
 
@@ -86,8 +104,8 @@ void source::error( srcloc sloc, const char* message, va_list ap )
     va_end( aq );
 
     text.pop_back();
-    diagnostics.push_back( { ERROR, location( sloc ), std::move( text ) } );
-    has_error = true;
+    diagnostics.push_back( { kind, location( sloc ), std::move( text ) } );
+    has_error = has_error || kind == ERROR;
 }
 
 }
