@@ -35,6 +35,11 @@ int main( int argc, char* argv[] )
 
     if ( ! source.has_error )
     {
+        for ( const auto& function : ast_script->functions )
+        {
+            function->debug_print();
+        }
+
         kf::resolve_names resolve( &source, ast_script.get() );
         resolve.resolve();
 

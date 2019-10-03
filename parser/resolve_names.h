@@ -119,14 +119,16 @@ private:
 
     struct scope
     {
-        ast_function* function;  // Function this scope is in.
+        ast_function* function;     // Function this scope is in.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
         unsigned close_index;       // Upstack index on entry to this scope.
         bool after_continue;        // Are we currently in code that can be skipped by continue?
         bool repeat_until;          // Are we currently in the until part of a loop?
+
         bool is_function() const;   // Is this the scope of a function?
         bool is_loop() const;       // Is this the scope of a loop?
+        bool is_repeat() const;     // Is this the scope of a repeat/until loop?
 
         // Map of names to variables.
         std::unordered_map< std::string_view, variable > variables;
@@ -142,8 +144,12 @@ private:
     void lookup( ast_function* f, unsigned index, lookup_context context );
     void close_scope();
 
+    struct loop_and_inner { scope* loop; scope* inner; };
+    loop_and_inner loop_scope();
+
     void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
     void close_upstack( upstack* upstack, unsigned block_index, unsigned close_index );
+    void break_upstack( upstack* upstack, unsigned break_index, unsigned close_index );
 
     void debug_print( const upstack* upstack );
 

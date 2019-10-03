@@ -69,7 +69,7 @@ var bodies = [
 
 def advance( bodies, dt )
     for i = 0 : #bodies do
-        var bi = bodies[ i  ]
+        var bi = bodies[ i ]
         for j = i + 1 : #bodies do
             var bj = bodies[ j ]
             var dx, dy, dz = bi.x - bj.x, bi.y - bj.y, bi.z - bj.z

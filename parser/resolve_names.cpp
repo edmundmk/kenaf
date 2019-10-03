@@ -25,6 +25,12 @@ inline bool resolve_names::scope::is_loop() const
         || kind == AST_STMT_WHILE || kind == AST_STMT_REPEAT;
 }
 
+inline bool resolve_names::scope::is_repeat() const
+{
+    ast_node_kind kind = function->nodes.at( node_index ).kind;
+    return kind == AST_STMT_REPEAT;
+}
+
 resolve_names::resolve_names( source* source, ast_script* ast_script )
     :   _source( source )
     ,   _ast_script( ast_script )
@@ -39,6 +45,7 @@ void resolve_names::resolve()
 {
     ast_function* function = _ast_script->functions.at( 0 ).get();
     visit( function, function->nodes.size() - 1 );
+    assert( _scopes.empty() );
 }
 
 void resolve_names::visit( ast_function* f, unsigned index )
@@ -71,48 +78,51 @@ void resolve_names::visit( ast_function* f, unsigned index )
         declare( f, parameters_index );
 
         // Continue with block.
-        index = block_index;
-        n = &f->nodes[ index ];
+        n = &f->nodes[ index = block_index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
 
     case AST_STMT_FOR_STEP:
     {
-        // For loops declare variables into the block scope.
+        // For loops should always be contained in a block, giving the
+        // iteration variable a scope which spans the entire loop.
         unsigned name_index = n->child_index;
         unsigned start_index = f->nodes[ name_index ].next_index;
         unsigned stop_index = f->nodes[ start_index ].next_index;
         unsigned step_index = f->nodes[ stop_index ].next_index;
         unsigned block_index = f->nodes[ step_index ].next_index;
 
-        // Open scope and declare name, then visit expressions.
-        open_scope( f, block_index, index );
-        declare( f, name_index );
+        // Declare names and visit expressions.
         visit( f, start_index );
         visit( f, stop_index );
         visit( f, step_index );
+        declare( f, name_index );
 
-        // Continue with contents of block.
+        // Open loop and continue with contents of block.
+        open_scope( f, block_index, index );
         index = block_index;
         n = &f->nodes[ index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
 
     case AST_STMT_FOR_EACH:
     {
-        // For loops declare variables into the block scope.
+        // For loops should always be contained in a block, giving the
+        // iteration variable a scope which spans the entire loop.
         unsigned name_list_index = n->child_index;
         unsigned expr_index = f->nodes[ name_list_index ].next_index;
         unsigned block_index = f->nodes[ expr_index ].next_index;
 
         // Declare names and visit expression.
-        open_scope( f, block_index, index );
-        declare( f, name_list_index );
         visit( f, expr_index );
+        declare( f, name_list_index );
 
-        // Continue with contents of block.
-        index = block_index;
-        n = &f->nodes[ index ];
+        // Open loop and continue with contents of block.
+        open_scope( f, block_index, index );
+        n = &f->nodes[ index = block_index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
 
@@ -122,13 +132,13 @@ void resolve_names::visit( ast_function* f, unsigned index )
         unsigned expr_index = n->child_index;
         unsigned block_index = f->nodes[ expr_index ].next_index;
 
-        // Open loop and visit expression.
-        open_scope( f, block_index, index );
+        // Test expression.
         visit( f, expr_index );
 
-        // Continue with contents of block.
-        index = block_index;
-        n = &f->nodes[ index ];
+        // Open loop and continue with contents of block.
+        open_scope( f, block_index, index );
+        n = &f->nodes[ index = block_index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
 
@@ -138,26 +148,58 @@ void resolve_names::visit( ast_function* f, unsigned index )
         unsigned block_index = n->child_index;
         until_index = f->nodes[ block_index ].next_index;
 
-        // Open loop.
+        // Open loop and continue with contents of block.
         open_scope( f, block_index, index );
-
-        // Continue with contents of block.
-        index = block_index;
-        n = &f->nodes[ index ];
+        n = &f->nodes[ index = block_index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
+
+    case AST_STMT_BREAK:
+    {
+        // Handle break.
+        loop_and_inner l = loop_scope();
+        if ( l.loop )
+        {
+            // Break always breaks to the scope outside of the loop.
+            break_upstack( l.loop->upstack.get(), index, l.loop->close_index );
+        }
+        else
+        {
+            _source->error( n->sloc, "invalid 'break' outside of loop" );
+        }
+        return;
+    };
 
     case AST_STMT_CONTINUE:
     {
         // Handle continue.
-        for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
+        loop_and_inner l = loop_scope();
+        if ( l.loop )
         {
-            scope* s = i->get();
-            if ( s->is_loop() )
+            // Close upstack depending on which scope we are continuing into.
+            if ( l.loop->is_repeat() )
             {
-                s->after_continue = true;
-                break;
+                // Continue in repeat jumps to the loop condition, which is in
+                // the same scope as the loop.  Close any inner scopes.
+                if ( l.inner )
+                {
+                    break_upstack( l.loop->upstack.get(), index, l.inner->close_index );
+                }
+
+                // Locals declared after first continue need to be marked.
+                l.loop->after_continue = true;
             }
+            else
+            {
+                // Continue in other loops jumps back to the head of the loop,
+                // closing the loop scope.
+                break_upstack( l.loop->upstack.get(), index, l.loop->close_index );
+            }
+        }
+        else
+        {
+            _source->error( n->sloc, "invalid 'continue' outside of loop" );
         }
         return;
     }
@@ -174,11 +216,11 @@ void resolve_names::visit( ast_function* f, unsigned index )
         // Variable declarations.
         unsigned name_list_index = n->child_index;
         unsigned rval_list_index = f->nodes[ name_list_index ].next_index;
-        declare( f, name_list_index );
         if ( rval_list_index < index )
         {
             visit( f, rval_list_index );
         }
+        declare( f, name_list_index );
         return;
     }
 
@@ -541,6 +583,22 @@ void resolve_names::close_scope()
     close_upstack( s->upstack.get(), s->block_index, s->close_index );
 }
 
+resolve_names::loop_and_inner resolve_names::loop_scope()
+{
+    scope* inner = nullptr;
+    for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
+    {
+        scope* s = i->get();
+        if ( s->is_loop() )
+        {
+            return { s, inner };
+        }
+        inner = s;
+    }
+
+    return { nullptr, nullptr };
+}
+
 void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const variable* variable )
 {
     assert( upstack->function == _scopes.at( scope_index)->function );
@@ -600,7 +658,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
         for ( upstack_block& close : upstack->upstack_close )
         {
             ast_node& node = upstack->function->nodes.at( close.block_index );
-            assert( node.kind == AST_BLOCK );
+            assert( node.kind == AST_BLOCK || node.kind == AST_STMT_BREAK || node.kind == AST_STMT_CONTINUE );
             assert( node.leaf == AST_LEAF_INDEX );
             assert( node.leaf_index().index >= close.floor_index );
 
@@ -674,6 +732,28 @@ void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsig
 
 //  printf( "CLOSE BLOCK " );
 //  debug_print( upstack );
+}
+
+void resolve_names::break_upstack( upstack* upstack, unsigned break_index, unsigned close_index )
+{
+    // Get break or continue node.
+    ast_node& node = upstack->function->nodes.at( break_index );
+    assert( node.kind == AST_STMT_BREAK || node.kind == AST_STMT_CONTINUE );
+    assert( node.leaf == AST_LEAF_INDEX );
+    assert( node.leaf_index().index == AST_INVALID_INDEX );
+
+    // If there were no new upvals, then there's nothing to do.
+    assert( close_index <= upstack->upstack_slots.size() );
+    if ( close_index >= upstack->upstack_slots.size() )
+    {
+        return;
+    }
+
+    // Set close index.
+    node.leaf_index().index = close_index;
+
+    // Add block close entry, in case slots are allocated underneath.
+    upstack->upstack_close.push_back( { break_index, close_index } );
 }
 
 void resolve_names::debug_print( const upstack* upstack )
