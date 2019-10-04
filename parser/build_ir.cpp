@@ -32,6 +32,7 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
     // Visit AST.
     node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
     visit( node );
+    assert( _o.empty() );
 
     // Done.
     return std::move( _f );
@@ -104,7 +105,7 @@ ir_operand build_ir::visit( node_index node )
                     :0003   B_AND :0002, @0005
                     :0004   B_DEF :0003, :0002, @000B
                     :0005   c
-                    :0006   LT :0001, :0004
+                    :0006   LT :0001, :0005
                     :0007   B_AND :0006, @0009
                     :0008   B_DEF :0007, :0006, @000B
                     :0009   d
@@ -116,7 +117,7 @@ ir_operand build_ir::visit( node_index node )
             node_index op = next_node( u );
             node_index v = next_node( op );
 
-            size_t bdefs = _fixup_bdefs.size();
+            unsigned ocount = 0;
             size_t endif = _fixup_endif.size();
 
             ir_operand last = visit( u );
@@ -170,25 +171,17 @@ ir_operand build_ir::visit( node_index node )
                 op_branch op_def = emit_branch( op->sloc, IR_B_DEF, 2 );
 
                 fixup( op_and.branch, _f->ops.size() );
-                _fixup_bdefs.push_back( op_def.op );
                 _fixup_endif.push_back( op_def.branch );
+                _o.push_back( op_def.op );
+                ocount += 1;
+
                 v = next_node( op );
             }
 
             if ( endif < _fixup_endif.size() )
             {
-                unsigned ocount = 0;
-                for ( size_t i = bdefs; i < _fixup_bdefs.size(); ++i )
-                {
-                    _o.push_back( _fixup_bdefs[ i ] );
-                    ocount += 1;
-                }
-                _fixup_bdefs.resize( bdefs );
-
                 _o.push_back( comp );
-                ocount += 1;
-
-                comp = emit( node->sloc, IR_B_PHI, ocount );
+                comp = emit( node->sloc, IR_B_PHI, ocount + 1 );
                 fixup( &_fixup_endif, endif, comp.index );
             }
 
@@ -327,6 +320,30 @@ ir_operand build_ir::visit( node_index node )
                     :0008   z
                     :0009   B_PHI :0003, :0007, :0008
             */
+/*
+            node_index kw = node;
+            node_index test = child_node( kw );
+            node_index expr = next_node( test );
+            node_index next = next_node( expr );
+
+            size_t endif = _fixup_endif.size();
+
+            while ( true )
+            {
+                _o.push_back( visit( test ) );
+                op_branch op_cut = emit_branch( kw->sloc, IR_B_CUT, 1 );
+
+                _o.push_back( visit( expr ) );
+                op_branch op_def = emit_branch( kw->sloc, IR_B_DEF, 1 );
+
+                fixup( op_cut.branch, _f->ops.size() );
+                _fixup_bdefs.push_back( op_def.op );
+                _fixup_endif.push_back(
+
+
+            }
+*/
+
             return { IR_O_NONE };
         }
 

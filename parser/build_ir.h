@@ -92,7 +92,6 @@ private:
     std::vector< ir_operand > _o;
 
     // Jump operand fixups.
-    std::vector< ir_operand > _fixup_bdefs;
     std::vector< jump_fixup > _fixup_endif;
     std::vector< jump_fixup > _fixup_loopb;
     std::vector< jump_fixup > _fixup_loopc;

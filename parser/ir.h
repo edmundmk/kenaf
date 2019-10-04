@@ -59,8 +59,8 @@
 
         B_AND test, jump
         B_CUT test, jump
-            Check the test operand.  If it's true (B_AND) or false (B_CUT),
-            branch to jump address, which must be later in the same block.
+            If test is true (B_AND) or false (B_CUT), branch to jump address,
+            which must be later in the same block.  Does not produce a value.
 
         B_DEF link_cut, value, jump_phi
             The link_cut operand points to the B_CUT that skips this value.
