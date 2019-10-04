@@ -62,11 +62,11 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_NEG:
     case AST_EXPR_POS:
     case AST_EXPR_BITNOT:
-        {
-            node_index u = child_node( node );
-            _o.push_back( visit( u ) );
-            return emit( node->sloc, (ir_opcode)node->kind, 1 );
-        }
+    {
+        node_index u = child_node( node );
+        _o.push_back( visit( u ) );
+        return emit( node->sloc, (ir_opcode)node->kind, 1 );
+    }
 
     case AST_EXPR_MUL:
     case AST_EXPR_DIV:
@@ -80,318 +80,338 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_BITAND:
     case AST_EXPR_BITXOR:
     case AST_EXPR_BITOR:
-        {
-            node_index u = child_node( node );
-            node_index v = next_node( u );
-            _o.push_back( visit( u ) );
-            _o.push_back( visit( v ) );
-            return emit( node->sloc, (ir_opcode)node->kind, 2 );
-        }
+    {
+        node_index u = child_node( node );
+        node_index v = next_node( u );
+        _o.push_back( visit( u ) );
+        _o.push_back( visit( v ) );
+        return emit( node->sloc, (ir_opcode)node->kind, 2 );
+    }
 
     case AST_EXPR_COMPARE:
+    {
+        /*
+            a < b
+
+                :0000   a
+                :0001   b
+                :0002   LT :0000, :0001
+
+            a < b < c < d
+
+                :0000   a
+                :0001   b
+                :0002   LT :0000, :0001
+                :0003   B_AND :0002, @0005
+                :0004   B_DEF :0003, :0002, @000B
+                :0005   c
+                :0006   LT :0001, :0005
+                :0007   B_AND :0006, @0009
+                :0008   B_DEF :0007, :0006, @000B
+                :0009   d
+                :000A   LT :0005, :0009
+                :000B   B_PHI :0004, :0008, :000A
+        */
+
+        node_index u = child_node( node );
+        node_index op = next_node( u );
+        node_index v = next_node( op );
+
+        unsigned ocount = 0;
+        size_t endif = _fixup_endif.size();
+
+        ir_operand last = visit( u );
+        ir_operand comp = { IR_O_NONE };
+        while ( true )
         {
             /*
-                a < b
+                We apply the following transformations:
 
-                    :0000   a
-                    :0001   b
-                    :0002   LT :0000, :0001
+                    u > v becomes v < u
+                    u >= v becomes v <= u
+                    u is not v becomes not u is v
 
-                a < b < c < d
-
-                    :0000   a
-                    :0001   b
-                    :0002   LT :0000, :0001
-                    :0003   B_AND :0002, @0005
-                    :0004   B_DEF :0003, :0002, @000B
-                    :0005   c
-                    :0006   LT :0001, :0005
-                    :0007   B_AND :0006, @0009
-                    :0008   B_DEF :0007, :0006, @000B
-                    :0009   d
-                    :000A   LT :0005, :0009
-                    :000B   B_PHI :0004, :0008, :000A
+                I'm pretty sure that these hold even considering NaN.
             */
 
-            node_index u = child_node( node );
-            node_index op = next_node( u );
-            node_index v = next_node( op );
+            _o.push_back( last );
+            _o.push_back( last = visit( v ) );
 
-            unsigned ocount = 0;
-            size_t endif = _fixup_endif.size();
-
-            ir_operand last = visit( u );
-            ir_operand comp = { IR_O_NONE };
-            while ( true )
+            ir_opcode opcode = IR_NOP;
+            switch ( op->kind )
             {
-                /*
-                    We apply the following transformations:
-
-                        u > v becomes v < u
-                        u >= v becomes v <= u
-                        u is not v becomes not u is v
-
-                    I'm pretty sure that these hold even considering NaN.
-                */
-
-                _o.push_back( last );
-                _o.push_back( last = visit( v ) );
-
-                ir_opcode opcode = IR_NOP;
-                switch ( op->kind )
-                {
-                case AST_OP_EQ: opcode = IR_EQ; break;
-                case AST_OP_NE: opcode = IR_NE; break;
-                case AST_OP_LT: opcode = IR_LT; break;
-                case AST_OP_LE: opcode = IR_LE; break;
-                case AST_OP_GT: opcode = IR_LT; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
-                case AST_OP_GE: opcode = IR_LE; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
-                case AST_OP_IS: opcode = IR_IS; break;
-                case AST_OP_IS_NOT: opcode = IR_IS; break;
-                default: break;
-                }
-
-                comp = emit( op->sloc, opcode, 2 );
-
-                /*
-                    Check for chained operator.
-                */
-
-                op = next_node( v );
-                if ( op.index >= node.index )
-                {
-                    break;
-                }
-
-                _o.push_back( comp );
-                op_branch op_and = emit_branch( op->sloc, IR_B_AND, 1 );
-
-                _o.push_back( op_and.op );
-                _o.push_back( comp );
-                op_branch op_def = emit_branch( op->sloc, IR_B_DEF, 2 );
-
-                fixup( op_and.branch, _f->ops.size() );
-                _fixup_endif.push_back( op_def.branch );
-                _o.push_back( op_def.op );
-                ocount += 1;
-
-                v = next_node( op );
+            case AST_OP_EQ: opcode = IR_EQ; break;
+            case AST_OP_NE: opcode = IR_NE; break;
+            case AST_OP_LT: opcode = IR_LT; break;
+            case AST_OP_LE: opcode = IR_LE; break;
+            case AST_OP_GT: opcode = IR_LT; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
+            case AST_OP_GE: opcode = IR_LE; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
+            case AST_OP_IS: opcode = IR_IS; break;
+            case AST_OP_IS_NOT: opcode = IR_IS; break;
+            default: break;
             }
 
-            if ( endif < _fixup_endif.size() )
+            comp = emit( op->sloc, opcode, 2 );
+
+            /*
+                Check for chained operator.
+            */
+
+            op = next_node( v );
+            if ( op.index >= node.index )
             {
-                _o.push_back( comp );
-                comp = emit( node->sloc, IR_B_PHI, ocount + 1 );
-                fixup( &_fixup_endif, endif, comp.index );
+                break;
             }
 
-            return comp;
+            _o.push_back( comp );
+            op_branch op_and = emit_branch( op->sloc, IR_B_AND, 1 );
+
+            _o.push_back( op_and.op );
+            _o.push_back( comp );
+            op_branch op_def = emit_branch( op->sloc, IR_B_DEF, 2 );
+
+            fixup( op_and.branch, _f->ops.size() );
+            _fixup_endif.push_back( op_def.branch );
+            _o.push_back( op_def.op );
+            ocount += 1;
+
+            v = next_node( op );
         }
+
+        if ( endif < _fixup_endif.size() )
+        {
+            _o.push_back( comp );
+            comp = emit( node->sloc, IR_B_PHI, ocount + 1 );
+            fixup( &_fixup_endif, endif, comp.index );
+        }
+
+        return comp;
+    }
 
     case AST_EXPR_NULL:
-        {
-            _o.push_back( { IR_O_NULL } );
-            return emit( node->sloc, IR_LOAD, 1 );
-        }
+    {
+        _o.push_back( { IR_O_NULL } );
+        return emit( node->sloc, IR_LOAD, 1 );
+    }
 
     case AST_EXPR_FALSE:
-        {
-            _o.push_back( { IR_O_FALSE } );
-            return emit( node->sloc, IR_LOAD, 1 );
-        }
+    {
+        _o.push_back( { IR_O_FALSE } );
+        return emit( node->sloc, IR_LOAD, 1 );
+    }
 
     case AST_EXPR_TRUE:
-        {
-            _o.push_back( { IR_O_TRUE } );
-            return emit( node->sloc, IR_LOAD, 1 );
-        }
+    {
+        _o.push_back( { IR_O_TRUE } );
+        return emit( node->sloc, IR_LOAD, 1 );
+    }
 
     case AST_EXPR_NUMBER:
-        {
-            unsigned index = _f->numbers.size();
-            _f->numbers.push_back( { node->leaf_number().n } );
-            _o.push_back( { IR_O_NUMBER, index } );
-            return emit( node->sloc, IR_LOAD, 1 );
-        }
+    {
+        unsigned index = _f->numbers.size();
+        _f->numbers.push_back( { node->leaf_number().n } );
+        _o.push_back( { IR_O_NUMBER, index } );
+        return emit( node->sloc, IR_LOAD, 1 );
+    }
 
     case AST_EXPR_STRING:
-        {
-            unsigned index = _f->strings.size();
-            _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
-            _o.push_back( { IR_O_STRING, index } );
-            return emit( node->sloc, IR_LOAD, 1 );
-        }
+    {
+        unsigned index = _f->strings.size();
+        _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+        _o.push_back( { IR_O_STRING, index } );
+        return emit( node->sloc, IR_LOAD, 1 );
+    }
 
     case AST_EXPR_NOT:
-        {
-            node_index u = child_node( node );
-            _o.push_back( visit( u ) );
-            return emit( node->sloc, IR_NOT, 1 );
-        }
+    {
+        node_index u = child_node( node );
+        _o.push_back( visit( u ) );
+        return emit( node->sloc, IR_NOT, 1 );
+    }
 
     case AST_EXPR_AND:
-        {
-            /*
-                a and b
+    {
+        /*
+            a and b
 
-                    :0000   a
-                    :0001   B_AND :0000, @0003
-                    :0002   B_DEF :0001, :0000, @0004
-                    :0003   b
-                    :0004   B_PHI :0002, :0003
-            */
+                :0000   a
+                :0001   B_AND :0000, @0003
+                :0002   B_DEF :0001, :0000, @0004
+                :0003   b
+                :0004   B_PHI :0002, :0003
+        */
 
-            node_index u = child_node( node );
-            node_index v = next_node( u );
+        node_index u = child_node( node );
+        node_index v = next_node( u );
 
-            ir_operand lhs = visit( u );
+        ir_operand lhs = visit( u );
 
-            _o.push_back( lhs );
-            op_branch op_and = emit_branch( node->sloc, IR_B_AND, 1 );
+        _o.push_back( lhs );
+        op_branch op_and = emit_branch( node->sloc, IR_B_AND, 1 );
 
-            _o.push_back( op_and.op );
-            _o.push_back( lhs );
-            op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+        _o.push_back( op_and.op );
+        _o.push_back( lhs );
+        op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
 
-            fixup( op_and.branch, _f->ops.size() );
-            _o.push_back( op_def.op );
-            _o.push_back( visit( v ) );
+        fixup( op_and.branch, _f->ops.size() );
+        _o.push_back( op_def.op );
+        _o.push_back( visit( v ) );
 
-            ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
-            fixup( op_def.branch, op_phi.index );
-            return op_phi;
-        }
+        ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
+        fixup( op_def.branch, op_phi.index );
+        return op_phi;
+    }
 
     case AST_EXPR_OR:
-        {
-            /*
-                a or b
+    {
+        /*
+            a or b
 
-                    :0000   a
-                    :0001   B_CUT :0000, @0003
-                    :0002   B_DEF :0001, :0000, @0004
-                    :0003   b
-                    :0004   B_PHI :0002, :0003
-            */
+                :0000   a
+                :0001   B_CUT :0000, @0003
+                :0002   B_DEF :0001, :0000, @0004
+                :0003   b
+                :0004   B_PHI :0002, :0003
+        */
 
-            node_index u = child_node( node );
-            node_index v = next_node( u );
+        node_index u = child_node( node );
+        node_index v = next_node( u );
 
-            ir_operand lhs = visit( u );
+        ir_operand lhs = visit( u );
 
-            _o.push_back( lhs );
-            op_branch op_and = emit_branch( node->sloc, IR_B_CUT, 1 );
+        _o.push_back( lhs );
+        op_branch op_and = emit_branch( node->sloc, IR_B_CUT, 1 );
 
-            _o.push_back( op_and.op );
-            _o.push_back( lhs );
-            op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+        _o.push_back( op_and.op );
+        _o.push_back( lhs );
+        op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
 
-            fixup( op_and.branch, _f->ops.size() );
-            _o.push_back( op_def.op );
-            _o.push_back( visit( v ) );
+        fixup( op_and.branch, _f->ops.size() );
+        _o.push_back( op_def.op );
+        _o.push_back( visit( v ) );
 
-            ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
-            fixup( op_def.branch, op_phi.index );
-            return op_phi;
-        }
+        ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
+        fixup( op_def.branch, op_phi.index );
+        return op_phi;
+    }
 
     case AST_EXPR_IF:
+    {
+        /*
+            if x then y else z
+
+                :0000   x
+                :0001   B_CUT :0000, @0004
+                :0002   y
+                :0003   B_DEF :0001, :0002, @0005
+                :0004   z
+                :0005   B_PHI :0003, :0004
+
+            if x then y elif p then q else z
+
+                :0000   x
+                :0001   B_CUT :0000, @0004
+                :0002   y
+                :0003   B_DEF :0001, :0008, @0009
+                :0004   p
+                :0005   B_CUT :0004, @0008
+                :0006   q
+                :0007   B_DEF :0005, :0006, @0009
+                :0008   z
+                :0009   B_PHI :0003, :0007, :0008
+        */
+
+        node_index kw = node;
+        node_index test = child_node( kw );
+        node_index expr = next_node( test );
+        node_index next = next_node( expr );
+
+        size_t ocount = 0;
+        size_t endif = _fixup_endif.size();
+
+        while ( true )
         {
+            _o.push_back( visit( test ) );
+            op_branch op_cut = emit_branch( kw->sloc, IR_B_CUT, 1 );
+
+            _o.push_back( visit( expr ) );
+            op_branch op_def = emit_branch( kw->sloc, IR_B_DEF, 1 );
+
+            fixup( op_cut.branch, _f->ops.size() );
+            _fixup_endif.push_back( op_def.branch );
+            _o.push_back( op_def.op );
+            ocount += 1;
+
             /*
-                if x then y else z
-
-                    :0000   x
-                    :0001   B_CUT :0000, @0004
-                    :0002   y
-                    :0003   B_DEF :0001, :0002, @0005
-                    :0004   z
-                    :0005   B_PHI :0003, :0004
-
-                if x then y elif p then q else z
-
-                    :0000   x
-                    :0001   B_CUT :0000, @0004
-                    :0002   y
-                    :0003   B_DEF :0001, :0008, @0009
-                    :0004   p
-                    :0005   B_CUT :0004, @0008
-                    :0006   q
-                    :0007   B_DEF :0005, :0006, @0009
-                    :0008   z
-                    :0009   B_PHI :0003, :0007, :0008
+                Check for elif.
             */
 
-            node_index kw = node;
-            node_index test = child_node( kw );
-            node_index expr = next_node( test );
-            node_index next = next_node( expr );
-
-            size_t ocount = 0;
-            size_t endif = _fixup_endif.size();
-
-            while ( true )
+            if ( next->kind != AST_EXPR_ELIF )
             {
-                _o.push_back( visit( test ) );
-                op_branch op_cut = emit_branch( kw->sloc, IR_B_CUT, 1 );
-
-                _o.push_back( visit( expr ) );
-                op_branch op_def = emit_branch( kw->sloc, IR_B_DEF, 1 );
-
-                fixup( op_cut.branch, _f->ops.size() );
-                _fixup_endif.push_back( op_def.branch );
-                _o.push_back( op_def.op );
-                ocount += 1;
-
-                /*
-                    Check for elif.
-                */
-
-                if ( next->kind != AST_EXPR_ELIF )
-                {
-                    break;
-                }
-
-                kw = next;
-                test = child_node( kw );
-                expr = next_node( test );
-                next = next_node( kw );
+                break;
             }
 
-            _o.push_back( visit( next ) );
-            ir_operand cond = emit( node->sloc, IR_B_PHI, ocount + 1 );
-            fixup( &_fixup_endif, endif, cond.index );
-
-            return cond;
+            kw = next;
+            test = child_node( kw );
+            expr = next_node( test );
+            next = next_node( kw );
         }
+
+        _o.push_back( visit( next ) );
+        ir_operand cond = emit( node->sloc, IR_B_PHI, ocount + 1 );
+        fixup( &_fixup_endif, endif, cond.index );
+
+        return cond;
+    }
 
     case AST_EXPR_ELIF:
-        {
-            assert( ! "unexpected ELIF node" );
-            return { IR_O_NONE };
-        }
+    {
+        assert( ! "unexpected ELIF node" );
+        return { IR_O_NONE };
+    }
 
     case AST_EXPR_KEY:
-        {
-            node_index u = child_node( node );
-            _o.push_back( visit( u ) );
-            unsigned index = _f->strings.size();
-            _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
-            _o.push_back( { IR_O_STRING, index } );
-            return emit( node->sloc, IR_GET_KEY, 2 );
-        }
+    {
+        node_index u = child_node( node );
+        _o.push_back( visit( u ) );
+        unsigned index = _f->strings.size();
+        _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+        _o.push_back( { IR_O_STRING, index } );
+        return emit( node->sloc, IR_GET_KEY, 2 );
+    }
 
     case AST_EXPR_INDEX:
-        {
-            node_index u = child_node( node );
-            node_index v = next_node( u );
-            _o.push_back( visit( u ) );
-            _o.push_back( visit( v ) );
-            return emit( node->sloc, IR_GET_KEY, 2 );
-        }
+    {
+        node_index u = child_node( node );
+        node_index v = next_node( u );
+        _o.push_back( visit( u ) );
+        _o.push_back( visit( v ) );
+        return emit( node->sloc, IR_GET_KEY, 2 );
+    }
 
     case AST_EXPR_CALL:
+    {
+
+    }
 
     case AST_EXPR_UNPACK:
+    {
+        node_index u = child_node( node );
+        if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg_param )
+        {
+            return emit( node->sloc, IR_VARARG, 0 );
+        }
+        else if ( u->kind = AST_EXPR_CALL )
+        {
+            // TODO: unpack call...
+            return visit( u );
+        }
+        else
+        {
+            _o.push_back( visit( u ) );
+            return emit( node->sloc, IR_UNPACK, 1 );
+        }
+    }
 
     case AST_EXPR_ARRAY:
 
@@ -402,10 +422,10 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_YIELD_FOR:
 
     case AST_OP_ASSIGN:
-        {
-            // TODO.
-            return { IR_O_NONE };
-        }
+    {
+        // TODO.
+        return { IR_O_NONE };
+    }
 
 
 
