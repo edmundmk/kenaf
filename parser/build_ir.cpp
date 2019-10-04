@@ -111,6 +111,7 @@ ir_operand build_ir::visit( node_index node )
                     :000A   LT :0005, :0009
                     :000B   B_PHI :0004, :0008, :000A
             */
+
             node_index u = child_node( node );
             node_index op = next_node( u );
             node_index v = next_node( op );
@@ -131,6 +132,10 @@ ir_operand build_ir::visit( node_index node )
 
                     I'm pretty sure that these hold even considering NaN.
                 */
+
+                _o.push_back( last );
+                _o.push_back( last = visit( v ) );
+
                 ir_opcode opcode = IR_NOP;
                 switch ( op->kind )
                 {
@@ -145,13 +150,12 @@ ir_operand build_ir::visit( node_index node )
                 default: break;
                 }
 
-                _o.push_back( last );
-                _o.push_back( last = visit( v ) );
                 comp = emit( op->sloc, opcode, 2 );
 
                 /*
                     Check for chained operator.
                 */
+
                 op = next_node( v );
                 if ( op.index >= node.index )
                 {
@@ -168,7 +172,6 @@ ir_operand build_ir::visit( node_index node )
                 fixup( op_and.branch, _f->ops.size() );
                 _fixup_bdefs.push_back( op_def.op );
                 _fixup_endif.push_back( op_def.branch );
-
                 v = next_node( op );
             }
 
@@ -224,13 +227,121 @@ ir_operand build_ir::visit( node_index node )
             _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
             _o.push_back( { IR_O_STRING, index } );
             return emit( node->sloc, IR_LOAD, 1 );
-        };
+        }
+
+    case AST_EXPR_NOT:
+        {
+            node_index u = child_node( node );
+            _o.push_back( visit( u ) );
+            return emit( node->sloc, IR_NOT, 1 );
+        }
+
+    case AST_EXPR_AND:
+        {
+            /*
+                a and b
+
+                    :0000   a
+                    :0001   B_AND :0000, @0003
+                    :0002   B_DEF :0001, :0000, @0004
+                    :0003   b
+                    :0004   B_PHI :0002, :0003
+            */
+
+            node_index u = child_node( node );
+            node_index v = next_node( u );
+
+            ir_operand lhs = visit( u );
+
+            _o.push_back( lhs );
+            op_branch op_and = emit_branch( node->sloc, IR_B_AND, 1 );
+
+            _o.push_back( op_and.op );
+            _o.push_back( lhs );
+            op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+
+            fixup( op_and.branch, _f->ops.size() );
+            _o.push_back( op_def.op );
+            _o.push_back( visit( v ) );
+
+            ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
+            fixup( op_def.branch, op_phi.index );
+            return op_phi;
+        }
+
+    case AST_EXPR_OR:
+        {
+            /*
+                a or b
+
+                    :0000   a
+                    :0001   B_CUT :0000, @0003
+                    :0002   B_DEF :0001, :0000, @0004
+                    :0003   b
+                    :0004   B_PHI :0002, :0003
+            */
+
+            node_index u = child_node( node );
+            node_index v = next_node( u );
+
+            ir_operand lhs = visit( u );
+
+            _o.push_back( lhs );
+            op_branch op_and = emit_branch( node->sloc, IR_B_CUT, 1 );
+
+            _o.push_back( op_and.op );
+            _o.push_back( lhs );
+            op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+
+            fixup( op_and.branch, _f->ops.size() );
+            _o.push_back( op_def.op );
+            _o.push_back( visit( v ) );
+
+            ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
+            fixup( op_def.branch, op_phi.index );
+            return op_phi;
+        }
+
+    case AST_EXPR_IF:
+        {
+            /*
+                if x then y else z
+
+                    :0000   x
+                    :0001   B_CUT :0000, @0004
+                    :0002   y
+                    :0003   B_DEF :0001, :0002, @0005
+                    :0004   z
+                    :0005   B_PHI :0003, :0004
+
+                if x then y elif p then q else z
+
+                    :0000   x
+                    :0001   B_CUT :0000, @0004
+                    :0002   y
+                    :0003   B_DEF :0001, :0008, @0009
+                    :0004   p
+                    :0005   B_CUT :0004, @0008
+                    :0006   q
+                    :0007   B_DEF :0005, :0006, @0009
+                    :0008   z
+                    :0009   B_PHI :0003, :0007, :0008
+            */
+            return { IR_O_NONE };
+        }
+
+    case AST_EXPR_ELIF:
+        {
+            assert( ! "unexpected ELIF node" );
+            return { IR_O_NONE };
+        }
 
     case AST_OP_ASSIGN:
         {
             // TODO.
             return { IR_O_NONE };
         }
+
 
 
 /*

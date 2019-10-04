@@ -57,46 +57,6 @@
     tracking definitions of temporaries, they are represented as internal
     branches inside a block.  Branches can only branch forward.
 
-        if x then y else z
-
-            :0000   x
-            :0001   B_CUT :0000, @0004
-            :0002   y
-            :0003   B_DEF :0001, :0002, @0005
-            :0004   z
-            :0005   B_PHI :0003, :0004
-
-        if x then y elif p then q else z
-
-            :0000   x
-            :0001   B_CUT :0000, @0004
-            :0002   y
-            :0003   B_DEF :0001, :0008, @0009
-            :0004   p
-            :0005   B_CUT :0004, @0008
-            :0006   q
-            :0007   B_DEF :0005, :0006, @0009
-            :0008   z
-            :0009   B_PHI :0003, :0007, :0008
-
-        a and b
-
-            :0000   a
-            :0001   B_AND :0000, @0003
-            :0002   B_DEF :0001, :0000, @0004
-            :0003   b
-            :0004   B_PHI :0002, :0003
-
-        a or b
-
-            :0000   a
-            :0001   B_CUT :0000, @0003
-            :0002   B_DEF :0001, :0000, @0004
-            :0003   b
-            :0004   B_PHI :0002, :0003
-
-    Here's the meanings of these ops:
-
         B_AND test, jump
         B_CUT test, jump
             Check the test operand.  If it's true (B_AND) or false (B_CUT),
