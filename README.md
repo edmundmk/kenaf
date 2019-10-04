@@ -1,6 +1,6 @@
-# kenaf
+# Kenaf
 
-Kenaf is a scripting language designed to be embedded in C++ applications.
+**Kenaf** is a scripting language designed to be embedded in C++ applications.
 Kenaf provides you with:
 
   * Simple, readable syntax.

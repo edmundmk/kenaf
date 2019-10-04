@@ -55,6 +55,7 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_L              ] = "L",
     [ IR_LOAD           ] = "LOAD",
+    [ IR_PARAM          ] = "PARAM",
 
     [ IR_GET_GLOBAL     ] = "GET_GLOBAL",
     [ IR_GET_UPVAL      ] = "GET_UPVAL",

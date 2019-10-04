@@ -91,7 +91,6 @@ private:
     // Function under construction.
     source* _source;
     std::unique_ptr< ir_function > _f;
-    unsigned _shortcut_result;
 
     // Operand stack.
     std::vector< ir_operand > _o;

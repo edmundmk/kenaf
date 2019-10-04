@@ -885,5 +885,10 @@ void build_ir::fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsig
     fixup_list->resize( index );
 }
 
+void build_ir::def( ir_operand operand, unsigned local )
+{
+    // TODO: make definition of local.
+}
+
 }
 

@@ -165,9 +165,10 @@ enum ir_opcode : uint8_t
     IR_IS,                      // a is b, or not not a is b
     IR_NOT,                     // not a
 
-    // Value stack.
+    // Evaluation.
     IR_L,                       // Maybe load, placeholder during construction.
     IR_LOAD,                    // Load value.
+    IR_PARAM,                   // Parameter placeholder.
 
     // Other instructions.
     IR_GET_GLOBAL,              // Get global.
