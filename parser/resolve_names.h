@@ -22,7 +22,7 @@
       - Refer to an upval.
 
     Names not found by name lookup are global references.  Assigning to an
-    unqualified global name is an error (but this is not checked in this step).
+    unqualified global name is an error.
 
     The 'until' clause of a repeat until loop has a special rule where it can
     only refer to variables that were declared before the first 'continue' in
@@ -36,7 +36,7 @@
 
     Locals are parameters and declared variables.  Locals go out of scope at
     the end of the block in which they are declared.  For indexes are treated
-    as if they were declared at the top of the for loop's block.
+    as if the entire loop was wrapped in an invisible block.
 
     Locals are stored in a local list for each function, and are subsequently
     referred to by index.  The first n locals are the function's parameters.

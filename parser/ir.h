@@ -17,8 +17,12 @@
     This intermediate representation sits between the syntax tree and the
     bytecode.  The program is represented by a set of IR ops in a flat array.
 
-    The ops describe a set of basic blocks, in program order.  Each block
-    begins with a BLOCK_HEAD op, and ends with a jump.
+    The ops describe a set of basic blocks, in program order.  Because we do
+    not support goto, the control flow graph is reducible and program order is
+    a valid depth first traversal of the CFG where dominators precede dominated
+    blocks.
+
+    Each block begins with a BLOCK_HEAD op, and ends with a jump.
 
 
     -- SSA Values
@@ -28,9 +32,10 @@
     produced it.
 
     phi functions that merge definitions for locals are generated during IR
-    construction.  If only one definition of a local reaches a block, then a
-    phi function with one operand (a ref) is still generated, as phi ops are
-    used determine live ranges for locals.
+    construction, and referenced from the BLOCK_HEAD of each block.  If only
+    one definition of a local reaches a block, then a phi function with one
+    operand (a ref) is still generated, as phi ops are used determine live
+    ranges for locals.
 
     Phi functions are used as operands like any other op.
 
@@ -39,7 +44,7 @@
 
     Loop variables are the hidden variables used by the for each and for step
     loops.  They are live through the entire loop.  They are not represented
-    explicitly in the IR, instead the special FOR instructions are used.
+    explicitly in the IR.  Instead the special FOR instructions are used.
 
 
     -- Shortcut Branches
@@ -47,14 +52,14 @@
     Chained comparisons, logical operators, and conditional expressions can
     skip evaluation of some of their operands.
 
-    These operators are not represented in the main control flow graph - as
-    all the operands are expressions, and assignments are restricted, none will
-    introduce new definitions of variables.  The definition of a variable
-    reaching the start of the shortcut expression is the definition that will
-    survive the expression.
+    These operators are not represented in the main control flow graph.  As
+    all the operands are expressions, and assignments are restricted, new
+    definitions of variables cannot be created inside these expressions.  The
+    definition of a variable reaching the start of the shortcut expression is
+    the definition that will survive the expression.
 
-    So instead of doing SSA construction through these structures, involving
-    tracking definitions of temporaries, they are represented as internal
+    So instead of doing CFG and SSA construction for these structures - which
+    would involve defining temporary variables - we represent them as internal
     branches inside a block.  Branches can only branch forward.
 
         B_AND test, jump
@@ -80,6 +85,15 @@
     live at any point.  This allows register allocation to allocate a single
     register for each local.  Code that constructs the IR must enforce this
     invariant.
+
+    It does this by inserting L instructions whenever a variable is read,
+    pinning the location where the variable was referenced.  If an assignment
+    redefines a variable while it is still on the builder's evaluation stack,
+    the L is promoted to a LOAD, which creates a new value.  Again, our syntax
+    is so restricted that this only happens for assignment statements.
+
+    L ops (and most LOAD ops of constants) are optimized out by a constant
+    folding pass.
 
 */
 
