@@ -89,20 +89,39 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_COMPARE:
         {
+            /*
+                a < b
 
+                    :0000   a
+                    :0001   b
+                    :0002   LT :0000, :0001
 
+                a < b < c < d
+
+                    :0000   a
+                    :0001   b
+                    :0002   LT :0000, :0001
+                    :0003   B_AND :0002, @0005
+                    :0004   B_DEF :0003, :0002, @000B
+                    :0005   c
+                    :0006   LT :0001, :0004
+                    :0007   B_AND :0006, @0009
+                    :0008   B_DEF :0007, :0006, @000B
+                    :0009   d
+                    :000A   LT :0005, :0009
+                    :000B   B_PHI :0004, :0008, :000A
+            */
             node_index u = child_node( node );
             node_index op = next_node( u );
             node_index v = next_node( op );
-            node_index chain_op = next_node( v );
-            _o.push_back( visit( u ) );
-            _o.push_back( visit( v ) );
 
+            size_t bdefs = _fixup_bdefs.size();
             size_t endif = _fixup_endif.size();
+
+            ir_operand last = visit( u );
+            ir_operand comp = { IR_O_NONE };
             while ( true )
             {
-                ir_opcode opcode = IR_NOP;
-
                 /*
                     We apply the following transformations:
 
@@ -112,28 +131,23 @@ ir_operand build_ir::visit( node_index node )
 
                     I'm pretty sure that these hold even considering NaN.
                 */
+                ir_opcode opcode = IR_NOP;
                 switch ( op->kind )
                 {
                 case AST_OP_EQ: opcode = IR_EQ; break;
                 case AST_OP_NE: opcode = IR_NE; break;
                 case AST_OP_LT: opcode = IR_LT; break;
                 case AST_OP_LE: opcode = IR_LE; break;
-                case AST_OP_GT: opcode = IR_LT; //std::swap( _o[ 0 ], o[ 1 ] ); break;
-                case AST_OP_GE: opcode = IR_LE; //std::swap( _o[ 0 ], o[ 1 ] ); break;
+                case AST_OP_GT: opcode = IR_LT; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
+                case AST_OP_GE: opcode = IR_LE; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
                 case AST_OP_IS: opcode = IR_IS; break;
                 case AST_OP_IS_NOT: opcode = IR_IS; break;
                 default: break;
                 }
 
-                if ( chain_op.index < node.index )
-                {
-
-                }
-
-
-                if ( op->kind == AST_OP_IS_NOT )
-                {
-                }
+                _o.push_back( last );
+                _o.push_back( last = visit( v ) );
+                comp = emit( op->sloc, opcode, 2 );
 
                 /*
                     Check for chained operator.
@@ -144,39 +158,73 @@ ir_operand build_ir::visit( node_index node )
                     break;
                 }
 
-                /*
-                    Chain.  Assign v to shortcut temporary.  Test result, and
-                    endif if false.  Otherwise, in new block, perform new op
-                    between temporary and new v.
-                */
+                _o.push_back( comp );
+                op_branch op_and = emit_branch( op->sloc, IR_B_AND, 1 );
 
+                _o.push_back( op_and.op );
+                _o.push_back( comp );
+                op_branch op_def = emit_branch( op->sloc, IR_B_DEF, 2 );
 
+                fixup( op_and.branch, _f->ops.size() );
+                _fixup_bdefs.push_back( op_def.op );
+                _fixup_endif.push_back( op_def.branch );
 
-
+                v = next_node( op );
             }
 
+            if ( endif < _fixup_endif.size() )
+            {
+                unsigned ocount = 0;
+                for ( size_t i = bdefs; i < _fixup_bdefs.size(); ++i )
+                {
+                    _o.push_back( _fixup_bdefs[ i ] );
+                    ocount += 1;
+                }
+                _fixup_bdefs.resize( bdefs );
 
-            /*
-                if a < b < c < d then end
+                _o.push_back( comp );
+                ocount += 1;
 
-                :0000       a
-                :0001       b
-                :0002 $0 <- LT :0000, :0001
-                :0003       BLOCK_TEST :0002, @0004, @000E
-                :0004       BLOCK_HEAD
-                :0005       CONSTANT $0
-                :0006 $0 <- c
-                :0007       LT :0005, :0006
-                :0008       BLOCK_TEST :0007, @0009, @000E
-                :0009
-                :000A       CONSTANT $0
-                :000B       d
-                :000C $0 <- LT :0009, :000A
-                :000D       BLOCK_JUMP :000E
-                :000E       BLOCK_HEAD
-            */
+                comp = emit( node->sloc, IR_B_PHI, ocount );
+                fixup( &_fixup_endif, endif, comp.index );
+            }
 
+            return comp;
         }
+
+    case AST_EXPR_NULL:
+        {
+            _o.push_back( { IR_O_NULL } );
+            return emit( node->sloc, IR_LOAD, 1 );
+        }
+
+    case AST_EXPR_FALSE:
+        {
+            _o.push_back( { IR_O_FALSE } );
+            return emit( node->sloc, IR_LOAD, 1 );
+        }
+
+    case AST_EXPR_TRUE:
+        {
+            _o.push_back( { IR_O_TRUE } );
+            return emit( node->sloc, IR_LOAD, 1 );
+        }
+
+    case AST_EXPR_NUMBER:
+        {
+            unsigned index = _f->numbers.size();
+            _f->numbers.push_back( { node->leaf_number().n } );
+            _o.push_back( { IR_O_NUMBER, index } );
+            return emit( node->sloc, IR_LOAD, 1 );
+        }
+
+    case AST_EXPR_STRING:
+        {
+            unsigned index = _f->strings.size();
+            _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+            _o.push_back( { IR_O_STRING, index } );
+            return emit( node->sloc, IR_LOAD, 1 );
+        };
 
     case AST_OP_ASSIGN:
         {
@@ -572,6 +620,13 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     _o.resize( oindex );
 
     return { IR_O_OP, op_index };
+}
+
+build_ir::op_branch build_ir::emit_branch( srcloc sloc, ir_opcode opcode, unsigned ocount )
+{
+    unsigned oindex = _f->operands.size();
+    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
+    return { emit( sloc, opcode, ocount + 1 ), { oindex + ocount } };
 }
 
 void build_ir::close_upstack( node_index node )

@@ -51,6 +51,12 @@ private:
         jump_fixup if_false;
     };
 
+    struct op_branch
+    {
+        ir_operand op;
+        jump_fixup branch;
+    };
+
     // AST traversal.
     node_index child_node( node_index node );
     node_index next_node( node_index node );
@@ -61,6 +67,7 @@ private:
 
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
+    op_branch emit_branch( srcloc sloc, ir_opcode opcode, unsigned ocount );
     void close_upstack( node_index node );
 
     // Control flow.
@@ -85,6 +92,7 @@ private:
     std::vector< ir_operand > _o;
 
     // Jump operand fixups.
+    std::vector< ir_operand > _fixup_bdefs;
     std::vector< jump_fixup > _fixup_endif;
     std::vector< jump_fixup > _fixup_loopb;
     std::vector< jump_fixup > _fixup_loopc;
