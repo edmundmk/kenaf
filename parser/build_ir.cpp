@@ -25,13 +25,6 @@ build_ir::~build_ir()
 
 std::unique_ptr< ir_function > build_ir::build( ast_function* function )
 {
-    // Add $ to AST.
-    if ( function->locals.empty() || ! function->locals.back().is_temporary )
-    {
-        function->locals.push_back( { "$", AST_INVALID_INDEX, false, false, false, true } );
-    }
-    _shortcut_result = function->locals.size() - 1;
-
     // Set up for building.
     _f = std::make_unique< ir_function >();
     _f->ast = function;
@@ -70,7 +63,7 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_BITNOT:
         {
             node_index u = child_node( node );
-            _o.push_back( visit( u ) )
+            _o.push_back( visit( u ) );
             return emit( node->sloc, (ir_opcode)node->kind, 1 );
         }
 
@@ -89,12 +82,12 @@ ir_operand build_ir::visit( node_index node )
         {
             node_index u = child_node( node );
             node_index v = next_node( u );
-            _o.push_back( visit( u ) )
-            _o.push_back( visit( v ) )
+            _o.push_back( visit( u ) );
+            _o.push_back( visit( v ) );
             return emit( node->sloc, (ir_opcode)node->kind, 2 );
         }
 
-    case AST_OP_COMPARE:
+    case AST_EXPR_COMPARE:
         {
 
 
@@ -108,7 +101,7 @@ ir_operand build_ir::visit( node_index node )
             size_t endif = _fixup_endif.size();
             while ( true )
             {
-                ir_opcode opcode = IR_NONE;
+                ir_opcode opcode = IR_NOP;
 
                 /*
                     We apply the following transformations:
@@ -125,10 +118,11 @@ ir_operand build_ir::visit( node_index node )
                 case AST_OP_NE: opcode = IR_NE; break;
                 case AST_OP_LT: opcode = IR_LT; break;
                 case AST_OP_LE: opcode = IR_LE; break;
-                case AST_OP_GT: opcode = IR_LT; std::swap( o[ 0 ], o[ 1 ] ); break;
-                case AST_OP_GE: opcode = IR_LE; std::swap( o[ 0 ], o[ 1 ] ); break;
+                case AST_OP_GT: opcode = IR_LT; //std::swap( _o[ 0 ], o[ 1 ] ); break;
+                case AST_OP_GE: opcode = IR_LE; //std::swap( _o[ 0 ], o[ 1 ] ); break;
                 case AST_OP_IS: opcode = IR_IS; break;
                 case AST_OP_IS_NOT: opcode = IR_IS; break;
+                default: break;
                 }
 
                 if ( chain_op.index < node.index )
@@ -137,11 +131,8 @@ ir_operand build_ir::visit( node_index node )
                 }
 
 
-                r[ 0 ] = emit( op->sloc, opcode, o, 2 );
-
                 if ( op->kind == AST_OP_IS_NOT )
                 {
-                    r[ 0 ] = emit( op->sloc, IR_NOT,
                 }
 
                 /*
@@ -572,11 +563,11 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     unsigned op_index = _f->ops.size();
     _f->ops.push_back( op );
 
-    assert( oindex <= _o.size() );
+    assert( ocount <= _o.size() );
     unsigned oindex = _o.size() - ocount;
     for ( unsigned i = 0; i < ocount; ++i )
     {
-        _f->operands.push_back( o[ oindex + i ] );
+        _f->operands.push_back( _o[ oindex + i ] );
     }
     _o.resize( oindex );
 
@@ -588,22 +579,21 @@ void build_ir::close_upstack( node_index node )
     unsigned close_index = node->leaf_index().index;
     if ( close_index != AST_INVALID_INDEX )
     {
-        ir_operand o[ 1 ];
-        o[ 0 ] = { IR_O_UPSTACK_INDEX, close_index };
-        emit( node->sloc, IR_CLOSE_UPSTACK, o, 1 );
+        _o.push_back( { IR_O_UPSTACK_INDEX, close_index } );
+        emit( node->sloc, IR_CLOSE_UPSTACK, 1 );
     }
 }
 
 unsigned build_ir::block_head( srcloc sloc )
 {
-    return emit( sloc, IR_BLOCK_HEAD, nullptr, 0 ).index;
+    return emit( sloc, IR_BLOCK_HEAD, 0 ).index;
 }
 
 build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
 {
     unsigned oindex = _f->operands.size();
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    emit( sloc, IR_BLOCK_JUMP, 1 ) );
+    emit( sloc, IR_BLOCK_JUMP, 1 );
     return { oindex };
 }
 
@@ -619,7 +609,7 @@ build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_opcode opcode, ir_ope
 
 void build_ir::block_last( srcloc sloc, ir_opcode opcode, unsigned ocount )
 {
-    emit( sloc, opocode, ocount );
+    emit( sloc, opcode, ocount );
 }
 
 void build_ir::fixup( jump_fixup fixup, unsigned target )
@@ -629,13 +619,13 @@ void build_ir::fixup( jump_fixup fixup, unsigned target )
     operand->index = target;
 }
 
-void build_ir::fixup( std::vector< jump_fixup >* fixup, size_t index, unsigned target )
+void build_ir::fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target )
 {
-    for ( size_t i = index; i < fixup->size(); ++i )
+    for ( size_t i = index; i < fixup_list->size(); ++i )
     {
-        fixup( fixup->at( i ), target );
+        fixup( fixup_list->at( i ), target );
     }
-    fixup->resize( index );
+    fixup_list->resize( index );
 }
 
 }

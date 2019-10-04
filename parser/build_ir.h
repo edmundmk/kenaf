@@ -71,7 +71,7 @@ private:
 
     // Fixing up jumps.
     void fixup( jump_fixup fixup, unsigned target );
-    void fixup( std::vector< jump_fixup >* fixup, size_t index, unsigned target );
+    void fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target );
 
     // Use/def.
     void def( ir_operand operand, unsigned local );

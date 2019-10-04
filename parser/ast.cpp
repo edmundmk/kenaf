@@ -263,8 +263,6 @@ void ast_function::debug_print()
             printf( " PARAMETER" );
         if ( local.is_vararg_param )
             printf( " VARARG_PARAM" );
-        if ( local.is_temporary )
-            printf( " TEMPORARY" );
         printf( "\n" );
     }
 
