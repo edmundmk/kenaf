@@ -69,7 +69,7 @@ const char* const OPCODE_NAMES[] =
     [ IR_NEW_TABLE      ] = "NEW_TABLE",
 
     [ IR_CALL           ] = "CALL",
-    [ IR_YIELD_FOR      ] = "YIELD_FOR",
+    [ IR_YCALL          ] = "YCALL",
     [ IR_YIELD          ] = "YIELD",
     [ IR_VARARG         ] = "VARARG",
     [ IR_UNPACK         ] = "UNPACK",

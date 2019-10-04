@@ -65,7 +65,8 @@ private:
     ir_operand visit( node_index node );
     void visit_children( node_index node );
 
-    // Operands.
+    // Helpers.
+    ir_operand call_expression( node_index node, ir_opcode opcode );
     ir_operand number_operand( node_index node );
     ir_operand string_operand( node_index node );
 

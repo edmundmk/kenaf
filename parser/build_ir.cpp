@@ -385,34 +385,7 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_CALL:
     {
-        unsigned ocount = 0;
-
-        // Check for method call.
-        node_index target = child_node( node );
-        if ( target->kind == AST_EXPR_KEY )
-        {
-            ir_operand self = visit( child_node( target ) );
-            _o.push_back( self );
-            _o.push_back( string_operand( target ) );
-            _o.push_back( emit( target->sloc, IR_GET_KEY, 2 ) );
-            _o.push_back( self );
-            ocount += 2;
-        }
-        else
-        {
-            _o.push_back( visit( target ) );
-            ocount += 1;
-        }
-
-        // Arguments.
-        for ( node_index arg = child_node( node ); arg.index < node.index; arg = next_node( arg ) )
-        {
-            _o.push_back( visit( arg ) );
-            ocount += 1;
-        }
-
-        // Call.
-        return emit( node->sloc, IR_CALL, ocount );
+        return call_expression( node, IR_CALL );
     }
 
     case AST_EXPR_UNPACK:
@@ -471,12 +444,46 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_YIELD:
     {
-
+        unsigned ocount = 0;
+        for ( node_index result = child_node( node ); result.index < node.index; result = next_node( result ) )
+        {
+            _o.push_back( visit( result ) );
+            ocount += 1;
+        }
+        return emit( node->sloc, IR_YIELD, ocount );
     }
 
     case AST_EXPR_YIELD_FOR:
     {
+        node_index call = child_node( node );
+        if ( call->kind == AST_EXPR_UNPACK )
+        {
+            call = child_node( node );
+        }
+        assert( call->kind == AST_EXPR_CALL );
+        return call_expression( call, IR_YCALL );
+    }
 
+    case AST_FUNCTION:
+    {
+        block_head( node->sloc );
+        visit_children( node );
+        _o.push_back( { IR_O_NULL } );
+        emit( node->sloc, IR_BLOCK_RETURN, 1 );
+        return { IR_O_NONE };
+    }
+
+    case AST_PARAMETERS:
+    {
+        // TODO: declare parameters.
+        return { IR_O_NONE };
+    }
+
+    case AST_BLOCK:
+    {
+        visit_children( node );
+        close_upstack( node );
+        return { IR_O_NONE };
     }
 
     case AST_OP_ASSIGN:
@@ -489,22 +496,7 @@ ir_operand build_ir::visit( node_index node )
 
 /*
 
-    case AST_FUNCTION:
-    {
-        block_head( node->sloc );
-        visit_children( node );
-        ir_operand o[ 0 ];
-        o[ 0 ] = { IR_O_NULL };
-        emit( node->sloc, IR_BLOCK_RETURN, o, 1 );
-        break;
-    }
 
-    case AST_BLOCK:
-    {
-        visit_children( node );
-        close_upstack( node );
-        break;
-    }
 
 //  case AST_STMT_VAR: TODO
 
@@ -747,96 +739,6 @@ ir_operand build_ir::visit( node_index node )
         break;
     }
 
-//  case AST_ASSIGN: TODO
-
-    case AST_OP_ASSIGN:
-    {
-        node_index u = child_node( node );
-        node_index op = next_node( u );
-        node_index v = next_node( op );
-
-        // TODO!
-
-        visit( u );
-        visit( v );
-
-        return { IR_O_NONE };
-    }
-
-    case AST_EXPR_NULL:
-        return emit( node->sloc,
-    case AST_EXPR_FALSE:
-        return { IR_O_FALSE };
-    case AST_EXPR_TRUE:
-        return { IR_O_TRUE };
-
-    case AST_EXPR_NUMBER:
-        return k_number( node->leaf_number().n );
-
-    case AST_EXPR_NEG:
-        return fold_unary( IR_NEG, node, []( double u ) { return -u; } );
-    case AST_EXPR_POS:
-        return fold_unary( IR_POS, node, []( double u ) { return +u; } );
-    case AST_EXPR_BITNOT:
-        return fold_unary( IR_BITNOT, node, []( double u ) { return k_bitnot( u ); } );
-
-    case AST_EXPR_MUL:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return u * v; } );
-    case AST_EXPR_DIV:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return u / v; } );
-    case AST_EXPR_INTDIV:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_floordiv( u, v ); } );
-    case AST_EXPR_MOD:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_floormod( u, v ); } );
-    case AST_EXPR_ADD:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return u + v; } );
-    case AST_EXPR_SUB:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return u - v; } );
-    case AST_EXPR_LSHIFT:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_lshift( u, v ); } );
-    case AST_EXPR_RSHIFT:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_rshift( u, v ); } );
-    case AST_EXPR_ASHIFT:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_ashift( u, v ); } );
-    case AST_EXPR_BITAND:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitand( u, v ); } );
-    case AST_EXPR_BITXOR:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitxor( u, v ); } );
-    case AST_EXPR_BITOR:
-        return fold_binary( IR_MUL, node, []( double u, double v ) { return k_bitor( u, v ); } );
-
-    case AST_EXPR_STRING:
-    {
-        unsigned k = _f->k_strings.size();
-        _f->k_strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
-        return { IR_O_K_STRING, k };
-    }
-
-    case AST_EXPR_CONCAT:
-    {
-        return list_op( IR_CONCAT, node );
-    }
-
-    case AST_NAME:
-    {
-        assert( ! "names should have been resolved" );
-        return { IR_O_NONE };
-    }
-
-    case AST_EXPR_KEY:
-    {
-        ir_operand o[ 2 ];
-        o[ 0 ] = visit( child_node( node ) );
-        o[ 1 ] = { IR_O_AST_KEY, node.index };
-        return emit( node->sloc, IR_GET_KEY, o, 2 );
-    }
-
-    case AST_EXPR_INDEX:
-        return list_op( IR_GET_INDEX, node );
-    case AST_EXPR_CALL:
-        return list_op( IR_CALL, node );
-    case AST_EXPR_LENGTH:
-        return list_op( IR_LENGTH, node );
 */
 
     default:
@@ -852,6 +754,38 @@ void build_ir::visit_children( node_index node )
     {
         visit( child );
     }
+}
+
+ir_operand build_ir::call_expression( node_index node, ir_opcode opcode )
+{
+    unsigned ocount = 0;
+
+    // Check for method call.
+    node_index target = child_node( node );
+    if ( target->kind == AST_EXPR_KEY )
+    {
+        ir_operand self = visit( child_node( target ) );
+        _o.push_back( self );
+        _o.push_back( string_operand( target ) );
+        _o.push_back( emit( target->sloc, IR_GET_KEY, 2 ) );
+        _o.push_back( self );
+        ocount += 2;
+    }
+    else
+    {
+        _o.push_back( visit( target ) );
+        ocount += 1;
+    }
+
+    // Arguments.
+    for ( node_index arg = next_node( target ); arg.index < node.index; arg = next_node( arg ) )
+    {
+        _o.push_back( visit( arg ) );
+        ocount += 1;
+    }
+
+    // Call.
+    return emit( node->sloc, opcode, ocount );
 }
 
 ir_operand build_ir::number_operand( node_index node )
