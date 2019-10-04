@@ -65,6 +65,10 @@ private:
     ir_operand visit( node_index node );
     void visit_children( node_index node );
 
+    // Operands.
+    ir_operand number_operand( node_index node );
+    ir_operand string_operand( node_index node );
+
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
     op_branch emit_branch( srcloc sloc, ir_opcode opcode, unsigned ocount );

@@ -170,11 +170,17 @@ enum ir_opcode : uint8_t
     IR_LOAD,                    // Load value.
 
     // Other instructions.
+    IR_GET_GLOBAL,              // Get global.
     IR_GET_UPVAL,               // Get upval at index.
+    IR_SET_UPVAL,               // Set upval at index.
     IR_GET_KEY,                 // a.b
+    IR_SET_KEY,                 // a.b = c
     IR_GET_INDEX,               // a[ b ]
+    IR_SET_INDEX,               // a[ b ] = c
     IR_SUPEROF,                 // superof( a )
     IR_APPEND,                  // a.append( b )
+    IR_NEW_ARRAY,               // []
+    IR_NEW_TABLE,               // {}
 
     // Stack top instructions.  If rcount is >1 then results must be selected.
     IR_CALL,                    // a( b, c, d ... ) ...

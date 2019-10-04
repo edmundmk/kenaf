@@ -56,11 +56,17 @@ const char* const OPCODE_NAMES[] =
     [ IR_L              ] = "L",
     [ IR_LOAD           ] = "LOAD",
 
+    [ IR_GET_GLOBAL     ] = "GET_GLOBAL",
     [ IR_GET_UPVAL      ] = "GET_UPVAL",
+    [ IR_SET_UPVAL      ] = "SET_UPVAL",
     [ IR_GET_KEY        ] = "GET_KEY",
+    [ IR_SET_KEY        ] = "SET_KEY",
     [ IR_GET_INDEX      ] = "GET_INDEX",
+    [ IR_SET_INDEX      ] = "SET_INDEX",
     [ IR_SUPEROF        ] = "SUPEROF",
     [ IR_APPEND         ] = "APPEND",
+    [ IR_NEW_ARRAY      ] = "NEW_ARRAY",
+    [ IR_NEW_TABLE      ] = "NEW_TABLE",
 
     [ IR_CALL           ] = "CALL",
     [ IR_YIELD_FOR      ] = "YIELD_FOR",
@@ -95,16 +101,7 @@ const char* const OPCODE_NAMES[] =
 static void debug_print_op( ir_function* f, unsigned i )
 {
     const ir_op& op = f->ops.at( i );
-    printf( ":%04X", i );
-    if ( op.local != IR_INVALID_LOCAL )
-    {
-        printf( " %02u <-", op.local );
-    }
-    else
-    {
-        printf( "      " );
-    }
-    printf( " %s", OPCODE_NAMES[ op.opcode ] );
+    printf( ":%04X %s", i, OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.ocount; ++o )
     {
         ir_operand operand = f->operands[ op.oindex + o ];

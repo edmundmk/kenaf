@@ -208,17 +208,13 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_NUMBER:
     {
-        unsigned index = _f->numbers.size();
-        _f->numbers.push_back( { node->leaf_number().n } );
-        _o.push_back( { IR_O_NUMBER, index } );
+        _o.push_back( number_operand( node ) );
         return emit( node->sloc, IR_LOAD, 1 );
     }
 
     case AST_EXPR_STRING:
     {
-        unsigned index = _f->strings.size();
-        _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
-        _o.push_back( { IR_O_STRING, index } );
+        _o.push_back( string_operand( node ) );
         return emit( node->sloc, IR_LOAD, 1 );
     }
 
@@ -374,9 +370,7 @@ ir_operand build_ir::visit( node_index node )
     {
         node_index u = child_node( node );
         _o.push_back( visit( u ) );
-        unsigned index = _f->strings.size();
-        _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
-        _o.push_back( { IR_O_STRING, index } );
+        _o.push_back( string_operand( node ) );
         return emit( node->sloc, IR_GET_KEY, 2 );
     }
 
@@ -391,7 +385,34 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_CALL:
     {
+        unsigned ocount = 0;
 
+        // Check for method call.
+        node_index target = child_node( node );
+        if ( target->kind == AST_EXPR_KEY )
+        {
+            ir_operand self = visit( child_node( target ) );
+            _o.push_back( self );
+            _o.push_back( string_operand( target ) );
+            _o.push_back( emit( target->sloc, IR_GET_KEY, 2 ) );
+            _o.push_back( self );
+            ocount += 2;
+        }
+        else
+        {
+            _o.push_back( visit( target ) );
+            ocount += 1;
+        }
+
+        // Arguments.
+        for ( node_index arg = child_node( node ); arg.index < node.index; arg = next_node( arg ) )
+        {
+            _o.push_back( visit( arg ) );
+            ocount += 1;
+        }
+
+        // Call.
+        return emit( node->sloc, IR_CALL, ocount );
     }
 
     case AST_EXPR_UNPACK:
@@ -401,7 +422,7 @@ ir_operand build_ir::visit( node_index node )
         {
             return emit( node->sloc, IR_VARARG, 0 );
         }
-        else if ( u->kind = AST_EXPR_CALL )
+        else if ( u->kind == AST_EXPR_CALL )
         {
             // TODO: unpack call...
             return visit( u );
@@ -414,12 +435,49 @@ ir_operand build_ir::visit( node_index node )
     }
 
     case AST_EXPR_ARRAY:
+    {
+        ir_operand array = emit( node->sloc, IR_NEW_ARRAY, 0 );
+        for ( node_index el = child_node( node ); el.index < node.index; el = next_node( el ) )
+        {
+            _o.push_back( array );
+            _o.push_back( visit( el ) );
+            if ( el->kind != AST_EXPR_UNPACK )
+            {
+                emit( node->sloc, IR_APPEND, 2 );
+            }
+            else
+            {
+                emit( node->sloc, IR_EXTEND, 2 );
+            }
+        }
+        return array;
+    }
 
     case AST_EXPR_TABLE:
+    {
+        ir_operand table = emit( node->sloc, IR_NEW_TABLE, 0 );
+        for ( node_index kv = child_node( node ); kv.index < node.index; kv = next_node( kv ) )
+        {
+            assert( kv->kind == AST_TABLE_KEY );
+            node_index k = child_node( kv );
+            node_index v = next_node( kv );
+            _o.push_back( table );
+            _o.push_back( visit( k ) );
+            _o.push_back( visit( v ) );
+            emit( node->sloc, IR_SET_INDEX, 3 );
+        }
+        return table;
+    }
 
     case AST_EXPR_YIELD:
+    {
+
+    }
 
     case AST_EXPR_YIELD_FOR:
+    {
+
+    }
 
     case AST_OP_ASSIGN:
     {
@@ -794,6 +852,20 @@ void build_ir::visit_children( node_index node )
     {
         visit( child );
     }
+}
+
+ir_operand build_ir::number_operand( node_index node )
+{
+    unsigned index = _f->strings.size();
+    _f->numbers.push_back( { node->leaf_number().n } );
+    return { IR_O_NUMBER, index };
+}
+
+ir_operand build_ir::string_operand( node_index node )
+{
+    unsigned index = _f->strings.size();
+    _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+    return { IR_O_STRING, index };
 }
 
 ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
