@@ -250,7 +250,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
         for ( unsigned c = head_index; c < last_index; c = next_index )
         {
             ast_node* lval = &f->nodes[ c ];
-            if ( lval->kind == AST_EXPR_NAME )
+            if ( lval->kind == AST_NAME )
                 lookup( f, c, LOOKUP_ASSIGN );
             else
                 visit( f, c );
@@ -270,7 +270,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
     {
         // Look up name inside unpack, allow vararg parameters.
         unsigned value_index = n->child_index;
-        if ( f->nodes[ value_index ].kind == AST_EXPR_NAME )
+        if ( f->nodes[ value_index ].kind == AST_NAME )
         {
             lookup( f, value_index, LOOKUP_UNPACK );
             return;
@@ -282,7 +282,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
         // Declare a def of an object.
         unsigned name_index = n->child_index;
         unsigned def_index = f->nodes[ name_index ].next_index;
-        if ( f->nodes[ name_index ].kind == AST_EXPR_NAME )
+        if ( f->nodes[ name_index ].kind == AST_NAME )
         {
             declare( f, name_index );
             visit( f, def_index );
@@ -293,7 +293,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
         break;
     }
 
-    case AST_EXPR_NAME:
+    case AST_NAME:
     {
         // Look up unqualified name.  Disallow vararg parameters.
         lookup( f, index, LOOKUP_NORMAL );
@@ -370,13 +370,13 @@ void resolve_names::declare( ast_function* f, unsigned index )
     scope* scope = _scopes.back().get();
     ast_node* n = &f->nodes[ index ];
 
-    assert( n->kind == AST_EXPR_NAME || n->kind == AST_NAME_LIST || n->kind == AST_PARAMETERS );
+    assert( n->kind == AST_NAME || n->kind == AST_NAME_LIST || n->kind == AST_PARAMETERS );
     bool is_parameter = n->kind == AST_PARAMETERS;
 
     // Might be a name list.
     unsigned name_index;
     unsigned last_index;
-    if ( n->kind == AST_EXPR_NAME )
+    if ( n->kind == AST_NAME )
     {
         name_index = index;
         last_index = n->next_index;
@@ -405,7 +405,7 @@ void resolve_names::declare( ast_function* f, unsigned index )
         }
 
         // Find name.
-        assert( n->kind == AST_EXPR_NAME );
+        assert( n->kind == AST_NAME );
         std::string_view name( n->leaf_string().text, n->leaf_string().size );
 
         // Check if this scope already has a local with this name.
@@ -448,7 +448,7 @@ void resolve_names::lookup( ast_function* f, unsigned index, lookup_context cont
     ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();
 
-    assert( n->kind == AST_EXPR_NAME );
+    assert( n->kind == AST_NAME );
     std::string_view name( n->leaf_string().text, n->leaf_string().size );
 
     // Search for name in each scope in turn.

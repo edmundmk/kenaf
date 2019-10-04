@@ -27,15 +27,6 @@ ir_function::~ir_function()
 const char* const OPCODE_NAMES[] =
 {
     [ IR_NOP            ] = "NOP",
-    [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
-    [ IR_BLOCK_TEST     ] = "BLOCK_TEST",
-    [ IR_BLOCK_JUMP     ] = "BLOCK_JUMP",
-    [ IR_BLOCK_RETURN   ] = "BLOCK_RETURN",
-    [ IR_BLOCK_THROW    ] = "BLOCK_THROW",
-    [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
-    [ IR_GENERATE       ] = "GENERATE",
-    [ IR_FOR_EACH       ] = "FOR_EACH",
-    [ IR_FOR_STEP       ] = "FOR_STEP",
     [ IR_LENGTH         ] = "LENGTH",
     [ IR_NEG            ] = "NEG",
     [ IR_POS            ] = "POS",
@@ -53,13 +44,32 @@ const char* const OPCODE_NAMES[] =
     [ IR_BITAND         ] = "BITAND",
     [ IR_BITXOR         ] = "BITXOR",
     [ IR_BITOR          ] = "BITOR",
+
+    [ IR_CONSTANT       ] = "CONSTANT",
+
     [ IR_GET_UPVAL      ] = "GET_UPVAL",
     [ IR_GET_KEY        ] = "GET_KEY",
     [ IR_GET_INDEX      ] = "GET_INDEX",
     [ IR_SUPEROF        ] = "SUPEROF",
+    [ IR_APPEND         ] = "APPEND",
+
+    [ IR_GENERATE       ] = "GENERATE",
+    [ IR_FOR_EACH       ] = "FOR_EACH",
+    [ IR_FOR_STEP       ] = "FOR_STEP",
     [ IR_CALL           ] = "CALL",
-    [ IR_ARRAY_APPEND   ] = "ARRAY_APPEND",
-    [ IR_ARRAY_EXTEND   ] = "ARRAY_EXTEND",
+    [ IR_YIELD_FOR      ] = "YIELD_FOR",
+    [ IR_YIELD          ] = "YIELD",
+    [ IR_VARARG         ] = "VARARG",
+    [ IR_UNPACK         ] = "UNPACK",
+    [ IR_EXTEND         ] = "EXTEND",
+
+    [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
+
+    [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
+    [ IR_BLOCK_TEST     ] = "BLOCK_TEST",
+    [ IR_BLOCK_JUMP     ] = "BLOCK_JUMP",
+    [ IR_BLOCK_RETURN   ] = "BLOCK_RETURN",
+    [ IR_BLOCK_THROW    ] = "BLOCK_THROW",
 };
 
 static void debug_print_op( ir_function* f, unsigned i )
@@ -113,24 +123,17 @@ static void debug_print_op( ir_function* f, unsigned i )
             break;
         }
 
-        case IR_O_K_NUMBER:
+        case IR_O_NUMBER:
         {
-            const ir_k_number& n = f->k_numbers.at( operand.index );
+            const ir_number& n = f->numbers.at( operand.index );
             printf( " %f", n.n );
             break;
         }
 
-        case IR_O_K_STRING:
+        case IR_O_STRING:
         {
-            const ir_k_string& s = f->k_strings.at( operand.index );
+            const ir_string& s = f->strings.at( operand.index );
             printf( " \"%.*s\"", (int)s.size, s.text );
-            break;
-        }
-
-        case IR_O_AST_KEY:
-        {
-            const ast_node& n = f->ast->nodes.at( operand.index );
-            printf( " KEY '%.*s'", (int)n.leaf_string().size, n.leaf_string().text );
             break;
         }
 
@@ -147,7 +150,7 @@ static void debug_print_op( ir_function* f, unsigned i )
             break;
         }
 
-        case IR_O_FUNCTION:
+        case IR_O_FUNCTION_INDEX:
         {
             printf( " FUNCTION %u", operand.index );
             break;
@@ -155,7 +158,7 @@ static void debug_print_op( ir_function* f, unsigned i )
 
         case IR_O_UPSTACK_INDEX:
         {
-            printf( " UPSTACK INDEX %u", operand.index );
+            printf( " UPSTACK %u", operand.index );
             break;
         }
         }

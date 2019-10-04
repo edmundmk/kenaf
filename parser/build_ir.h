@@ -56,14 +56,11 @@ private:
     node_index next_node( node_index node );
 
     // Op helpers.
-    ir_operand list_op( ir_opcode opcode, node_index node );
-    template < typename F > ir_operand fold_unary( ir_opcode opcode, node_index node, F fold );
-    template < typename F > ir_operand fold_binary( ir_opcode opcode, node_index node, F fold );
-    ir_operand k_number( double n );
 
     // Visiting AST.
     ir_operand visit( node_index node );
     void visit_children( node_index node );
+    ir_operand visit_children_op( ir_opcode opcode, node_index node );
 
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount );

@@ -49,52 +49,13 @@ build_ir::node_index build_ir::next_node( node_index node )
     return { &_f->ast->nodes[ next_index ], next_index };
 }
 
-ir_operand build_ir::list_op( ir_opcode opcode, node_index node )
-{
-    size_t oindex = _o.size();
-    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
-    {
-        _o.push_back( visit( child ) );
-    }
-    ir_operand result_op = emit( node->sloc, opcode, _o.data() + oindex, _o.size() - oindex );
-    _o.resize( oindex );
-    return result_op;
-}
-
-template < typename F > ir_operand build_ir::fold_unary( ir_opcode opcode, node_index node, F fold )
-{
-    ir_operand o[ 1 ];
-    o[ 0 ] = visit( child_node( node ) );
-    if ( o[ 0 ].kind != IR_O_K_NUMBER )
-        return emit( node->sloc, opcode, o, 1 );
-    else
-        return k_number( fold( _f->k_numbers.at( o[ 0 ].index ).n ) );
-}
-
-template < typename F > ir_operand build_ir::fold_binary( ir_opcode opcode, node_index node, F fold )
-{
-    ir_operand o[ 2 ];
-    node_index u = child_node( node );
-    node_index v = next_node( u );
-    o[ 0 ] = visit( u );
-    o[ 1 ] = visit( v );
-    if ( o[ 0 ].kind != IR_O_K_NUMBER || o[ 1 ].kind != IR_O_K_NUMBER )
-        return emit( node->sloc, opcode, o, 2 );
-    else
-        return k_number( fold( _f->k_numbers.at( o[ 0 ].index ).n, _f->k_numbers.at( o[ 1 ].index ).n ) );
-}
-
-ir_operand build_ir::k_number( double n )
-{
-    unsigned k = _f->k_numbers.size();
-    _f->k_numbers.push_back( { n } );
-    return { IR_O_K_NUMBER, k };
-}
 
 ir_operand build_ir::visit( node_index node )
 {
     switch ( node->kind )
     {
+/*
+
     case AST_FUNCTION:
     {
         block_head( node->sloc );
@@ -133,7 +94,7 @@ ir_operand build_ir::visit( node_index node )
             visit( body );
             _jump_endif.push_back( block_jump( body->sloc ) );
 
-            if ( next.index < node.index && next->kind == AST_ELIF )
+            if ( next.index < node.index && next->kind == AST_STMT_ELIF )
             {
                 fixup( link.if_false, block_head( next->sloc ) );
                 expr = child_node( next );
@@ -370,7 +331,7 @@ ir_operand build_ir::visit( node_index node )
     }
 
     case AST_EXPR_NULL:
-        return { IR_O_NULL };
+        return emit( node->sloc,
     case AST_EXPR_FALSE:
         return { IR_O_FALSE };
     case AST_EXPR_TRUE:
@@ -423,7 +384,7 @@ ir_operand build_ir::visit( node_index node )
         return list_op( IR_CONCAT, node );
     }
 
-    case AST_EXPR_NAME:
+    case AST_NAME:
     {
         assert( ! "names should have been resolved" );
         return { IR_O_NONE };
@@ -443,6 +404,7 @@ ir_operand build_ir::visit( node_index node )
         return list_op( IR_CALL, node );
     case AST_EXPR_LENGTH:
         return list_op( IR_LENGTH, node );
+*/
 
     default:
         // TODO: remove this once all cases handled.
@@ -459,6 +421,18 @@ void build_ir::visit_children( node_index node )
     {
         visit( child );
     }
+}
+
+ir_operand build_ir::visit_children_op( ir_opcode opcode, node_index node )
+{
+    size_t oindex = _o.size();
+    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
+    {
+        _o.push_back( visit( child ) );
+    }
+    ir_operand result_op = emit( node->sloc, opcode, _o.data() + oindex, _o.size() - oindex );
+    _o.resize( oindex );
+    return result_op;
 }
 
 ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount )

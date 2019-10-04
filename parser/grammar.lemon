@@ -188,7 +188,7 @@ elif_list_opt(x) ::= elif_list_opt ELIF(kw) expr(u) THEN(bdo) block(block) .
     {
         x = AST_INVALID_INDEX;
         p->update_sloc( block, bdo.sloc );
-        p->node( AST_ELIF, kw.sloc, u.index );
+        p->node( AST_STMT_ELIF, kw.sloc, u.index );
     }
 
 else_opt(x) ::= . { x = AST_INVALID_INDEX; }
@@ -290,7 +290,7 @@ assign_rval(x) ::= r_lval_list_from_unpack_list(lval) op_assign(op) assign_rval(
 
 name(x) ::= IDENTIFIER(tok) .
     {
-        x = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        x = p->string_node( AST_NAME, tok.sloc, tok.text, tok.size );
     }
 
 name_list(x) ::= name(u) .
@@ -343,7 +343,7 @@ op_assign(x) ::= BITOR_ASSIGN(tok) .    { x = { p->node( AST_EXPR_BITOR, tok.slo
 
 expr_lval(x) ::= IDENTIFIER(tok) .
     {
-        x = { EXPR_NAME, p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size ) };
+        x = { EXPR_NAME, p->string_node( AST_NAME, tok.sloc, tok.text, tok.size ) };
     }
 expr_lval(x) ::= expr_prefix(u) PERIOD(op) IDENTIFIER(tok) .
     {
@@ -449,7 +449,7 @@ keyval_list_opt(x) ::= keyval_list(u) COMMA .       { x = u; }
 keyval_list(x) ::= keyval(u) .                      { x = u; }
 keyval_list(x) ::= keyval_list(u) COMMA keyval .    { x = u; }
 
-keyval(x) ::= expr(u) COLON(op) expr .              { x = p->node( AST_KEYVAL, op.sloc, u.index ); }
+keyval(x) ::= expr(u) COLON(op) expr .              { x = p->node( AST_TABLE_KEY, op.sloc, u.index ); }
 
 avalue_list_opt(x) ::= .                            { x = AST_INVALID_INDEX; }
 avalue_list_opt(x) ::= term_list(u) .               { x = u.index; }
@@ -569,17 +569,17 @@ parameters(x) ::= param_list(u) ELLIPSIS(op) .
 
 param_list(x) ::= IDENTIFIER(tok) .
     {
-        unsigned z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        unsigned z = p->string_node( AST_NAME, tok.sloc, tok.text, tok.size );
         x = { EXPR_NAME, z, 1, z };
     }
 param_list(x) ::= param_list(u) COMMA IDENTIFIER(tok) .
     {
-        unsigned z = p->string_node( AST_EXPR_NAME, tok.sloc, tok.text, tok.size );
+        unsigned z = p->string_node( AST_NAME, tok.sloc, tok.text, tok.size );
         x = { EXPR_NAME, u.index, u.count + 1, z };
     }
 
 prototype_opt(x) ::= .                                  { x = AST_INVALID_INDEX; }
-prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_PROTOTYPE, kw.sloc, u.index ); }
+prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_OBJECT_PROTOTYPE, kw.sloc, u.index ); }
 
 object_keys(x) ::= .                                    { x = AST_INVALID_INDEX; }
 object_keys(x) ::= object_keys(u) object_key(v) .       { x = u != AST_INVALID_INDEX ? u : v; }

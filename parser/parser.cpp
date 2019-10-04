@@ -50,7 +50,7 @@ std::unique_ptr< ast_script > parser::parse()
     _fstack.back()->name = _source->filename;
     _fstack.back()->is_top_level = true;
 
-    unsigned z = string_node( AST_EXPR_NAME, 0, "args", 4 );
+    unsigned z = string_node( AST_NAME, 0, "args", 4 );
     z = node( AST_VARARG_PARAM, 0, z );
     z = node( AST_PARAMETERS, 0, z );
 
@@ -178,7 +178,7 @@ std::string parser::qual_name_string( unsigned index )
     std::vector< ast_node >& nodes = _fstack.back()->nodes;
     const ast_node& n = nodes.at( index );
 
-    if ( n.kind == AST_EXPR_NAME )
+    if ( n.kind == AST_NAME )
     {
         const ast_leaf_string& s = n.leaf_string();
         return std::string( s.text, s.size );

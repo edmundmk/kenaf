@@ -93,35 +93,8 @@ struct ast_function
 
 enum ast_node_kind : uint16_t
 {
-    AST_FUNCTION,               // parameters block
-    AST_BLOCK,                  // stmt|call-expr|yield-expr*
-    AST_STMT_VAR,               // name|name_list rval|rval_list?
-    AST_STMT_IF,                // expr block elif* block?
-    AST_STMT_FOR_STEP,          // name expr expr expr block
-    AST_STMT_FOR_EACH,          // name|name_list expr block
-    AST_STMT_WHILE,             // expr block
-    AST_STMT_REPEAT,            // block expr
-    AST_STMT_BREAK,             // -
-    AST_STMT_CONTINUE,          // -
-    AST_STMT_RETURN,            // expr*
-    AST_STMT_THROW,             // expr
-    AST_NAME_LIST,              // name+
-    AST_ELIF,                   // expr block
-    AST_ASSIGN,                 // lval|lval_list rval|rval_list
-    AST_OP_ASSIGN,              // lval [AST_OP_MUL] expr
-    AST_LVAL_LIST,              // expr+
-    AST_RVAL_LIST,              // expr+
-    AST_EXPR_YIELD,             // expr+
-    AST_EXPR_YIELD_FOR,         // expr
-    AST_EXPR_NULL,              // -
-    AST_EXPR_FALSE,             // -
-    AST_EXPR_TRUE,              // -
-    AST_EXPR_NUMBER,            // leaf 0.0
-    AST_EXPR_STRING,            // leaf "string"
-    AST_EXPR_NAME,              // leaf "name"
-    AST_EXPR_KEY,               // expr leaf "key"
-    AST_EXPR_INDEX,             // expr expr
-    AST_EXPR_CALL,              // expr expr*
+    AST_NONE,
+
     AST_EXPR_LENGTH,            // expr
     AST_EXPR_NEG,               // expr
     AST_EXPR_POS,               // expr
@@ -139,16 +112,7 @@ enum ast_node_kind : uint16_t
     AST_EXPR_BITAND,            // expr expr
     AST_EXPR_BITXOR,            // expr expr
     AST_EXPR_BITOR,             // expr expr
-    AST_EXPR_COMPARE,           // expr ( op expr )+
-    AST_EXPR_NOT,               // expr
-    AST_EXPR_AND,               // expr expr
-    AST_EXPR_OR,                // expr expr
-    AST_EXPR_IF,                // expr expr expr_elif* expr
-    AST_EXPR_ELIF,              // expr expr
-    AST_EXPR_UNPACK,            // last expression in list with ...
-    AST_EXPR_ARRAY,             // expr*
-    AST_EXPR_TABLE,             // keyval*
-    AST_KEYVAL,                 // expr expr
+
     AST_OP_EQ,                  // -
     AST_OP_NE,                  // -
     AST_OP_LT,                  // -
@@ -157,17 +121,64 @@ enum ast_node_kind : uint16_t
     AST_OP_GE,                  // -
     AST_OP_IS,                  // -
     AST_OP_IS_NOT,              // -
-    AST_DEFINITION,             // name|qual_name def
-    AST_DEF_FUNCTION,           // leaf function
-    AST_DEF_OBJECT,             // prototype? object_key|definition*
+
+    AST_EXPR_NULL,              // -
+    AST_EXPR_FALSE,             // -
+    AST_EXPR_TRUE,              // -
+    AST_EXPR_NUMBER,            // leaf 0.0
+    AST_EXPR_STRING,            // leaf "string"
+
+    AST_EXPR_COMPARE,           // expr ( op expr )+
+    AST_EXPR_NOT,               // expr
+    AST_EXPR_AND,               // expr expr
+    AST_EXPR_OR,                // expr expr
+    AST_EXPR_IF,                // expr expr expr_elif* expr
+    AST_EXPR_ELIF,              // expr expr
+
+    AST_EXPR_KEY,               // expr leaf "key"
+    AST_EXPR_INDEX,             // expr expr
+    AST_EXPR_CALL,              // expr expr*
+    AST_EXPR_UNPACK,            // last expression in list with ...
+    AST_EXPR_ARRAY,             // expr*
+    AST_EXPR_TABLE,             // keyval*
+    AST_TABLE_KEY,              // expr expr
+    AST_EXPR_YIELD,             // expr+
+    AST_EXPR_YIELD_FOR,         // expr
+
+    AST_FUNCTION,               // parameters block
     AST_PARAMETERS,             // name* vararg_param?
     AST_VARARG_PARAM,           // name
-    AST_PROTOTYPE,              // expr
+
+    AST_BLOCK,                  // stmt|call-expr|yield-expr*
+
+    AST_STMT_VAR,               // name|name_list rval|rval_list?
+    AST_DEFINITION,             // name|qual_name def
+    AST_ASSIGN,                 // lval|lval_list rval|rval_list
+    AST_OP_ASSIGN,              // lval [AST_OP_MUL] expr
+    AST_NAME_LIST,              // name+
+    AST_LVAL_LIST,              // expr+
+    AST_RVAL_LIST,              // expr+
+
+    AST_STMT_IF,                // expr block elif* block?
+    AST_STMT_ELIF,              // expr block
+    AST_STMT_FOR_STEP,          // name expr expr expr block
+    AST_STMT_FOR_EACH,          // name|name_list expr block
+    AST_STMT_WHILE,             // expr block
+    AST_STMT_REPEAT,            // block expr
+    AST_STMT_BREAK,             // -
+    AST_STMT_CONTINUE,          // -
+    AST_STMT_RETURN,            // expr*
+    AST_STMT_THROW,             // expr
+
+    AST_DEF_FUNCTION,           // leaf function
+    AST_DEF_OBJECT,             // prototype? object_key|definition*
+    AST_OBJECT_PROTOTYPE,       // expr
     AST_OBJECT_KEY,             // name expr
 
-    AST_LOCAL_DECL,             // Declaration of a local variable.
+    AST_NAME,                   // leaf "name"
     AST_GLOBAL_NAME,            // Reference to global value.
     AST_UPVAL_NAME,             // Reference to upval.
+    AST_LOCAL_DECL,             // Declaration of a local variable.
     AST_LOCAL_NAME,             // Reference to local variable.
     AST_UPVAL_NAME_SUPER,       // superof( upval ).
     AST_LOCAL_NAME_SUPER,       // superof( local variable ).

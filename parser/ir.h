@@ -56,8 +56,8 @@ struct ast_function;
 struct ir_function;
 struct ir_op;
 struct ir_operand;
-struct ir_k_number;
-struct ir_k_string;
+struct ir_number;
+struct ir_string;
 
 /*
     Op indexes are 24-bit.
@@ -81,10 +81,8 @@ struct ir_function
     ast_function* ast;
     std::vector< ir_op > ops;
     std::vector< ir_operand > operands;
-//    std::vector< ir_phi > phi;
-//    std::vector< ir_phi
-    std::vector< ir_k_number > k_numbers;
-    std::vector< ir_k_string > k_strings;
+    std::vector< ir_number > numbers;
+    std::vector< ir_string > strings;
 };
 
 /*
@@ -99,21 +97,6 @@ struct ir_function
 enum ir_opcode : uint8_t
 {
     IR_NOP,
-
-    // Block instructions.
-    IR_BLOCK_HEAD,              // block index
-    IR_BLOCK_TEST,              // test, iftrue, iffalse
-    IR_BLOCK_JUMP,              // jump
-    IR_BLOCK_RETURN,            // value*
-    IR_BLOCK_THROW,             // value
-
-    // Close upvals.
-    IR_CLOSE_UPSTACK,           // close upstack
-
-    // For loop magic instructions.
-    IR_GENERATE,                // g, i = make generator
-    IR_FOR_EACH,                //
-    IR_FOR_STEP,                // i, limit, step
 
     // Arithmetic.
     IR_LENGTH,                  // #a
@@ -134,20 +117,39 @@ enum ir_opcode : uint8_t
     IR_BITXOR,                  // a ^ b
     IR_BITOR,                   // a | b
 
+    // Constants.
+    IR_CONSTANT,                // null/true/false/number/string
+
+    // Other instructions.
     IR_GET_UPVAL,               // Get upval at index.
     IR_GET_KEY,                 // a.b
     IR_GET_INDEX,               // a[ b ]
     IR_SUPEROF,                 // superof( a )
+    IR_APPEND,                  // a.append( b )
 
-    IR_CALL,                    // a( b, c, d ... )
+    // Stack top instructions.  If rcount is >1 then results must be selected.
+    IR_GENERATE,                // g, i = make generator [rcount=2]
+    IR_FOR_EACH,                // a, b, c : g, i
+    IR_FOR_STEP,                // i, limit, step <- i, limit, step [rcount=3]
+    IR_CALL,                    // a( b, c, d ... ) ...
+    IR_YIELD_FOR,               // yield for a( b, c, d ... ) ...
+    IR_YIELD,                   // yield ... a, b, c ...
+    IR_VARARG,                  // args ...
+    IR_UNPACK,                  // a ...
+    IR_EXTEND,                  // a.extend( b ... ) [rcount=0]
 
-    IR_ARRAY_APPEND,            // [ a ]
-    IR_ARRAY_EXTEND,            // [ a ... ]
+    // Select a result from a stack top instruction.
+    IR_SELECT,                  // select( a ..., index )
 
-    IR_CALL_UNPACK,             // a( b, c, d ... ) ...
-    IR_VARARG_UNPACK,           // args ...
-    IR_ARRAY_UNPACK,            // value ...
+    // Close upvals.
+    IR_CLOSE_UPSTACK,           // index
 
+    // Block instructions.
+    IR_BLOCK_HEAD,              // block index
+    IR_BLOCK_TEST,              // test, iftrue, iffalse
+    IR_BLOCK_JUMP,              // jump
+    IR_BLOCK_RETURN,            // value*
+    IR_BLOCK_THROW,             // value
 };
 
 enum ir_operand_kind : uint8_t
@@ -158,12 +160,11 @@ enum ir_operand_kind : uint8_t
     IR_O_NULL,                  // null
     IR_O_TRUE,                  // true
     IR_O_FALSE,                 // false
-    IR_O_K_NUMBER,              // Constant number.
-    IR_O_K_STRING,              // Constant string.
-    IR_O_AST_KEY,               // Key string in AST node.
+    IR_O_NUMBER,                // Constant number.
+    IR_O_STRING,                // Constant string.
     IR_O_LOCAL_INDEX,           // Index of local (for parameters).
     IR_O_UPVAL_INDEX,           // Index of upval.
-    IR_O_FUNCTION,              // Index of function.
+    IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
 };
 
@@ -173,7 +174,7 @@ struct ir_op
         :   opcode( IR_NOP )
         ,   r( IR_INVALID_REGISTER )
         ,   stack_top( IR_INVALID_REGISTER )
-        ,   temp_r( IR_INVALID_REGISTER )
+        ,   unpack( 0 )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
         ,   variable( IR_TEMPORARY )
@@ -186,7 +187,7 @@ struct ir_op
 
     uint8_t r;                  // Allocated register.
     uint8_t stack_top;          // Stack top at this op.
-    uint8_t temp_r;             // Temporary register for literal loading.
+    uint8_t unpack;             // Number of results requested.
 
     unsigned ocount : 8;        // Number of operands.
     unsigned oindex : 24;       // Index into operand list.
@@ -203,12 +204,12 @@ struct ir_operand
     unsigned index : 24;            // Index of op used as result.
 };
 
-struct ir_k_number
+struct ir_number
 {
     double n;
 };
 
-struct ir_k_string
+struct ir_string
 {
     const char* text;
     size_t size;
