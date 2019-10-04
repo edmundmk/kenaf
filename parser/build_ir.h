@@ -55,36 +55,39 @@ private:
     node_index child_node( node_index node );
     node_index next_node( node_index node );
 
-    // Op helpers.
-
     // Visiting AST.
     ir_operand visit( node_index node );
     void visit_children( node_index node );
-    ir_operand visit_children_op( ir_opcode opcode, node_index node );
 
     // Emit ops.
-    ir_operand emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount );
+    ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
     void close_upstack( node_index node );
 
     // Control flow.
     unsigned block_head( srcloc sloc );
-    test_fixup block_test( srcloc sloc, ir_operand test );
     jump_fixup block_jump( srcloc sloc );
-    void block_last( ir_operand last_op );
+    test_fixup block_test( srcloc sloc, ir_opcode opcode, ir_operand test );
+    void block_last( srcloc sloc, ir_opcode opcode, unsigned ocount );
+
+    // Fixing up jumps.
     void fixup( jump_fixup fixup, unsigned target );
-    void break_continue( size_t break_index, unsigned loop_break, size_t continue_index, unsigned loop_continue );
+    void fixup( std::vector< jump_fixup >* fixup, size_t index, unsigned target );
+
+    // Use/def.
+    void def( ir_operand operand, unsigned local );
 
     // Function under construction.
     source* _source;
     std::unique_ptr< ir_function > _f;
+    unsigned _shortcut_result;
 
     // Operand stack.
     std::vector< ir_operand > _o;
 
     // Jump operand fixups.
-    std::vector< jump_fixup > _jump_endif;
-    std::vector< jump_fixup > _jump_break;
-    std::vector< jump_fixup > _jump_continue;
+    std::vector< jump_fixup > _fixup_endif;
+    std::vector< jump_fixup > _fixup_loopb;
+    std::vector< jump_fixup > _fixup_loopc;
 
 };
 

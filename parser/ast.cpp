@@ -35,6 +35,7 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_BITXOR       ] = "EXPR_BITXOR",
     [ AST_EXPR_BITOR        ] = "EXPR_BITOR",
 
+    [ AST_EXPR_COMPARE      ] = "EXPR_COMPARE",
     [ AST_OP_EQ             ] = "OP_EQ",
     [ AST_OP_NE             ] = "OP_NE",
     [ AST_OP_LT             ] = "OP_LT",
@@ -50,7 +51,6 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_NUMBER       ] = "EXPR_NUMBER",
     [ AST_EXPR_STRING       ] = "EXPR_STRING",
 
-    [ AST_EXPR_COMPARE      ] = "EXPR_COMPARE",
     [ AST_EXPR_NOT          ] = "EXPR_NOT",
     [ AST_EXPR_AND          ] = "EXPR_AND",
     [ AST_EXPR_OR           ] = "EXPR_OR",
@@ -263,6 +263,8 @@ void ast_function::debug_print()
             printf( " PARAMETER" );
         if ( local.is_vararg_param )
             printf( " VARARG_PARAM" );
+        if ( local.is_temporary )
+            printf( " TEMPORARY" );
         printf( "\n" );
     }
 

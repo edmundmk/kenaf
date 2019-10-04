@@ -35,6 +35,100 @@
     Phi functions are used as operands like any other op.
 
 
+    -- Loop variables.
+
+    Loop variables are the hidden variables used by the for each and for step
+    loops.  They are live through the entire loop.  They are not represented
+    explicitly in the IR, instead the special FOR instructions are used.
+
+
+    -- Shortcut Branches
+
+    Chained comparisons, logical operators, and conditional expressions can
+    skip evaluation of some of their operands.
+
+    These operators are not represented in the main control flow graph - as
+    all the operands are expressions, and assignments are restricted, none will
+    introduce new definitions of variables.  The definition of a variable
+    reaching the start of the shortcut expression is the definition that will
+    survive the expression.
+
+    So instead of doing SSA construction through these structures, involving
+    tracking definitions of temporaries, they are represented as internal
+    branches inside a block.  Branches can only branch forward.
+
+        if x then y else z
+
+            :0000   x
+            :0001   B_CUT :0000, @0004
+            :0002   y
+            :0003   B_DEF :0001, :0002, @0005
+            :0004   z
+            :0005   B_PHI :0003, :0004
+
+        if x then y elif p then q else z
+
+            :0000   x
+            :0001   B_CUT :0000, @0004
+            :0002   y
+            :0003   B_DEF :0001, :0008, @0009
+            :0004   p
+            :0005   B_CUT :0004, @0008
+            :0006   q
+            :0007   B_DEF :0005, :0006, @0009
+            :0008   z
+            :0009   B_PHI :0003, :0007, :0008
+
+        a and b
+
+            :0000   a
+            :0001   B_AND :0000, @0003
+            :0002   B_DEF :0001, :0000, @0004
+            :0003   b
+            :0004   B_PHI :0002, :0003
+
+        a or b
+
+            :0000   a
+            :0001   B_CUT :0000, @0003
+            :0002   B_DEF :0001, :0000, @0004
+            :0003   b
+            :0004   B_PHI :0002, :0003
+
+        a < b < c < d
+
+            :0000   a
+            :0001   b
+            :0002   LT :0000, :0001
+            :0003   B_AND :0002, @0005
+            :0004   B_DEF :0003, :0002, @000B
+            :0005   c
+            :0006   LT :0001, :0004
+            :0007   B_AND :0006, @0009
+            :0008   B_DEF :0007, :0006, @000B
+            :0009   d
+            :000A   LT :0005, :0009
+            :000B   B_PHI :0004, :0008, :000A
+
+    Here's the meanings of these ops:
+
+        B_AND test, jump
+        B_CUT test, jump
+            Check the test operand.  If it's true (B_AND) or false (B_CUT),
+            branch to jump address, which must be later in the same block.
+
+        B_DEF link_cut, value, jump_phi
+            The link_cut operand points to the B_CUT that skips this value.
+            These links keep tests alive.  Branches to a B_PHI op with a value.
+
+        B_PHI def, def, def, ..., value
+            Each def is a B_DEF op providing an alternative value.  The last
+            operand is the value to use if we didn't branch from a B_DEF.
+
+    It's a bit complicated, but it reduces the complexity of the CFG and the
+    amount of SSA variables we need to consider.
+
+
     -- Restrictions
 
     The IR has one major restriction.  Only one definition of each local can be
@@ -65,7 +159,7 @@ struct ir_string;
 
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
 const unsigned IR_INVALID_REGISTER = 0xFF;
-const unsigned IR_TEMPORARY = 0xFF;
+const unsigned IR_INVALID_LOCAL = 0xFF;
 
 /*
     Stores the intermediate representation for a function.
@@ -98,7 +192,7 @@ enum ir_opcode : uint8_t
 {
     IR_NOP,
 
-    // Arithmetic.
+    // -- MUST MATCH AST NODES --
     IR_LENGTH,                  // #a
     IR_NEG,                     // -a
     IR_POS,                     // +a
@@ -116,9 +210,19 @@ enum ir_opcode : uint8_t
     IR_BITAND,                  // a & b
     IR_BITXOR,                  // a ^ b
     IR_BITOR,                   // a | b
+    // -- MUST MATCH AST NODES --
 
-    // Constants.
-    IR_CONSTANT,                // null/true/false/number/string
+    // Comparisons.
+    IR_EQ,                      // a == b
+    IR_NE,                      // a != b
+    IR_LT,                      // a < b, or b > a
+    IR_LE,                      // a <= b, or b >= a
+    IR_IS,                      // a is b, or not not a is b
+    IR_NOT,                     // not a
+
+    // Value stack.
+    IR_L,                       // Maybe load, placeholder during construction.
+    IR_LOAD,                    // Load value.
 
     // Other instructions.
     IR_GET_UPVAL,               // Get upval at index.
@@ -128,9 +232,6 @@ enum ir_opcode : uint8_t
     IR_APPEND,                  // a.append( b )
 
     // Stack top instructions.  If rcount is >1 then results must be selected.
-    IR_GENERATE,                // g, i = make generator [rcount=2]
-    IR_FOR_EACH,                // a, b, c : g, i
-    IR_FOR_STEP,                // i, limit, step <- i, limit, step [rcount=3]
     IR_CALL,                    // a( b, c, d ... ) ...
     IR_YIELD_FOR,               // yield for a( b, c, d ... ) ...
     IR_YIELD,                   // yield ... a, b, c ...
@@ -144,10 +245,24 @@ enum ir_opcode : uint8_t
     // Close upvals.
     IR_CLOSE_UPSTACK,           // index
 
+    // Instructions operating on loop variables.
+    IR_FOR_EACH_HEAD,           // g, i = generate( a )
+    IR_FOR_EACH,                // a, b, c, [test] = for_each( &g, &i )
+    IR_FOR_STEP_HEAD,           // i, limit, step = a, b, c
+    IR_FOR_STEP,                // a, [test] = for_step( &i, &limit, &step )
+
+    // Shortcut branches.
+    IR_B_AND,                   // test, jump
+    IR_B_CUT,                   // test, jump
+    IR_B_DEF,                   // link_cut, value, jump_phi
+    IR_B_PHI,                   // def, def, def, ..., value
+
     // Block instructions.
     IR_BLOCK_HEAD,              // block index
-    IR_BLOCK_TEST,              // test, iftrue, iffalse
     IR_BLOCK_JUMP,              // jump
+    IR_BLOCK_TEST,              // test, iftrue, iffalse
+    IR_BLOCK_SHORTCUT,          // test, iftrue, iffalse, assigns local if test is false
+    IR_BLOCK_FOR_TEST,          // test, iftrue, iffalse, test should be FOR_EACH or FOR_STEP
     IR_BLOCK_RETURN,            // value*
     IR_BLOCK_THROW,             // value
 };
@@ -155,14 +270,17 @@ enum ir_opcode : uint8_t
 enum ir_operand_kind : uint8_t
 {
     IR_O_NONE,                  // No operand.
+
     IR_O_OP,                    // Index of op.
     IR_O_JUMP,                  // Index of op to jump to (must be BLOCK_HEAD).
+
     IR_O_NULL,                  // null
     IR_O_TRUE,                  // true
     IR_O_FALSE,                 // false
     IR_O_NUMBER,                // Constant number.
     IR_O_STRING,                // Constant string.
-    IR_O_LOCAL_INDEX,           // Index of local (for parameters).
+
+    IR_O_LOCAL_INDEX,           // Index of local.
     IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
@@ -177,7 +295,7 @@ struct ir_op
         ,   unpack( 0 )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
-        ,   variable( IR_TEMPORARY )
+        ,   local( IR_INVALID_LOCAL )
         ,   live_range( IR_INVALID_INDEX )
         ,   sloc( 0 )
     {
@@ -192,7 +310,7 @@ struct ir_op
     unsigned ocount : 8;        // Number of operands.
     unsigned oindex : 24;       // Index into operand list.
 
-    unsigned variable : 8;      // Index of variable result is assigned to.
+    unsigned local : 8;         // Index of local result is assigned to.
     unsigned live_range : 24;   // Last use in this block.
 
     srcloc sloc;                // Source location.

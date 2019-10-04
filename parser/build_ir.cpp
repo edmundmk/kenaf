@@ -25,6 +25,13 @@ build_ir::~build_ir()
 
 std::unique_ptr< ir_function > build_ir::build( ast_function* function )
 {
+    // Add $ to AST.
+    if ( function->locals.empty() || ! function->locals.back().is_temporary )
+    {
+        function->locals.push_back( { "$", AST_INVALID_INDEX, false, false, false, true } );
+    }
+    _shortcut_result = function->locals.size() - 1;
+
     // Set up for building.
     _f = std::make_unique< ir_function >();
     _f->ast = function;
@@ -54,6 +61,139 @@ ir_operand build_ir::visit( node_index node )
 {
     switch ( node->kind )
     {
+    case AST_NONE:
+        return { IR_O_NONE };
+
+    case AST_EXPR_LENGTH:
+    case AST_EXPR_NEG:
+    case AST_EXPR_POS:
+    case AST_EXPR_BITNOT:
+        {
+            node_index u = child_node( node );
+            _o.push_back( visit( u ) )
+            return emit( node->sloc, (ir_opcode)node->kind, 1 );
+        }
+
+    case AST_EXPR_MUL:
+    case AST_EXPR_DIV:
+    case AST_EXPR_INTDIV:
+    case AST_EXPR_MOD:
+    case AST_EXPR_ADD:
+    case AST_EXPR_SUB:
+    case AST_EXPR_CONCAT:
+    case AST_EXPR_LSHIFT:
+    case AST_EXPR_RSHIFT:
+    case AST_EXPR_BITAND:
+    case AST_EXPR_BITXOR:
+    case AST_EXPR_BITOR:
+        {
+            node_index u = child_node( node );
+            node_index v = next_node( u );
+            _o.push_back( visit( u ) )
+            _o.push_back( visit( v ) )
+            return emit( node->sloc, (ir_opcode)node->kind, 2 );
+        }
+
+    case AST_OP_COMPARE:
+        {
+
+
+            node_index u = child_node( node );
+            node_index op = next_node( u );
+            node_index v = next_node( op );
+            node_index chain_op = next_node( v );
+            _o.push_back( visit( u ) );
+            _o.push_back( visit( v ) );
+
+            size_t endif = _fixup_endif.size();
+            while ( true )
+            {
+                ir_opcode opcode = IR_NONE;
+
+                /*
+                    We apply the following transformations:
+
+                        u > v becomes v < u
+                        u >= v becomes v <= u
+                        u is not v becomes not u is v
+
+                    I'm pretty sure that these hold even considering NaN.
+                */
+                switch ( op->kind )
+                {
+                case AST_OP_EQ: opcode = IR_EQ; break;
+                case AST_OP_NE: opcode = IR_NE; break;
+                case AST_OP_LT: opcode = IR_LT; break;
+                case AST_OP_LE: opcode = IR_LE; break;
+                case AST_OP_GT: opcode = IR_LT; std::swap( o[ 0 ], o[ 1 ] ); break;
+                case AST_OP_GE: opcode = IR_LE; std::swap( o[ 0 ], o[ 1 ] ); break;
+                case AST_OP_IS: opcode = IR_IS; break;
+                case AST_OP_IS_NOT: opcode = IR_IS; break;
+                }
+
+                if ( chain_op.index < node.index )
+                {
+
+                }
+
+
+                r[ 0 ] = emit( op->sloc, opcode, o, 2 );
+
+                if ( op->kind == AST_OP_IS_NOT )
+                {
+                    r[ 0 ] = emit( op->sloc, IR_NOT,
+                }
+
+                /*
+                    Check for chained operator.
+                */
+                op = next_node( v );
+                if ( op.index >= node.index )
+                {
+                    break;
+                }
+
+                /*
+                    Chain.  Assign v to shortcut temporary.  Test result, and
+                    endif if false.  Otherwise, in new block, perform new op
+                    between temporary and new v.
+                */
+
+
+
+
+            }
+
+
+            /*
+                if a < b < c < d then end
+
+                :0000       a
+                :0001       b
+                :0002 $0 <- LT :0000, :0001
+                :0003       BLOCK_TEST :0002, @0004, @000E
+                :0004       BLOCK_HEAD
+                :0005       CONSTANT $0
+                :0006 $0 <- c
+                :0007       LT :0005, :0006
+                :0008       BLOCK_TEST :0007, @0009, @000E
+                :0009
+                :000A       CONSTANT $0
+                :000B       d
+                :000C $0 <- LT :0009, :000A
+                :000D       BLOCK_JUMP :000E
+                :000E       BLOCK_HEAD
+            */
+
+        }
+
+    case AST_OP_ASSIGN:
+        {
+            // TODO.
+            return { IR_O_NONE };
+        }
+
+
 /*
 
     case AST_FUNCTION:
@@ -409,10 +549,8 @@ ir_operand build_ir::visit( node_index node )
     default:
         // TODO: remove this once all cases handled.
         visit_children( node );
-        break;
+        return { IR_O_NONE };
     }
-
-    return { IR_O_NONE };
 }
 
 void build_ir::visit_children( node_index node )
@@ -423,19 +561,7 @@ void build_ir::visit_children( node_index node )
     }
 }
 
-ir_operand build_ir::visit_children_op( ir_opcode opcode, node_index node )
-{
-    size_t oindex = _o.size();
-    for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
-    {
-        _o.push_back( visit( child ) );
-    }
-    ir_operand result_op = emit( node->sloc, opcode, _o.data() + oindex, _o.size() - oindex );
-    _o.resize( oindex );
-    return result_op;
-}
-
-ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigned ocount )
+ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
 {
     ir_op op;
     op.opcode = opcode;
@@ -446,10 +572,13 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, ir_operand* o, unsigne
     unsigned op_index = _f->ops.size();
     _f->ops.push_back( op );
 
+    assert( oindex <= _o.size() );
+    unsigned oindex = _o.size() - ocount;
     for ( unsigned i = 0; i < ocount; ++i )
     {
-        _f->operands.push_back( o[ i ] );
+        _f->operands.push_back( o[ oindex + i ] );
     }
+    _o.resize( oindex );
 
     return { IR_O_OP, op_index };
 }
@@ -468,33 +597,29 @@ void build_ir::close_upstack( node_index node )
 unsigned build_ir::block_head( srcloc sloc )
 {
     return emit( sloc, IR_BLOCK_HEAD, nullptr, 0 ).index;
-    // TODO: setup block.
-    // TODO: reachable again?
-}
-
-build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_operand test )
-{
-    unsigned oindex = _f->operands.size();
-    ir_operand o[ 3 ];
-    o[ 0 ] = test;
-    o[ 1 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    o[ 2 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    block_last( emit( sloc, IR_BLOCK_TEST, o, 3 ) );
-    return { { oindex + 1 }, { oindex + 2 } };
 }
 
 build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
 {
     unsigned oindex = _f->operands.size();
-    ir_operand o[ 1 ];
-    o[ 0 ] = { IR_O_JUMP, IR_INVALID_INDEX };
-    block_last( emit( sloc, IR_BLOCK_JUMP, o, 1 ) );
+    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
+    emit( sloc, IR_BLOCK_JUMP, 1 ) );
     return { oindex };
 }
 
-void build_ir::block_last( ir_operand last_op )
+build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_opcode opcode, ir_operand test )
 {
-    // TODO: unreachable now.
+    unsigned oindex = _f->operands.size();
+    _o.push_back( test );
+    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
+    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
+    emit( sloc, opcode, 3 );
+    return { { oindex + 1 }, { oindex + 2 } };
+}
+
+void build_ir::block_last( srcloc sloc, ir_opcode opcode, unsigned ocount )
+{
+    emit( sloc, opocode, ocount );
 }
 
 void build_ir::fixup( jump_fixup fixup, unsigned target )
@@ -504,19 +629,13 @@ void build_ir::fixup( jump_fixup fixup, unsigned target )
     operand->index = target;
 }
 
-void build_ir::break_continue( size_t break_index, unsigned loop_break, size_t continue_index, unsigned loop_continue )
+void build_ir::fixup( std::vector< jump_fixup >* fixup, size_t index, unsigned target )
 {
-    for ( size_t i = continue_index; i < _jump_continue.size(); ++i )
+    for ( size_t i = index; i < fixup->size(); ++i )
     {
-        fixup( _jump_continue[ i ], loop_continue );
+        fixup( fixup->at( i ), target );
     }
-    _jump_continue.resize( continue_index );
-
-    for ( size_t i = break_index; i < _jump_break.size(); ++i )
-    {
-        fixup( _jump_break[ i ], loop_break );
-    }
-    _jump_break.resize( break_index );
+    fixup->resize( index );
 }
 
 }

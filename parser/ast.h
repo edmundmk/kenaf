@@ -95,6 +95,7 @@ enum ast_node_kind : uint16_t
 {
     AST_NONE,
 
+    // -- MUST MATCH IR OPS --
     AST_EXPR_LENGTH,            // expr
     AST_EXPR_NEG,               // expr
     AST_EXPR_POS,               // expr
@@ -112,7 +113,9 @@ enum ast_node_kind : uint16_t
     AST_EXPR_BITAND,            // expr expr
     AST_EXPR_BITXOR,            // expr expr
     AST_EXPR_BITOR,             // expr expr
+    // -- MUST MATCH IR OPS --
 
+    AST_EXPR_COMPARE,           // expr ( op expr )+
     AST_OP_EQ,                  // -
     AST_OP_NE,                  // -
     AST_OP_LT,                  // -
@@ -128,7 +131,6 @@ enum ast_node_kind : uint16_t
     AST_EXPR_NUMBER,            // leaf 0.0
     AST_EXPR_STRING,            // leaf "string"
 
-    AST_EXPR_COMPARE,           // expr ( op expr )+
     AST_EXPR_NOT,               // expr
     AST_EXPR_AND,               // expr expr
     AST_EXPR_OR,                // expr expr

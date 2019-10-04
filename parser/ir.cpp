@@ -45,7 +45,15 @@ const char* const OPCODE_NAMES[] =
     [ IR_BITXOR         ] = "BITXOR",
     [ IR_BITOR          ] = "BITOR",
 
-    [ IR_CONSTANT       ] = "CONSTANT",
+    [ IR_EQ             ] = "EQ",
+    [ IR_NE             ] = "NE",
+    [ IR_LT             ] = "LT",
+    [ IR_LE             ] = "LE",
+    [ IR_IS             ] = "IS",
+    [ IR_NOT            ] = "NOT',
+
+    [ IR_L              ] = "L",
+    [ IR_LOAD           ] = "LOAD",
 
     [ IR_GET_UPVAL      ] = "GET_UPVAL",
     [ IR_GET_KEY        ] = "GET_KEY",
@@ -53,9 +61,6 @@ const char* const OPCODE_NAMES[] =
     [ IR_SUPEROF        ] = "SUPEROF",
     [ IR_APPEND         ] = "APPEND",
 
-    [ IR_GENERATE       ] = "GENERATE",
-    [ IR_FOR_EACH       ] = "FOR_EACH",
-    [ IR_FOR_STEP       ] = "FOR_STEP",
     [ IR_CALL           ] = "CALL",
     [ IR_YIELD_FOR      ] = "YIELD_FOR",
     [ IR_YIELD          ] = "YIELD",
@@ -63,10 +68,18 @@ const char* const OPCODE_NAMES[] =
     [ IR_UNPACK         ] = "UNPACK",
     [ IR_EXTEND         ] = "EXTEND",
 
+    [ IR_SELECT         ] = "SELECT",
+
+    [ IR_FOR_EACH_HEAD  ] = "FOR_EACH_HEAD",
+    [ IR_FOR_EACH       ] = "FOR_EACH",
+    [ IR_FOR_STEP_HEAD  ] = "FOR_STEP_HEAD",
+    [ IR_FOR_STEP       ] = "FOR_STEP",
+
     [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
 
     [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
     [ IR_BLOCK_TEST     ] = "BLOCK_TEST",
+    [ IR_BLOCK_FOR_TEST ] = "BLOCK_FOR_TEST",
     [ IR_BLOCK_JUMP     ] = "BLOCK_JUMP",
     [ IR_BLOCK_RETURN   ] = "BLOCK_RETURN",
     [ IR_BLOCK_THROW    ] = "BLOCK_THROW",
@@ -75,7 +88,16 @@ const char* const OPCODE_NAMES[] =
 static void debug_print_op( ir_function* f, unsigned i )
 {
     const ir_op& op = f->ops.at( i );
-    printf( ":%04X %s", i, OPCODE_NAMES[ op.opcode ] );
+    printf( ":%04X", i );
+    if ( op.local != IR_INVALID_LOCAL )
+    {
+        printf( " %02u <-", op.local );
+    }
+    else
+    {
+        printf( "      " );
+    }
+    printf( " %s", OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.ocount; ++o )
     {
         ir_operand operand = f->operands[ op.oindex + o ];
@@ -163,7 +185,11 @@ static void debug_print_op( ir_function* f, unsigned i )
         }
         }
     }
-
+    if ( op.local != IR_INVALID_LOCAL )
+    {
+        std::string_view name = f->ast->locals.at( op.local ).name;
+        printf( " /* %.*s */", (int)name.size(), name.data() );
+    }
     printf( "\n" );
 }
 
