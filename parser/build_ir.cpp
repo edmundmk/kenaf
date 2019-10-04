@@ -320,12 +320,13 @@ ir_operand build_ir::visit( node_index node )
                     :0008   z
                     :0009   B_PHI :0003, :0007, :0008
             */
-/*
+
             node_index kw = node;
             node_index test = child_node( kw );
             node_index expr = next_node( test );
             node_index next = next_node( expr );
 
+            size_t ocount = 0;
             size_t endif = _fixup_endif.size();
 
             while ( true )
@@ -337,14 +338,30 @@ ir_operand build_ir::visit( node_index node )
                 op_branch op_def = emit_branch( kw->sloc, IR_B_DEF, 1 );
 
                 fixup( op_cut.branch, _f->ops.size() );
-                _fixup_bdefs.push_back( op_def.op );
-                _fixup_endif.push_back(
+                _fixup_endif.push_back( op_def.branch );
+                _o.push_back( op_def.op );
+                ocount += 1;
 
+                /*
+                    Check for elif.
+                */
 
+                if ( next->kind != AST_EXPR_ELIF )
+                {
+                    break;
+                }
+
+                kw = next;
+                test = child_node( kw );
+                expr = next_node( test );
+                next = next_node( kw );
             }
-*/
 
-            return { IR_O_NONE };
+            _o.push_back( visit( next ) );
+            ir_operand cond = emit( node->sloc, IR_B_PHI, ocount + 1 );
+            fixup( &_fixup_endif, endif, cond.index );
+
+            return cond;
         }
 
     case AST_EXPR_ELIF:
@@ -352,6 +369,37 @@ ir_operand build_ir::visit( node_index node )
             assert( ! "unexpected ELIF node" );
             return { IR_O_NONE };
         }
+
+    case AST_EXPR_KEY:
+        {
+            node_index u = child_node( node );
+            _o.push_back( visit( u ) );
+            unsigned index = _f->strings.size();
+            _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+            _o.push_back( { IR_O_STRING, index } );
+            return emit( node->sloc, IR_GET_KEY, 2 );
+        }
+
+    case AST_EXPR_INDEX:
+        {
+            node_index u = child_node( node );
+            node_index v = next_node( u );
+            _o.push_back( visit( u ) );
+            _o.push_back( visit( v ) );
+            return emit( node->sloc, IR_GET_KEY, 2 );
+        }
+
+    case AST_EXPR_CALL:
+
+    case AST_EXPR_UNPACK:
+
+    case AST_EXPR_ARRAY:
+
+    case AST_EXPR_TABLE:
+
+    case AST_EXPR_YIELD:
+
+    case AST_EXPR_YIELD_FOR:
 
     case AST_OP_ASSIGN:
         {
