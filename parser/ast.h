@@ -115,6 +115,12 @@ enum ast_node_kind : uint16_t
     AST_EXPR_BITOR,             // expr expr
     // -- MUST MATCH IR OPS --
 
+    AST_EXPR_NULL,              // -
+    AST_EXPR_FALSE,             // -
+    AST_EXPR_TRUE,              // -
+    AST_EXPR_NUMBER,            // leaf 0.0
+    AST_EXPR_STRING,            // leaf "string"
+
     AST_EXPR_COMPARE,           // expr ( op expr )+
     AST_OP_EQ,                  // -
     AST_OP_NE,                  // -
@@ -124,12 +130,6 @@ enum ast_node_kind : uint16_t
     AST_OP_GE,                  // -
     AST_OP_IS,                  // -
     AST_OP_IS_NOT,              // -
-
-    AST_EXPR_NULL,              // -
-    AST_EXPR_FALSE,             // -
-    AST_EXPR_TRUE,              // -
-    AST_EXPR_NUMBER,            // leaf 0.0
-    AST_EXPR_STRING,            // leaf "string"
 
     AST_EXPR_NOT,               // expr
     AST_EXPR_AND,               // expr expr
@@ -145,21 +145,22 @@ enum ast_node_kind : uint16_t
     AST_EXPR_TABLE,             // keyval*
     AST_TABLE_KEY,              // expr expr
 
+    AST_EXPR_YIELD,             // expr+
+    AST_EXPR_YIELD_FOR,         // expr
+
+    AST_DECL_VAR,               // name|name_list rval|rval_list?
+    AST_DECL_DEF,               // name|qual_name def
+    AST_RVAL_ASSIGN,            // lval|lval_list rval|rval_list
+    AST_RVAL_OP_ASSIGN,         // lval [AST_OP_MUL] expr
+    AST_NAME_LIST,              // name+
+    AST_LVAL_LIST,              // expr+
+    AST_RVAL_LIST,              // expr+
+
     AST_FUNCTION,               // parameters block
     AST_PARAMETERS,             // name* vararg_param?
     AST_VARARG_PARAM,           // name
 
     AST_BLOCK,                  // stmt|call-expr|yield-expr*
-
-    AST_DECL_VAR,               // name|name_list rval|rval_list?
-    AST_DECL_DEF,             // name|qual_name def
-    AST_RVAL_ASSIGN,            // lval|lval_list rval|rval_list
-    AST_RVAL_OP_ASSIGN,         // lval [AST_OP_MUL] expr
-    AST_RVAL_YIELD,             // expr+
-    AST_RVAL_YIELD_FOR,         // expr
-    AST_NAME_LIST,              // name+
-    AST_LVAL_LIST,              // expr+
-    AST_RVAL_LIST,              // expr+
 
     AST_STMT_IF,                // expr block elif* block?
     AST_STMT_ELIF,              // expr block

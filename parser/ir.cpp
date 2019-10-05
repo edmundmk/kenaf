@@ -46,17 +46,17 @@ const char* const OPCODE_NAMES[] =
     [ IR_BITXOR         ] = "BITXOR",
     [ IR_BITOR          ] = "BITOR",
 
+    [ IR_PARAM          ] = "PARAM",
+    [ IR_CONST          ] = "CONST",
+    [ IR_VAL            ] = "VAL",
+    [ IR_PIN            ] = "PIN",
+
     [ IR_EQ             ] = "EQ",
     [ IR_NE             ] = "NE",
     [ IR_LT             ] = "LT",
     [ IR_LE             ] = "LE",
     [ IR_IS             ] = "IS",
     [ IR_NOT            ] = "NOT",
-
-    [ IR_PARAM          ] = "PARAM",
-    [ IR_CONST          ] = "CONST",
-    [ IR_VAL            ] = "VAL",
-    [ IR_PIN            ] = "PIN",
 
     [ IR_GET_GLOBAL     ] = "GET_GLOBAL",
     [ IR_GET_UPVAL      ] = "GET_UPVAL",

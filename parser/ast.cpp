@@ -35,6 +35,12 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_BITXOR       ] = "EXPR_BITXOR",
     [ AST_EXPR_BITOR        ] = "EXPR_BITOR",
 
+    [ AST_EXPR_NULL         ] = "EXPR_NULL",
+    [ AST_EXPR_FALSE        ] = "EXPR_FALSE",
+    [ AST_EXPR_TRUE         ] = "EXPR_TRUE",
+    [ AST_EXPR_NUMBER       ] = "EXPR_NUMBER",
+    [ AST_EXPR_STRING       ] = "EXPR_STRING",
+
     [ AST_EXPR_COMPARE      ] = "EXPR_COMPARE",
     [ AST_OP_EQ             ] = "OP_EQ",
     [ AST_OP_NE             ] = "OP_NE",
@@ -44,12 +50,6 @@ const char* const AST_NODE_NAME[] =
     [ AST_OP_GE             ] = "OP_GE",
     [ AST_OP_IS             ] = "OP_IS",
     [ AST_OP_IS_NOT         ] = "OP_IS_NOT",
-
-    [ AST_EXPR_NULL         ] = "EXPR_NULL",
-    [ AST_EXPR_FALSE        ] = "EXPR_FALSE",
-    [ AST_EXPR_TRUE         ] = "EXPR_TRUE",
-    [ AST_EXPR_NUMBER       ] = "EXPR_NUMBER",
-    [ AST_EXPR_STRING       ] = "EXPR_STRING",
 
     [ AST_EXPR_NOT          ] = "EXPR_NOT",
     [ AST_EXPR_AND          ] = "EXPR_AND",
@@ -65,21 +65,22 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_TABLE        ] = "EXPR_TABLE",
     [ AST_TABLE_KEY         ] = "TABLE_KEY",
 
-    [ AST_FUNCTION          ] = "FUNCTION",
-    [ AST_PARAMETERS        ] = "PARAMETERS",
-    [ AST_VARARG_PARAM      ] = "VARARG_PARAM",
-
-    [ AST_BLOCK             ] = "BLOCK",
+    [ AST_EXPR_YIELD        ] = "RVAL_YIELD",
+    [ AST_EXPR_YIELD_FOR    ] = "RVAL_YIELD_FOR",
 
     [ AST_DECL_VAR          ] = "DECL_VAR",
     [ AST_DECL_DEF          ] = "DECL_DEF",
     [ AST_RVAL_ASSIGN       ] = "RVAL_ASSIGN",
     [ AST_RVAL_OP_ASSIGN    ] = "RVAL_OP_ASSIGN",
-    [ AST_RVAL_YIELD        ] = "RVAL_YIELD",
-    [ AST_RVAL_YIELD_FOR    ] = "RVAL_YIELD_FOR",
     [ AST_NAME_LIST         ] = "NAME_LIST",
     [ AST_LVAL_LIST         ] = "LVAL_LIST",
     [ AST_RVAL_LIST         ] = "RVAL_LIST",
+
+    [ AST_FUNCTION          ] = "FUNCTION",
+    [ AST_PARAMETERS        ] = "PARAMETERS",
+    [ AST_VARARG_PARAM      ] = "VARARG_PARAM",
+
+    [ AST_BLOCK             ] = "BLOCK",
 
     [ AST_STMT_IF           ] = "STMT_IF",
     [ AST_STMT_ELIF         ] = "STMT_ELIF",

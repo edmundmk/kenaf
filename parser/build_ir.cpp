@@ -55,7 +55,11 @@ ir_operand build_ir::visit( node_index node )
     switch ( node->kind )
     {
     case AST_NONE:
+    {
         return { IR_O_NONE };
+    }
+
+    // -- ARITHMETIC --
 
     case AST_EXPR_LENGTH:
     case AST_EXPR_NEG:
@@ -86,6 +90,40 @@ ir_operand build_ir::visit( node_index node )
         _o.push_back( visit( v ) );
         return emit( node->sloc, (ir_opcode)node->kind, 2 );
     }
+
+    // -- CONSTANTS --
+
+    case AST_EXPR_NULL:
+    {
+        _o.push_back( { IR_O_NULL } );
+        return emit( node->sloc, IR_CONST, 1 );
+    }
+
+    case AST_EXPR_FALSE:
+    {
+        _o.push_back( { IR_O_FALSE } );
+        return emit( node->sloc, IR_CONST, 1 );
+    }
+
+    case AST_EXPR_TRUE:
+    {
+        _o.push_back( { IR_O_TRUE } );
+        return emit( node->sloc, IR_CONST, 1 );
+    }
+
+    case AST_EXPR_NUMBER:
+    {
+        _o.push_back( number_operand( node ) );
+        return emit( node->sloc, IR_CONST, 1 );
+    }
+
+    case AST_EXPR_STRING:
+    {
+        _o.push_back( string_operand( node ) );
+        return emit( node->sloc, IR_CONST, 1 );
+    }
+
+    // -- LOGICAL --
 
     case AST_EXPR_COMPARE:
     {
@@ -191,36 +229,6 @@ ir_operand build_ir::visit( node_index node )
         }
 
         return comp;
-    }
-
-    case AST_EXPR_NULL:
-    {
-        _o.push_back( { IR_O_NULL } );
-        return emit( node->sloc, IR_CONST, 1 );
-    }
-
-    case AST_EXPR_FALSE:
-    {
-        _o.push_back( { IR_O_FALSE } );
-        return emit( node->sloc, IR_CONST, 1 );
-    }
-
-    case AST_EXPR_TRUE:
-    {
-        _o.push_back( { IR_O_TRUE } );
-        return emit( node->sloc, IR_CONST, 1 );
-    }
-
-    case AST_EXPR_NUMBER:
-    {
-        _o.push_back( number_operand( node ) );
-        return emit( node->sloc, IR_CONST, 1 );
-    }
-
-    case AST_EXPR_STRING:
-    {
-        _o.push_back( string_operand( node ) );
-        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_NOT:
@@ -371,6 +379,8 @@ ir_operand build_ir::visit( node_index node )
         return { IR_O_NONE };
     }
 
+    // -- EXPRESSIONS --
+
     case AST_EXPR_KEY:
     {
         node_index u = child_node( node );
@@ -390,12 +400,12 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_CALL:
     {
-        return call_expression( node, IR_CALL );
+        return expr_list_op( node, IR_CALL );
     }
 
     case AST_EXPR_UNPACK:
     {
-        assert( ! "unexpected unpack expression" );
+        assert( ! "unexpected EXPR_UNPACK node" );
         return { IR_O_NONE };
     }
 
@@ -412,7 +422,7 @@ ir_operand build_ir::visit( node_index node )
             }
             else
             {
-                _o.push_back( unpack_expression( el, IR_UNPACK_ALL ) );
+                _o.push_back( expr_unpack( el, IR_UNPACK_ALL ) );
                 emit( node->sloc, IR_EXTEND, 2 );
             }
         }
@@ -435,37 +445,27 @@ ir_operand build_ir::visit( node_index node )
         return table;
     }
 
-    case AST_FUNCTION:
+    case AST_TABLE_KEY:
     {
-        block_head( node->sloc );
-        visit_children( node );
-        _o.push_back( { IR_O_NULL } );
-        emit( node->sloc, IR_BLOCK_RETURN, 1 );
+        assert( ! "unexpected TABLE_KEY node" );
         return { IR_O_NONE };
     }
 
-    case AST_PARAMETERS:
-    {
-        for ( node_index param = child_node( node ); param.index < node.index; param = next_node( param ) )
-        {
-            if ( param->kind == AST_VARARG_PARAM )
-            {
-                continue;
-            }
+    // -- YIELD --
 
-            unsigned local = param->leaf_index().index;
-            _o.push_back( { IR_O_LOCAL_INDEX, local } );
-            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
-        }
-        return { IR_O_NONE };
+    case AST_EXPR_YIELD:
+    {
+        // yield a, b, c ...
+        return expr_list_op( node, IR_YIELD );
     }
 
-    case AST_BLOCK:
+    case AST_EXPR_YIELD_FOR:
     {
-        visit_children( node );
-        close_upstack( node );
-        return { IR_O_NONE };
+        // yield for a()
+        return expr_list_op( node, IR_YCALL );
     }
+
+    // -- DECLARATION AND ASSIGNMENT --
 
     case AST_DECL_VAR:
     {
@@ -491,7 +491,7 @@ ir_operand build_ir::visit( node_index node )
         if ( rvals.index < node.index )
         {
             // Evaluate rvals.
-            unsigned rvindex = visit_rvals( rvals, rvcount );
+            unsigned rvindex = rval_list( rvals, rvcount );
 
             // Assign.
             unsigned rv = rvindex;
@@ -545,20 +545,48 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_RVAL_ASSIGN:
     case AST_RVAL_OP_ASSIGN:
-    case AST_RVAL_YIELD:
-    case AST_RVAL_YIELD_FOR:
     {
-        visit_rvals( node, 0 );
+        // Assignments are themselves rvals, use the same machinery.
+        rval_list( node, 0 );
         return { IR_O_NONE };
     }
 
+    // -- SCOPE --
 
+    case AST_FUNCTION:
+    {
+        block_head( node->sloc );
+        visit_children( node );
+        _o.push_back( { IR_O_NULL } );
+        emit( node->sloc, IR_BLOCK_RETURN, 1 );
+        return { IR_O_NONE };
+    }
 
+    case AST_PARAMETERS:
+    {
+        for ( node_index param = child_node( node ); param.index < node.index; param = next_node( param ) )
+        {
+            if ( param->kind == AST_VARARG_PARAM )
+            {
+                continue;
+            }
+
+            unsigned local = param->leaf_index().index;
+            _o.push_back( { IR_O_LOCAL_INDEX, local } );
+            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
+        }
+        return { IR_O_NONE };
+    }
+
+    case AST_BLOCK:
+    {
+        visit_children( node );
+        close_upstack( node );
+        return { IR_O_NONE };
+    }
+
+    // -- STATEMENTS --
 /*
-
-
-
-//  case AST_DECL_VAR: TODO
 
     case AST_STMT_IF:
     {
@@ -802,9 +830,12 @@ ir_operand build_ir::visit( node_index node )
 */
 
     default:
+    {
         // TODO: remove this once all cases handled.
         visit_children( node );
         return { IR_O_NONE };
+    }
+
     }
 }
 
@@ -816,7 +847,7 @@ void build_ir::visit_children( node_index node )
     }
 }
 
-unsigned build_ir::visit_rvals( node_index node, unsigned unpack )
+unsigned build_ir::rval_list( node_index node, unsigned unpack )
 {
     // Push rvcount rvals onto the evaluation stack, and return the index of
     // the first rval on the evaluation stack.
@@ -831,64 +862,44 @@ unsigned build_ir::visit_rvals( node_index node, unsigned unpack )
     {
         // a *= b
     }
-    else if ( node->kind == AST_RVAL_YIELD )
-    {
-        // yield a, b, c ...
-/*
-        unsigned ocount = 0;
-        for ( node_index result = child_node( node ); result.index < node.index; result = next_node( result ) )
-        {
-            _o.push_back( visit( result ) );
-            ocount += 1;
-        }
-        return emit( node->sloc, IR_YIELD, ocount );
-*/
-    }
-    else if ( node->kind == AST_RVAL_YIELD_FOR )
-    {
-        // yield for a()
-/*
-        node_index call = child_node( node );
-        if ( call->kind == AST_EXPR_UNPACK )
-        {
-            call = child_node( node );
-        }
-        assert( call->kind == AST_EXPR_CALL );
-        return call_expression( call, IR_YCALL );
-*/
-    }
-    else if ( node->kind == AST_EXPR_UNPACK )
-    {
-        // yield ... a, b, c ...
-        // yield for a() ...
-        // a() ...
-        // a ...
-/*
-        node_index u = child_node( node );
-        if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg_param )
-        {
-            return emit( node->sloc, IR_VARARG, 0 );
-        }
-        else if ( u->kind == AST_EXPR_CALL )
-        {
-            // TODO: unpack call...
-            return visit( u );
-        }
-        else
-        {
-            _o.push_back( visit( u ) );
-            return emit( node->sloc, IR_UNPACK, 1 );
-        }
-*/
-    }
     else if ( node->kind == AST_RVAL_LIST )
     {
         // a, b, c ...
-
+        for ( node_index rval = child_node( node ); rval.index < node.index; rval = next_node( rval ) )
+        {
+            unsigned rval_unpack = 1;
+            if ( rval->kind == AST_EXPR_UNPACK )
+                rval_unpack = unpack - std::min( rvcount, unpack );
+            rval_list( rval, rval_unpack );
+            rvcount += rval_unpack;
+        }
+    }
+    else if ( node->kind == AST_EXPR_UNPACK )
+    {
+        // a ...
+        ir_operand rval = expr_unpack( node, unpack );
+        if ( unpack == 1 )
+        {
+            _o.push_back( rval );
+            rvcount += 1;
+        }
+        else
+        {
+            for ( ; rvcount < unpack; ++rvcount )
+            {
+                _o.push_back( rval );
+                _o.push_back( { IR_O_SELECT_INDEX, rvcount } );
+                _o.push_back( emit( node->sloc, IR_SELECT, 2 ) );
+            }
+        }
     }
     else
     {
-        // A single expression.
+        // a
+        ir_operand rval = visit( node );
+        // TODO: pin loaded definitions of variables.
+        _o.push_back( rval );
+        rvcount += 1;
     }
 
     if ( unpack == 0 )
@@ -910,56 +921,36 @@ unsigned build_ir::visit_rvals( node_index node, unsigned unpack )
     return rvindex;
 }
 
-ir_operand build_ir::call_expression( node_index node, ir_opcode opcode )
+ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
 {
-    unsigned ocount = 0;
+    assert( node->kind == AST_EXPR_UNPACK );
 
-    // Check for method call.
-    node_index target = child_node( node );
-    if ( target->kind == AST_EXPR_KEY )
-    {
-        ir_operand self = visit( child_node( target ) );
-        _o.push_back( self );
-        _o.push_back( string_operand( target ) );
-        _o.push_back( emit( target->sloc, IR_GET_KEY, 2 ) );
-        _o.push_back( self );
-        ocount += 2;
-    }
-    else
-    {
-        _o.push_back( visit( target ) );
-        ocount += 1;
-    }
-
-    // Arguments.
-    for ( node_index arg = next_node( target ); arg.index < node.index; arg = next_node( arg ) )
-    {
-        if ( arg->kind != AST_EXPR_UNPACK )
-            _o.push_back( visit( arg ) );
-        else
-            _o.push_back( unpack_expression( arg, IR_UNPACK_ALL ) );
-        ocount += 1;
-    }
-
-    // Call.
-    return emit( node->sloc, opcode, ocount );
-}
-
-ir_operand build_ir::unpack_expression( node_index node, unsigned unpack )
-{
     // Evaluate expression we want to unpack.
     ir_operand operand;
     node_index u = child_node( node );
     if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg_param )
     {
+        // args ...
         operand = emit( node->sloc, IR_VARARG, 0 );
     }
     else if ( u->kind == AST_EXPR_CALL )
     {
-        operand = visit( u );
+        // a() ...
+        operand = expr_list_op( u, IR_CALL );
+    }
+    else if ( u->kind == AST_EXPR_YIELD_FOR )
+    {
+        // yield a() ...
+        operand = expr_list_op( u, IR_YCALL );
+    }
+    else if ( u->kind == AST_EXPR_YIELD )
+    {
+        // yield ... a, b, c
+        operand = expr_list_op( u, IR_YIELD );
     }
     else
     {
+        // a ...
         _o.push_back( visit( u ) );
         operand = emit( node->sloc, IR_UNPACK, 1 );
     }
@@ -967,10 +958,49 @@ ir_operand build_ir::unpack_expression( node_index node, unsigned unpack )
     // Actually ask it to unpack.
     assert( operand.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( operand.index );
-    assert( op->opcode == IR_VARARG || op->opcode == IR_CALL || op->opcode == IR_UNPACK );
+    assert( op->opcode == IR_VARARG || op->opcode == IR_CALL || op->opcode == IR_YCALL || op->opcode == IR_YIELD || op->opcode == IR_UNPACK );
     op->unpack = unpack;
 
+    // Return op that unpacks.
     return operand;
+}
+
+ir_operand build_ir::expr_list_op( node_index node, ir_opcode opcode )
+{
+    unsigned ocount = 0;
+    node_index arg = child_node( node );
+
+    if ( opcode == IR_CALL || opcode == IR_YCALL )
+    {
+        // Pass self parameter to method calls.
+        if ( arg->kind == AST_EXPR_KEY )
+        {
+            ir_operand self = visit( child_node( arg ) );
+            _o.push_back( self );
+            _o.push_back( string_operand( arg ) );
+            _o.push_back( emit( arg->sloc, IR_GET_KEY, 2 ) );
+            _o.push_back( self );
+            ocount += 2;
+        }
+        else
+        {
+            _o.push_back( visit( arg ) );
+            ocount += 1;
+        }
+
+        arg = next_node( arg );
+    }
+
+    for ( ; arg.index < node.index; arg = next_node( arg ) )
+    {
+        if ( arg->kind != AST_EXPR_UNPACK )
+            _o.push_back( visit( arg ) );
+        else
+            _o.push_back( expr_unpack( arg, IR_UNPACK_ALL ) );
+        ocount += 1;
+    }
+
+    return emit( node->sloc, opcode, ocount );
 }
 
 ir_operand build_ir::number_operand( node_index node )

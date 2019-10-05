@@ -64,11 +64,11 @@ private:
     // Visiting AST.
     ir_operand visit( node_index node );
     void visit_children( node_index node );
-    unsigned visit_rvals( node_index node, unsigned rvcount );
 
-    // Unpacking etc.
-    ir_operand call_expression( node_index node, ir_opcode opcode );
-    ir_operand unpack_expression( node_index node, unsigned unpack );
+    // Rvals and unpacking
+    unsigned rval_list( node_index node, unsigned rvcount );
+    ir_operand expr_unpack( node_index node, unsigned unpack );
+    ir_operand expr_list_op( node_index node, ir_opcode opcode );
 
     // Constants.
     ir_operand number_operand( node_index node );

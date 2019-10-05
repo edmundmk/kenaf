@@ -163,6 +163,12 @@ enum ir_opcode : uint8_t
     IR_BITOR,                   // a | b
     // -- MUST MATCH AST NODES --
 
+    // Values.
+    IR_PARAM,                   // Parameter placeholder.
+    IR_CONST,                   // Constant.
+    IR_VAL,                     // Create a new value.
+    IR_PIN,                     // Pin load of value during evaluation.
+
     // Comparisons.
     IR_EQ,                      // a == b
     IR_NE,                      // a != b
@@ -170,12 +176,6 @@ enum ir_opcode : uint8_t
     IR_LE,                      // a <= b, or b >= a
     IR_IS,                      // a is b, or not not a is b
     IR_NOT,                     // not a
-
-    // Values.
-    IR_PARAM,                   // Parameter placeholder.
-    IR_CONST,                   // Constant.
-    IR_VAL,                     // Create a new value.
-    IR_PIN,                     // Pin load of value during evaluation.
 
     // Other instructions.
     IR_GET_GLOBAL,              // Get global.
@@ -243,6 +243,8 @@ enum ir_operand_kind : uint8_t
     IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
+
+    IR_O_SELECT_INDEX,          // Index of selected result.
 };
 
 struct ir_op

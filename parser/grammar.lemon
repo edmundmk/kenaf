@@ -138,10 +138,10 @@ stmt_list(x) ::= stmt_list(u) stmt(v) SEMICOLON .       { x = u != AST_INVALID_I
 stmt_list(x) ::= stmt_list(u) last_stmt(v) SEMICOLON .  { x = u != AST_INVALID_INDEX ? u : v; }
 
 stmt(x) ::= expr_call(u) . [PREFER_CALL]                { x = u.index; }
+stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_EXPR_YIELD, kw.sloc, u.index ); }
+stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ); }
 stmt(x) ::= definition(u) .                             { x = u.index; }
 stmt(x) ::= stmt_assign(u) .                            { x = u; }
-stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_RVAL_YIELD, kw.sloc, u.index ); }
-stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index ); }
 stmt(x) ::= DO(kw) block(u) END .                       { p->update_sloc( u, kw.sloc ); x = u; }
 stmt(x) ::= IF(kw) expr(u) THEN(bdo) block(block) elif_list_opt else_opt END .
     {
@@ -263,20 +263,20 @@ assign_rval(x) ::= unpack_list(u) .
     }
 assign_rval(x) ::= YIELD(kw) unpack_list(u) .
     {
-        x = { EXPR_FULL, p->node( AST_RVAL_YIELD, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
+        x = { EXPR_FULL, p->node( AST_EXPR_YIELD, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) ELLIPSIS(op) unpack_list(u) .
     {
-        unsigned z = p->node( AST_RVAL_YIELD, kw.sloc, u.index );
+        unsigned z = p->node( AST_EXPR_YIELD, kw.sloc, u.index );
         x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* incoming values are unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]
     {
-        x = { EXPR_FULL, p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
+        x = { EXPR_FULL, p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) ELLIPSIS(op) .
     {
-        unsigned z = p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index );
+        unsigned z = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index );
         x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* results from call are unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= r_lval_list_from_unpack_list(lval) ASSIGN(op) assign_rval(rval) .
