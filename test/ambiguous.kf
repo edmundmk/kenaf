@@ -4,9 +4,10 @@
 ;( name )()
 
 
-a = b + c
+var a = b + c
 (print or io.write)("done")
 
 
-a = b + c
+var q = b + c
 ;(print or io.write)("done")
+

@@ -116,7 +116,7 @@ static list_type op_assign( parser* p, op_assign_type op, list_type lval, list_t
         p->error( op.token.sloc, "right hand side of %s has multiple values", spelling( op.token ).c_str() );
     }
 
-    return { EXPR_FULL, p->node( AST_OP_ASSIGN, op.token.sloc, lval.index ), lval.count, AST_INVALID_INDEX };
+    return { EXPR_FULL, p->node( AST_RVAL_OP_ASSIGN, op.token.sloc, lval.index ), lval.count, AST_INVALID_INDEX };
 }
 
 }
@@ -140,8 +140,8 @@ stmt_list(x) ::= stmt_list(u) last_stmt(v) SEMICOLON .  { x = u != AST_INVALID_I
 stmt(x) ::= expr_call(u) . [PREFER_CALL]                { x = u.index; }
 stmt(x) ::= definition(u) .                             { x = u.index; }
 stmt(x) ::= stmt_assign(u) .                            { x = u; }
-stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_EXPR_YIELD, kw.sloc, u.index ); }
-stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ); }
+stmt(x) ::= YIELD(kw) unpack_list(u) .                  { x = p->node( AST_RVAL_YIELD, kw.sloc, u.index ); }
+stmt(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]  { x = p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index ); }
 stmt(x) ::= DO(kw) block(u) END .                       { p->update_sloc( u, kw.sloc ); x = u; }
 stmt(x) ::= IF(kw) expr(u) THEN(bdo) block(block) elif_list_opt else_opt END .
     {
@@ -213,7 +213,7 @@ step_opt(x) ::= COLON expr(u) . { x = u.index; }
 
 stmt_assign(x) ::= r_lval_list(lval) ASSIGN(op) assign_rval(rval ).
     {
-        x = assign( p, AST_ASSIGN, op.sloc, lval, rval ).index;
+        x = assign( p, AST_RVAL_ASSIGN, op.sloc, lval, rval ).index;
     }
 stmt_assign(x) ::= r_lval_list(lval) op_assign(op) assign_rval(rval) .
     {
@@ -221,11 +221,11 @@ stmt_assign(x) ::= r_lval_list(lval) op_assign(op) assign_rval(rval) .
     }
 stmt_assign(x) ::= VAR(kw) r_name_list(u) .
     {
-        x = p->node( AST_STMT_VAR, kw.sloc, u.index );
+        x = p->node( AST_DECL_VAR, kw.sloc, u.index );
     }
 stmt_assign(x) ::= VAR(kw) r_name_list(u) ASSIGN assign_rval(v) .
     {
-        x = assign( p, AST_STMT_VAR, kw.sloc, u, v ).index;
+        x = assign( p, AST_DECL_VAR, kw.sloc, u, v ).index;
     }
 
 r_name_list(x) ::= name_list(u) .
@@ -263,25 +263,25 @@ assign_rval(x) ::= unpack_list(u) .
     }
 assign_rval(x) ::= YIELD(kw) unpack_list(u) .
     {
-        x = { EXPR_FULL, p->node( AST_EXPR_YIELD, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
+        x = { EXPR_FULL, p->node( AST_RVAL_YIELD, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) ELLIPSIS(op) unpack_list(u) .
     {
-        unsigned z = p->node( AST_EXPR_YIELD, kw.sloc, u.index );
+        unsigned z = p->node( AST_RVAL_YIELD, kw.sloc, u.index );
         x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* incoming values are unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) . [PREFER_CALL]
     {
-        x = { EXPR_FULL, p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
+        x = { EXPR_FULL, p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index ), 1 /* not unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= YIELD(kw) FOR expr_call(u) ELLIPSIS(op) .
     {
-        unsigned z = p->node( AST_EXPR_YIELD_FOR, kw.sloc, u.index );
+        unsigned z = p->node( AST_RVAL_YIELD_FOR, kw.sloc, u.index );
         x = { EXPR_UNPACK, p->node( AST_EXPR_UNPACK, op.sloc, z ), 0 /* results from call are unpacked */, AST_INVALID_INDEX };
     }
 assign_rval(x) ::= r_lval_list_from_unpack_list(lval) ASSIGN(op) assign_rval(rval) .
     {
-        x = assign( p, AST_ASSIGN, op.sloc, lval, rval );
+        x = assign( p, AST_RVAL_ASSIGN, op.sloc, lval, rval );
     }
 assign_rval(x) ::= r_lval_list_from_unpack_list(lval) op_assign(op) assign_rval(rval) .
     {
@@ -517,7 +517,7 @@ lambda_body(x) ::= RPN(bdo) block(block) END .
 definition(x) ::= DEF(def) qual_name(w) prototype_opt(u) object_keys(v) END .
     {
         p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
-        x = { p->node( AST_DEFINITION, def.sloc, w.index ), nullptr };
+        x = { p->node( AST_DECL_DEF, def.sloc, w.index ), nullptr };
     }
 definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
     {
@@ -527,7 +527,7 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
         p->pop_function();
         p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
         u.function->name = p->qual_name_string( u.name_index );
-        x = { p->node( AST_DEFINITION, u.sloc, u.name_index ), u.function };
+        x = { p->node( AST_DECL_DEF, u.sloc, u.name_index ), u.function };
     }
 
 open_function(x) ::= DEF(def) qual_name(u) .

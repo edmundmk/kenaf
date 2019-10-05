@@ -86,14 +86,6 @@
     register for each local.  Code that constructs the IR must enforce this
     invariant.
 
-    It does this by inserting L instructions whenever a variable is read,
-    pinning the location where the variable was referenced.  If an assignment
-    redefines a variable while it is still on the builder's evaluation stack,
-    the L is promoted to a LOAD, which creates a new value.  This only happens
-    in assignments, or for upvals.
-
-    L ops are optimized out by a constant folding pass.
-
 */
 
 #include <stdint.h>
@@ -118,6 +110,7 @@ struct ir_string;
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
 const unsigned IR_INVALID_REGISTER = 0xFF;
 const unsigned IR_INVALID_LOCAL = 0xFF;
+const unsigned IR_UNPACK_ALL = 0xFF;
 
 /*
     Stores the intermediate representation for a function.
@@ -181,8 +174,8 @@ enum ir_opcode : uint8_t
     // Values.
     IR_PARAM,                   // Parameter placeholder.
     IR_CONST,                   // Constant.
-    IR_L,                       // Maybe load, placeholder during construction.
-    IR_LOAD,                    // Load value.
+    IR_VAL,                     // Create a new value.
+    IR_PIN,                     // Pin load of value during evaluation.
 
     // Other instructions.
     IR_GET_GLOBAL,              // Get global.
@@ -258,7 +251,7 @@ struct ir_op
         :   opcode( IR_NOP )
         ,   r( IR_INVALID_REGISTER )
         ,   stack_top( IR_INVALID_REGISTER )
-        ,   unpack( 0 )
+        ,   unpack( 1 )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
         ,   local( IR_INVALID_LOCAL )

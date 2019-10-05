@@ -64,9 +64,13 @@ private:
     // Visiting AST.
     ir_operand visit( node_index node );
     void visit_children( node_index node );
+    unsigned visit_rvals( node_index node, unsigned rvcount );
 
-    // Helpers.
+    // Unpacking etc.
     ir_operand call_expression( node_index node, ir_opcode opcode );
+    ir_operand unpack_expression( node_index node, unsigned unpack );
+
+    // Constants.
     ir_operand number_operand( node_index node );
     ir_operand string_operand( node_index node );
 
@@ -86,7 +90,8 @@ private:
     void fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target );
 
     // Use/def.
-    void def( ir_operand operand, unsigned local );
+    void load( ir_operand operand );
+    void def( srcloc sloc, unsigned local, ir_operand operand );
 
     // Function under construction.
     source* _source;

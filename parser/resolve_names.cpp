@@ -211,7 +211,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
         break;
     }
 
-    case AST_STMT_VAR:
+    case AST_DECL_VAR:
     {
         // Variable declarations.
         unsigned name_list_index = n->child_index;
@@ -224,8 +224,8 @@ void resolve_names::visit( ast_function* f, unsigned index )
         return;
     }
 
-    case AST_ASSIGN:
-    case AST_OP_ASSIGN:
+    case AST_RVAL_ASSIGN:
+    case AST_RVAL_OP_ASSIGN:
     {
         // Visit lvals.
         unsigned lval_index = n->child_index;
@@ -277,7 +277,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
         }
     }
 
-    case AST_DEFINITION:
+    case AST_DECL_DEF:
     {
         // Declare a def of an object.
         unsigned name_index = n->child_index;

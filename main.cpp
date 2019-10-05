@@ -37,7 +37,10 @@ int main( int argc, char* argv[] )
     {
         kf::resolve_names resolve( &source, ast_script.get() );
         resolve.resolve();
+    }
 
+    if ( ! source.has_error )
+    {
         kf::build_ir build_ir( &source );
         for ( const auto& function : ast_script->functions )
         {

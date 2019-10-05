@@ -144,8 +144,6 @@ enum ast_node_kind : uint16_t
     AST_EXPR_ARRAY,             // expr*
     AST_EXPR_TABLE,             // keyval*
     AST_TABLE_KEY,              // expr expr
-    AST_EXPR_YIELD,             // expr+
-    AST_EXPR_YIELD_FOR,         // expr
 
     AST_FUNCTION,               // parameters block
     AST_PARAMETERS,             // name* vararg_param?
@@ -153,10 +151,12 @@ enum ast_node_kind : uint16_t
 
     AST_BLOCK,                  // stmt|call-expr|yield-expr*
 
-    AST_STMT_VAR,               // name|name_list rval|rval_list?
-    AST_DEFINITION,             // name|qual_name def
-    AST_ASSIGN,                 // lval|lval_list rval|rval_list
-    AST_OP_ASSIGN,              // lval [AST_OP_MUL] expr
+    AST_DECL_VAR,               // name|name_list rval|rval_list?
+    AST_DECL_DEF,             // name|qual_name def
+    AST_RVAL_ASSIGN,            // lval|lval_list rval|rval_list
+    AST_RVAL_OP_ASSIGN,         // lval [AST_OP_MUL] expr
+    AST_RVAL_YIELD,             // expr+
+    AST_RVAL_YIELD_FOR,         // expr
     AST_NAME_LIST,              // name+
     AST_LVAL_LIST,              // expr+
     AST_RVAL_LIST,              // expr+

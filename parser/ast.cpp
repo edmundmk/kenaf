@@ -64,8 +64,6 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_ARRAY        ] = "EXPR_ARRAY",
     [ AST_EXPR_TABLE        ] = "EXPR_TABLE",
     [ AST_TABLE_KEY         ] = "TABLE_KEY",
-    [ AST_EXPR_YIELD        ] = "EXPR_YIELD",
-    [ AST_EXPR_YIELD_FOR    ] = "EXPR_YIELD_FOR",
 
     [ AST_FUNCTION          ] = "FUNCTION",
     [ AST_PARAMETERS        ] = "PARAMETERS",
@@ -73,10 +71,12 @@ const char* const AST_NODE_NAME[] =
 
     [ AST_BLOCK             ] = "BLOCK",
 
-    [ AST_STMT_VAR          ] = "STMT_VAR",
-    [ AST_DEFINITION        ] = "DEFINITION",
-    [ AST_ASSIGN            ] = "ASSIGN",
-    [ AST_OP_ASSIGN         ] = "OP_ASSIGN",
+    [ AST_DECL_VAR          ] = "DECL_VAR",
+    [ AST_DECL_DEF          ] = "DECL_DEF",
+    [ AST_RVAL_ASSIGN       ] = "RVAL_ASSIGN",
+    [ AST_RVAL_OP_ASSIGN    ] = "RVAL_OP_ASSIGN",
+    [ AST_RVAL_YIELD        ] = "RVAL_YIELD",
+    [ AST_RVAL_YIELD_FOR    ] = "RVAL_YIELD_FOR",
     [ AST_NAME_LIST         ] = "NAME_LIST",
     [ AST_LVAL_LIST         ] = "LVAL_LIST",
     [ AST_RVAL_LIST         ] = "RVAL_LIST",
