@@ -19,25 +19,51 @@
 
     The ops describe a set of basic blocks, in program order.  Because we do
     not support goto, the control flow graph is reducible and program order is
-    a valid depth first traversal of the CFG where dominators precede dominated
-    blocks.
-
-    Each block begins with a BLOCK_HEAD op, and ends with a jump.
+    a valid depth first traversal of the CFG, with dominators preceding the
+    nodes they dominate.
 
 
-    -- SSA Values
+    -- Blocks
 
-    The intermediate representation is SSA-like.  Each operation produces a
-    value.  Values are used as operands by referencing the index of the op that
-    produced it.
+    Each block begins with a head op, and ends with a jump.
 
-    phi functions that merge definitions for locals are generated during IR
-    construction, and referenced from the BLOCK_HEAD of each block.  If only
-    one definition of a local reaches a block, then a phi function with one
-    operand (a ref) is still generated, as phi ops are used determine live
-    ranges for locals.
+    The head op can be BLOCK_HEAD or BLOCK_LOOP.  BLOCK_LOOP indicates that the
+    block is a loop header, but is otherwise identical to BLOCK_HEAD.  Each
+    head has a link to the first phi op.
 
-    Phi functions are used as operands like any other op.
+    After the head is a series of BLOCK_FROM ops which indicate predecessor
+    blocks in the control flow graph.  For all blocks except loop headers, the
+    set of predecessor blocks is known when the block is created.  For loops,
+    the first op in this sequence can be a BLOCK_BACK, which links to a later
+    sequence of BLOCK_FROM ops placed after the end of the loop.
+
+        BLOCK_LOOP ocount [jump_link] [outer_loop] [phi_link]
+        BLOCK_BACK ocount [block_from_list]
+        BLOCK_FROM [prev_block]
+        BLOCK_FROM [prev_block]
+        BLOCK_FROM [prev_block]
+
+    Each BLOCK_FROM is numbered from zero, starting with the first block in the
+    BLOCK_BACK list.
+
+    Phi ops gather local definitions at entry to the block.  Although phi ops
+    are emitted intermixed with other instructions, they are linked together in
+    a list, and are conceptually part of the block header.
+
+    Phi ops can be one of the following:
+
+        PHI (local) [phi_link], block/def, block/def, block/def
+            Lists all definitions that reach this block.  Each operand stores
+            the previous block index in the 'kind' field.
+
+            In unreachable code the list of definitions may be empty.
+
+        PHI_OPEN (local) [phi_link]
+            During IR construction, phi ops in unsealed loops are represented
+            by PHI_OPEN ops.
+
+    Fields in brackets are stored in the sloc field of the op.  A block head's
+    jump_link is stored in the oindex field, and outer_loop in live_range.
 
 
     -- Loop variables.
@@ -83,8 +109,8 @@
 
     The IR has one major restriction.  Only one definition of each local can be
     live at any point.  This allows register allocation to allocate a single
-    register for each local.  Code that constructs the IR must enforce this
-    invariant.
+    register for each local.  This is achieved when generating the IR through
+    use of PIN and VAL ops.
 
 */
 
@@ -216,14 +242,22 @@ enum ir_opcode : uint8_t
     IR_B_DEF,                   // link_cut, value, jump_phi
     IR_B_PHI,                   // def, def, def, ..., value
 
-    // Block instructions.
-    IR_BLOCK_HEAD,              // block index
-    IR_BLOCK_JUMP,              // jump
-    IR_BLOCK_TEST,              // test, iftrue, iffalse
-    IR_BLOCK_SHORTCUT,          // test, iftrue, iffalse, assigns local if test is false
-    IR_BLOCK_FOR_TEST,          // test, iftrue, iffalse, test should be FOR_EACH or FOR_STEP
-    IR_BLOCK_RETURN,            // value*
-    IR_BLOCK_THROW,             // value
+    // Block header instructions.
+    IR_BLOCK_HEAD,              // Non-loop block.
+    IR_BLOCK_LOOP,              // Loop header block.
+    IR_BLOCK_BACK,              // Indicates list of BLOCK_FROM for loop back-edges.
+    IR_BLOCK_FROM,              // Links to a predecessor block.
+
+    // Jump instructions that close blocks.
+    IR_JUMP,                    // Jump to new block.
+    IR_JUMP_TEST,               // test, iftrue, iffalse
+    IR_JUMP_TFOR,               // for_each/for_step, iftrue, ifalse
+    IR_JUMP_RETURN,             // value+
+    IR_JUMP_THROW,              // value
+
+    // Phi instructions.
+    IR_PHI,                     // Phi function.
+    IR_PHI_OPEN,                // Open phi function in unclosed loop.
 };
 
 enum ir_operand_kind : uint8_t
@@ -234,7 +268,7 @@ enum ir_operand_kind : uint8_t
     IR_O_PIN,                   // Index of pin op.
     IR_O_SELECT,                // Index of selected result.
 
-    IR_O_JUMP,                  // Index of op to jump to (must be BLOCK_HEAD).
+    IR_O_JUMP,                  // Index of op to jump to.
 
     IR_O_NULL,                  // null
     IR_O_TRUE,                  // true
@@ -246,7 +280,6 @@ enum ir_operand_kind : uint8_t
     IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
-
 };
 
 struct ir_op

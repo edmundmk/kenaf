@@ -92,12 +92,18 @@ const char* const OPCODE_NAMES[] =
     [ IR_B_PHI          ] = "B_PHI",
 
     [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
-    [ IR_BLOCK_JUMP     ] = "BLOCK_JUMP",
-    [ IR_BLOCK_TEST     ] = "BLOCK_TEST",
-    [ IR_BLOCK_SHORTCUT ] = "BLOCK_SHORTCUT",
-    [ IR_BLOCK_FOR_TEST ] = "BLOCK_FOR_TEST",
-    [ IR_BLOCK_RETURN   ] = "BLOCK_RETURN",
-    [ IR_BLOCK_THROW    ] = "BLOCK_THROW",
+    [ IR_BLOCK_LOOP     ] = "BLOCK_LOOP",
+    [ IR_BLOCK_BACK     ] = "BLOCK_BACK",
+    [ IR_BLOCK_FROM     ] = "BLOCK_FROM",
+
+    [ IR_JUMP           ] = "JUMP",
+    [ IR_JUMP_TEST      ] = "JUMP_TEST",
+    [ IR_JUMP_TFOR      ] = "JUMP_TFOR",
+    [ IR_JUMP_RETURN    ] = "JUMP_RETURN",
+    [ IR_JUMP_THROW     ] = "JUMP_THROW",
+
+    [ IR_PHI            ] = "PHI",
+    [ IR_PHI_OPEN       ] = "PHI_OPEN",
 };
 
 static void debug_print_op( ir_function* f, unsigned i )

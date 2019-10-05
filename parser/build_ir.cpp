@@ -543,7 +543,7 @@ ir_operand build_ir::visit( node_index node )
         block_head( node->sloc );
         visit_children( node );
         _o.push_back( { IR_O_NULL } );
-        emit( node->sloc, IR_BLOCK_RETURN, 1 );
+        emit( node->sloc, IR_JUMP_RETURN, 1 );
         return { IR_O_NONE };
     }
 
@@ -1237,7 +1237,7 @@ build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
 {
     unsigned oindex = _f->operands.size();
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    emit( sloc, IR_BLOCK_JUMP, 1 );
+    emit( sloc, IR_JUMP, 1 );
     return { oindex };
 }
 
