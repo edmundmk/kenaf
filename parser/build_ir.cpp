@@ -512,7 +512,7 @@ ir_operand build_ir::visit( node_index node )
     case AST_DECL_DEF:
     {
         node_index qname = child_node( node );
-        node_index value = next_node( node );
+        node_index value = next_node( qname );
 
         ir_operand object = visit( value );
         if ( qname->kind == AST_LOCAL_DECL )
