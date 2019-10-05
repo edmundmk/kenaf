@@ -89,11 +89,10 @@
     It does this by inserting L instructions whenever a variable is read,
     pinning the location where the variable was referenced.  If an assignment
     redefines a variable while it is still on the builder's evaluation stack,
-    the L is promoted to a LOAD, which creates a new value.  Again, our syntax
-    is so restricted that this only happens for assignment statements.
+    the L is promoted to a LOAD, which creates a new value.  This only happens
+    in assignments, or for upvals.
 
-    L ops (and most LOAD ops of constants) are optimized out by a constant
-    folding pass.
+    L ops are optimized out by a constant folding pass.
 
 */
 
@@ -179,10 +178,11 @@ enum ir_opcode : uint8_t
     IR_IS,                      // a is b, or not not a is b
     IR_NOT,                     // not a
 
-    // Evaluation.
+    // Values.
+    IR_PARAM,                   // Parameter placeholder.
+    IR_CONST,                   // Constant.
     IR_L,                       // Maybe load, placeholder during construction.
     IR_LOAD,                    // Load value.
-    IR_PARAM,                   // Parameter placeholder.
 
     // Other instructions.
     IR_GET_GLOBAL,              // Get global.

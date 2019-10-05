@@ -9,7 +9,6 @@
 //
 
 #include "build_ir.h"
-#include "../common/k_math.h"
 
 namespace kf
 {
@@ -153,6 +152,12 @@ ir_operand build_ir::visit( node_index node )
 
             comp = emit( op->sloc, opcode, 2 );
 
+            if ( op->kind == AST_OP_IS_NOT )
+            {
+                _o.push_back( comp );
+                comp = emit( op->sloc, IR_NOT, 1 );
+            }
+
             /*
                 Check for chained operator.
             */
@@ -191,31 +196,31 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_NULL:
     {
         _o.push_back( { IR_O_NULL } );
-        return emit( node->sloc, IR_LOAD, 1 );
+        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_FALSE:
     {
         _o.push_back( { IR_O_FALSE } );
-        return emit( node->sloc, IR_LOAD, 1 );
+        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_TRUE:
     {
         _o.push_back( { IR_O_TRUE } );
-        return emit( node->sloc, IR_LOAD, 1 );
+        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_NUMBER:
     {
         _o.push_back( number_operand( node ) );
-        return emit( node->sloc, IR_LOAD, 1 );
+        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_STRING:
     {
         _o.push_back( string_operand( node ) );
-        return emit( node->sloc, IR_LOAD, 1 );
+        return emit( node->sloc, IR_CONST, 1 );
     }
 
     case AST_EXPR_NOT:
