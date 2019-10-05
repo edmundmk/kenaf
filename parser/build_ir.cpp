@@ -196,10 +196,6 @@ ir_operand build_ir::visit( node_index node )
                 comp = emit( op->sloc, IR_NOT, 1 );
             }
 
-            /*
-                Check for chained operator.
-            */
-
             op = next_node( v );
             if ( op.index >= node.index )
             {
@@ -351,10 +347,6 @@ ir_operand build_ir::visit( node_index node )
             _o.push_back( op_def.op );
             ocount += 1;
 
-            /*
-                Check for elif.
-            */
-
             if ( next->kind != AST_EXPR_ELIF )
             {
                 break;
@@ -474,14 +466,14 @@ ir_operand build_ir::visit( node_index node )
 
         // Might have a list of names.
         node_index name = names;
-        node_index name_done = next_node( names );
-        if ( name->kind == AST_NAME_LIST )
+        node_index name_done = next_node( name );
+        if ( names->kind == AST_NAME_LIST )
         {
             name = child_node( names );
             name_done = names;
         }
 
-        // Count number of lvals.
+        // Count number of names.
         unsigned rvcount = 0;
         for ( node_index c = name; c.index < name_done.index; c = next_node( c ) )
         {
@@ -850,34 +842,65 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
     if ( node->kind == AST_RVAL_ASSIGN )
     {
         // a, b, c = rvals
+        node_index lvals = child_node( node );
+        node_index rvals = next_node( lvals );
 
+        // Might have a list of rvals.
+        node_index lval = lvals;
+        node_index lval_done = next_node( lval );
+        if ( lvals->kind == AST_NAME_LIST )
+        {
+            lval = child_node( lvals );
+            lval_done = lvals;
+        }
 
+        // Count number of lvals.
+        unsigned inner_unpack = 0;
+        for ( node_index c = lval; c.index < lval_done.index; c = next_node( c ) )
+        {
+            inner_unpack += 1;
+        }
 
+        // Push rvals onto stack.
+        unsigned inner_rvindex = rval_list( rvals, inner_unpack );
+        assert( inner_rvindex == rvindex );
+
+        // Perform assignments.
+        unsigned rv = inner_rvindex;
+        for ( ; lval.index < lval_done.index; lval = next_node( lval ) )
+        {
+            assign( lval, _o.at( rv++ ) );
+        }
+
+        // Leave rvals on the stack, as our contribution.
+        assert( rv == inner_rvindex + inner_unpack );
+        assert( rv == _o.size() );
+        rvcount += inner_unpack;
     }
     else if ( node->kind == AST_RVAL_OP_ASSIGN )
     {
         // a *= b
-        node_index u = child_node( node );
-        node_index op = next_node( u );
-        node_index v = next_node( op );
+        node_index lval = child_node( node );
+        node_index op = next_node( lval );
+        node_index rval = next_node( op );
 
-        _o.push_back( visit( u ) );
-        _o.push_back( visit( v ) );
+        _o.push_back( visit( lval ) );
+        rval_list( rval, 1 );
         ir_operand result = emit( op->sloc, (ir_opcode)op->kind, 2 );
 
         _o.push_back( result );
-        assign( u, _o.back() );
+        assign( lval, _o.back() );
     }
     else if ( node->kind == AST_RVAL_LIST )
     {
         // a, b, c ...
         for ( node_index rval = child_node( node ); rval.index < node.index; rval = next_node( rval ) )
         {
-            unsigned rval_unpack = 1;
+            unsigned inner_unpack = 1;
             if ( rval->kind == AST_EXPR_UNPACK )
-                rval_unpack = unpack - std::min( rvcount, unpack );
-            rval_list( rval, rval_unpack );
-            rvcount += rval_unpack;
+                inner_unpack = unpack - std::min( rvcount, unpack );
+            rval_list( rval, inner_unpack );
+            rvcount += inner_unpack;
         }
     }
     else if ( node->kind == AST_EXPR_UNPACK )
@@ -903,7 +926,7 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
     {
         // a
         ir_operand rval = visit( node );
-        // TODO: pin loaded definitions of variables.
+        // TODO: pin loaded definitions of variables on right hand side.
         _o.push_back( rval );
         rvcount += 1;
     }
