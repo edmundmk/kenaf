@@ -884,12 +884,56 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
         node_index op = next_node( lval );
         node_index rval = next_node( op );
 
-        _o.push_back( visit( lval ) );
-        rval_list( rval, 1 );
-        ir_operand result = emit( op->sloc, (ir_opcode)op->kind, 2 );
+        // Evaluate left hand side, but remember operands.
+        ir_operand uoperand = { IR_O_NONE };
+        ir_operand voperand = { IR_O_NONE };
+        if ( lval->kind == AST_EXPR_KEY )
+        {
+            uoperand = visit( child_node( lval ) );
+            voperand = string_operand( lval );
+            _o.push_back( uoperand );
+            _o.push_back( voperand );
+            _o.push_back( emit( lval->sloc, IR_GET_KEY, 2 ) );
+        }
+        else if ( lval->kind == AST_EXPR_INDEX )
+        {
+            node_index u = child_node( lval );
+            node_index v = child_node( rval );
+            uoperand = visit( u ); _o.push_back( uoperand );
+            voperand = visit( v ); _o.push_back( voperand );
+            _o.push_back( emit( lval->sloc, IR_GET_INDEX, 2 ) );
+        }
+        else
+        {
+            _o.push_back( visit( lval ) );
+        }
 
+        // Evaluate rval (which is really an rval, so can yield etc).
+        rval_list( rval, 1 );
+
+        // Perform operation.
+        ir_operand result = emit( op->sloc, (ir_opcode)op->kind, 2 );
         _o.push_back( result );
-        assign( lval, _o.back() );
+
+        // Perform assignment, leaving result on the stack.
+        if ( lval->kind == AST_EXPR_KEY )
+        {
+            _o.push_back( uoperand );
+            _o.push_back( voperand );
+            _o.push_back( result );
+            emit( lval->sloc, IR_SET_KEY, 3 );
+        }
+        else if ( lval->kind == AST_EXPR_INDEX )
+        {
+            _o.push_back( uoperand );
+            _o.push_back( voperand );
+            _o.push_back( result );
+            emit( lval->sloc, IR_SET_INDEX, 3 );
+        }
+        else
+        {
+            assign( lval, _o.back() );
+        }
     }
     else if ( node->kind == AST_RVAL_LIST )
     {
@@ -955,7 +999,7 @@ ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
     assert( node->kind == AST_EXPR_UNPACK );
 
     // Evaluate expression we want to unpack.
-    ir_operand operand;
+    ir_operand operand = { IR_O_NONE };
     node_index u = child_node( node );
     if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg_param )
     {
