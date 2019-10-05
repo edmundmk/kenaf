@@ -189,6 +189,12 @@ static void debug_print_op( ir_function* f, unsigned i )
             printf( " UPSTACK %u", operand.index );
             break;
         }
+
+        case IR_O_SELECT_INDEX:
+        {
+            printf( " SELECT %u", operand.index );
+            break;
+        }
         }
     }
     if ( op.local != IR_INVALID_LOCAL )

@@ -488,6 +488,12 @@ void resolve_names::lookup( ast_function* f, unsigned index, lookup_context cont
         _source->error( n->sloc, "variable '%.*s', declared after continue, cannot be used in until expression", (int)name.size(), name.data() );
     }
 
+    // Can't assign to super.
+    if ( context == LOOKUP_ASSIGN && v->implicit_super )
+    {
+        _source->error( n->sloc, "cannot assign to 'super'" );
+    }
+
     // Found in scope at scope_index.
     size_t vscope_index = scope_index++;
     scope* vscope = _scopes.at( vscope_index ).get();

@@ -522,22 +522,15 @@ ir_operand build_ir::visit( node_index node )
         node_index qname = child_node( node );
         node_index value = next_node( node );
 
-        // Evaluate value (function or object).
         ir_operand object = visit( value );
-
         if ( qname->kind == AST_LOCAL_DECL )
         {
-            // A single name provides a definition.
             def( node->sloc, qname->leaf_index().index, object );
         }
         else
         {
-            // A qualified name, set key of target.
             assert( qname->kind == AST_EXPR_KEY );
-            _o.push_back( visit( child_node( qname ) ) );
-            _o.push_back( string_operand( qname ) );
-            _o.push_back( object );
-            emit( node->sloc, IR_SET_KEY, 3 );
+            assign( qname, object );
         }
 
         return { IR_O_NONE };
@@ -857,10 +850,23 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
     if ( node->kind == AST_RVAL_ASSIGN )
     {
         // a, b, c = rvals
+
+
+
     }
     else if ( node->kind == AST_RVAL_OP_ASSIGN )
     {
         // a *= b
+        node_index u = child_node( node );
+        node_index op = next_node( u );
+        node_index v = next_node( op );
+
+        _o.push_back( visit( u ) );
+        _o.push_back( visit( v ) );
+        ir_operand result = emit( op->sloc, (ir_opcode)op->kind, 2 );
+
+        _o.push_back( result );
+        assign( u, _o.back() );
     }
     else if ( node->kind == AST_RVAL_LIST )
     {
@@ -963,6 +969,40 @@ ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
 
     // Return op that unpacks.
     return operand;
+}
+
+void build_ir::assign( node_index lval, ir_operand rval )
+{
+    if ( lval->kind == AST_LOCAL_NAME )
+    {
+        def( lval->sloc, lval->leaf_index().index, rval );
+    }
+    else if ( lval->kind == AST_UPVAL_NAME )
+    {
+        _o.push_back( { IR_O_UPVAL_INDEX, lval->leaf_index().index } );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_UPVAL, 2 );
+    }
+    else if ( lval->kind == AST_EXPR_KEY )
+    {
+        _o.push_back( visit( child_node( lval ) ) );
+        _o.push_back( string_operand( lval ) );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_KEY, 3 );
+    }
+    else if ( lval->kind == AST_EXPR_INDEX )
+    {
+        node_index u = child_node( lval );
+        node_index v = next_node( lval );
+        _o.push_back( visit( u ) );
+        _o.push_back( visit( v ) );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_INDEX, 3 );
+    }
+    else
+    {
+        _source->error( lval->sloc, "internal: lhs is not assignable" );
+    }
 }
 
 ir_operand build_ir::expr_list_op( node_index node, ir_opcode opcode )

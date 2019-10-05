@@ -67,6 +67,8 @@ private:
 
     // Rvals and unpacking
     unsigned rval_list( node_index node, unsigned rvcount );
+    void assign( node_index lval, ir_operand rval );
+
     ir_operand expr_unpack( node_index node, unsigned unpack );
     ir_operand expr_list_op( node_index node, ir_opcode opcode );
 
