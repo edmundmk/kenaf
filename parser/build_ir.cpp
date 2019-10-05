@@ -848,7 +848,7 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
         // Might have a list of rvals.
         node_index lval = lvals;
         node_index lval_done = next_node( lval );
-        if ( lvals->kind == AST_NAME_LIST )
+        if ( lvals->kind == AST_LVAL_LIST )
         {
             lval = child_node( lvals );
             lval_done = lvals;
