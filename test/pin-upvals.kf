@@ -1,0 +1,9 @@
+
+var x, y, z = 1, 2, 3
+
+def f()
+    x, y, z = 4, 5, 6
+end
+
+do_something( x, y, z, f(), x, y, z )
+
