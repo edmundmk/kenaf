@@ -392,7 +392,7 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_EXPR_CALL:
     {
-        return expr_list_op( node, IR_CALL );
+        return call_op( node, IR_CALL );
     }
 
     case AST_EXPR_UNPACK:
@@ -448,13 +448,13 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_YIELD:
     {
         // yield a, b, c ...
-        return expr_list_op( node, IR_YIELD );
+        return call_op( node, IR_YIELD );
     }
 
     case AST_EXPR_YIELD_FOR:
     {
         // yield for a()
-        return expr_list_op( node, IR_YCALL );
+        return call_op( node, IR_YCALL );
     }
 
     // -- DECLARATION AND ASSIGNMENT --
@@ -487,10 +487,10 @@ ir_operand build_ir::visit( node_index node )
 
             // Assign.
             unsigned rv = rvindex;
-            for ( ; name.index < name_done.index; name = next_node( name ) )
+            for ( ; name.index < name_done.index; name = next_node( name ), ++rv )
             {
                 assert( name->kind == AST_LOCAL_DECL );
-                def( name->sloc, name->leaf_index().index, _o.at( rv++ ) );
+                def( name->sloc, name->leaf_index().index, _o.at( rv ) );
             }
 
             _o.resize( rvindex );
@@ -814,6 +814,62 @@ ir_operand build_ir::visit( node_index node )
 
 */
 
+    case AST_NAME:
+    {
+        assert( ! "unexpected NAME node" );
+        return { IR_O_NONE };
+    }
+
+    case AST_LOCAL_DECL:
+    {
+//        assert( ! "unexpected LOCAL_DECL node" );
+        return { IR_O_NONE };
+    }
+
+    case AST_GLOBAL_NAME:
+    {
+        _o.push_back( string_operand( node ) );
+        return emit( node->sloc, IR_GET_GLOBAL, 1 );
+    }
+
+    case AST_UPVAL_NAME:
+    case AST_UPVAL_NAME_SUPER:
+    {
+        _o.push_back( { IR_O_UPVAL_INDEX, node->leaf_index().index } );
+        ir_operand value = emit( node->sloc, IR_GET_UPVAL, 1 );
+        if ( node->kind == AST_UPVAL_NAME_SUPER )
+        {
+            _o.push_back( value );
+            value = emit( node->sloc, IR_SUPEROF, 1 );
+        }
+        return value;
+    }
+
+    case AST_LOCAL_NAME:
+    case AST_LOCAL_NAME_SUPER:
+    {
+        unsigned local_index = node->leaf_index().index;
+
+        // TODO: Find SSA definition that reaches this point.
+        _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
+        ir_operand value = emit( node->sloc, IR_VAL, 1 );
+        _f->ops.at( value.index ).local = local_index;
+
+        if ( node->kind == AST_UPVAL_NAME_SUPER )
+        {
+            _o.push_back( value );
+            value = emit( node->sloc, IR_SUPEROF, 1 );
+        }
+        else if ( _f->ast->locals.at( local_index ).upstack_index != AST_INVALID_INDEX )
+        {
+            // We have to pin all locals which escape the function, as they
+            // may be clobbered by calls.
+            value = pin( node->sloc, value );
+        }
+
+        return value;
+    }
+
     default:
     {
         // TODO: remove this once all cases handled.
@@ -867,9 +923,17 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
 
         // Perform assignments.
         unsigned rv = inner_rvindex;
-        for ( ; lval.index < lval_done.index; lval = next_node( lval ) )
+        for ( ; lval.index < lval_done.index; lval = next_node( lval ), ++rv )
         {
-            assign( lval, _o.at( rv++ ) );
+            // Assign this value.
+            assign( lval, _o.at( rv ) );
+
+            // If the rval is not going to be reused then remove it from the
+            // stack, preventing pointless upgrade of pins.
+            if ( unpack <= rv )
+            {
+                _o[ rv ] = { IR_O_NONE };
+            }
         }
 
         // Leave rvals on the stack, as our contribution.
@@ -961,17 +1025,16 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
             for ( ; rvcount < unpack; ++rvcount )
             {
                 _o.push_back( rval );
-                _o.push_back( { IR_O_SELECT_INDEX, rvcount } );
+                _o.push_back( { IR_O_SELECT, rvcount } );
                 _o.push_back( emit( node->sloc, IR_SELECT, 2 ) );
             }
         }
     }
     else
     {
-        // a
-        ir_operand rval = visit( node );
-        // TODO: pin loaded definitions of variables on right hand side.
-        _o.push_back( rval );
+        // References to locals on right hand side must be pinned in case an
+        // assignment clobbers it before it can be used.
+        _o.push_back( pin( node->sloc, visit( node ) ) );
         rvcount += 1;
     }
 
@@ -1009,17 +1072,17 @@ ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
     else if ( u->kind == AST_EXPR_CALL )
     {
         // a() ...
-        operand = expr_list_op( u, IR_CALL );
+        operand = call_op( u, IR_CALL );
     }
     else if ( u->kind == AST_EXPR_YIELD_FOR )
     {
         // yield a() ...
-        operand = expr_list_op( u, IR_YCALL );
+        operand = call_op( u, IR_YCALL );
     }
     else if ( u->kind == AST_EXPR_YIELD )
     {
         // yield ... a, b, c
-        operand = expr_list_op( u, IR_YIELD );
+        operand = call_op( u, IR_YIELD );
     }
     else
     {
@@ -1072,7 +1135,7 @@ void build_ir::assign( node_index lval, ir_operand rval )
     }
 }
 
-ir_operand build_ir::expr_list_op( node_index node, ir_opcode opcode )
+ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
 {
     unsigned ocount = 0;
     node_index arg = child_node( node );
@@ -1107,7 +1170,9 @@ ir_operand build_ir::expr_list_op( node_index node, ir_opcode opcode )
         ocount += 1;
     }
 
-    return emit( node->sloc, opcode, ocount );
+    ir_operand call = emit( node->sloc, opcode, ocount );
+    fix_upval_pins();
+    return call;
 }
 
 ir_operand build_ir::number_operand( node_index node )
@@ -1139,7 +1204,7 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     unsigned oindex = _o.size() - ocount;
     for ( unsigned i = 0; i < ocount; ++i )
     {
-        _f->operands.push_back( _o[ oindex + i ] );
+        _f->operands.push_back( ignore_pin( _o[ oindex + i ] ) );
     }
     _o.resize( oindex );
 
@@ -1207,25 +1272,119 @@ void build_ir::fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsig
     fixup_list->resize( index );
 }
 
+ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
+{
+    /*
+        On the right hand side of assignments, and for any local that is used
+        as an upval, a load of the current definition of a local require a pin.
+        This pin is upgraded to a real value if the local is assigned to, or
+        if a function is called before the pin is popped from the stack.
+    */
+
+    operand = ignore_pin( operand );
+
+    // Ignore operands that aren't definitions of locals.
+    if ( operand.kind != IR_O_OP )
+    {
+        return operand;
+    }
+
+    ir_op* op = &_f->ops.at( operand.index );
+    if ( op->local == IR_INVALID_LOCAL )
+    {
+        return operand;
+    }
+
+    // Emit pin.  Pins aren't definitions, but they do use the local field.
+    _o.push_back( operand );
+    operand = emit( sloc, IR_PIN, 1 );
+    operand.kind = IR_O_PIN;
+    _f->ops.at( operand.index ).local = op->local;
+
+    // Done.
+    return operand;
+}
+
+ir_operand build_ir::ignore_pin( ir_operand operand )
+{
+    while ( operand.kind == IR_O_PIN )
+    {
+        ir_op* op = &_f->ops.at( operand.index );
+        assert( op->opcode == IR_PIN );
+        assert( op->ocount == 1 );
+        operand = _f->operands.at( op->oindex );
+    }
+    return operand;
+}
+
+void build_ir::fix_local_pins( unsigned local )
+{
+    for ( size_t i = 0; i < _o.size(); ++i )
+    {
+        ir_operand* pin = &_o[ i ];
+        if ( pin->kind != IR_O_PIN )
+        {
+            continue;
+        }
+
+        ir_op* op = &_f->ops.at( pin->index );
+        assert( op->opcode == IR_PIN );
+        if ( op->local != local )
+        {
+            continue;
+        }
+
+        pin->kind = IR_O_OP;
+        op->opcode = IR_VAL;
+        op->local = IR_INVALID_LOCAL;
+    }
+}
+
+void build_ir::fix_upval_pins()
+{
+    for ( size_t i = 0; i < _o.size(); ++i )
+    {
+        ir_operand* pin = &_o[ i ];
+        if ( pin->kind != IR_O_PIN )
+        {
+            continue;
+        }
+
+        ir_op* op = &_f->ops.at( pin->index );
+        assert( op->opcode == IR_PIN );
+        if ( _f->ast->locals.at( op->local ).upstack_index == AST_INVALID_INDEX )
+        {
+            continue;
+        }
+
+        pin->kind = IR_O_OP;
+        op->opcode = IR_VAL;
+        op->local = IR_INVALID_LOCAL;
+    }
+}
+
 void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
 {
     // TODO: SSA definition.
-    // TODO: promote PIN -> VAL for clobbered variables.
 
-    // Be robust against previous failures.
+    // Be robust against failures.
     if ( operand.kind == IR_O_NONE )
     {
         return;
     }
 
+    // Upgrade pins on the stack that refer to the same local.
+    fix_local_pins( local );
+
     // Get op which produces the value assigned to the local.
+    operand = ignore_pin( operand );
     assert( operand.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( operand.index );
 
     // If defining from a previous definition of a local, create new value.
     if ( op->local != IR_INVALID_LOCAL )
     {
-        _o.push_back( { IR_O_LOCAL_INDEX, local } );
+        _o.push_back( { IR_O_OP, operand.index } );
         operand = emit( sloc, IR_VAL, 1 );
         op = &_f->ops.at( operand.index );
     }

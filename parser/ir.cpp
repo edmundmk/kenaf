@@ -122,8 +122,15 @@ static void debug_print_op( ir_function* f, unsigned i )
         }
 
         case IR_O_OP:
+        case IR_O_PIN:
         {
             printf( " :%04X", operand.index );
+            break;
+        }
+
+        case IR_O_SELECT:
+        {
+            printf( " SELECT %u", operand.index );
             break;
         }
 
@@ -187,12 +194,6 @@ static void debug_print_op( ir_function* f, unsigned i )
         case IR_O_UPSTACK_INDEX:
         {
             printf( " UPSTACK %u", operand.index );
-            break;
-        }
-
-        case IR_O_SELECT_INDEX:
-        {
-            printf( " SELECT %u", operand.index );
             break;
         }
         }

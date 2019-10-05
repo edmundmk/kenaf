@@ -70,7 +70,7 @@ private:
     void assign( node_index lval, ir_operand rval );
 
     ir_operand expr_unpack( node_index node, unsigned unpack );
-    ir_operand expr_list_op( node_index node, ir_opcode opcode );
+    ir_operand call_op( node_index node, ir_opcode opcode );
 
     // Constants.
     ir_operand number_operand( node_index node );
@@ -91,8 +91,13 @@ private:
     void fixup( jump_fixup fixup, unsigned target );
     void fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target );
 
+    // Pins.
+    ir_operand pin( srcloc sloc, ir_operand value );
+    ir_operand ignore_pin( ir_operand operand );
+    void fix_local_pins( unsigned local );
+    void fix_upval_pins();
+
     // Use/def.
-    void load( ir_operand operand );
     void def( srcloc sloc, unsigned local, ir_operand operand );
 
     // Function under construction.

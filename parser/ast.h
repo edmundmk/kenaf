@@ -179,9 +179,9 @@ enum ast_node_kind : uint16_t
     AST_OBJECT_KEY,             // name expr
 
     AST_NAME,                   // leaf "name"
+    AST_LOCAL_DECL,             // Declaration of a local variable.
     AST_GLOBAL_NAME,            // Reference to global value.
     AST_UPVAL_NAME,             // Reference to upval.
-    AST_LOCAL_DECL,             // Declaration of a local variable.
     AST_LOCAL_NAME,             // Reference to local variable.
     AST_UPVAL_NAME_SUPER,       // superof( upval ).
     AST_LOCAL_NAME_SUPER,       // superof( local variable ).

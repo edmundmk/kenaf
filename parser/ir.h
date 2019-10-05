@@ -231,6 +231,9 @@ enum ir_operand_kind : uint8_t
     IR_O_NONE,                  // No operand.
 
     IR_O_OP,                    // Index of op.
+    IR_O_PIN,                   // Index of pin op.
+    IR_O_SELECT,                // Index of selected result.
+
     IR_O_JUMP,                  // Index of op to jump to (must be BLOCK_HEAD).
 
     IR_O_NULL,                  // null
@@ -244,7 +247,6 @@ enum ir_operand_kind : uint8_t
     IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
 
-    IR_O_SELECT_INDEX,          // Index of selected result.
 };
 
 struct ir_op

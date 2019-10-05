@@ -99,9 +99,9 @@ const char* const AST_NODE_NAME[] =
     [ AST_OBJECT_KEY        ] = "OBJECT_KEY",
 
     [ AST_NAME              ] = "EXPR_NAME",
+    [ AST_LOCAL_DECL        ] = "LOCAL_DECL",
     [ AST_GLOBAL_NAME       ] = "GLOBAL_NAME",
     [ AST_UPVAL_NAME        ] = "UPVAL_NAME",
-    [ AST_LOCAL_DECL        ] = "LOCAL_DECL",
     [ AST_LOCAL_NAME        ] = "LOCAL_NAME",
     [ AST_UPVAL_NAME_SUPER  ] = "UPVAL_NAME_SUPER",
     [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
