@@ -900,10 +900,9 @@ unsigned build_ir::visit_rvals( node_index node, unsigned unpack )
     if ( rvcount != unpack )
     {
         _source->error( node->sloc, "internal: mismatched rval count %d, expected %d", rvcount, unpack );
-        while ( rvcount < unpack )
+        for ( ; rvcount < unpack; rvcount += 1 )
         {
             _o.push_back( { IR_O_NONE } );
-            rvcount += 1;
         }
         _o.resize( rvindex + unpack );
     }
@@ -1076,9 +1075,13 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     // TODO: SSA definition.
     // TODO: promote PIN -> VAL for clobbered variables.
 
-    // Get op which produces the value assigned to the local.
+    // Be robust against previous failures.
     if ( operand.kind == IR_O_NONE )
+    {
         return;
+    }
+
+    // Get op which produces the value assigned to the local.
     assert( operand.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( operand.index );
 
