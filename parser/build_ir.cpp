@@ -976,7 +976,7 @@ ir_operand build_ir::unpack_expression( node_index node, unsigned unpack )
 
 ir_operand build_ir::number_operand( node_index node )
 {
-    unsigned index = _f->strings.size();
+    unsigned index = _f->numbers.size();
     _f->numbers.push_back( { node->leaf_number().n } );
     return { IR_O_NUMBER, index };
 }
