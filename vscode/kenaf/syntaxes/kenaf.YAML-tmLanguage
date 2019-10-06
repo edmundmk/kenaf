@@ -1,0 +1,154 @@
+--
+name: Kenaf
+scopeName: source.kenaf
+fileTypes: [ kf ]
+
+patterns:
+- include: '#comments'
+- include: '#operators'
+- include: '#punctuation'
+- include: '#braces'
+- include: '#keywords'
+- include: '#builtins'
+- include: '#name'
+- include: '#number'
+
+repository:
+
+  comments:
+    patterns:
+    - name: 'comment.block.kenaf'
+      begin: '/\*'
+      beginCaptures:
+        '0': { name: 'punctuation.definition.comment.kenaf' }
+      end: '\*/'
+      endCaptures:
+        '0': { name: 'punctuation.definition.comment.kenaf' }
+    - name: 'comment.line.kenaf'
+      begin: '--'
+      beginCaptures:
+        '0': { name: 'punctuation.definition.comment.kenaf' }
+      end: '(?=^)'
+
+  operators:
+    patterns:
+    - name: 'keyword.operator.assignment.kenaf'
+      match: '=(?!=)|\*=|/=|//=|%=|\+=|-=|~=|<<=|>>=|~>>=|&=|^=|\|='
+    - name: 'keyword.operator.logical.kenaf'
+      match: 'not|and|or'
+    - name: 'keyword.operator.comparison.kenaf'
+      match: '==|!=|<(?!<)|<=|>(?!>)|>=|is|is not'
+    - name: 'keyword.operator.bitwise.kenaf'
+      match: '~|&|\||\^|<<|>>|~>>'
+    - name: 'keyword.operator.arithmetic.kenaf'
+      match: '\*|/|//|%|\+|-'
+
+  punctuation:
+    patterns:
+    - name: 'punctuation.accessor.kenaf'
+      match: '\.'
+    - name: 'punctuation.terminator.kenaf'
+      match: ';'
+    - name: 'punctuation.separator.kenaf'
+      match: ',|:'
+
+  braces:
+    patterns:
+    - name: 'meta.braces'
+      begin: '\{'
+      beginCaptures:
+        '0': { name: 'punctuation.section.braces.begin' }
+      end: '\}'
+      endCaptures:
+        '0': { name: 'punctuation.section.braces.end' }
+      patterns:
+      - include: '$self'
+    - name: 'meta.parens'
+      begin: '\('
+      beginCaptures:
+        '0': { name: 'punctuation.section.parens.begin' }
+      end: '\)'
+      endCaptures:
+        '0': { name: 'punctuation.section.parens.end' }
+      patterns:
+      - include: '$self'
+    - name: 'meta.brackets'
+      begin: '\['
+      beginCaptures:
+        '0': { name: 'punctuation.section.brackets.begin' }
+      end: '\]'
+      endCaptures:
+        '0': { name: 'punctuation.section.brackets.begin' }
+      patterns:
+      - include: '$self'
+
+  string:
+    name: 'string.quoted.double.ul'
+    begin: '"'
+    beginCaptures:
+      '0': { name: 'punctuation.definition.string.begin.ul' }
+    end: '(")|([^"]$)'
+    endCaptures:
+      '1': { name: 'punctuation.definition.string.end.ul' }
+      '2': { name: 'invalid.illegal.newline.ul' }
+    patterns:
+    - include: '#string-escape'
+
+  string-escape:
+    name: 'constant.character.escape.ul'
+    match: '\\(["\\/bfnrtv]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U\+[0-9A-Fa-f]{6})'
+
+  keywords:
+    patterns:
+    - name: 'storage.type.kenaf'
+      match: '\b(var|def)\b'
+    - name: 'constant.language.boolean.null.kenaf'
+      match: '\b(null)\b'
+    - name: 'constant.language.boolean.false.kenaf'
+      match: '\b(false)\b'
+    - name: 'constant.language.boolean.true.kenaf'
+      match: '\b(true)\b'
+    - name: 'variable.language.self.kenaf'
+      match: '\b(self)\b'
+    - name: 'variable.language.super.kenaf'
+      match: '\b(super)\b'
+    - name: 'keyword.control.kenaf'
+      match: '\b(break|continue|elif|else|end|for|if|repeat|return|then|throw|until|while|yield)\b'
+
+  builtins:
+    patterns:
+    - name: 'support.constant.global.kenaf'
+      match: '\b(global)\b'
+    - name: 'support.class.builtin.kenaf'
+      match: '\b(object|bool|number|string|array|table)\b'
+    - name: 'support.function.builtin.kenaf'
+      match: '\b(superof|haskey|getkey|setkey|delkey|keys)\b'
+    - name: 'support.function.math.kenaf'
+      match: '\b(abs|acos|asin|atan|ceil|cos|floor|fmod|isfinite|isinf|isnan|max|min|pow|round|sin|sqrt|tan|trunc)\b'
+    - name: 'support.constant.math.kenaf'
+      match: '\b(pi|tau|nan|infinity)\b'
+
+  name:
+    name: 'variable.other'
+    match: '[A-Za-z_][0-9A-Za-z_]*'
+
+  number:
+    patterns:
+    - name: 'constant.numeric.bin.ulang'
+      match: '0b[0-1]+'
+    - name: 'constant.numeric.oct.ulang'
+      match: '0o[0-7]+'
+    - name: 'constant.numeric.hex.ulang'
+      match: '0x[0-9A-Fa-f]+'
+    - name: 'constant.numeric.float.hex.ulang'
+      match: '0x(?:[0-9A-Fa-f]+(?:p[+\-]?[0-9]+|\.[0-9A-Fa-f]*(?:p[+\-]?[0-9]+)?)|\.[0-9A-Fa-f]+(?:p[+\-]?[0-9]+)?)'
+    - name: 'constant.numeric.float'
+      match: '(?:0|[1-9][0-9]*)(?:e[+\-]?[0-9]+|\.[0-9]*(?:e[+\-]?[0-9]+)?)|\.[0-9]+(?:e[+\-]?[0-9]+)?'
+    - name: 'constant.numeric.integer'
+      match: '0|[1-9][0-9]*'
+
+  invalid:
+    name: 'invalid.illegal.ul'
+    match: '.'
+
+...

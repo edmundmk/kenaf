@@ -1,0 +1,25 @@
+{
+    "name": "kenaf",
+    "displayName": "Kenaf",
+    "description": "Kenaf syntax highlighting for Visual Studio Code",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.38.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "kenaf",
+            "aliases": ["Kenaf", "kenaf"],
+            "extensions": [".kf"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "kenaf",
+            "scopeName": "source.kenaf",
+            "path": "./syntaxes/kenaf.tmLanguage.json"
+        }]
+    }
+}
