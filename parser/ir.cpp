@@ -91,11 +91,7 @@ const char* const OPCODE_NAMES[] =
     [ IR_B_DEF          ] = "B_DEF",
     [ IR_B_PHI          ] = "B_PHI",
 
-    [ IR_BLOCK_HEAD     ] = "BLOCK_HEAD",
-    [ IR_BLOCK_LOOP     ] = "BLOCK_LOOP",
-    [ IR_BLOCK_BACK     ] = "BLOCK_BACK",
-    [ IR_BLOCK_FROM     ] = "BLOCK_FROM",
-
+    [ IR_BLOCK          ] = "BLOCK",
     [ IR_JUMP           ] = "JUMP",
     [ IR_JUMP_TEST      ] = "JUMP_TEST",
     [ IR_JUMP_TFOR      ] = "JUMP_TFOR",
@@ -137,6 +133,12 @@ static void debug_print_op( ir_function* f, unsigned i )
         case IR_O_SELECT:
         {
             printf( " SELECT %u", operand.index );
+            break;
+        }
+
+        case IR_O_BLOCK:
+        {
+            printf( " BLOCK %u", operand.index );
             break;
         }
 

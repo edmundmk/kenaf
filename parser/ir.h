@@ -25,26 +25,11 @@
 
     -- Blocks
 
-    Each block begins with a head op, and ends with a jump.
+    Each block begins with a BLOCK op, and ends with a jump.
 
-    The head op can be BLOCK_HEAD or BLOCK_LOOP.  BLOCK_LOOP indicates that the
-    block is a loop header, but is otherwise identical to BLOCK_HEAD.  Each
-    head has a link to the first phi op.
-
-    After the head is a series of BLOCK_FROM ops which indicate predecessor
-    blocks in the control flow graph.  For all blocks except loop headers, the
-    set of predecessor blocks is known when the block is created.  For loops,
-    the first op in this sequence can be a BLOCK_BACK, which links to a later
-    sequence of BLOCK_FROM ops placed after the end of the loop.
-
-        BLOCK_LOOP ocount [jump_link] [outer_loop] [phi_link]
-        BLOCK_BACK ocount [block_from_list]
-        BLOCK_FROM [prev_block]
-        BLOCK_FROM [prev_block]
-        BLOCK_FROM [prev_block]
-
-    Each BLOCK_FROM is numbered from zero, starting with the first block in the
-    BLOCK_BACK list.
+    The BLOCK op references a block description in the blocks array of the
+    function.  Among other information, the block description links to the
+    first phi op.
 
     Phi ops gather local definitions at entry to the block.  Although phi ops
     are emitted intermixed with other instructions, they are linked together in
@@ -62,8 +47,7 @@
             During IR construction, phi ops in unsealed loops are represented
             by PHI_OPEN ops.
 
-    Fields in brackets are stored in the sloc field of the op.  A block head's
-    jump_link is stored in the oindex field, and outer_loop in live_range.
+    The link to the next phi op in the block is stored in the sloc field.
 
 
     -- Loop variables.
@@ -126,8 +110,11 @@ struct ast_function;
 struct ir_function;
 struct ir_op;
 struct ir_operand;
+struct ir_block;
 struct ir_number;
 struct ir_string;
+
+typedef unsigned ir_block_index;
 
 /*
     Op indexes are 24-bit.
@@ -152,6 +139,8 @@ struct ir_function
     ast_function* ast;
     std::vector< ir_op > ops;
     std::vector< ir_operand > operands;
+    std::vector< ir_block > blocks;
+    std::vector< ir_block_index > preceding_blocks;
     std::vector< ir_number > numbers;
     std::vector< ir_string > strings;
 };
@@ -242,13 +231,8 @@ enum ir_opcode : uint8_t
     IR_B_DEF,                   // link_cut, value, jump_phi
     IR_B_PHI,                   // def, def, def, ..., value
 
-    // Block header instructions.
-    IR_BLOCK_HEAD,              // Non-loop block.
-    IR_BLOCK_LOOP,              // Loop header block.
-    IR_BLOCK_BACK,              // Indicates list of BLOCK_FROM for loop back-edges.
-    IR_BLOCK_FROM,              // Links to a predecessor block.
-
-    // Jump instructions that close blocks.
+    // Block and jump instructions.
+    IR_BLOCK,                   // Block header.
     IR_JUMP,                    // Jump to new block.
     IR_JUMP_TEST,               // test, iftrue, iffalse
     IR_JUMP_TFOR,               // for_each/for_step, iftrue, ifalse
@@ -268,6 +252,7 @@ enum ir_operand_kind : uint8_t
     IR_O_PIN,                   // Index of pin op.
     IR_O_SELECT,                // Index of selected result.
 
+    IR_O_BLOCK,                 // Index of block in function's blocks array.
     IR_O_JUMP,                  // Index of op to jump to.
 
     IR_O_NULL,                  // null
@@ -280,6 +265,13 @@ enum ir_operand_kind : uint8_t
     IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION_INDEX,        // Index of function.
     IR_O_UPSTACK_INDEX,         // Upstack index.
+};
+
+enum ir_block_kind : uint8_t
+{
+    IR_BLOCK_BASIC,
+    IR_BLOCK_LOOP,
+    IR_BLOCK_UNSEALED_LOOP,
 };
 
 struct ir_op
@@ -309,13 +301,41 @@ struct ir_op
     unsigned local : 8;         // Index of local result is assigned to.
     unsigned live_range : 24;   // Last use in this block.
 
-    srcloc sloc;                // Source location.
+    union
+    {
+        srcloc sloc;            // Source location.
+        unsigned phi_next;      // Next phi in block.
+    };
 };
 
 struct ir_operand
 {
     ir_operand_kind kind : 8;    // Operand kind.
-    unsigned index : 24;            // Index of op used as result.
+    unsigned index : 24;         // Index of op used as result.
+};
+
+struct ir_block
+{
+    ir_block()
+        :   kind( IR_BLOCK_BASIC )
+        ,   loop( IR_INVALID_INDEX )
+        ,   lower( IR_INVALID_INDEX )
+        ,   upper( IR_INVALID_INDEX )
+        ,   phi_head( IR_INVALID_INDEX )
+        ,   phi_tail( IR_INVALID_INDEX )
+        ,   preceding_index( IR_INVALID_INDEX )
+        ,   preceding_count( 0 )
+    {
+    }
+
+    ir_block_kind kind : 8;     // Block kind.
+    ir_block_index loop : 24;   // Index of loop containing this block.
+    unsigned lower;             // Index of first op in block.
+    unsigned upper;             // Index past last op in block.
+    unsigned phi_head;          // Index of first phi op in block.
+    unsigned phi_tail;          // Index of last phi op in block.
+    unsigned preceding_index;   // Index of first block in preceding_blocks.
+    unsigned preceding_count;   // Count of preceding blocks.
 };
 
 struct ir_number
