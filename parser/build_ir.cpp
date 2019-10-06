@@ -155,7 +155,8 @@ ir_operand build_ir::visit( node_index node )
         node_index v = next_node( op );
 
         unsigned ocount = 0;
-        size_t endif = _fixup_endif.size();
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_endif = goto_open( GOTO_ENDIF );
 
         ir_operand last = visit( u );
         ir_operand comp = { IR_O_NONE };
@@ -203,25 +204,22 @@ ir_operand build_ir::visit( node_index node )
             }
 
             _o.push_back( comp );
-            op_branch op_and = emit_branch( op->sloc, IR_B_AND, 1 );
+            ir_operand op_and = emit_jump( op->sloc, IR_B_AND, 1, GOTO_ELSE );
 
-            _o.push_back( op_and.op );
+            _o.push_back( op_and );
             _o.push_back( comp );
-            op_branch op_def = emit_branch( op->sloc, IR_B_DEF, 2 );
-
-            fixup( op_and.branch, _f->ops.size() );
-            _fixup_endif.push_back( op_def.branch );
-            _o.push_back( op_def.op );
+            _o.push_back( emit_jump( op->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
             ocount += 1;
 
+            goto_branch( goto_else );
             v = next_node( op );
         }
 
-        if ( endif < _fixup_endif.size() )
+        if ( ocount )
         {
             _o.push_back( comp );
+            goto_branch( goto_endif );
             comp = emit( node->sloc, IR_B_PHI, ocount + 1 );
-            fixup( &_fixup_endif, endif, comp.index );
         }
 
         return comp;
@@ -249,22 +247,23 @@ ir_operand build_ir::visit( node_index node )
         node_index u = child_node( node );
         node_index v = next_node( u );
 
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_endif = goto_open( GOTO_ENDIF );
+
         ir_operand lhs = visit( u );
 
         _o.push_back( lhs );
-        op_branch op_and = emit_branch( node->sloc, IR_B_AND, 1 );
+        ir_operand op_and = emit_jump( node->sloc, IR_B_AND, 1, GOTO_ELSE );
 
-        _o.push_back( op_and.op );
+        _o.push_back( op_and );
         _o.push_back( lhs );
-        op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+        _o.push_back( emit_jump( node->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
 
-        fixup( op_and.branch, _f->ops.size() );
-        _o.push_back( op_def.op );
+        goto_branch( goto_else );
         _o.push_back( visit( v ) );
 
-        ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
-        fixup( op_def.branch, op_phi.index );
-        return op_phi;
+        goto_branch( goto_endif );
+        return emit( node->sloc, IR_B_PHI, 2 );
     }
 
     case AST_EXPR_OR:
@@ -282,22 +281,23 @@ ir_operand build_ir::visit( node_index node )
         node_index u = child_node( node );
         node_index v = next_node( u );
 
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_endif = goto_open( GOTO_ENDIF );
+
         ir_operand lhs = visit( u );
 
         _o.push_back( lhs );
-        op_branch op_and = emit_branch( node->sloc, IR_B_CUT, 1 );
+        ir_operand op_and = emit_jump( node->sloc, IR_B_CUT, 1, GOTO_ELSE );
 
-        _o.push_back( op_and.op );
+        _o.push_back( op_and );
         _o.push_back( lhs );
-        op_branch op_def = emit_branch( node->sloc, IR_B_DEF, 2 );
+        _o.push_back( emit_jump( node->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
 
-        fixup( op_and.branch, _f->ops.size() );
-        _o.push_back( op_def.op );
+        goto_branch( goto_else );
         _o.push_back( visit( v ) );
 
-        ir_operand op_phi = emit( node->sloc, IR_B_PHI, 2 );
-        fixup( op_def.branch, op_phi.index );
-        return op_phi;
+        goto_branch( goto_endif );
+        return emit( node->sloc, IR_B_PHI, 2 );
     }
 
     case AST_EXPR_IF:
@@ -332,20 +332,20 @@ ir_operand build_ir::visit( node_index node )
         node_index next = next_node( expr );
 
         size_t ocount = 0;
-        size_t endif = _fixup_endif.size();
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_endif = goto_open( GOTO_ENDIF );
 
         while ( true )
         {
             _o.push_back( visit( test ) );
-            op_branch op_cut = emit_branch( kw->sloc, IR_B_CUT, 1 );
+            ir_operand op_cut = emit_jump( kw->sloc, IR_B_CUT, 1, GOTO_ELSE );
 
+            _o.push_back( op_cut );
             _o.push_back( visit( expr ) );
-            op_branch op_def = emit_branch( kw->sloc, IR_B_DEF, 1 );
-
-            fixup( op_cut.branch, _f->ops.size() );
-            _fixup_endif.push_back( op_def.branch );
-            _o.push_back( op_def.op );
+            _o.push_back( emit_jump( kw->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
             ocount += 1;
+
+            goto_branch( goto_else );
 
             if ( next->kind != AST_EXPR_ELIF )
             {
@@ -359,10 +359,8 @@ ir_operand build_ir::visit( node_index node )
         }
 
         _o.push_back( visit( next ) );
-        ir_operand cond = emit( node->sloc, IR_B_PHI, ocount + 1 );
-        fixup( &_fixup_endif, endif, cond.index );
-
-        return cond;
+        goto_branch( goto_endif );
+        return emit( node->sloc, IR_B_PHI, ocount + 1 );
     }
 
     case AST_EXPR_ELIF:
@@ -540,7 +538,6 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_FUNCTION:
     {
-        block_head( node->sloc );
         visit_children( node );
         _o.push_back( { IR_O_NULL } );
         emit( node->sloc, IR_JUMP_RETURN, 1 );
@@ -1211,13 +1208,6 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     return { IR_O_OP, op_index };
 }
 
-build_ir::op_branch build_ir::emit_branch( srcloc sloc, ir_opcode opcode, unsigned ocount )
-{
-    unsigned oindex = _f->operands.size();
-    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    return { emit( sloc, opcode, ocount + 1 ), { oindex + ocount } };
-}
-
 void build_ir::close_upstack( node_index node )
 {
     unsigned close_index = node->leaf_index().index;
@@ -1226,50 +1216,6 @@ void build_ir::close_upstack( node_index node )
         _o.push_back( { IR_O_UPSTACK_INDEX, close_index } );
         emit( node->sloc, IR_CLOSE_UPSTACK, 1 );
     }
-}
-
-unsigned build_ir::block_head( srcloc sloc )
-{
-    return emit( sloc, IR_BLOCK_HEAD, 0 ).index;
-}
-
-build_ir::jump_fixup build_ir::block_jump( srcloc sloc )
-{
-    unsigned oindex = _f->operands.size();
-    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    emit( sloc, IR_JUMP, 1 );
-    return { oindex };
-}
-
-build_ir::test_fixup build_ir::block_test( srcloc sloc, ir_opcode opcode, ir_operand test )
-{
-    unsigned oindex = _f->operands.size();
-    _o.push_back( test );
-    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    emit( sloc, opcode, 3 );
-    return { { oindex + 1 }, { oindex + 2 } };
-}
-
-void build_ir::block_last( srcloc sloc, ir_opcode opcode, unsigned ocount )
-{
-    emit( sloc, opcode, ocount );
-}
-
-void build_ir::fixup( jump_fixup fixup, unsigned target )
-{
-    ir_operand* operand = &_f->operands.at( fixup.oindex );
-    assert( operand->kind == IR_O_JUMP );
-    operand->index = target;
-}
-
-void build_ir::fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target )
-{
-    for ( size_t i = index; i < fixup_list->size(); ++i )
-    {
-        fixup( fixup_list->at( i ), target );
-    }
-    fixup_list->resize( index );
 }
 
 ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
@@ -1392,6 +1338,46 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     // op is the new definition of the local.
     assert( op->local == IR_INVALID_LOCAL );
     op->local = local;
+}
+
+build_ir::goto_scope build_ir::goto_open( goto_kind kind )
+{
+    unsigned index = _goto_stacks[ kind ].fixups.size();
+    return { kind, index };
+}
+
+void build_ir::goto_branch( goto_scope scope )
+{
+    unsigned label = _f->ops.size();
+    goto_stack& stack = _goto_stacks[ scope.kind ];
+    for ( unsigned i = scope.index; i < stack.fixups.size(); ++i )
+    {
+        unsigned fixup = stack.fixups[ i ];
+        ir_operand* operand = &_f->operands.at( fixup );
+        assert( operand->kind == IR_O_JUMP );
+        operand->index = label;
+    }
+    stack.fixups.resize( scope.index );
+}
+
+void build_ir::goto_close( goto_scope scope )
+{
+}
+
+ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
+{
+    _goto_stacks[ goto_kind ].fixups.push_back( _f->operands.size() + ocount );
+    _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
+    return emit( sloc, opcode, ocount + 1 );
+}
+
+ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false )
+{
+    return {};
+}
+
+void build_ir::end_block()
+{
 }
 
 }

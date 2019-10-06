@@ -40,21 +40,19 @@ private:
         unsigned index;
     };
 
-    struct jump_fixup
+    enum goto_kind
     {
-        unsigned oindex;
+        GOTO_ELSE,
+        GOTO_ENDIF,
+        GOTO_BREAK,
+        GOTO_CONTINUE,
+        GOTO_MAX,
     };
 
-    struct test_fixup
+    struct goto_stack
     {
-        jump_fixup if_true;
-        jump_fixup if_false;
-    };
-
-    struct op_branch
-    {
-        ir_operand op;
-        jump_fixup branch;
+        std::vector< unsigned > fixups;
+        unsigned index;
     };
 
     // AST traversal.
@@ -78,18 +76,7 @@ private:
 
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
-    op_branch emit_branch( srcloc sloc, ir_opcode opcode, unsigned ocount );
     void close_upstack( node_index node );
-
-    // Control flow.
-    unsigned block_head( srcloc sloc );
-    jump_fixup block_jump( srcloc sloc );
-    test_fixup block_test( srcloc sloc, ir_opcode opcode, ir_operand test );
-    void block_last( srcloc sloc, ir_opcode opcode, unsigned ocount );
-
-    // Fixing up jumps.
-    void fixup( jump_fixup fixup, unsigned target );
-    void fixup( std::vector< jump_fixup >* fixup_list, size_t index, unsigned target );
 
     // Pins.
     ir_operand pin( srcloc sloc, ir_operand value );
@@ -100,6 +87,17 @@ private:
     // Use/def.
     void def( srcloc sloc, unsigned local, ir_operand operand );
 
+    // Structured gotos.
+    struct goto_scope { goto_kind kind; unsigned index; };
+    goto_scope goto_open( goto_kind kind );
+    void goto_branch( goto_scope scope );
+    void goto_close( goto_scope scope );
+
+    // Jumps.
+    ir_operand emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind );
+    ir_operand emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false );
+    void end_block();
+
     // Function under construction.
     source* _source;
     std::unique_ptr< ir_function > _f;
@@ -107,10 +105,8 @@ private:
     // Operand stack.
     std::vector< ir_operand > _o;
 
-    // Jump operand fixups.
-    std::vector< jump_fixup > _fixup_endif;
-    std::vector< jump_fixup > _fixup_loopb;
-    std::vector< jump_fixup > _fixup_loopc;
+    // Branch stacks.
+    goto_stack _goto_stacks[ GOTO_MAX ];
 
 };
 
