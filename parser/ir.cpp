@@ -237,7 +237,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             }
         }
         printf( "\n" );
-        for( unsigned phi = block.phi_head; phi < block.phi_tail; phi = f->ops.at( phi ).phi_next )
+        for( unsigned phi = block.phi_head; phi != IR_INVALID_INDEX; phi = f->ops.at( phi ).phi_next )
         {
             debug_print_op( f, phi, 2 );
         }

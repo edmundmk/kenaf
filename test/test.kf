@@ -1,7 +1,29 @@
 
-qq[ "A" ] = 1
-if something != 0 then
-    qq[ "B" ] = 2
-else
-    qq[ "C" ] = 3
+var p, q, s = [], [], []
+var sign, maxflips = 1, 0
+
+var q0 = p[ 0 ]
+if q0 != 0 then
+
+    var flips = 1
+    var qq = q[ q0 ]
+    if qq == 0 then
+
+        if flips > maxflips then
+            maxflips = flips
+        end
+
+    end
+
+    q0 = qq
+
+    if sign == 1 then
+        sign = -1
+    else
+
+        p[ 1 ] = 3
+
+    end
+
 end
+

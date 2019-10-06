@@ -95,7 +95,7 @@ private:
 
     // Structured gotos.
     struct goto_scope { goto_kind kind; unsigned index; };
-    goto_scope goto_open( goto_kind kind );
+    goto_scope goto_open( srcloc sloc, goto_kind kind );
     void goto_branch( goto_scope scope );
     void goto_block( goto_scope scope );
 

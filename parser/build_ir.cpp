@@ -157,11 +157,11 @@ ir_operand build_ir::visit( node_index node )
         node_index v = next_node( op );
 
         unsigned ocount = 0;
-        goto_scope goto_else = goto_open( GOTO_ELSE );
-        goto_scope goto_endif = goto_open( GOTO_ENDIF );
-
         ir_operand last = visit( u );
         ir_operand comp = { IR_O_NONE };
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
+
         while ( true )
         {
             /*
@@ -249,10 +249,9 @@ ir_operand build_ir::visit( node_index node )
         node_index u = child_node( node );
         node_index v = next_node( u );
 
-        goto_scope goto_else = goto_open( GOTO_ELSE );
-        goto_scope goto_endif = goto_open( GOTO_ENDIF );
-
         ir_operand lhs = visit( u );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
 
         _o.push_back( lhs );
         ir_operand op_and = emit_jump( node->sloc, IR_B_AND, 1, GOTO_ELSE );
@@ -283,10 +282,9 @@ ir_operand build_ir::visit( node_index node )
         node_index u = child_node( node );
         node_index v = next_node( u );
 
-        goto_scope goto_else = goto_open( GOTO_ELSE );
-        goto_scope goto_endif = goto_open( GOTO_ENDIF );
-
         ir_operand lhs = visit( u );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
 
         _o.push_back( lhs );
         ir_operand op_and = emit_jump( node->sloc, IR_B_CUT, 1, GOTO_ELSE );
@@ -334,12 +332,11 @@ ir_operand build_ir::visit( node_index node )
         node_index next = next_node( expr );
 
         size_t ocount = 0;
-        goto_scope goto_else = goto_open( GOTO_ELSE );
-        goto_scope goto_endif = goto_open( GOTO_ENDIF );
-
+        _o.push_back( visit( test ) );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
         while ( true )
         {
-            _o.push_back( visit( test ) );
             ir_operand op_cut = emit_jump( kw->sloc, IR_B_CUT, 1, GOTO_ELSE );
 
             _o.push_back( op_cut );
@@ -358,6 +355,8 @@ ir_operand build_ir::visit( node_index node )
             test = child_node( kw );
             expr = next_node( test );
             next = next_node( kw );
+
+            _o.push_back( visit( test ) );
         }
 
         _o.push_back( visit( next ) );
@@ -577,14 +576,14 @@ ir_operand build_ir::visit( node_index node )
         node_index body = next_node( expr );
         node_index next = next_node( body );
 
-        goto_scope goto_else = goto_open( GOTO_ELSE );
-        goto_scope goto_endif = goto_open( GOTO_ENDIF );
+        _o.push_back( visit( expr ) );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
 
         while ( true )
         {
             // Check if condition.
-            goto_scope goto_next = goto_open( GOTO_ENDIF );
-            _o.push_back( visit( expr ) );
+            goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
             end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, GOTO_ENDIF, GOTO_ELSE ) );
             goto_block( goto_next );
 
@@ -597,10 +596,12 @@ ir_operand build_ir::visit( node_index node )
 
             if ( next.index < node.index && next->kind == AST_STMT_ELIF )
             {
-                goto_block( goto_else );
                 expr = child_node( next );
                 body = next_node( expr );
                 next = next_node( next );
+
+                goto_block( goto_else );
+                _o.push_back( visit( expr ) );
                 continue;
             }
             else
@@ -1343,8 +1344,13 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     op->local = local;
 }
 
-build_ir::goto_scope build_ir::goto_open( goto_kind kind )
+build_ir::goto_scope build_ir::goto_open( srcloc sloc, goto_kind kind )
 {
+    if ( _block_index == IR_INVALID_INDEX )
+    {
+        new_block( sloc, IR_BLOCK_BASIC );
+    }
+
     unsigned index = _goto_stacks[ kind ].fixups.size();
     return { kind, index };
 }
@@ -1376,7 +1382,7 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
 {
     if ( _block_index != IR_INVALID_INDEX )
     {
-        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_else = goto_open( sloc, GOTO_ELSE );
         end_block( emit_jump( sloc, IR_JUMP, 0, GOTO_ELSE ) );
         goto_block( goto_else );
     }
