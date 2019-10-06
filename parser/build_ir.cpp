@@ -704,36 +704,35 @@ ir_operand build_ir::visit( node_index node )
         break_continue( break_index, loop_break, continue_index, loop_continue );
         break;
     }
-
+*/
     case AST_STMT_WHILE:
     {
         node_index expr = child_node( node );
         node_index body = next_node( expr );
 
-        // Close previous block.
-        jump_fixup link_previous = block_jump( node->sloc );
+        // Open loop header.
+        ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
 
         // Mark break/continue stacks.
-        size_t continue_index = _jump_continue.size();
-        size_t break_index = _jump_break.size();
+        goto_scope goto_continue = goto_open( node->sloc, GOTO_CONTINUE );
+        goto_scope goto_break = goto_open( node->sloc, GOTO_BREAK );
 
-        // Loop header including condition.
-        unsigned loop_continue = block_head( node->sloc );
-        fixup( link_previous, loop_continue );
-        test_fixup link_loop = block_test( node->sloc, visit( expr ) );
-        _jump_break.push_back( link_loop.if_false );
+        // Check condition.
+        _o.push_back( visit( expr ) );
+        goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
+        end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, GOTO_ENDIF, GOTO_BREAK ) );
+        goto_block( goto_next );
 
-        // Loop body.
-        fixup( link_loop.if_true, block_head( body->sloc ) );
+        // Body of loop.
         visit( body );
-        _jump_continue.push_back( block_jump( body->sloc ) );
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
+        end_loop( loop, goto_continue );
 
-        // Fixup break/continue.
-        unsigned loop_break = block_head( node->sloc );
-        break_continue( break_index, loop_break, continue_index, loop_continue );
-        break;
+        // Break to after loop.
+        goto_block( goto_break );
+        return { IR_O_NONE };
     }
-
+/*
     case AST_STMT_REPEAT:
     {
         node_index body = child_node( node );
@@ -1493,13 +1492,13 @@ void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
 
 ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
 {
-    unsigned operand_index = _f->operands.size() + ocount;
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand jump = emit( sloc, opcode, ocount + 1 );
+    const ir_op& op = _f->ops.at( jump.index );
 
     goto_stack& stack = _goto_stacks[ goto_kind ];
     assert( stack.index == stack.fixups.size() );
-    stack.fixups.push_back( { _block_index, operand_index } );
+    stack.fixups.push_back( { _block_index, op.oindex + ocount } );
     stack.index += 1;
 
     return jump;
@@ -1507,19 +1506,19 @@ ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, 
 
 ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false )
 {
-    unsigned operand_index = _f->operands.size() + ocount;
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand test = emit( sloc, opcode, ocount + 2 );
+    const ir_op& op = _f->ops.at( test.index );
 
     goto_stack& stack_true = _goto_stacks[ goto_true ];
     assert( stack_true.index == stack_true.fixups.size() );
-    stack_true.fixups.push_back( { _block_index, operand_index + 0 } );
+    stack_true.fixups.push_back( { _block_index, op.oindex + ocount + 0 } );
     stack_true.index += 1;
 
     goto_stack& stack_false = _goto_stacks[ goto_false ];
     assert( stack_false.index == stack_false.fixups.size() );
-    stack_false.fixups.push_back( { _block_index, operand_index + 1 } );
+    stack_false.fixups.push_back( { _block_index, op.oindex + ocount + 1 } );
     stack_false.index += 1;
 
     return test;
