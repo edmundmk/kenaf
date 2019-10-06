@@ -1389,12 +1389,7 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
     block.kind = kind;
     block.loop = _loop_stack.back();
     block.lower = _f->ops.size();
-    block.preceding_index = _f->preceding_blocks.size();
-
-    if ( kind == IR_BLOCK_UNSEALED_LOOP )
-    {
-        _f->preceding_blocks.push_back( IR_INVALID_INDEX );
-    }
+    block.preceding_lower = _f->preceding_blocks.size();
 
     for ( size_t goto_kind = 0; goto_kind < GOTO_MAX; ++goto_kind )
     {
@@ -1406,6 +1401,13 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
         }
         stack.fixups.resize( stack.index );
     }
+
+    if ( kind == IR_BLOCK_UNSEALED_LOOP )
+    {
+        _f->preceding_blocks.push_back( IR_INVALID_INDEX );
+    }
+
+    block.preceding_upper = _f->preceding_blocks.size();
 
     assert( _block_index == IR_INVALID_INDEX );
     _block_index = _f->blocks.size();
@@ -1427,7 +1429,64 @@ ir_block_index build_ir::new_loop( ir_block_index loop_header )
 
 void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
 {
-    // TODO.
+    // Pop block from loop stack.
+    ir_block* block = &_f->blocks.at( loop_header );
+    assert( block->kind == IR_BLOCK_UNSEALED_LOOP );
+    assert( _loop_stack.back() == loop_header );
+    _loop_stack.pop_back();
+
+    // Add predecessor blocks to the block's predecessor list.
+    goto_stack& stack = _goto_stacks[ scope.kind ];
+    assert( stack.index == stack.fixups.size() );
+    assert( scope.index <= stack.fixups.size() );
+
+    // One block we can just add in the preallocated slot.
+    unsigned back_index = scope.index;
+    if ( back_index < stack.fixups.size() )
+    {
+        assert( block->preceding_lower < block->preceding_upper );
+        ir_block_index* preceding = &_f->preceding_blocks.at( block->preceding_upper - 1 );
+        assert( *preceding == IR_INVALID_INDEX );
+        *preceding = stack.fixups.at( back_index ).block_index;
+        back_index += 1;
+    }
+
+    // But we might need to insert additional blocks into the list.
+    if ( back_index < stack.fixups.size() )
+    {
+        size_t count = stack.fixups.size() - back_index;
+        _f->preceding_blocks.insert( _f->preceding_blocks.begin() + block->preceding_upper, count, IR_INVALID_INDEX );
+        for ( size_t i = 0; i < count; ++i )
+        {
+            _f->preceding_blocks[ block->preceding_upper ] = stack.fixups.at( back_index ).block_index;
+            block->preceding_upper += 1;
+            back_index += 1;
+        }
+
+        for ( unsigned block_index = loop_header + 1; block_index < _f->blocks.size(); ++block_index )
+        {
+            ir_block* next_block = &_f->blocks.at( block_index );
+            next_block->preceding_lower += count;
+            next_block->preceding_upper += count;
+        }
+    }
+
+    // Fixup back edges.
+    unsigned label = block->lower;
+    for ( unsigned i = scope.index; i < stack.fixups.size(); ++i )
+    {
+        goto_fixup fixup = stack.fixups[ i ];
+        ir_operand* operand = &_f->operands.at( fixup.operand_index );
+        assert( operand->kind == IR_O_JUMP );
+        operand->index = label;
+    }
+    stack.fixups.resize( scope.index );
+    stack.index = scope.index;
+
+    // Seal loop.
+    block->kind = IR_BLOCK_LOOP;
+
+    // TODO: Now loop is sealed, perform SSA search backwards?
 }
 
 ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )

@@ -323,8 +323,8 @@ struct ir_block
         ,   upper( IR_INVALID_INDEX )
         ,   phi_head( IR_INVALID_INDEX )
         ,   phi_tail( IR_INVALID_INDEX )
-        ,   preceding_index( IR_INVALID_INDEX )
-        ,   preceding_count( 0 )
+        ,   preceding_lower( IR_INVALID_INDEX )
+        ,   preceding_upper( IR_INVALID_INDEX )
     {
     }
 
@@ -334,8 +334,8 @@ struct ir_block
     unsigned upper;             // Index past last op in block.
     unsigned phi_head;          // Index of first phi op in block.
     unsigned phi_tail;          // Index of last phi op in block.
-    unsigned preceding_index;   // Index of first block in preceding_blocks.
-    unsigned preceding_count;   // Count of preceding blocks.
+    unsigned preceding_lower;   // Index of first block in preceding_blocks.
+    unsigned preceding_upper;   // Index past last preceding block.
 };
 
 struct ir_number
