@@ -120,7 +120,7 @@ def offset_momentum( bodies )
 end
 
 var _, n = args ...
-n = if n then number( n ) else 1000
+n = if n then number( n ) else 1000 end
 offset_momentum( bodies )
 print( string( energy( bodies ) ) ~ "\n" )
 for i = 0 : n do

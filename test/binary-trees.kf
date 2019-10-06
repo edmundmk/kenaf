@@ -34,7 +34,7 @@ end
 
 var _, n = args ...
 var min_depth = 4
-var max_depth = max( min_depth + 2, if n then number( n ) else 0 )
+var max_depth = max( min_depth + 2, if n then number( n ) else 0 end )
 var stretch_depth = max_depth + 1
 
 var check = bottom_up_tree( stretch_depth ).check()

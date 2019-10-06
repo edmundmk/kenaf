@@ -429,7 +429,7 @@ expr_or(x) ::= expr_or(u) OR(op) expr_and .                     { x = { EXPR_FUL
 
 expr_if(x) ::= expr_or(u) .
     { x = u; }
-expr_if(x) ::= IF(kw) expr_or(u) THEN expr expr_elif_list_opt ELSE expr .
+expr_if(x) ::= IF(kw) expr_or(u) THEN expr expr_elif_list_opt ELSE expr END .
     { x = { EXPR_FULL, p->node( AST_EXPR_IF, kw.sloc, u.index ) }; }
 
 expr_elif_list_opt(x) ::= .
@@ -482,9 +482,10 @@ constructor(x) ::= DEF(def) prototype_opt(u) object_keys(v) END .
     {
         x = p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
     }
-constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) lambda_body .
+constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
     {
         p->update_sloc( params, lpn.sloc );
+        p->update_sloc( block, bdo.sloc );
         p->node( AST_FUNCTION, u.sloc, params );
         p->pop_function();
         u.function->name = "[lambda]";
@@ -501,17 +502,6 @@ open_lambda(x) ::= DEF(def) YIELD .
         ast_function* f = p->push_function( def.sloc );
         f->is_generator = true;
         x = { f, AST_INVALID_INDEX, def.sloc };
-    }
-
-lambda_body(x) ::= RPN(bdo) COLON(op) expr(u) .
-    {
-        unsigned z = p->node( AST_STMT_RETURN, op.sloc, u.index );
-        x = p->index_node( AST_BLOCK, bdo.sloc, z );
-    }
-lambda_body(x) ::= RPN(bdo) block(block) END .
-    {
-        p->update_sloc( block, bdo.sloc );
-        x = block;
     }
 
 definition(x) ::= DEF(def) qual_name(w) prototype_opt(u) object_keys(v) END .
@@ -584,7 +574,7 @@ prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_OBJEC
 object_keys(x) ::= .                                    { x = AST_INVALID_INDEX; }
 object_keys(x) ::= object_keys(u) object_key(v) .       { x = u != AST_INVALID_INDEX ? u : v; }
 
-object_key(x) ::= definition(u) .                       { x = u.index; u.function->implicit_self = true; }
+object_key(x) ::= definition(u) .                       { x = u.index; if ( u.function ) u.function->implicit_self = true; }
 object_key(x) ::= name(u) COLON(op) expr .              { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 object_key(x) ::= name(u) COLON(op) expr SEMICOLON .    { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 

@@ -32,7 +32,7 @@ def multiplyAtAv( n, v, AtAv )
 end
 
 var _, n = args ...
-n = if n then number( n ) else 100
+n = if n then number( n ) else 100 end
 
 var u, v = [], []
 u.resize( n )
