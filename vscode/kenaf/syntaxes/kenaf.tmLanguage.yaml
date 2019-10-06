@@ -1,4 +1,4 @@
---
+---
 name: Kenaf
 scopeName: source.kenaf
 fileTypes: [ kf ]
@@ -83,19 +83,19 @@ repository:
       - include: '$self'
 
   string:
-    name: 'string.quoted.double.ul'
+    name: 'string.quoted.double.kenaf'
     begin: '"'
     beginCaptures:
-      '0': { name: 'punctuation.definition.string.begin.ul' }
+      '0': { name: 'punctuation.definition.string.begin.kenaf' }
     end: '(")|([^"]$)'
     endCaptures:
-      '1': { name: 'punctuation.definition.string.end.ul' }
-      '2': { name: 'invalid.illegal.newline.ul' }
+      '1': { name: 'punctuation.definition.string.end.kenaf' }
+      '2': { name: 'invalid.illegal.newline.kenaf' }
     patterns:
     - include: '#string-escape'
 
   string-escape:
-    name: 'constant.character.escape.ul'
+    name: 'constant.character.escape.kenaf'
     match: '\\(["\\/bfnrtv]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U\+[0-9A-Fa-f]{6})'
 
   keywords:
@@ -129,18 +129,21 @@ repository:
       match: '\b(pi|tau|nan|infinity)\b'
 
   name:
-    name: 'variable.other'
-    match: '[A-Za-z_][0-9A-Za-z_]*'
+    patterns:
+    - name: 'entity.name.function.kenaf'
+      match: '[A-Za-z_][0-9A-Za-z_]*(?=[ \t]*\()'
+    - name: 'source.kenaf'
+      match: '[A-Za-z_][0-9A-Za-z_]*'
 
   number:
     patterns:
-    - name: 'constant.numeric.bin.ulang'
+    - name: 'constant.numeric.bin.kenaf'
       match: '0b[0-1]+'
-    - name: 'constant.numeric.oct.ulang'
+    - name: 'constant.numeric.oct.kenaf'
       match: '0o[0-7]+'
-    - name: 'constant.numeric.hex.ulang'
+    - name: 'constant.numeric.hex.kenaf'
       match: '0x[0-9A-Fa-f]+'
-    - name: 'constant.numeric.float.hex.ulang'
+    - name: 'constant.numeric.float.hex.kenaf'
       match: '0x(?:[0-9A-Fa-f]+(?:p[+\-]?[0-9]+|\.[0-9A-Fa-f]*(?:p[+\-]?[0-9]+)?)|\.[0-9A-Fa-f]+(?:p[+\-]?[0-9]+)?)'
     - name: 'constant.numeric.float'
       match: '(?:0|[1-9][0-9]*)(?:e[+\-]?[0-9]+|\.[0-9]*(?:e[+\-]?[0-9]+)?)|\.[0-9]+(?:e[+\-]?[0-9]+)?'
@@ -148,7 +151,7 @@ repository:
       match: '0|[1-9][0-9]*'
 
   invalid:
-    name: 'invalid.illegal.ul'
+    name: 'invalid.illegal.kenaf'
     match: '.'
 
 ...
