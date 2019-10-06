@@ -90,9 +90,6 @@ private:
     void fix_local_pins( unsigned local );
     void fix_upval_pins();
 
-    // Use/def.
-    void def( srcloc sloc, unsigned local, ir_operand operand );
-
     // Structured gotos.
     struct goto_scope { goto_kind kind; unsigned index; };
     goto_scope goto_open( srcloc sloc, goto_kind kind );
@@ -107,6 +104,11 @@ private:
     ir_block_index new_loop( ir_block_index loop_header );
     void end_loop( ir_block_index loop_header, goto_scope scope );
 
+    // Use/def for SSA construction.
+    ir_operand read( unsigned local );
+    void seal( ir_block_index );
+    void def( srcloc sloc, unsigned local, ir_operand operand );
+
     // Function under construction.
     source* _source;
     std::unique_ptr< ir_function > _f;
@@ -118,6 +120,12 @@ private:
     goto_stack _goto_stacks[ GOTO_MAX ];
     std::vector< ir_block_index > _loop_stack;
     ir_block_index _block_index;
+
+    // Definitions per block.
+    struct block_local { ir_block_index block_index; unsigned local; };
+    struct block_local_hash : private std::hash< unsigned > { size_t operator () ( block_local bl ) const; };
+    struct block_local_equal { bool operator () ( block_local a, block_local b ) const; };
+    std::unordered_map< block_local, unsigned, block_local_hash, block_local_equal > _defs;
 
 };
 

@@ -82,6 +82,7 @@ ir_operand build_ir::visit( node_index node )
     case AST_EXPR_CONCAT:
     case AST_EXPR_LSHIFT:
     case AST_EXPR_RSHIFT:
+    case AST_EXPR_ASHIFT:
     case AST_EXPR_BITAND:
     case AST_EXPR_BITXOR:
     case AST_EXPR_BITOR:
@@ -225,6 +226,19 @@ ir_operand build_ir::visit( node_index node )
         }
 
         return comp;
+    }
+
+    case AST_OP_EQ:
+    case AST_OP_NE:
+    case AST_OP_LT:
+    case AST_OP_LE:
+    case AST_OP_GT:
+    case AST_OP_GE:
+    case AST_OP_IS:
+    case AST_OP_IS_NOT:
+    {
+        assert( ! "unexpected OP node" );
+        return { IR_O_NONE };
     }
 
     case AST_EXPR_NOT:
@@ -535,6 +549,14 @@ ir_operand build_ir::visit( node_index node )
         return { IR_O_NONE };
     }
 
+    case AST_NAME_LIST:
+    case AST_LVAL_LIST:
+    case AST_RVAL_LIST:
+    {
+        assert( ! "unexpected LIST node" );
+        return { IR_O_NONE };
+    }
+
     // -- SCOPE --
 
     case AST_FUNCTION:
@@ -558,6 +580,12 @@ ir_operand build_ir::visit( node_index node )
             _o.push_back( { IR_O_LOCAL_INDEX, local } );
             def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
         }
+        return { IR_O_NONE };
+    }
+
+    case AST_VARARG_PARAM:
+    {
+        assert( ! "unexpected VARAG_PARAM node" );
         return { IR_O_NONE };
     }
 
@@ -623,6 +651,12 @@ ir_operand build_ir::visit( node_index node )
         }
 
         goto_block( goto_endif );
+        return { IR_O_NONE };
+    }
+
+    case AST_STMT_ELIF:
+    {
+        assert( ! "unexpected ELIF node" );
         return { IR_O_NONE };
     }
 
@@ -1322,37 +1356,6 @@ void build_ir::fix_upval_pins()
     }
 }
 
-void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
-{
-    // TODO: SSA definition.
-
-    // Be robust against failures.
-    if ( operand.kind == IR_O_NONE )
-    {
-        return;
-    }
-
-    // Upgrade pins on the stack that refer to the same local.
-    fix_local_pins( local );
-
-    // Get op which produces the value assigned to the local.
-    operand = ignore_pin( operand );
-    assert( operand.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( operand.index );
-
-    // If defining from a previous definition of a local, create new value.
-    if ( op->local != IR_INVALID_LOCAL )
-    {
-        _o.push_back( { IR_O_OP, operand.index } );
-        operand = emit( sloc, IR_VAL, 1 );
-        op = &_f->ops.at( operand.index );
-    }
-
-    // op is the new definition of the local.
-    assert( op->local == IR_INVALID_LOCAL );
-    op->local = local;
-}
-
 build_ir::goto_scope build_ir::goto_open( srcloc sloc, goto_kind kind )
 {
     if ( _block_index == IR_INVALID_INDEX )
@@ -1553,6 +1556,47 @@ ir_operand build_ir::end_block( ir_operand jump )
     _block_index = IR_INVALID_INDEX;
 
     return jump;
+}
+
+size_t build_ir::block_local_hash::operator () ( block_local bl ) const
+{
+    return std::hash< unsigned >::operator () ( bl.block_index ) ^ std::hash< unsigned >::operator () ( bl.local );
+}
+
+bool build_ir::block_local_equal::operator () ( block_local a, block_local b ) const
+{
+    return a.block_index == b.block_index && a.local == b.local;
+}
+
+void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
+{
+    // TODO: SSA definition.
+
+    // Be robust against failures.
+    if ( operand.kind == IR_O_NONE )
+    {
+        return;
+    }
+
+    // Upgrade pins on the stack that refer to the same local.
+    fix_local_pins( local );
+
+    // Get op which produces the value assigned to the local.
+    operand = ignore_pin( operand );
+    assert( operand.kind == IR_O_OP );
+    ir_op* op = &_f->ops.at( operand.index );
+
+    // If defining from a previous definition of a local, create new value.
+    if ( op->local != IR_INVALID_LOCAL )
+    {
+        _o.push_back( { IR_O_OP, operand.index } );
+        operand = emit( sloc, IR_VAL, 1 );
+        op = &_f->ops.at( operand.index );
+    }
+
+    // op is the new definition of the local.
+    assert( op->local == IR_INVALID_LOCAL );
+    op->local = local;
 }
 
 }
