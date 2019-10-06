@@ -219,17 +219,19 @@ enum ir_opcode : uint8_t
     // Close upvals.
     IR_CLOSE_UPSTACK,           // index
 
-    // Instructions operating on loop variables.
-    IR_FOR_EACH_HEAD,           // g, i = generate( a )
-    IR_FOR_EACH,                // a, b, c, [test] = for_each( &g, &i )
-    IR_FOR_STEP_HEAD,           // i, limit, step = a, b, c
-    IR_FOR_STEP,                // a, [test] = for_step( &i, &limit, &step )
-
     // Shortcut branches.
     IR_B_AND,                   // test, jump
     IR_B_CUT,                   // test, jump
     IR_B_DEF,                   // link_cut, value, jump_phi
     IR_B_PHI,                   // def, def, def, ..., value
+
+    // Instructions operating on loop variables.
+    IR_FOR_EACH_HEAD,           // [g/i] = generate( a )
+    IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
+    IR_FOR_EACH_ITEMS,          // a, b, c = [g/i]
+    IR_FOR_STEP_HEAD,           // [i/l/s] = start, limit step
+    IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
+    IR_FOR_STEP_INDEX,          // a = [i/l/s]
 
     // Block and jump instructions.
     IR_BLOCK,                   // Block header.

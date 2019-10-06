@@ -81,15 +81,17 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
 
-    [ IR_FOR_EACH_HEAD  ] = "FOR_EACH_HEAD",
-    [ IR_FOR_EACH       ] = "FOR_EACH",
-    [ IR_FOR_STEP_HEAD  ] = "FOR_STEP_HEAD",
-    [ IR_FOR_STEP       ] = "FOR_STEP",
-
     [ IR_B_AND          ] = "B_AND",
     [ IR_B_CUT          ] = "B_CUT",
     [ IR_B_DEF          ] = "B_DEF",
     [ IR_B_PHI          ] = "B_PHI",
+
+    [ IR_FOR_EACH_HEAD  ] = "FOR_EACH_HEAD",
+    [ IR_JUMP_FOR_EACH  ] = "JUMP_FOR_EACH",
+    [ IR_FOR_EACH_ITEMS ] = "FOR_EACH_ITEMS",
+    [ IR_FOR_STEP_HEAD  ] = "FOR_STEP_HEAD",
+    [ IR_JUMP_FOR_STEP  ] = "JUMP_FOR_STEP",
+    [ IR_FOR_STEP_INDEX ] = "FOR_STEP_INDEX",
 
     [ IR_BLOCK          ] = "BLOCK",
     [ IR_JUMP           ] = "JUMP",

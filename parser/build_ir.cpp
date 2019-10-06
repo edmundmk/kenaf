@@ -625,86 +625,104 @@ ir_operand build_ir::visit( node_index node )
         goto_block( goto_endif );
         return { IR_O_NONE };
     }
-/*
+
     case AST_STMT_FOR_STEP:
     {
-        node_index decl = child_node( node );
-        node_index start = next_node( decl );
+        node_index name = child_node( node );
+        node_index start = next_node( name );
         node_index limit = next_node( start );
         node_index step = next_node( limit );
         node_index body = next_node( step );
 
         // Evaluate start : limit : step
-        ir_operand o[ 3 ];
-        o[ 0 ] = visit( start );
-        o[ 1 ] = visit( limit );
-        o[ 2 ] = visit( step );
-        // TODO: assign i from start
+        _o.push_back( visit( start ) );
+        _o.push_back( visit( limit ) );
+        _o.push_back( visit( step ) );
+        emit( node->sloc, IR_FOR_STEP_HEAD, 3 );
 
-        // Close current block.
-        jump_fixup link_previous = block_jump( node->sloc );
+        // Start of loop.
+        ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
 
         // Mark break/continue stacks.
-        size_t continue_index = _jump_continue.size();
-        size_t break_index = _jump_break.size();
+        goto_scope goto_continue = goto_open( node->sloc, GOTO_CONTINUE );
+        goto_scope goto_break = goto_open( node->sloc, GOTO_BREAK );
 
-        // Loop header including condition.
-        unsigned loop_continue = block_head( node->sloc );
-        fixup( link_previous, loop_continue );
-        // TODO: Make phi/some kind of loop var for i/limit/step?
-        test_fixup link_loop = block_test( node->sloc, emit( node->sloc, IR_FOR_STEP, o, 3 ) );
-        _jump_break.push_back( link_loop.if_false );
+        // For loop.
+        goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
+        end_block( emit_test( node->sloc, IR_JUMP_FOR_STEP, 0, GOTO_ENDIF, GOTO_BREAK ) );
+        goto_block( goto_next );
 
-        // Loop body.
-        fixup( link_loop.if_true, block_head( body->sloc ) );
-        // TODO: assign decl from i
+        // Get index at head of loop.
+        assert( name->kind == AST_LOCAL_DECL );
+        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ) );
+
+        // Visit the body of the loop.
         visit( body );
-        _jump_continue.push_back( block_jump( body->sloc ) );
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
+        end_loop( loop, goto_continue );
 
-        // Fixup break/continue.
-        unsigned loop_break = block_head( node->sloc );
-        break_continue( break_index, loop_break, continue_index, loop_continue );
-        break;
+        // Break to after loop.
+        goto_block( goto_break );
+        return { IR_O_NONE };
     }
 
     case AST_STMT_FOR_EACH:
     {
-        node_index decl = child_node( node );
-        node_index expr = next_node( decl );
+        node_index names = child_node( node );
+        node_index expr = next_node( names );
         node_index body = next_node( expr );
 
-        // Evaluate generator expression and construct generator from it.
-        ir_operand o[ 1 ];
-        o[ 0 ] = visit( expr );
-        o[ 0 ] = emit( node->sloc, IR_GENERATE, o, 1 );
-        // TODO: assign g/i from result of generate?
+        // Evaluate generator expression.
+        _o.push_back( visit( expr ) );
+        emit( node->sloc, IR_FOR_EACH_HEAD, 1 );
 
-        // Close current block.
-        jump_fixup link_previous = block_jump( node->sloc );
+        // Start of loop.
+        ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
 
         // Mark break/continue stacks.
-        size_t continue_index = _jump_continue.size();
-        size_t break_index = _jump_break.size();
+        goto_scope goto_continue = goto_open( node->sloc, GOTO_CONTINUE );
+        goto_scope goto_break = goto_open( node->sloc, GOTO_BREAK );
 
-        // Loop header including condition.
-        unsigned loop_continue = block_head( node->sloc );
-        fixup( link_previous, loop_continue );
-        // TODO: make phi/some kind of loop var for g/i
-        test_fixup link_loop = block_test( node->sloc, emit( node->sloc, IR_FOR_EACH, o, 1 ) );
-        _jump_break.push_back( link_loop.if_false );
+        // For loop.
+        goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
+        end_block( emit_test( node->sloc, IR_JUMP_FOR_EACH, 0, GOTO_ENDIF, GOTO_BREAK ) );
+        goto_block( goto_next );
 
-        // Loop body.
-        fixup( link_loop.if_true, block_head( body->sloc ) );
-        // TODO: assign decls from unpacking g/i
+        // Assign generated items.
+        ir_operand items = emit( node->sloc, IR_FOR_EACH_ITEMS, 0 );
+        if ( names->kind == AST_NAME_LIST )
+        {
+            node_index name = child_node( names );
+            node_index name_done = names;
+
+            ir_op* op = &_f->ops.at( items.index );
+            op->unpack = 0;
+
+            for ( ; name.index < name_done.index; name = next_node( name ) )
+            {
+                assert( name->kind == AST_LOCAL_DECL );
+                _o.push_back( items );
+                _o.push_back( { IR_O_SELECT, op->unpack++ } );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ) );
+            }
+        }
+        else
+        {
+            node_index name = names;
+            assert( name->kind == AST_LOCAL_DECL );
+            def( name->sloc, name->leaf_index().index, items );
+        }
+
+        // Visit the body of the loop.
         visit( body );
-        _jump_continue.push_back( block_jump( body->sloc ) );
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
+        end_loop( loop, goto_continue );
 
-        // Fixup break/continue.
-        unsigned loop_break = block_head( node->sloc );
-        break_continue( break_index, loop_break, continue_index, loop_continue );
-        break;
+        // Break to after loop.
+        goto_block( goto_break );
+        return { IR_O_NONE };
     }
-*/
+
     case AST_STMT_WHILE:
     {
         node_index expr = child_node( node );
@@ -1524,7 +1542,8 @@ ir_operand build_ir::end_block( ir_operand jump )
 {
     assert( jump.kind == IR_O_OP );
     const ir_op& op = _f->ops.at( jump.index );
-    assert( op.opcode == IR_JUMP_TEST || op.opcode == IR_JUMP_TFOR
+    assert( op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
+        || op.opcode == IR_JUMP_TEST || op.opcode == IR_JUMP_TFOR
         || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN
         || op.opcode == IR_JUMP );
 
