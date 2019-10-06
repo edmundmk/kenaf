@@ -134,7 +134,7 @@ struct ir_function
     ir_function();
     ~ir_function();
 
-    void debug_print();
+    void debug_print() const;
 
     ast_function* ast;
     std::vector< ir_op > ops;
@@ -271,7 +271,7 @@ enum ir_block_kind : uint8_t
 {
     IR_BLOCK_BASIC,
     IR_BLOCK_LOOP,
-    IR_BLOCK_UNSEALED_LOOP,
+    IR_BLOCK_UNSEALED,
 };
 
 struct ir_op
@@ -319,23 +319,23 @@ struct ir_block
     ir_block()
         :   kind( IR_BLOCK_BASIC )
         ,   loop( IR_INVALID_INDEX )
-        ,   lower( IR_INVALID_INDEX )
-        ,   upper( IR_INVALID_INDEX )
-        ,   phi_head( IR_INVALID_INDEX )
-        ,   phi_tail( IR_INVALID_INDEX )
         ,   preceding_lower( IR_INVALID_INDEX )
         ,   preceding_upper( IR_INVALID_INDEX )
+        ,   phi_head( IR_INVALID_INDEX )
+        ,   phi_tail( IR_INVALID_INDEX )
+        ,   lower( IR_INVALID_INDEX )
+        ,   upper( IR_INVALID_INDEX )
     {
     }
 
     ir_block_kind kind : 8;     // Block kind.
     ir_block_index loop : 24;   // Index of loop containing this block.
-    unsigned lower;             // Index of first op in block.
-    unsigned upper;             // Index past last op in block.
-    unsigned phi_head;          // Index of first phi op in block.
-    unsigned phi_tail;          // Index of last phi op in block.
     unsigned preceding_lower;   // Index of first block in preceding_blocks.
     unsigned preceding_upper;   // Index past last preceding block.
+    unsigned phi_head;          // Index of first phi op in block.
+    unsigned phi_tail;          // Index of last phi op in block.
+    unsigned lower;             // Index of first op in block.
+    unsigned upper;             // Index past last op in block.
 };
 
 struct ir_number

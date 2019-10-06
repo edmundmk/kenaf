@@ -1402,7 +1402,7 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
         stack.fixups.resize( stack.index );
     }
 
-    if ( kind == IR_BLOCK_UNSEALED_LOOP )
+    if ( kind == IR_BLOCK_UNSEALED )
     {
         _f->preceding_blocks.push_back( IR_INVALID_INDEX );
     }
@@ -1422,7 +1422,7 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
 ir_block_index build_ir::new_loop( ir_block_index loop_header )
 {
     assert( loop_header == _block_index );
-    assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED_LOOP );
+    assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED );
     _loop_stack.push_back( loop_header );
     return loop_header;
 }
@@ -1431,7 +1431,7 @@ void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
 {
     // Pop block from loop stack.
     ir_block* block = &_f->blocks.at( loop_header );
-    assert( block->kind == IR_BLOCK_UNSEALED_LOOP );
+    assert( block->kind == IR_BLOCK_UNSEALED );
     assert( _loop_stack.back() == loop_header );
     _loop_stack.pop_back();
 

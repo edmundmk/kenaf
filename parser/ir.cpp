@@ -102,10 +102,17 @@ const char* const OPCODE_NAMES[] =
     [ IR_PHI_OPEN       ] = "PHI_OPEN",
 };
 
-static void debug_print_op( ir_function* f, unsigned i )
+const char* const BLOCK_KIND_NAMES[] =
+{
+    [ IR_BLOCK_BASIC    ] = "BASIC",
+    [ IR_BLOCK_LOOP     ] = "LOOP",
+    [ IR_BLOCK_UNSEALED ] = "UNSEALED"
+};
+
+static void debug_print_op( const ir_function* f, unsigned i, int indent )
 {
     const ir_op& op = f->ops.at( i );
-    printf( ":%04X %s", i, OPCODE_NAMES[ op.opcode ] );
+    printf( "%*s:%04X %s", indent, "", i, OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.ocount; ++o )
     {
         ir_operand operand = f->operands[ op.oindex + o ];
@@ -138,7 +145,7 @@ static void debug_print_op( ir_function* f, unsigned i )
 
         case IR_O_BLOCK:
         {
-            printf( " BLOCK %u", operand.index );
+            printf( " $$%u", operand.index );
             break;
         }
 
@@ -212,14 +219,38 @@ static void debug_print_op( ir_function* f, unsigned i )
         printf( " /* %.*s */", (int)name.size(), name.data() );
     }
     printf( "\n" );
+
+    if ( op.opcode == IR_BLOCK )
+    {
+        const ir_block& block = f->blocks.at( f->operands.at( op.oindex ).index );
+        printf( "  %s", BLOCK_KIND_NAMES[ block.kind ] );
+        if ( block.loop != IR_INVALID_INDEX )
+            printf( " / LOOP $$%u", block.loop );
+        if ( block.preceding_lower < block.preceding_upper )
+        {
+            printf( " / PRECEDING" );
+            for ( unsigned preceding = block.preceding_lower; preceding < block.preceding_upper; ++preceding )
+            {
+                ir_block_index index = f->preceding_blocks.at( preceding );
+                if ( index != IR_INVALID_INDEX )
+                    printf( " $$%u", index );
+            }
+        }
+        printf( "\n" );
+        for( unsigned phi = block.phi_head; phi < block.phi_tail; phi = f->ops.at( phi ).phi_next )
+        {
+            debug_print_op( f, phi, 2 );
+        }
+        printf( "  OPS :%04X:%04X\n", block.lower, block.upper );
+    }
 }
 
-void ir_function::debug_print()
+void ir_function::debug_print() const
 {
     printf( "FUNCTION %s\n", ast->name.c_str() );
     for ( unsigned i = 0; i < ops.size(); ++i )
     {
-        debug_print_op( this, i );
+        debug_print_op( this, i, 0 );
     }
 }
 

@@ -74,7 +74,7 @@ struct ast_function
     ~ast_function();
 
     void fixup_nodes();
-    void debug_print();
+    void debug_print() const;
 
     srcloc sloc;                // Source location of function.
     std::string name;           // Name of function.

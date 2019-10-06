@@ -223,7 +223,7 @@ static void debug_print_tree( const std::vector< ast_node >& nodes, unsigned ind
     }
 }
 
-void ast_function::debug_print()
+void ast_function::debug_print() const
 {
     printf( "FUNCTION %p %s\n", this, name.c_str() );
     if ( outer )
