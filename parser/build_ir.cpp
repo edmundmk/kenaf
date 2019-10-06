@@ -17,6 +17,7 @@ build_ir::build_ir( source* source )
     :   _source( source )
     ,   _block_index( IR_INVALID_INDEX )
 {
+    _loop_stack.push_back( IR_INVALID_INDEX );
 }
 
 build_ir::~build_ir()
@@ -541,7 +542,7 @@ ir_operand build_ir::visit( node_index node )
     {
         visit_children( node );
         _o.push_back( { IR_O_NULL } );
-        emit( node->sloc, IR_JUMP_RETURN, 1 );
+        end_block( emit( node->sloc, IR_JUMP_RETURN, 1 ) );
         return { IR_O_NONE };
     }
 
@@ -1191,7 +1192,7 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
 {
     if ( _block_index == IR_INVALID_INDEX )
     {
-        emit_block( IR_BLOCK_BASIC );
+        new_block( sloc, IR_BLOCK_BASIC );
     }
 
     ir_op op;
@@ -1375,9 +1376,58 @@ void build_ir::goto_block( goto_scope scope )
     stack.index = scope.index;
 }
 
-ir_operand build_ir::emit_block( ir_block_kind kind )
+ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
 {
-    return {};
+    if ( _block_index != IR_INVALID_INDEX )
+    {
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        end_block( emit_jump( sloc, IR_JUMP, 0, GOTO_ELSE ) );
+        goto_block( goto_else );
+    }
+
+    ir_block block;
+    block.kind = kind;
+    block.loop = _loop_stack.back();
+    block.lower = _f->ops.size();
+    block.preceding_index = _f->preceding_blocks.size();
+
+    if ( kind == IR_BLOCK_UNSEALED_LOOP )
+    {
+        _f->preceding_blocks.push_back( IR_INVALID_INDEX );
+    }
+
+    for ( size_t goto_kind = 0; goto_kind < GOTO_MAX; ++goto_kind )
+    {
+        goto_stack& stack = _goto_stacks[ goto_kind ];
+        for ( unsigned i = stack.index; i < stack.fixups.size(); ++i )
+        {
+            goto_fixup fixup = stack.fixups[ i ];
+            _f->preceding_blocks.push_back( fixup.block_index );
+        }
+        stack.fixups.resize( stack.index );
+    }
+
+    assert( _block_index == IR_INVALID_INDEX );
+    _block_index = _f->blocks.size();
+    _f->blocks.push_back( block );
+
+    _o.push_back( { IR_O_BLOCK, _block_index } );
+    emit( sloc, IR_BLOCK, 1 );
+
+    return _block_index;
+}
+
+ir_block_index build_ir::new_loop( ir_block_index loop_header )
+{
+    assert( loop_header == _block_index );
+    assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED_LOOP );
+    _loop_stack.push_back( loop_header );
+    return loop_header;
+}
+
+void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
+{
+    // TODO.
 }
 
 ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
@@ -1418,9 +1468,17 @@ ir_operand build_ir::end_block( ir_operand jump )
 {
     assert( jump.kind == IR_O_OP );
     const ir_op& op = _f->ops.at( jump.index );
-    assert( op.opcode == IR_JUMP || op.opcode == IR_JUMP_TEST || op.opcode == IR_JUMP_TFOR
-        || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN );
+    assert( op.opcode == IR_JUMP
+        || op.opcode == IR_JUMP_TEST
+        || op.opcode == IR_JUMP_TFOR
+        || op.opcode == IR_JUMP_THROW
+        || op.opcode == IR_JUMP_RETURN );
+
+    assert( _block_index != IR_INVALID_INDEX );
+    ir_block* block = &_f->blocks.at( _block_index );
+    block->upper = _f->ops.size();
     _block_index = IR_INVALID_INDEX;
+
     return jump;
 }
 

@@ -100,10 +100,12 @@ private:
     void goto_block( goto_scope scope );
 
     // Blocks and jumps.
-    ir_operand emit_block( ir_block_kind kind );
+    ir_block_index new_block( srcloc sloc, ir_block_kind kind );
     ir_operand emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind );
     ir_operand emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false );
     ir_operand end_block( ir_operand jump );
+    ir_block_index new_loop( ir_block_index loop_header );
+    void end_loop( ir_block_index loop_header, goto_scope scope );
 
     // Function under construction.
     source* _source;

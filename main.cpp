@@ -19,15 +19,28 @@ int main( int argc, char* argv[] )
 {
     kf::source source;
     source.filename = "[stdin]";
+    FILE* f = stdin;
+
+    if ( argc > 1 )
+    {
+        source.filename = argv[ 1 ];
+        f = fopen( argv[ 1 ], "rb" );
+    }
+
     std::unique_ptr< char[] > buffer( new char[ 1024 ] );
     while ( true )
     {
-        size_t read = fread( buffer.get(), 1, 1024, stdin );
+        size_t read = fread( buffer.get(), 1, 1024, f );
         source.append( buffer.get(), read );
         if ( read < 1024 )
             break;
     }
     buffer.reset();
+
+    if ( f != stdin )
+    {
+        fclose( f );
+    }
 
     kf::lexer lexer( &source );
     kf::parser parser( &source, &lexer );
