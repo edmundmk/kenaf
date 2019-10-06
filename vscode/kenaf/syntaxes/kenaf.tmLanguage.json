@@ -87,6 +87,10 @@
         {
           "name": "keyword.operator.arithmetic.kenaf",
           "match": "\\*|/|//|%|\\+|-"
+        },
+        {
+          "name": "keyword.operator.length.kenaf",
+          "match": "#"
         }
       ]
     },
