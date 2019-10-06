@@ -784,31 +784,27 @@ ir_operand build_ir::visit( node_index node )
         _jump_continue.push_back( block_jump( node->sloc ) );
         break;
     }
-
+*/
     case AST_STMT_RETURN:
     {
         if ( child_node( node ).index < node.index )
         {
-            block_last( list_op( IR_BLOCK_RETURN, node ) );
+            end_block( call_op( node, IR_JUMP_RETURN ) );
         }
         else
         {
-            ir_operand o[ 1 ];
-            o[ 0 ] = { IR_O_NULL };
-            block_last( emit( node->sloc, IR_BLOCK_RETURN, o, 1 ) );
+            _o.push_back( { IR_O_NULL } );
+            end_block( emit( node->sloc, IR_JUMP_RETURN, 1 ) );
         }
-        break;
+        return { IR_O_NONE };
     }
 
     case AST_STMT_THROW:
     {
-        ir_operand o[ 1 ];
-        o[ 0 ] = visit( child_node( node ) );
-        block_last( emit( node->sloc, IR_BLOCK_THROW, o, 1 ) );
-        break;
+        _o.push_back( visit( child_node( node ) ) );
+        end_block( emit( node->sloc, IR_JUMP_THROW, 1 ) );
+        return { IR_O_NONE };
     }
-
-*/
 
     case AST_NAME:
     {
