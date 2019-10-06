@@ -661,7 +661,7 @@ token lexer::lex_string()
                 }
                 else
                 {
-                    _source->error( xloc, "Unir escape must have form 'U+000000'" );
+                    _source->error( xloc, "Unicode escape must have form 'U+000000'" );
                     _text.push_back( 'U' );
                 }
                 break;
