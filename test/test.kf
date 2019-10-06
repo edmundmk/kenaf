@@ -1,8 +1,69 @@
 while true do
 
+    var q = 1
+
     while true do
 
+        break
 
     end
 
+    continue
+
 end
+
+
+var x = "hello"
+
+-- :0011 BLOCK @7
+--   BASIC / PRECEDING @0
+--   OPS :0011:0014
+-- :0012 CONST "hello" /* x */
+-- :0013 JUMP @0014
+
+repeat
+
+    x = xx()
+
+-- :0014 BLOCK @8
+--   LOOP / PRECEDING @7 @11
+--   OPS :0014:001B
+-- :0015 GET_GLOBAL "xx"
+-- :0016 CALL :0015 /* x */
+-- :0017 VAL LOCAL x /* x */
+-- :0018 CONST 24.000000
+-- :0019 EQ :0017, :0018
+-- :001A JUMP_TEST :0019, @001B, @001D
+
+    if x == 24 then
+
+-- :001B BLOCK @9
+--   BASIC / LOOP @8 / PRECEDING @8
+--   OPS :001B:001D
+-- :001C JUMP @0020
+
+        continue
+    end
+
+-- :001D BLOCK @10
+--   BASIC / LOOP @8 / PRECEDING @8
+--   OPS :001D:0020
+-- :001E CONST 44.000000 /* y */
+-- :001F JUMP @0020
+
+    var y = 44
+
+-- :0020 BLOCK @11
+--   BASIC / LOOP @8 / PRECEDING @9 @10
+--   OPS :0020:0025
+-- :0021 VAL LOCAL x /* x */
+-- :0022 CONST 3.000000
+-- :0023 EQ :0021, :0022
+-- :0024 JUMP_TEST :0023, @0025, @0014
+
+until x == 3
+
+-- :0025 BLOCK @12
+--   BASIC / PRECEDING @11
+--   OPS :0025:0027
+-- :0026 JUMP_RETURN NULL

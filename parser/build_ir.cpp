@@ -732,58 +732,54 @@ ir_operand build_ir::visit( node_index node )
         goto_block( goto_break );
         return { IR_O_NONE };
     }
-/*
+
     case AST_STMT_REPEAT:
     {
         node_index body = child_node( node );
         node_index expr = next_node( body );
 
-        // Close previous block.
-        jump_fixup link_previous = block_jump( node->sloc );
+        // Open loop header.
+        ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
 
         // Mark break/continue stacks.
-        size_t continue_index = _jump_continue.size();
-        size_t break_index = _jump_break.size();
+        goto_scope goto_continue = goto_open( node->sloc, GOTO_CONTINUE );
+        goto_scope goto_break = goto_open( node->sloc, GOTO_BREAK );
 
-        // Loop header/body.
-        unsigned loop_header = block_head( node->sloc );
-        fixup( link_previous, loop_header );
+        // Body of loop.
         visit( body );
 
-        // Make continue block if there are any continues.
-        unsigned loop_continue = IR_INVALID_INDEX;
-        if ( continue_index < _jump_continue.size() )
+        // Continue to condition.
+        if ( goto_continue.index < _goto_stacks[ GOTO_CONTINUE ].fixups.size() )
         {
-            jump_fixup link_previous = block_jump( node->sloc );
-            loop_continue = block_head( node->sloc );
-            fixup( link_previous, loop_continue );
+            end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
+            goto_block( goto_continue );
         }
 
-        // Loop condition.
-        test_fixup link_loop = block_test( node->sloc, visit( expr ) );
-        _jump_break.push_back( link_loop.if_true );
-        fixup( link_loop.if_false, loop_header );
+        // Check condition and loop.
+        _o.push_back( visit( expr ) );
+        goto_scope goto_loop = goto_open( node->sloc, GOTO_CONTINUE );
+        end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, GOTO_BREAK, GOTO_CONTINUE ) );
+        end_loop( loop, goto_loop );
 
-        // Fixup break/continue.
-        unsigned loop_break = block_head( node->sloc );
-        break_continue( break_index, loop_break, continue_index, loop_continue );
-        break;
+        // Break to after loop.
+        goto_block( goto_break );
+        return { IR_O_NONE };
     }
 
     case AST_STMT_BREAK:
     {
         close_upstack( node );
-        _jump_break.push_back( block_jump( node->sloc ) );
-        break;
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_BREAK ) );
+        return { IR_O_NONE };
     }
 
     case AST_STMT_CONTINUE:
     {
         close_upstack( node );
-        _jump_continue.push_back( block_jump( node->sloc ) );
-        break;
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
+        return { IR_O_NONE };
     }
-*/
+
     case AST_STMT_RETURN:
     {
         if ( child_node( node ).index < node.index )
