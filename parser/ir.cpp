@@ -145,7 +145,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
         case IR_O_BLOCK:
         {
-            printf( " $$%u", operand.index );
+            printf( " @%u", operand.index );
             break;
         }
 
@@ -225,7 +225,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         const ir_block& block = f->blocks.at( f->operands.at( op.oindex ).index );
         printf( "  %s", BLOCK_KIND_NAMES[ block.kind ] );
         if ( block.loop != IR_INVALID_INDEX )
-            printf( " / LOOP $$%u", block.loop );
+            printf( " / LOOP @%u", block.loop );
         if ( block.preceding_lower < block.preceding_upper )
         {
             printf( " / PRECEDING" );
@@ -233,7 +233,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             {
                 ir_block_index index = f->preceding_blocks.at( preceding );
                 if ( index != IR_INVALID_INDEX )
-                    printf( " $$%u", index );
+                    printf( " @%u", index );
             }
         }
         printf( "\n" );

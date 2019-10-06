@@ -1,4 +1,7 @@
 
-if a == b < c <= d then end
-
-if a == ( b < c ) <= d  then end
+qq[ "A" ] = 1
+if something != 0 then
+    qq[ "B" ] = 2
+else
+    qq[ "C" ] = 3
+end

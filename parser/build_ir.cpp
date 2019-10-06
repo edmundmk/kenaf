@@ -387,7 +387,7 @@ ir_operand build_ir::visit( node_index node )
         node_index v = next_node( u );
         _o.push_back( visit( u ) );
         _o.push_back( visit( v ) );
-        return emit( node->sloc, IR_GET_KEY, 2 );
+        return emit( node->sloc, IR_GET_INDEX, 2 );
     }
 
     case AST_EXPR_CALL:
@@ -570,7 +570,6 @@ ir_operand build_ir::visit( node_index node )
     }
 
     // -- STATEMENTS --
-/*
 
     case AST_STMT_IF:
     {
@@ -578,22 +577,27 @@ ir_operand build_ir::visit( node_index node )
         node_index body = next_node( expr );
         node_index next = next_node( body );
 
-        test_fixup link;
-        size_t endif_index = _jump_endif.size();
+        goto_scope goto_else = goto_open( GOTO_ELSE );
+        goto_scope goto_endif = goto_open( GOTO_ENDIF );
 
         while ( true )
         {
-            // Test ends current block.
-            link = block_test( node->sloc, visit( expr ) );
+            // Check if condition.
+            goto_scope goto_next = goto_open( GOTO_ENDIF );
+            _o.push_back( visit( expr ) );
+            end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, GOTO_ENDIF, GOTO_ELSE ) );
+            goto_block( goto_next );
 
-            // Body of if.
-            fixup( link.if_true, block_head( body->sloc ) );
+            // Output body.
             visit( body );
-            _jump_endif.push_back( block_jump( body->sloc ) );
+            if ( _block_index != IR_INVALID_INDEX )
+            {
+                end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_ENDIF ) );
+            }
 
             if ( next.index < node.index && next->kind == AST_STMT_ELIF )
             {
-                fixup( link.if_false, block_head( next->sloc ) );
+                goto_block( goto_else );
                 expr = child_node( next );
                 body = next_node( expr );
                 next = next_node( next );
@@ -605,30 +609,22 @@ ir_operand build_ir::visit( node_index node )
             }
         }
 
+        goto_block( goto_else );
         if ( next.index < node.index )
         {
             // Else clause.
             assert( next->kind == AST_BLOCK );
-            fixup( link.if_false, block_head( next->sloc ) );
             visit( next );
-            _jump_endif.push_back( block_jump( next->sloc ) );
-        }
-        else
-        {
-            _jump_endif.push_back( link.if_false );
+            if ( _block_index != IR_INVALID_INDEX )
+            {
+                end_block( emit_jump( next->sloc, IR_JUMP, 0, GOTO_ENDIF ) );
+            }
         }
 
-        // Link all bodies to endif.
-        unsigned endif = block_head( node->sloc );
-        for ( size_t i = endif_index; i < _jump_endif.size(); ++i )
-        {
-            fixup( _jump_endif[ i ], endif );
-        }
-        _jump_endif.resize( endif_index );
-
-        break;
+        goto_block( goto_endif );
+        return { IR_O_NONE };
     }
-
+/*
     case AST_STMT_FOR_STEP:
     {
         node_index decl = child_node( node );
@@ -1122,7 +1118,7 @@ void build_ir::assign( node_index lval, ir_operand rval )
     else if ( lval->kind == AST_EXPR_INDEX )
     {
         node_index u = child_node( lval );
-        node_index v = next_node( lval );
+        node_index v = next_node( u );
         _o.push_back( visit( u ) );
         _o.push_back( visit( v ) );
         _o.push_back( rval );
@@ -1391,6 +1387,7 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
     block.lower = _f->ops.size();
     block.preceding_lower = _f->preceding_blocks.size();
 
+    unsigned label = _f->ops.size();
     for ( size_t goto_kind = 0; goto_kind < GOTO_MAX; ++goto_kind )
     {
         goto_stack& stack = _goto_stacks[ goto_kind ];
@@ -1398,6 +1395,9 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
         {
             goto_fixup fixup = stack.fixups[ i ];
             _f->preceding_blocks.push_back( fixup.block_index );
+            ir_operand* operand = &_f->operands.at( fixup.operand_index );
+            assert( operand->kind == IR_O_JUMP );
+            operand->index = label;
         }
         stack.fixups.resize( stack.index );
     }
@@ -1508,7 +1508,7 @@ ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, 
     unsigned operand_index = _f->operands.size() + ocount;
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
-    ir_operand test = emit( sloc, opcode, ocount + 1 );
+    ir_operand test = emit( sloc, opcode, ocount + 2 );
 
     goto_stack& stack_true = _goto_stacks[ goto_true ];
     assert( stack_true.index == stack_true.fixups.size() );
