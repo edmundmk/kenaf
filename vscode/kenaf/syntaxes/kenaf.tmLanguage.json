@@ -18,6 +18,12 @@
       "include": "#braces"
     },
     {
+      "include": "#string"
+    },
+    {
+      "include": "#scopes"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -191,11 +197,95 @@
       "name": "constant.character.escape.kenaf",
       "match": "\\\\([\"\\\\/bfnrtv]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U\\+[0-9A-Fa-f]{6})"
     },
+    "scopes": {
+      "patterns": [
+        {
+          "name": "meta.def.kenaf",
+          "begin": "\\b(def)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.def.kenaf"
+            }
+          },
+          "end": "\\b(end)\\b",
+          "endCaptures": {
+            "1": {
+              "name": "storage.type.end.kenaf"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
+          "name": "meta.then.kenaf",
+          "begin": "\\b(then)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.then.kenaf"
+            }
+          },
+          "end": "\\b(end)\\b",
+          "endCaptures": {
+            "1": {
+              "name": "keyword.control.end.kenaf"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
+          "name": "meta.do.kenaf",
+          "begin": "\\b(do)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.do.kenaf"
+            }
+          },
+          "end": "\\b(end)\\b",
+          "endCaptures": {
+            "1": {
+              "name": "keyword.control.end.kenaf"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
+          "name": "meta.repeat.kenaf",
+          "begin": "\\b(repeat)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.repeat.kenaf"
+            }
+          },
+          "end": "\\b(until)\\b",
+          "endCaptures": {
+            "1": {
+              "name": "keyword.control.until.kenaf"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {
-          "name": "storage.type.kenaf",
-          "match": "\\b(var|def)\\b"
+          "name": "storage.type.var.kenaf",
+          "match": "\\b(var)\\b"
         },
         {
           "name": "constant.language.boolean.null.kenaf",
@@ -210,16 +300,16 @@
           "match": "\\b(true)\\b"
         },
         {
-          "name": "variable.language.self.kenaf",
+          "name": "support.variable.self.kenaf",
           "match": "\\b(self)\\b"
         },
         {
-          "name": "variable.language.super.kenaf",
+          "name": "support.variable.super.kenaf",
           "match": "\\b(super)\\b"
         },
         {
           "name": "keyword.control.kenaf",
-          "match": "\\b(break|continue|elif|else|end|for|if|repeat|return|then|throw|until|while|yield)\\b"
+          "match": "\\b(break|continue|elif|else|for|if|return|throw|while|yield)\\b"
         }
       ]
     },
