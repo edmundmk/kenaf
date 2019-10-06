@@ -49,9 +49,15 @@ private:
         GOTO_MAX,
     };
 
+    struct goto_fixup
+    {
+        ir_block_index block_index;
+        unsigned operand_index;
+    };
+
     struct goto_stack
     {
-        std::vector< unsigned > fixups;
+        std::vector< goto_fixup > fixups;
         unsigned index;
     };
 
@@ -91,12 +97,13 @@ private:
     struct goto_scope { goto_kind kind; unsigned index; };
     goto_scope goto_open( goto_kind kind );
     void goto_branch( goto_scope scope );
-    void goto_close( goto_scope scope );
+    void goto_block( goto_scope scope );
 
-    // Jumps.
+    // Blocks and jumps.
+    ir_operand emit_block( ir_block_kind kind );
     ir_operand emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind );
     ir_operand emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false );
-    void end_block();
+    ir_operand end_block( ir_operand jump );
 
     // Function under construction.
     source* _source;
@@ -105,8 +112,10 @@ private:
     // Operand stack.
     std::vector< ir_operand > _o;
 
-    // Branch stacks.
+    // Block construction and branch stacks.
     goto_stack _goto_stacks[ GOTO_MAX ];
+    std::vector< ir_block_index > _loop_stack;
+    ir_block_index _block_index;
 
 };
 

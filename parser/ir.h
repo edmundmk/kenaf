@@ -236,8 +236,8 @@ enum ir_opcode : uint8_t
     IR_JUMP,                    // Jump to new block.
     IR_JUMP_TEST,               // test, iftrue, iffalse
     IR_JUMP_TFOR,               // for_each/for_step, iftrue, ifalse
-    IR_JUMP_RETURN,             // value+
     IR_JUMP_THROW,              // value
+    IR_JUMP_RETURN,             // value+
 
     // Phi instructions.
     IR_PHI,                     // Phi function.

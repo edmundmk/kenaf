@@ -95,8 +95,8 @@ const char* const OPCODE_NAMES[] =
     [ IR_JUMP           ] = "JUMP",
     [ IR_JUMP_TEST      ] = "JUMP_TEST",
     [ IR_JUMP_TFOR      ] = "JUMP_TFOR",
-    [ IR_JUMP_RETURN    ] = "JUMP_RETURN",
     [ IR_JUMP_THROW     ] = "JUMP_THROW",
+    [ IR_JUMP_RETURN    ] = "JUMP_RETURN",
 
     [ IR_PHI            ] = "PHI",
     [ IR_PHI_OPEN       ] = "PHI_OPEN",
