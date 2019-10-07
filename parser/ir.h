@@ -37,11 +37,9 @@
 
     Phi ops can be one of the following:
 
-        PHI (local) [phi_link], block/def, block/def, block/def
-            Lists all definitions that reach this block.  Each operand stores
-            the previous block index in the 'kind' field.
-
-            In unreachable code the list of definitions may be empty.
+        PHI (local) [phi_link], def, def, def
+            Lists all definitions that reach this block.  In unreachable code
+            the list of definitions may be empty.
 
         PHI_OPEN (local) [phi_link]
             During IR construction, phi ops in unsealed loops are represented

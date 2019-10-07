@@ -33,7 +33,18 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
     // Visit AST.
     node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
     visit( node );
+
+    // Clean up.
     assert( _o.empty() );
+    for ( size_t i = 0; i < GOTO_MAX; ++i )
+    {
+        assert( _goto_stacks[ i ].fixups.empty() );
+        assert( _goto_stacks[ i ].index == 0 );
+    }
+    assert( _loop_stack.size() == 1 && _loop_stack.back() == IR_INVALID_INDEX );
+    assert( _block_index == IR_INVALID_INDEX );
+    assert( _def_stack.empty() );
+    _defs.clear();
 
     // Done.
     return std::move( _f );
@@ -561,6 +572,11 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_FUNCTION:
     {
+        if ( _f->ast->implicit_self )
+        {
+            // TODO.
+        }
+
         visit_children( node );
         _o.push_back( { IR_O_NULL } );
         end_block( emit( node->sloc, IR_JUMP_RETURN, 1 ) );
@@ -944,11 +960,7 @@ ir_operand build_ir::visit( node_index node )
     case AST_LOCAL_NAME_SUPER:
     {
         unsigned local_index = node->leaf_index().index;
-
-        // TODO: Find SSA definition that reaches this point.
-        _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
-        ir_operand value = emit( node->sloc, IR_VAL, 1 );
-        _f->ops.at( value.index ).local = local_index;
+        ir_operand value = use( node->sloc, local_index );
 
         if ( node->kind == AST_UPVAL_NAME_SUPER )
         {
@@ -1563,9 +1575,7 @@ void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
     stack.index = scope.index;
 
     // Seal loop.
-    block->kind = IR_BLOCK_LOOP;
-
-    // TODO: Now loop is sealed, perform SSA search backwards?
+    seal_loop( loop_header );
 }
 
 ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
@@ -1657,10 +1667,103 @@ bool build_ir::block_local_equal::operator () ( block_local a, block_local b ) c
     return a.block_index == b.block_index && a.local == b.local;
 }
 
+ir_operand build_ir::use( srcloc sloc, unsigned local )
+{
+    if ( _block_index == IR_INVALID_INDEX )
+    {
+        new_block( sloc, IR_BLOCK_BASIC );
+    }
+    return search_def( _block_index, local );
+}
+
+ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
+{
+    // Search for definition in this block.
+    assert( block_index != IR_INVALID_INDEX );
+    auto i = _defs.find( block_local{ block_index, local } );
+    if ( i != _defs.end() )
+    {
+        return i->second;
+    }
+
+    // Construct open phi.
+    ir_op phi;
+    phi.opcode = IR_PHI_OPEN;
+    phi.local = local;
+    phi.phi_next = IR_INVALID_INDEX;
+    unsigned phi_index = _f->ops.size();
+    _f->ops.push_back( phi );
+
+    // Link into block's list of phi ops.
+    ir_block* block = &_f->blocks.at( block_index );
+    if ( block->phi_head != IR_INVALID_INDEX )
+    {
+        _f->ops.at( block->phi_tail ).phi_next = phi_index;
+        block->phi_tail = phi_index;
+    }
+    else
+    {
+        block->phi_head = block->phi_tail = phi_index;
+    }
+
+    // This phi acts as the def for this block.
+    printf( "NEW PHI: %u\n", phi_index );
+    ir_operand operand = { IR_O_OP, phi_index };
+    _defs.emplace( block_local{ block_index, local }, operand );
+
+    // If block is sealed, perform recursive search for defs now.
+    if ( block->kind != IR_BLOCK_UNSEALED )
+    {
+        close_phi( block_index, local, phi_index );
+    }
+
+    return operand;
+}
+
+void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned phi_index )
+{
+    assert( block_index != IR_INVALID_INDEX );
+    ir_block* block = &_f->blocks.at( block_index );
+
+    // Recursively search for definitions in predecessor blocks.
+    size_t def_index = _def_stack.size();
+    for ( unsigned index = block->preceding_lower; index < block->preceding_upper; ++index )
+    {
+        ir_block_index preceding_index = _f->preceding_blocks.at( index );
+        if ( preceding_index == IR_INVALID_INDEX )
+            continue;
+        _def_stack.push_back( search_def( preceding_index, local ) );
+    }
+
+    // Add operands to phi.
+    ir_op* op = &_f->ops.at( phi_index );
+    assert( op->opcode == IR_PHI_OPEN );
+    assert( op->local == local );
+    op->opcode = IR_PHI;
+    op->oindex = _f->operands.size();
+    _f->operands.insert( _f->operands.end(), _def_stack.begin() + def_index, _def_stack.end() );
+    op->ocount = _f->operands.size() - op->oindex;
+    _def_stack.resize( def_index );
+}
+
+void build_ir::seal_loop( ir_block_index loop_header )
+{
+    assert( loop_header != IR_INVALID_INDEX );
+    ir_block* block = &_f->blocks.at( loop_header );
+    assert( block->kind == IR_BLOCK_UNSEALED );
+
+    // Go through all phis and resolve them.
+    for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+    {
+        close_phi( loop_header, _f->ops.at( phi_index ).local, phi_index );
+    }
+
+    // Mark as sealed.
+    block->kind = IR_BLOCK_LOOP;
+}
+
 void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
 {
-    // TODO: SSA definition.
-
     // Be robust against failures.
     if ( operand.kind == IR_O_NONE )
     {
@@ -1686,6 +1789,10 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     // op is the new definition of the local.
     assert( op->local == IR_INVALID_LOCAL );
     op->local = local;
+
+    // Add to def lookup.
+    assert( _block_index != IR_INVALID_INDEX );
+    _defs.emplace( block_local{ _block_index, local }, operand );
 }
 
 }

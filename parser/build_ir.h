@@ -105,8 +105,10 @@ private:
     void end_loop( ir_block_index loop_header, goto_scope scope );
 
     // Use/def for SSA construction.
-    ir_operand read( unsigned local );
-    void seal( ir_block_index );
+    ir_operand use( srcloc sloc, unsigned local );
+    ir_operand search_def( ir_block_index block_index, unsigned local );
+    void close_phi( ir_block_index block_index, unsigned local, unsigned phi_index );
+    void seal_loop( ir_block_index loop_header );
     void def( srcloc sloc, unsigned local, ir_operand operand );
 
     // Function under construction.
@@ -125,7 +127,8 @@ private:
     struct block_local { ir_block_index block_index; unsigned local; };
     struct block_local_hash : private std::hash< unsigned > { size_t operator () ( block_local bl ) const; };
     struct block_local_equal { bool operator () ( block_local a, block_local b ) const; };
-    std::unordered_map< block_local, unsigned, block_local_hash, block_local_equal > _defs;
+    std::unordered_map< block_local, ir_operand, block_local_hash, block_local_equal > _defs;
+    std::vector< ir_operand > _def_stack;
 
 };
 
