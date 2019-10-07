@@ -574,7 +574,11 @@ ir_operand build_ir::visit( node_index node )
     {
         if ( _f->ast->implicit_self )
         {
-            // TODO.
+            const ast_local& self = _f->ast->locals.at( 0 );
+            assert( self.is_parameter );
+            assert( self.is_implicit_self );
+            _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
+            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
         }
 
         visit_children( node );
@@ -1707,7 +1711,6 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
     }
 
     // This phi acts as the def for this block.
-    printf( "NEW PHI: %u\n", phi_index );
     ir_operand operand = { IR_O_OP, phi_index };
     _defs.emplace( block_local{ block_index, local }, operand );
 
