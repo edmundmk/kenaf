@@ -1,6 +1,24 @@
+-- :0000 BLOCK @0
+--   LOOP / PRECEDING @2 @2
+--   OPS :0000:0003
+-- :0001 CONST TRUE
+-- :0002 JUMP_TEST :0001, @0003, @0009
+
 while true do
 
+-- :0003 BLOCK @1
+--   BASIC / LOOP @0 / PRECEDING @0
+--   OPS :0003:0006
+-- :0004 CONST 1.000000 /* q */
+-- :0005 JUMP @0006
+
     var q = 1
+
+-- :0006 BLOCK @2
+--   LOOP / LOOP @0 / PRECEDING @1
+--   OPS :0006:0009
+-- :0007 CONST TRUE
+-- :0008 JUMP_TEST :0007, @0000, @0000
 
     while true do
 
@@ -21,6 +39,12 @@ var x = "hello"
 -- :0012 CONST "hello" /* x */
 -- :0013 JUMP @0014
 
+-- :0009 BLOCK @3
+--   BASIC / PRECEDING @0
+--   OPS :0009:000C
+-- :000A CONST "hello" /* x */
+-- :000B JUMP @000C
+
 repeat
 
     x = xx()
@@ -34,6 +58,16 @@ repeat
 -- :0018 CONST 24.000000
 -- :0019 EQ :0017, :0018
 -- :001A JUMP_TEST :0019, @001B, @001D
+
+-- :000C BLOCK @4
+--   LOOP / PRECEDING @3 @6
+--   OPS :000C:0013
+-- :000D GET_GLOBAL "xx"
+-- :000E CALL :000D /* x */
+-- :000F VAL LOCAL x /* x */
+-- :0010 CONST 24.000000
+-- :0011 EQ :000F, :0010
+-- :0012 JUMP_TEST :0011, @0016, @0013
 
     if x == 24 then
 
@@ -51,6 +85,13 @@ repeat
 -- :001E CONST 44.000000 /* y */
 -- :001F JUMP @0020
 
+-- :0013 BLOCK @5
+--   BASIC / LOOP @4 / PRECEDING @4
+--   OPS :0013:0016
+-- :0014 CONST 44.000000 /* y */
+-- :0015 JUMP @0016
+
+
     var y = 44
 
 -- :0020 BLOCK @11
@@ -60,6 +101,14 @@ repeat
 -- :0022 CONST 3.000000
 -- :0023 EQ :0021, :0022
 -- :0024 JUMP_TEST :0023, @0025, @0014
+
+-- :0016 BLOCK @6
+--   BASIC / LOOP @4 / PRECEDING @4 @5
+--   OPS :0016:001B
+-- :0017 VAL LOCAL x /* x */
+-- :0018 CONST 3.000000
+-- :0019 EQ :0017, :0018
+-- :001A JUMP_TEST :0019, @001B, @000C
 
 until x == 3
 

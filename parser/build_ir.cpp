@@ -1273,7 +1273,6 @@ ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
         This pin is upgraded to a real value if the local is assigned to, or
         if a function is called before the pin is popped from the stack.
     */
-
     operand = ignore_pin( operand );
 
     // Ignore operands that aren't definitions of locals.
@@ -1509,6 +1508,28 @@ void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
 
 ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
 {
+    if ( opcode == IR_JUMP && _block_index == IR_INVALID_INDEX )
+    {
+        /*
+            Avoid emitting an empty block containing a single jump.  Instead
+            move all jumps that targeted the next block to the goto stack.
+        */
+        goto_stack& stack = _goto_stacks[ goto_kind ];
+        for ( size_t other_goto_kind = 0; other_goto_kind < GOTO_MAX; ++other_goto_kind )
+        {
+            if ( other_goto_kind == goto_kind )
+            {
+                continue;
+            }
+
+            goto_stack& other_stack = _goto_stacks[ other_goto_kind ];
+            stack.fixups.insert( stack.fixups.end(), other_stack.fixups.begin() + other_stack.index, other_stack.fixups.end() );
+            other_stack.fixups.resize( other_stack.index );
+        }
+        stack.index = stack.fixups.size();
+        return { IR_O_NONE };
+    }
+
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand jump = emit( sloc, opcode, ocount + 1 );
     const ir_op& op = _f->ops.at( jump.index );
@@ -1543,6 +1564,12 @@ ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, 
 
 ir_operand build_ir::end_block( ir_operand jump )
 {
+    if ( jump.kind == IR_O_NONE )
+    {
+        assert( _block_index == IR_INVALID_INDEX );
+        return jump;
+    }
+
     assert( jump.kind == IR_O_OP );
     const ir_op& op = _f->ops.at( jump.index );
     assert( op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
