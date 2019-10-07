@@ -69,6 +69,8 @@ const char* const OPCODE_NAMES[] =
     [ IR_APPEND         ] = "APPEND",
     [ IR_NEW_ARRAY      ] = "NEW_ARRAY",
     [ IR_NEW_TABLE      ] = "NEW_TABLE",
+    [ IR_NEW_FUNCTION   ] = "NEW_FUNCTION",
+    [ IR_NEW_OBJECT     ] = "NEW_OBJECT",
 
     [ IR_CALL           ] = "CALL",
     [ IR_YCALL          ] = "YCALL",

@@ -204,6 +204,8 @@ enum ir_opcode : uint8_t
     IR_APPEND,                  // a.append( b )
     IR_NEW_ARRAY,               // []
     IR_NEW_TABLE,               // {}
+    IR_NEW_FUNCTION,            // def()
+    IR_NEW_OBJECT,              // def
 
     // Stack top instructions.  If rcount is >1 then results must be selected.
     IR_CALL,                    // a( b, c, d ... ) ...

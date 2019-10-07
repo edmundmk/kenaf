@@ -853,6 +853,49 @@ ir_operand build_ir::visit( node_index node )
         return { IR_O_NONE };
     }
 
+    case AST_DEF_FUNCTION:
+    {
+        _o.push_back( { IR_O_FUNCTION_INDEX, node->leaf_index().index } );
+        return emit( node->sloc, IR_NEW_FUNCTION, 1 );
+    }
+
+    case AST_DEF_OBJECT:
+    {
+        node_index child = child_node( node );
+
+        // Get prototype.
+        if ( child.index < node.index && child->kind == AST_OBJECT_PROTOTYPE )
+        {
+            node_index proto_expr = child_node( child );
+            _o.push_back( visit( proto_expr ) );
+        }
+        else
+        {
+            _o.push_back( { IR_O_NULL } );
+            _o.push_back( emit( node->sloc, IR_CONST, 1 ) );
+        }
+
+        // Create object.
+        ir_operand object = emit( node->sloc, IR_NEW_OBJECT, 1 );
+
+        // Assign keys.
+        // TODO.
+
+        return object;
+    }
+
+    case AST_OBJECT_PROTOTYPE:
+    {
+        assert( ! "unexpected OBJECT_PROTOTYPE node" );
+        return { IR_O_NONE };
+    }
+
+    case AST_OBJECT_KEY:
+    {
+//        assert( ! "unexpected OBJECT_KEY node" );
+        return { IR_O_NONE };
+    }
+
     case AST_NAME:
     {
         assert( ! "unexpected NAME node" );
