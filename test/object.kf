@@ -17,7 +17,8 @@ def test_object is object
     end
 
     def method()
-
+        var x = super.method()
+        return x + 3
     end
 
 end

@@ -869,6 +869,7 @@ ir_operand build_ir::visit( node_index node )
         {
             node_index proto_expr = child_node( child );
             _o.push_back( visit( proto_expr ) );
+            child = next_node( child );
         }
         else
         {
@@ -880,7 +881,18 @@ ir_operand build_ir::visit( node_index node )
         ir_operand object = emit( node->sloc, IR_NEW_OBJECT, 1 );
 
         // Assign keys.
-        // TODO.
+        for ( ; child.index < node.index; child = next_node( child ) )
+        {
+            assert( child->kind == AST_DECL_DEF || child->kind == AST_OBJECT_KEY );
+            node_index name = child_node( child );
+            node_index value = next_node( name );
+
+            assert( name->kind == AST_OBJKEY_DECL );
+            _o.push_back( object );
+            _o.push_back( string_operand( name ) );
+            _o.push_back( visit( value ) );
+            emit( child->sloc, IR_SET_KEY, 3 );
+        }
 
         return object;
     }
@@ -948,6 +960,12 @@ ir_operand build_ir::visit( node_index node )
             // We have to pin all locals which escape the function, as they
             // may be clobbered by calls.
             value = pin( node->sloc, value );
+        }
+
+        if ( node->kind == AST_LOCAL_NAME_SUPER )
+        {
+            _o.push_back( value );
+            value = emit( node->sloc, IR_SUPER, 1 );
         }
 
         return value;
