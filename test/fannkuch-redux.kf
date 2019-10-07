@@ -38,7 +38,7 @@ def fannkuch( n )
 
                 q[ q0 ] = q0
 
-                var i = j
+                var i = 1
                 var j = q0 - 1
                 while i < j do
                     q[ i ], q[ j ] = q[ j ], q[ i ]

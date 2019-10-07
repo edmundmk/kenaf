@@ -116,6 +116,13 @@ const char* const BLOCK_KIND_NAMES[] =
 static void debug_print_op( const ir_function* f, unsigned i, int indent )
 {
     const ir_op& op = f->ops.at( i );
+
+    bool grey = op.opcode == IR_NOP || op.opcode == IR_PIN || ( op.opcode == IR_PHI && indent == 0 );
+    if ( grey )
+    {
+        printf( "\x1B[90m" );
+    }
+
     printf( "%*s:%04X %s", indent, "", i, OPCODE_NAMES[ op.opcode ] );
     for ( unsigned o = 0; o < op.ocount; ++o )
     {
@@ -228,6 +235,12 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         std::string_view name = f->ast->locals.at( op.local ).name;
         printf( " /* %.*s */", (int)name.size(), name.data() );
     }
+
+    if ( grey )
+    {
+        printf( "\x1B[0m" );
+    }
+
     printf( "\n" );
 
     if ( op.opcode == IR_BLOCK )
