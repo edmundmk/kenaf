@@ -905,7 +905,7 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_OBJECT_KEY:
     {
-//        assert( ! "unexpected OBJECT_KEY node" );
+        assert( ! "unexpected OBJECT_KEY node" );
         return { IR_O_NONE };
     }
 
@@ -917,7 +917,7 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_LOCAL_DECL:
     {
-//        assert( ! "unexpected LOCAL_DECL node" );
+        assert( ! "unexpected LOCAL_DECL node" );
         return { IR_O_NONE };
     }
 
@@ -971,14 +971,14 @@ ir_operand build_ir::visit( node_index node )
         return value;
     }
 
-    default:
+    case AST_OBJKEY_DECL:
     {
-        // TODO: remove this once all cases handled.
-        visit_children( node );
+        assert( ! "unexpected OBJKEY_DECL node" );
         return { IR_O_NONE };
     }
-
     }
+
+    return { IR_O_NONE };
 }
 
 void build_ir::visit_children( node_index node )
