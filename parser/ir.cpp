@@ -65,7 +65,7 @@ const char* const OPCODE_NAMES[] =
     [ IR_SET_KEY        ] = "SET_KEY",
     [ IR_GET_INDEX      ] = "GET_INDEX",
     [ IR_SET_INDEX      ] = "SET_INDEX",
-    [ IR_SUPEROF        ] = "SUPEROF",
+    [ IR_SUPER          ] = "SUPER",
     [ IR_APPEND         ] = "APPEND",
     [ IR_NEW_ARRAY      ] = "NEW_ARRAY",
     [ IR_NEW_TABLE      ] = "NEW_TABLE",
@@ -188,6 +188,12 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         {
             const ir_string& s = f->strings.at( operand.index );
             printf( " \"%.*s\"", (int)s.size, s.text );
+            break;
+        }
+
+        case IR_O_DEFAULT_PROTOTYPE:
+        {
+            printf( " DEFAULT_PROTOTYPE" );
             break;
         }
 

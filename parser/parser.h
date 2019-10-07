@@ -35,6 +35,7 @@ public:
 
     srcloc current_sloc();
     srcloc node_sloc( unsigned index );
+    ast_node_kind node_kind( unsigned index );
     void update_sloc( unsigned index, srcloc sloc );
 
     unsigned node( ast_node_kind kind, srcloc sloc, unsigned child );

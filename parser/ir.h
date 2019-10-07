@@ -200,7 +200,7 @@ enum ir_opcode : uint8_t
     IR_SET_KEY,                 // a.b = c
     IR_GET_INDEX,               // a[ b ]
     IR_SET_INDEX,               // a[ b ] = c
-    IR_SUPEROF,                 // superof( a )
+    IR_SUPER,                   // super( self ), performs late binding.
     IR_APPEND,                  // a.append( b )
     IR_NEW_ARRAY,               // []
     IR_NEW_TABLE,               // {}
@@ -264,6 +264,8 @@ enum ir_operand_kind : uint8_t
     IR_O_FALSE,                 // false
     IR_O_NUMBER,                // Constant number.
     IR_O_STRING,                // Constant string.
+
+    IR_O_DEFAULT_PROTOTYPE,     // Default prototype.
 
     IR_O_LOCAL_INDEX,           // Index of local.
     IR_O_UPVAL_INDEX,           // Index of upval.

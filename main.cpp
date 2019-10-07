@@ -25,6 +25,11 @@ int main( int argc, char* argv[] )
     {
         source.filename = argv[ 1 ];
         f = fopen( argv[ 1 ], "rb" );
+        if ( ! f )
+        {
+            fprintf( stderr, "unable to open script: %s\n", argv[ 1 ] );
+            return EXIT_FAILURE;
+        }
     }
 
     std::unique_ptr< char[] > buffer( new char[ 1024 ] );

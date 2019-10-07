@@ -855,7 +855,8 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_DEF_FUNCTION:
     {
-        _o.push_back( { IR_O_FUNCTION_INDEX, node->leaf_index().index } );
+        ast_function* function = node->leaf_function().function;
+        _o.push_back( { IR_O_FUNCTION_INDEX, function->index } );
         return emit( node->sloc, IR_NEW_FUNCTION, 1 );
     }
 
@@ -871,7 +872,7 @@ ir_operand build_ir::visit( node_index node )
         }
         else
         {
-            _o.push_back( { IR_O_NULL } );
+            _o.push_back( { IR_O_DEFAULT_PROTOTYPE } );
             _o.push_back( emit( node->sloc, IR_CONST, 1 ) );
         }
 
@@ -922,7 +923,7 @@ ir_operand build_ir::visit( node_index node )
         if ( node->kind == AST_UPVAL_NAME_SUPER )
         {
             _o.push_back( value );
-            value = emit( node->sloc, IR_SUPEROF, 1 );
+            value = emit( node->sloc, IR_SUPER, 1 );
         }
         return value;
     }
@@ -940,7 +941,7 @@ ir_operand build_ir::visit( node_index node )
         if ( node->kind == AST_UPVAL_NAME_SUPER )
         {
             _o.push_back( value );
-            value = emit( node->sloc, IR_SUPEROF, 1 );
+            value = emit( node->sloc, IR_SUPER, 1 );
         }
         else if ( _f->ast->locals.at( local_index ).upstack_index != AST_INVALID_INDEX )
         {

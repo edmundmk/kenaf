@@ -115,6 +115,14 @@ srcloc parser::node_sloc( unsigned index )
         return 0;
 }
 
+ast_node_kind parser::node_kind( unsigned index )
+{
+    if ( index != AST_INVALID_INDEX )
+        return _fstack.back()->nodes.at( index ).kind;
+    else
+        return AST_NONE;
+}
+
 void parser::update_sloc( unsigned index, srcloc sloc )
 {
     _fstack.back()->nodes.at( index ).sloc = sloc;

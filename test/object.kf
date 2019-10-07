@@ -1,0 +1,30 @@
+
+
+def test_object is object
+
+    def inner_object is object
+
+    end
+
+    def function()
+
+    end
+
+    hello : def end
+
+    def subobject
+
+    end
+
+    def method()
+
+    end
+
+end
+
+
+def test_object.inner_object.method()
+
+end
+
+

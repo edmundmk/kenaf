@@ -55,31 +55,92 @@ void resolve_names::visit( ast_function* f, unsigned index )
 
     switch ( n->kind )
     {
-    case AST_DEF_FUNCTION:
+    case AST_EXPR_UNPACK:
     {
-        // Visit leaf function.
-        ast_function* function = n->leaf_function().function;
-        visit( function, function->nodes.size() - 1 );
+        // Look up name inside unpack, allow vararg parameters.
+        unsigned value_index = n->child_index;
+        if ( f->nodes[ value_index ].kind == AST_NAME )
+        {
+            lookup( f, value_index, LOOKUP_UNPACK );
+            return;
+        }
+    }
+
+    case AST_DECL_VAR:
+    {
+        // Variable declarations.
+        unsigned name_list_index = n->child_index;
+        unsigned rval_list_index = f->nodes[ name_list_index ].next_index;
+        if ( rval_list_index < index )
+        {
+            visit( f, rval_list_index );
+        }
+        declare( f, name_list_index );
         return;
     }
 
-    case AST_FUNCTION:
+    case AST_DECL_DEF:
     {
-        // Functions declare parameters into the block scope.
-        unsigned parameters_index = n->child_index;
-        unsigned block_index = f->nodes[ parameters_index ].next_index;
-
-        // Open scope and declare parameters.
-        open_scope( f, block_index, index );
-        if ( f->implicit_self )
+        // Declare a def of an object.
+        unsigned name_index = n->child_index;
+        unsigned def_index = f->nodes[ name_index ].next_index;
+        if ( f->nodes[ name_index ].kind == AST_NAME )
         {
-            declare_implicit_self( f );
+            declare( f, name_index );
+            visit( f, def_index );
+            return;
         }
-        declare( f, parameters_index );
 
-        // Continue with block.
-        n = &f->nodes[ index = block_index ];
-        assert( n->kind == AST_BLOCK );
+        // Not a single name, so the name has to resolve.
+        break;
+    }
+
+    case AST_RVAL_ASSIGN:
+    case AST_RVAL_OP_ASSIGN:
+    {
+        // Visit lvals.
+        unsigned lval_index = n->child_index;
+        ast_node* lval_list = &f->nodes[ lval_index ];
+
+        // Might be a single value or a list.
+        unsigned head_index;
+        unsigned last_index;
+        if ( lval_list->kind != AST_LVAL_LIST )
+        {
+            head_index = lval_index;
+            last_index = lval_list->next_index;
+        }
+        else
+        {
+            head_index = lval_list->child_index;
+            last_index = lval_index;
+        }
+
+        // Visit all expressions on lhs, disallowing bare global names.
+        unsigned next_index;
+        for ( unsigned c = head_index; c < last_index; c = next_index )
+        {
+            ast_node* lval = &f->nodes[ c ];
+            if ( lval->kind == AST_NAME )
+                lookup( f, c, LOOKUP_ASSIGN );
+            else
+                visit( f, c );
+            next_index = lval->next_index;
+        }
+
+        // Visit remaining parts of expression.
+        for ( unsigned c = lval_list->next_index; c < index; c = f->nodes[ c ].next_index )
+        {
+            visit( f, c );
+        }
+
+        return;
+    }
+
+    case AST_BLOCK:
+    {
+        // Open scope at start of any other block.
+        open_scope( f, index, index );
         break;
     }
 
@@ -204,93 +265,58 @@ void resolve_names::visit( ast_function* f, unsigned index )
         return;
     }
 
-    case AST_BLOCK:
+    case AST_FUNCTION:
     {
-        // Open scope at start of any other block.
-        open_scope( f, index, index );
+        // Functions declare parameters into the block scope.
+        unsigned parameters_index = n->child_index;
+        unsigned block_index = f->nodes[ parameters_index ].next_index;
+
+        // Open scope and declare parameters.
+        open_scope( f, block_index, index );
+        if ( f->implicit_self )
+        {
+            declare_implicit_self( f );
+        }
+        declare( f, parameters_index );
+
+        // Continue with block.
+        n = &f->nodes[ index = block_index ];
+        assert( n->kind == AST_BLOCK );
         break;
     }
 
-    case AST_DECL_VAR:
+    case AST_DEF_FUNCTION:
     {
-        // Variable declarations.
-        unsigned name_list_index = n->child_index;
-        unsigned rval_list_index = f->nodes[ name_list_index ].next_index;
-        if ( rval_list_index < index )
-        {
-            visit( f, rval_list_index );
-        }
-        declare( f, name_list_index );
+        // Visit leaf function.
+        ast_function* function = n->leaf_function().function;
+        visit( function, function->nodes.size() - 1 );
         return;
     }
 
-    case AST_RVAL_ASSIGN:
-    case AST_RVAL_OP_ASSIGN:
+    case AST_DEF_OBJECT:
     {
-        // Visit lvals.
-        unsigned lval_index = n->child_index;
-        ast_node* lval_list = &f->nodes[ lval_index ];
-
-        // Might be a single value or a list.
-        unsigned head_index;
-        unsigned last_index;
-        if ( lval_list->kind != AST_LVAL_LIST )
+        for ( unsigned c = n->child_index; c < index; c = f->nodes[ c ].next_index )
         {
-            head_index = lval_index;
-            last_index = lval_list->next_index;
-        }
-        else
-        {
-            head_index = lval_list->child_index;
-            last_index = lval_index;
-        }
-
-        // Visit all expressions on lhs, disallowing bare global names.
-        unsigned next_index;
-        for ( unsigned c = head_index; c < last_index; c = next_index )
-        {
-            ast_node* lval = &f->nodes[ c ];
-            if ( lval->kind == AST_NAME )
-                lookup( f, c, LOOKUP_ASSIGN );
-            else
+            ast_node* child = &f->nodes[ c ];
+            if ( child->kind == AST_OBJECT_PROTOTYPE )
+            {
                 visit( f, c );
-            next_index = lval->next_index;
+            }
+            else if ( child->kind == AST_DECL_DEF || child->kind == AST_OBJECT_KEY )
+            {
+                assert( child->child_index < index );
+                ast_node* name = &f->nodes[ child->child_index ];
+                assert( name->kind == AST_NAME );
+                assert( name->next_index < index );
+                name->kind = AST_OBJKEY_DECL;
+                visit( f, name->next_index );
+            }
+            else
+            {
+                assert( ! "malformed AST" );
+            }
         }
-
-        // Visit remaining parts of expression.
-        for ( unsigned c = lval_list->next_index; c < index; c = f->nodes[ c ].next_index )
-        {
-            visit( f, c );
-        }
-
         return;
-    }
-
-    case AST_EXPR_UNPACK:
-    {
-        // Look up name inside unpack, allow vararg parameters.
-        unsigned value_index = n->child_index;
-        if ( f->nodes[ value_index ].kind == AST_NAME )
-        {
-            lookup( f, value_index, LOOKUP_UNPACK );
-            return;
-        }
-    }
-
-    case AST_DECL_DEF:
-    {
-        // Declare a def of an object.
-        unsigned name_index = n->child_index;
-        unsigned def_index = f->nodes[ name_index ].next_index;
-        if ( f->nodes[ name_index ].kind == AST_NAME )
-        {
-            declare( f, name_index );
-            visit( f, def_index );
-            return;
-        }
-
-        // Not a single name, so the name has to resolve.
-        break;
     }
 
     case AST_NAME:

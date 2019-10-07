@@ -70,7 +70,7 @@ struct ast_local
 
 struct ast_function
 {
-    ast_function( srcloc sloc, ast_function* outer );
+    ast_function( srcloc sloc, ast_function* outer, unsigned index );
     ~ast_function();
 
     void fixup_nodes();
@@ -79,6 +79,7 @@ struct ast_function
     srcloc sloc;                // Source location of function.
     std::string name;           // Name of function.
     ast_function* outer;        // Lexically outer function.
+    unsigned index;             // Index of function in the AST.
     unsigned parameter_count;   // First count locals are parameters.
     unsigned max_upstack_size;  // Maximum size of upstack.
     bool implicit_self;         // Does the function have implicit self?
@@ -185,6 +186,7 @@ enum ast_node_kind : uint16_t
     AST_LOCAL_NAME,             // Reference to local variable.
     AST_UPVAL_NAME_SUPER,       // superof( upval ).
     AST_LOCAL_NAME_SUPER,       // superof( local variable ).
+    AST_OBJKEY_DECL,            // Declares object key.
 };
 
 enum ast_node_leaf : uint8_t

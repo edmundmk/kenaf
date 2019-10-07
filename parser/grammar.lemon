@@ -64,14 +64,15 @@ struct op_assign_type
 struct definition_type
 {
     unsigned index;
+    expr_kind name_kind;
     ast_function* function;
 };
 
 struct open_function_type
 {
-    ast_function* function;
     unsigned name_index;
     srcloc sloc;
+    ast_function* function;
 };
 
 static expr_kind expr_list_kind( expr_kind u, expr_kind v )
@@ -495,19 +496,19 @@ constructor(x) ::= open_lambda(u) LPN(lpn) parameters(params) RPN(bdo) block(blo
 open_lambda(x) ::= DEF(def) .
     {
         ast_function* f = p->push_function( def.sloc );
-        x = { f, AST_INVALID_INDEX, def.sloc };
+        x = { AST_INVALID_INDEX, def.sloc, f };
     }
 open_lambda(x) ::= DEF(def) YIELD .
     {
         ast_function* f = p->push_function( def.sloc );
         f->is_generator = true;
-        x = { f, AST_INVALID_INDEX, def.sloc };
+        x = { AST_INVALID_INDEX, def.sloc, f };
     }
 
 definition(x) ::= DEF(def) qual_name(w) prototype_opt(u) object_keys(v) END .
     {
         p->node( AST_DEF_OBJECT, def.sloc, u != AST_INVALID_INDEX ? u : v );
-        x = { p->node( AST_DECL_DEF, def.sloc, w.index ), nullptr };
+        x = { p->node( AST_DECL_DEF, def.sloc, w.index ), w.kind, nullptr };
     }
 definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(block) END .
     {
@@ -517,21 +518,22 @@ definition(x) ::= open_function(u) LPN(lpn) parameters(params) RPN(bdo) block(bl
         p->pop_function();
         p->function_node( AST_DEF_FUNCTION, u.sloc, u.function );
         u.function->name = p->qual_name_string( u.name_index );
-        x = { p->node( AST_DECL_DEF, u.sloc, u.name_index ), u.function };
+        expr_kind name_kind = p->node_kind( u.name_index ) == AST_NAME ? EXPR_NAME : EXPR_LVAL;
+        x = { p->node( AST_DECL_DEF, u.sloc, u.name_index ), name_kind, u.function };
     }
 
 open_function(x) ::= DEF(def) qual_name(u) .
     {
         ast_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;
-        x = { f, u.index, def.sloc };
+        x = { u.index, def.sloc, f };
     }
 open_function(x) ::= DEF(def) YIELD qual_name(u) .
     {
         ast_function* f = p->push_function( def.sloc );
         f->implicit_self = u.kind != EXPR_NAME;
         f->is_generator = true;
-        x = { f, u.index, def.sloc };
+        x = { u.index, def.sloc, f };
     }
 
 qual_name(x) ::= name(u) .
@@ -574,7 +576,15 @@ prototype_opt(x) ::= IS(kw) expr(u) .                   { x = p->node( AST_OBJEC
 object_keys(x) ::= .                                    { x = AST_INVALID_INDEX; }
 object_keys(x) ::= object_keys(u) object_key(v) .       { x = u != AST_INVALID_INDEX ? u : v; }
 
-object_key(x) ::= definition(u) .                       { x = u.index; if ( u.function ) u.function->implicit_self = true; }
+object_key(x) ::= definition(u) .
+    {
+        if ( u.function )
+            u.function->implicit_self = true;
+        if ( u.name_kind != EXPR_NAME )
+            p->error( p->node_sloc( u.index ), "inline %s must have a simple name", u.function ? "method" : "member object" );
+        x = u.index;
+    }
+
 object_key(x) ::= name(u) COLON(op) expr .              { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 object_key(x) ::= name(u) COLON(op) expr SEMICOLON .    { x = p->node( AST_OBJECT_KEY, op.sloc, u ); }
 

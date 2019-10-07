@@ -105,6 +105,7 @@ const char* const AST_NODE_NAME[] =
     [ AST_LOCAL_NAME        ] = "LOCAL_NAME",
     [ AST_UPVAL_NAME_SUPER  ] = "UPVAL_NAME_SUPER",
     [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
+    [ AST_OBJKEY_DECL       ] = "OBJKEY_DECL",
 };
 
 ast_script::ast_script()
@@ -117,13 +118,14 @@ ast_script::~ast_script()
 
 ast_function* ast_script::new_function( srcloc sloc, ast_function* outer )
 {
-    functions.push_back( std::make_unique< ast_function >( sloc, outer ) );
+    functions.push_back( std::make_unique< ast_function >( sloc, outer, functions.size() ) );
     return functions.back().get();
 }
 
-ast_function::ast_function( srcloc sloc, ast_function* outer )
+ast_function::ast_function( srcloc sloc, ast_function* outer, unsigned index )
     :   sloc( sloc )
     ,   outer( outer )
+    ,   index( index )
     ,   parameter_count( 0 )
     ,   max_upstack_size( 0 )
     ,   implicit_self( false )
