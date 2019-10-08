@@ -16,10 +16,20 @@
             "extensions": [".kf"],
             "configuration": "./language-configuration.json"
         }],
-        "grammars": [{
-            "language": "kenaf",
-            "scopeName": "source.kenaf",
-            "path": "./syntaxes/kenaf.tmLanguage.json"
-        }]
+        "grammars": [
+            {
+                "path": "./syntaxes/kenaf.tmLanguage.json",
+                "scopeName": "source.kenaf",
+                "language": "kenaf"
+            },
+            {
+                "path": "./syntaxes/kenaf-markdown-injection.tmLanguage.json",
+                "scopeName": "kenaf.markdown.injection",
+                "injectTo": ["text.html.markdown"],
+                "embeddedLanguages": {
+                    "meta.embedded.block.kenaf": "source.kenaf"
+                }
+            }
+        ]
     }
 }
