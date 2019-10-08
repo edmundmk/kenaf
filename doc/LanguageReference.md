@@ -36,7 +36,7 @@ The names `and`, `break`, `continue`, `def`, `do`, `elif`, `else`, `end`,
 
 # Expressions
 
-## Precedence
+## Operators
 
 Prefix expressions bind most tightly, and consist of:
 
@@ -69,7 +69,32 @@ Comparison operators `x == equal`, `not != equal`, `less < than`,
 than bitwise logical operators.  The expresions `x is y` and `x is not y`,
 which test an object's prototype chain, are also comparison operators.
 
+Then logical operators:
 
+  * Unary `not`, which despite being a unary operator has lower precedence
+    than comparisions.  `not a == b` is equivalent to `not ( a == b )`.
+  * Logical `and`.  If the first operand tests false, the result is that
+    operand, otherwise the result is the second operand.
+  * Logical `or`.  Like `and`, the result is one of the operands.  Tests
+    whether the first operand is true.
+
+Logical `and` and `or` perform shortcut evaluation.  If the result is the
+first operand, the second operand is never evaluated.
+
+Finally, conditional expressions look like
+`if test then this elif check then that else other end`, evaluating and
+resulting in only one of `this`, `that`, or `other` depending on testing `test`
+and maybe `check`.
+
+Other kinds of expression such as `yield` expressions, assignment rvals, and
+array and table constructors, have lower precedence than any operator.
+
+
+## Tests
+
+The values `null`, `false`, negative zero, and positive zero test false.
+
+All other values test true.
 
 
 ## Integer Division
@@ -119,6 +144,6 @@ else
 ```
 
 Each expression is only evaluated once.  As with the `and` operator, evaluation
-of later expressions is skipped if any of the comparisons in the chain results
-in false.
+of later expressions is skipped if any of the comparisons in the chain test
+false.
 
