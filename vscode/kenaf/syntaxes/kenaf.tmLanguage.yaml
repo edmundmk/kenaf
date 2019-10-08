@@ -104,6 +104,27 @@ repository:
 
   scopes:
     patterns:
+    - name: 'meta.def.function.kenaf'
+      begin: '\b(def)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)*([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()'
+      beginCaptures:
+        '1': { name: 'storage.type.def.kenaf' }
+        '2': { name: 'entity.name.function.kenaf' }
+      end: '\b(end)\b'
+      endCaptures:
+        '1': { name: 'storage.type.end.kenaf' }
+      patterns:
+      - include: '$self'
+    - name: 'meta.def.object.kenaf'
+      begin: '\b(def)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)*([A-Za-z_][A-Za-z0-9_]*)(?:\s*\b(is)\b)?'
+      beginCaptures:
+        '1': { name: 'storage.type.def.kenaf' }
+        '2': { name: 'entity.name.object.kenaf' }
+        '3': { name: 'storage.type.is.kenaf' }
+      end: '\b(end)\b'
+      endCaptures:
+        '1': { name: 'storage.type.end.kenaf' }
+      patterns:
+      - include: '$self'
     - name: 'meta.def.kenaf'
       begin: '\b(def)\b'
       beginCaptures:
@@ -174,7 +195,7 @@ repository:
   name:
     patterns:
     - name: 'entity.name.function.kenaf'
-      match: '[A-Za-z_][0-9A-Za-z_]*(?=[ \t]*\()'
+      match: '[A-Za-z_][0-9A-Za-z_]*(?=\s*\()'
     - name: 'source.kenaf'
       match: '[A-Za-z_][0-9A-Za-z_]*'
 
