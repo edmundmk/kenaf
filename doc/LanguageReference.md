@@ -31,7 +31,7 @@ A name is a token matching the regular expression `[A-Za-z0-9][A-Za-z0-9_]*`.
 
 The names `and`, `break`, `continue`, `def`, `do`, `elif`, `else`, `end`,
 `for`, `if`, `is`, `not`, `or`, `repeat`, `return`, `then`, `throw`, `until`,
-`var`, `while`, and `yield` are *keywords* with special meaning in the grammar.
+`var`, `while`, and `yield` are keywords with special meaning in the grammar.
 
 
 # Expressions
@@ -108,10 +108,9 @@ treating it as an unsigned integer.
 
 Sequences of comparision expressions chain together, to give expressions like
 `a < b < c` their conventional mathematical meaning.  More formally,
-`a < b < c` is equivalent to the following code:
+`result = a < b < c` is equivalent to the following code:
 
 ```
-var result
 var temp_a, temp_b = a, b
 if temp_a < temp_b then
     result = false
@@ -120,6 +119,6 @@ else
 ```
 
 Each expression is only evaluated once.  As with the `and` operator, evaluation
-of later expressions is skipped if any of the comparisons in the chain is
-false.
+of later expressions is skipped if any of the comparisons in the chain results
+in false.
 
