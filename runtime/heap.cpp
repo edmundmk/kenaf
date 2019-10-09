@@ -62,25 +62,36 @@ void heap_vmfree( void* p, size_t size )
 }
 
 /*
-    An allocated block looks like this:
+    An allocated chunk looks like this:
 
         --> u32 size of chunk / 1 / P
             u32 word
-          & user data
-            ...
+          & ...
         --- next chunk        / U / 1
 
-    A small free block looks like this:
+    A free chunk which is too small to link into a bin (i.e. smaller than a
+    header + two pointers) looks like this:
 
         --> u32 size of chunk / 0 / P
-            u32 empty
+            ...
+            u32 size of chunk
+        --> next chunk        / U / 0
+
+    For the very tiniest chunks, this is the same size as a header on its own.
+    These tiny free chunks are not binned, and the memory is unrecoverable
+    until adjacent allocations are merged.
+
+    A small free chunk looks like this:
+
+        --> u32 size of chunk / 0 / P
+            u32 ...
           & chunk* next
             chunk* prev
             ...
             u32 size of chunk
         --- next chunk        / U / 0
 
-    A large free block looks like this:
+    A large free chunk looks like this:
 
         --> u32 size of chunk / 0 / P
             u32 empty
@@ -112,11 +123,11 @@ struct heap_chunk
 {
     heap_chunk_header header;
 
-    // Used only for free blocks.
+    // Used for free chunks.
     heap_chunk* next;
     heap_chunk* prev;
 
-    // Used only for large free blocks.
+    // Used for large free chunks.
     heap_chunk* parent;
     heap_chunk* child[ 2 ];
 };
@@ -303,7 +314,7 @@ inline uint32_t heap_largebin_prefix( size_t size, size_t index )
 
 /*
     Main heap data structure, at the end of the initial segment.  Note that
-    smallbin_anchors are the sentinel nodes in doubly-linked lists of blocks.
+    smallbin_anchors are the sentinel nodes in doubly-linked lists of chunks.
     However, we only store the next and prev pointers.
 */
 
@@ -514,7 +525,7 @@ void heap_state::free( void* p )
 
     if ( next->header.size != 0 || chunk != ( (heap_segment*)next )->base )
     {
-        // This block is free.
+        // This chunk is free.
         chunk->header = { false, true, size, HEAP_FREE_WORD };
         heap_chunk_this_footer( chunk )->size = size;
         assert( next->header.u );
@@ -702,7 +713,7 @@ void heap::free( void* p )
 }
 
 /*
-    Get size of allocated block.
+    Get size of allocation.
 */
 
 size_t heap_malloc_size( void* p )
