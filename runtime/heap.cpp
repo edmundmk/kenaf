@@ -514,8 +514,61 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
     }
 }
 
+inline heap_chunk* heap_tree_rightwards( heap_chunk* chunk )
+{
+    heap_chunk* right = chunk->child[ 1 ];
+    return right ? right : chunk->child[ 0 ];
+}
+
 void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
+    heap_chunk* prev = chunk->prev;
+    heap_chunk* next = chunk->next;
+
+    if ( size < HEAP_LARGEBIN_SIZE )
+    {
+        // Unlink from list.
+        prev->next = next;
+        next->prev = prev;
+
+        // Check if this bin is empty.
+        if ( prev == next )
+        {
+            size_t index = heap_smallbin_index( size );
+            assert( prev == smallbin_anchor( index ) );
+            smallbin_map &= ~( 1u << index );
+        }
+    }
+    else
+    {
+        heap_chunk* replace = nullptr;
+
+        if ( prev != next )
+        {
+            // Chunk is part of a list.  Unlink it, and replace with next.
+            prev->next = next;
+            next->prev = prev;
+            replace = next;
+        }
+        else
+        {
+            // Choose rightmost leaf as replacment.
+            replace = heap_tree_rightwards( chunk );
+            while ( heap_chunk* right = heap_tree_rightwards( replace ) )
+            {
+                replace = right;
+            }
+        }
+
+        // If this chunk was a tree node, then replace it.
+        heap_chunk* parent = chunk->parent;
+        if ( parent )
+        {
+            if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
+            if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
+            replace->parent = parent;
+        }
+    }
 }
 
 void heap_state::free_segment( heap_segment* segment )
