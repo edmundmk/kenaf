@@ -107,9 +107,9 @@ struct heap_chunk
     heap_chunk* prev;
 
     // Used only for large free blocks.
-    heap_chunk* child[ 2 ];
     heap_chunk* parent;
-    uint32_t bin_index;
+    heap_chunk* child[ 2 ];
+    size_t index;
 };
 
 struct heap_chunk_footer
@@ -469,8 +469,48 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
         size_t index = heap_largebin_index( size );
         uint32_t prefix = heap_largebin_prefix( size, index );
 
-        // TODO.
+        // Set tree node properties.
+        chunk->child[ 0 ] = nullptr;
+        chunk->child[ 1 ] = nullptr;
+        chunk->index = index;
 
+        // Link into tree.
+        assert( index < HEAP_LARGEBIN_COUNT );
+        heap_chunk* parent = chunk;
+        heap_chunk** link = &largebins[ index ];
+        heap_chunk* node = *link;
+        while ( true )
+        {
+            if ( ! node )
+            {
+                // Link new node into tree.
+                *link = chunk;
+                chunk->next = chunk;
+                chunk->prev = chunk;
+                chunk->parent = parent;
+                break;
+            }
+
+            if ( node->header.size == size )
+            {
+                // Link new node into the linked list at this tree node.
+                heap_chunk* next = node->next;
+                node->next = chunk;
+                next->prev = chunk;
+                chunk->next = next;
+                chunk->prev = node;
+                chunk->parent = nullptr;
+                break;
+            }
+
+            parent = node;
+            link = &node->child[ prefix >> 31 ];
+            prefix >>= 1;
+            node = *link;
+        }
+
+        // Mark largebin map, as this largebin is not empty.
+        largebin_map |= 1u << index;
     }
 }
 
