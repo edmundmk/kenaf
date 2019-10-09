@@ -26,6 +26,21 @@ struct heap_chunk;
 const unsigned HEAP_INVALID_WORD = 0xDEFDEF;
 const unsigned HEAP_FREE_WORD = 0xFEEFEE;
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
+const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
+
+/*
+    Count leading and trailing zeroes.
+*/
+
+inline uint32_t clz( uint32_t x )
+{
+    return __builtin_clz( x );
+}
+
+inline uint32_t ctz( uint32_t x )
+{
+    return __builtin_ctz( x );
+}
 
 /*
     Allocate and free virtual memory from the system.
@@ -74,7 +89,6 @@ void heap_vmfree( void* p, size_t size )
             chunk* left
             chunk* right
             chunk* parent
-            u32 bin_index
             ...
             u32 size of chunk
         --- next chunk        / U / 0
@@ -83,14 +97,10 @@ void heap_vmfree( void* p, size_t size )
     allocated.  The U bit indicates whether or not the current chunk is
     allocated.
 
-    Chunks are 8-byte aligned with a minimum size of 32 bytes, and a maximum
-    size of just under 4GiB.
+    Chunks are 8-byte aligned with a maximum size of just under 4GiB.
 */
 
-const size_t HEAP_MIN_CHUNK_SIZE = 32;
-const size_t HEAP_MAX_CHUNK_SIZE = 0xFFFFFFE0;
-
-struct alignas( 8 ) heap_chunk_header
+struct heap_chunk_header
 {
     uint32_t p : 1;
     uint32_t u : 1;
@@ -109,7 +119,6 @@ struct heap_chunk
     // Used only for large free blocks.
     heap_chunk* parent;
     heap_chunk* child[ 2 ];
-    size_t index;
 };
 
 struct heap_chunk_footer
@@ -259,11 +268,6 @@ const size_t HEAP_SMALLBIN_COUNT = 32;
 const size_t HEAP_LARGEBIN_COUNT = 32;
 const size_t HEAP_LARGEBIN_SIZE = 256;
 
-inline unsigned clz( unsigned x )
-{
-    return __builtin_clz( x );
-}
-
 inline size_t heap_smallbin_index( size_t size )
 {
     assert( size < HEAP_LARGEBIN_SIZE );
@@ -278,7 +282,7 @@ inline size_t heap_largebin_index( size_t size )
     }
     else if ( size < ( 12 << 20 ) )
     {
-        unsigned log2size = sizeof( unsigned ) * CHAR_BIT - 1 * clz( (unsigned)size );
+        size_t log2size = sizeof( uint32_t ) * CHAR_BIT - 1 * clz( (uint32_t)size );
         size_t index = ( log2size - 8 ) * 2;
         size_t ihalf = size >> ( ( log2size - 1 ) & 1 );
         return index + ihalf;
@@ -302,6 +306,9 @@ inline uint32_t heap_largebin_prefix( size_t size, size_t index )
     smallbin_anchors are the sentinel nodes in doubly-linked lists of blocks.
     However, we only store the next and prev pointers.
 */
+
+const size_t HEAP_MAX_CHUNK_SIZE = 0xFFFFFFE0;
+const size_t HEAP_CHUNK_ALIGNMENT = 8;
 
 struct heap_state
 {
@@ -359,7 +366,8 @@ heap_state::heap_state( size_t segment_size )
         assert( size <= HEAP_MAX_CHUNK_SIZE );
         free_chunk->header = { true, false, (uint32_t)size, HEAP_FREE_WORD };
         heap_chunk_this_footer( free_chunk )->size = size;
-        insert_chunk( size, free_chunk );
+        victim_size = size;
+        victim = free_chunk;
     }
 
     segment_chunk->header = { false, true, 0, HEAP_INVALID_WORD };
@@ -381,7 +389,86 @@ heap_state::~heap_state()
 
 void* heap_state::malloc( size_t size )
 {
+    // Chunk size is larger due to overhead, and must be aligned.
+    size = size + sizeof( heap_chunk_header );
+    size = ( size + HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
+    if ( size > HEAP_MAX_CHUNK_SIZE )
+    {
+        throw std::bad_alloc();
+    }
+
+    // Lock.
     std::lock_guard< std::mutex > lock( mutex );
+
+    heap_chunk* chunk = nullptr;
+    if ( size < HEAP_LARGEBIN_SIZE )
+    {
+        // Small chunk.
+        size_t index = heap_smallbin_index( size );
+        uint32_t bin_map = smallbin_map >> index;
+
+        if ( bin_map & 0xF )
+        {
+            /*
+                Use the entirety of a chunk in the smallbin of a size where
+                the remaining size after we split is too small to hold a free
+                chunk. Free chunks on 64-bit systems take up 32 bytes/4 bins.
+            */
+            unsigned waste = ctz( bin_map );
+            size += waste * 8;
+            index += waste;
+
+            assert( map & 1u << index );
+            heap_chunk* anchor = smallbin_anchor( index );
+            chunk = anchor->next;
+
+            heap_chunk* next = chunk->next;
+            anchor->next = next;
+            next->prev = anchor;
+        }
+        else
+        {
+            if ( victim_size < size )
+            {
+                insert_chunk( victim_size, victim );
+
+                if ( bin_map )
+                {
+                    // Replace victim with first non-empty smallbin.
+                }
+                else if ( largebin_map )
+                {
+                    // Replace victim with smallest non-empty largebin.
+                }
+                else
+                {
+                    // Make new VM allocation to create a new victim.
+                }
+            }
+
+            // Split victim chunk.
+
+        }
+    }
+    else
+    {
+        // Large chunk.
+
+        // Find best fitting binned chunk.
+
+        if ( 32 < victim_size )
+        {
+            // Use best fitting chunk.
+        }
+        else
+        {
+            // Use victim chunk.
+        }
+
+        // Split target chunk.
+    }
+
+
     // TODO.
     return nullptr;
 }
@@ -472,7 +559,6 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
         // Set tree node properties.
         chunk->child[ 0 ] = nullptr;
         chunk->child[ 1 ] = nullptr;
-        chunk->index = index;
 
         // Link into tree.
         assert( index < HEAP_LARGEBIN_COUNT );
@@ -578,8 +664,7 @@ void heap_state::free_segment( heap_segment* segment )
     heap_segment** pback = &initial_segment;
     while ( s )
     {
-        if ( s == segment )
-            break;
+        if ( s == segment ) break;
         pback = &s->next;
         s = s->next;
     }
