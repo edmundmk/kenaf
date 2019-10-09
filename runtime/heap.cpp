@@ -25,8 +25,6 @@ struct heap_chunk;
 
 const unsigned HEAP_INVALID_WORD = 0xDEFDEF;
 const unsigned HEAP_FREE_WORD = 0xFEEFEE;
-
-const size_t HEAP_MAX_SEGMENT = 0xFFFFFFE8;
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 
 /*
@@ -53,7 +51,7 @@ void heap_vmfree( void* p, size_t size )
 
         --> u32 size of chunk / 1 / P
             u32 word
-        --> user data
+          & user data
             ...
         --- next chunk        / U / 1
 
@@ -61,7 +59,7 @@ void heap_vmfree( void* p, size_t size )
 
         --> u32 size of chunk / 0 / P
             u32 empty
-        --> chunk* next
+          & chunk* next
             chunk* prev
             ...
             u32 size of chunk
@@ -71,7 +69,7 @@ void heap_vmfree( void* p, size_t size )
 
         --> u32 size of chunk / 0 / P
             u32 empty
-        --> chunk* next
+          & chunk* next
             chunk* prev
             chunk* left
             chunk* right
@@ -85,9 +83,12 @@ void heap_vmfree( void* p, size_t size )
     allocated.  The U bit indicates whether or not the current chunk is
     allocated.
 
-    Blocks are 8-byte aligned with a minimum size of 32 bytes, and a maximum
+    Chunks are 8-byte aligned with a minimum size of 32 bytes, and a maximum
     size of just under 4GiB.
 */
+
+const size_t HEAP_MIN_CHUNK_SIZE = 32;
+const size_t HEAP_MAX_CHUNK_SIZE = 0xFFFFFFE0;
 
 struct alignas( 8 ) heap_chunk_header
 {
@@ -105,9 +106,8 @@ struct heap_chunk
     heap_chunk* next;
     heap_chunk* prev;
 
-    // Used only for large blocks.
-    heap_chunk* left;
-    heap_chunk* right;
+    // Used only for large free blocks.
+    heap_chunk* child[ 2 ];
     heap_chunk* parent;
     uint32_t bin_index;
 };
@@ -208,8 +208,51 @@ inline size_t heap_segment_size( heap_segment* segment )
         [ 30 ] -> >= 8MiB
         [ 31 ] -> >= 12MiB
 
-    Each large bin is a binary tree keyed by .  The nodes of the tree are lists of chunks with
-    the same size.
+    Each large bin is a binary tree.  The nodes of the tree are lists of chunks
+    with the same size.  Each tree is a 'not quite' prefix tree/bitwise trie
+    keyed on the low bits of the chunk size.
+
+    Let 'base' be the minimum size of chunk stored in this bin (the large bin
+    size, above).  The sizes of chunks in each bin are in the interval
+    [ base, base + range ), where range is a power of two.  For example:
+
+        bin 4
+            base    0b0100_0000_0000    range 9 bits
+            last    0b0101_1111_1111
+        bin 5
+            base    0b0110_0000_0000    range 9 bits
+            last    0b0111_1111_1111
+        bin 6
+            base    0b1000_0000_0000    range 10 bits
+            last    0b1011_1111_1111
+
+    Each node in the tree selects between its children using a bit from the
+    range, with the root selecting using the high bit and subsequent levels
+    using the next highest bit.  However, instead of the linked list for each
+    chunk size being stored in leaf nodes, each leaf of the tree is stored in
+    one of its ancestors (it doesn't matter which one, it will depend on
+    insertion order).
+
+    For example, bin 1 has a range of 7 bits, and a bitwise trie might look
+    like (with some chains of parent nodes elided):
+
+                                      [..]
+                        .---------------'---------------.
+                      [0..]                           [1..]
+                .-------'-------.               .-------'-------.
+             [00..]          [01..]             .            [11..]
+           .----'----.          '----.       1010110       .----'
+           .         .               .                     .
+        0001111    0010110        0110110               1100111
+
+    But our tree might instead look like this:
+
+                                   [..] 1010110
+                            .-----------'----------.
+                      [0..] 0001111          [1..] 1100111
+                    .-------'-------.
+             [00..] 0010110  [01..] 0110110
+
 */
 
 const size_t HEAP_SMALLBIN_COUNT = 32;
@@ -244,6 +287,14 @@ inline size_t heap_largebin_index( size_t size )
     {
         return 31;
     }
+}
+
+inline uint32_t heap_largebin_prefix( size_t size, size_t index )
+{
+    // Shift bits of size so most significant bit is the top bit of the range
+    // for the bin at index.
+    uint32_t range_bits = 7 + index / 2;
+    return (uint32_t)size << ( 32 - range_bits );
 }
 
 /*
@@ -305,7 +356,7 @@ heap_state::heap_state( size_t segment_size )
     if ( free_chunk < segment_chunk )
     {
         size_t size = segment_size - sizeof( heap_state ) - sizeof( heap_segment );
-        assert( size < HEAP_MAX_SEGMENT );
+        assert( size <= HEAP_MAX_CHUNK_SIZE );
         free_chunk->header = { true, false, (uint32_t)size, HEAP_FREE_WORD };
         heap_chunk_this_footer( free_chunk )->size = size;
         insert_chunk( size, free_chunk );
@@ -379,6 +430,8 @@ void heap_state::free( void* p )
         // This block is free.
         chunk->header = { false, true, size, HEAP_FREE_WORD };
         heap_chunk_this_footer( chunk )->size = size;
+        assert( next->header.u );
+        next->header.p = false;
         insert_chunk( size, chunk );
     }
     else
@@ -409,13 +462,14 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
         chunk->prev = prev;
 
         // Mark smallbin map, as this smallbin is not empty.
-        largebin_map |= 1u << index;
+        smallbin_map |= 1u << index;
     }
     else
     {
         size_t index = heap_largebin_index( size );
+        uint32_t prefix = heap_largebin_prefix( size, index );
 
-        //
+        // TODO.
 
     }
 }
@@ -475,7 +529,9 @@ void heap::free( void* p )
 
 size_t heap_malloc_size( void* p )
 {
-    return heap_chunk_head( p )->header.size;
+    heap_chunk* chunk = heap_chunk_head( p );
+    assert( chunk->header.u );
+    return chunk->header.size - sizeof( heap_chunk_header );
 }
 
 }
