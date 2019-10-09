@@ -55,7 +55,7 @@ void heap_vmfree( void* p, size_t size )
             u32 word
         --> user data
             ...
-        --- next chunk        / ? / 1
+        --- next chunk        / U / 1
 
     A small free block looks like this:
 
@@ -65,7 +65,7 @@ void heap_vmfree( void* p, size_t size )
             chunk* prev
             ...
             u32 size of chunk
-        --- next chunk        / ? / 0
+        --- next chunk        / U / 0
 
     A large free block looks like this:
 
@@ -79,9 +79,10 @@ void heap_vmfree( void* p, size_t size )
             u32 bin_index
             ...
             u32 size of chunk
-        --- next chunk        / ? / 0
+        --- next chunk        / U / 0
 
-    As in dlmalloc, the P bit indicates whether or not te previous chunk is
+    As in dlmalloc, the P bit indicates whether or not the previous chunk is
+    allocated.  The U bit indicates whether or not the current chunk is
     allocated.
 
     Blocks are 8-byte aligned with a minimum size of 32 bytes, and a maximum
@@ -151,10 +152,25 @@ inline heap_chunk* heap_chunk_next( heap_chunk* chunk )
 /*
     An entry in a linked list of memory segments allocated from the system.
 
-    The heap_segment structure is always placed at the end of the segment, to
-    ensure that free chunks are always followed by at least one allocated
-    chunk.  The chunk containing the heap_segment has a size of zero, to mark
-    that it's the end of the segment.
+    The initial segment looks like this:
+
+        --- heap_state
+        --- heap_chunk   : u32 size / U / 1
+            ...
+        --- heap_segment : 0 / 1 / P
+
+    Subsequently allocated segments look like this:
+
+        --- heap_chunk    : u32 size / U / 1
+            ...
+        --- heap_segment : 0 / 1 / P
+
+    The heap_segment structure is always placed at the end of the segment, and
+    is treated as an allocated chunk. This means we can guarantee that valid
+    chunks are always followed by an allocated chunk.
+
+    The heap_segment chunk has a size of zero, to indicate that it is the end
+    of the segment.
 */
 
 struct heap_segment
@@ -164,13 +180,13 @@ struct heap_segment
     heap_segment* next;
 };
 
-size_t heap_segment_size( heap_segment* segment )
+inline size_t heap_segment_size( heap_segment* segment )
 {
     return (char*)( segment + 1 ) - (char*)segment->base;
 }
 
 /*
-    Small bin sizes, ( index + 1 ) * 8
+    Small bin sizes, == ( index + 1 ) * 8
         [ 0 ] -> 8
         [ 1 ] -> 16
         [ 2 ] -> 24
@@ -179,22 +195,56 @@ size_t heap_segment_size( heap_segment* segment )
         ...
         [ 30 ] -> 240
         [ 31 ] -> 248
-    Large bin sizes, ( 256 << index/2 ) * index%2 ? 1.5 : 1.0
-        [ 0 ] -> 256
-        [ 1 ] -> 384
-        [ 2 ] -> 512
-        [ 3 ] -> 768
-        [ 4 ] -> 1024
+
+    Each small bin is a list of free chunks of exactly the given size.
+
+    Large bin sizes, >= ( 256 << index/2 ) + index%2 ? 128 << index/2 : 0
+        [ 0 ] -> >= 256
+        [ 1 ] -> >= 384
+        [ 2 ] -> >= 512
+        [ 3 ] -> >= 768
+        [ 4 ] -> >= 1024
         ...
-        [ 30 ] -> 16MiB
-        [ 31 ] -> ...
+        [ 30 ] -> >= 8MiB
+        [ 31 ] -> >= 12MiB
+
+    Each large bin is a binary tree keyed by .  The nodes of the tree are lists of chunks with
+    the same size.
 */
 
 const size_t HEAP_SMALLBIN_COUNT = 32;
 const size_t HEAP_LARGEBIN_COUNT = 32;
+const size_t HEAP_LARGEBIN_SIZE = 256;
 
-const unsigned HEAP_SMALLBIN_SHIFT = 3;
-const unsigned HEAP_SMALLBIN_WIDTH = 1 << HEAP_SMALLBIN_SHIFT;
+inline unsigned clz( unsigned x )
+{
+    return __builtin_clz( x );
+}
+
+inline size_t heap_smallbin_index( size_t size )
+{
+    assert( size < HEAP_LARGEBIN_SIZE );
+    return size / 8;
+}
+
+inline size_t heap_largebin_index( size_t size )
+{
+    if ( size < 256 )
+    {
+        return 0;
+    }
+    else if ( size < ( 12 << 20 ) )
+    {
+        unsigned log2size = sizeof( unsigned ) * CHAR_BIT - 1 * clz( (unsigned)size );
+        size_t index = ( log2size - 8 ) * 2;
+        size_t ihalf = size >> ( ( log2size - 1 ) & 1 );
+        return index + ihalf;
+    }
+    else
+    {
+        return 31;
+    }
+}
 
 /*
     Main heap data structure, at the end of the initial segment.  Note that
@@ -208,7 +258,7 @@ struct heap_state
     ~heap_state();
 
     uint32_t smallbin_map;
-    uint32_t treebin_map;
+    uint32_t largebin_map;
     uint32_t victim_size;
     heap_segment* initial_segment;
     heap_chunk* victim;
@@ -220,14 +270,14 @@ struct heap_state
     void free( void* p );
 
     heap_chunk* smallbin_anchor( size_t i );
-    void link_chunk( heap_chunk* chunk );
-    void unlink_chunk( heap_chunk* chunk );
+    void insert_chunk( size_t size, heap_chunk* chunk );
+    void remove_chunk( size_t size, heap_chunk* chunk );
     void free_segment( heap_segment* segment );
 };
 
 heap_state::heap_state( size_t segment_size )
     :   smallbin_map( 0 )
-    ,   treebin_map( 0 )
+    ,   largebin_map( 0 )
     ,   victim_size( 0 )
     ,   victim( nullptr )
     ,   smallbin_anchors{}
@@ -258,7 +308,7 @@ heap_state::heap_state( size_t segment_size )
         assert( size < HEAP_MAX_SEGMENT );
         free_chunk->header = { true, false, (uint32_t)size, HEAP_FREE_WORD };
         heap_chunk_this_footer( free_chunk )->size = size;
-        // TODO: link it in.
+        insert_chunk( size, free_chunk );
     }
 
     segment_chunk->header = { false, true, 0, HEAP_INVALID_WORD };
@@ -307,8 +357,9 @@ void heap_state::free( void* p )
         heap_chunk* prev = heap_chunk_prev( chunk );
         assert( prev->header.p );
         assert( ! prev->header.u );
-        unlink_chunk( prev );
-        size += prev->header.size;
+        uint32_t prev_size = prev->header.size;
+        remove_chunk( prev_size, prev );
+        size += prev_size;
         chunk = prev;
     }
 
@@ -317,8 +368,9 @@ void heap_state::free( void* p )
     if ( ! next->header.u )
     {
         assert( next->header.p );
-        unlink_chunk( next );
-        size += next->header.size;
+        size_t next_size = next->header.size;
+        remove_chunk( next_size, next );
+        size += next_size;
         next = (heap_chunk*)( (char*)chunk + size );;
     }
 
@@ -327,7 +379,7 @@ void heap_state::free( void* p )
         // This block is free.
         chunk->header = { false, true, size, HEAP_FREE_WORD };
         heap_chunk_this_footer( chunk )->size = size;
-        link_chunk( chunk );
+        insert_chunk( size, chunk );
     }
     else
     {
@@ -342,11 +394,33 @@ heap_chunk* heap_state::smallbin_anchor( size_t i )
     return heap_chunk_head( &smallbin_anchors[ i * 2 ] );
 }
 
-void heap_state::link_chunk( heap_chunk* chunk )
+void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 {
+    if ( size < HEAP_LARGEBIN_SIZE )
+    {
+        size_t index = heap_smallbin_index( size );
+
+        // Insert at head of smallbin list of this size.
+        heap_chunk* prev = smallbin_anchor( index );
+        heap_chunk* next = prev->next;
+        prev->next = chunk;
+        next->prev = chunk;
+        chunk->next = next;
+        chunk->prev = prev;
+
+        // Mark smallbin map, as this smallbin is not empty.
+        largebin_map |= 1u << index;
+    }
+    else
+    {
+        size_t index = heap_largebin_index( size );
+
+        //
+
+    }
 }
 
-void heap_state::unlink_chunk( heap_chunk* chunk )
+void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
 }
 
