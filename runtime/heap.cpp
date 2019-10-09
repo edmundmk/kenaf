@@ -418,7 +418,7 @@ void* heap_state::malloc( size_t size )
             size += waste * 8;
             index += waste;
 
-            assert( map & 1u << index );
+            assert( smallbin_map & 1u << index );
             heap_chunk* anchor = smallbin_anchor( index );
             chunk = anchor->next;
 
