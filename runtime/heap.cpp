@@ -685,24 +685,23 @@ void heap_state::free( void* p )
 
 heap_chunk* heap_state::smallest_large_chunk( size_t index )
 {
-/*
-        heap_chunk* chunk = largebins[ index ];
-        size_t chunk_size = chunk->header.size;
-        while ( heap_chunk* left = heap_tree_leftwards( left ) )
+    heap_chunk* chunk = largebins[ index ];
+    size_t chunk_size = chunk->header.size;
+
+    heap_chunk* check = heap_tree_leftwards( chunk );
+    while ( check )
+    {
+        size_t check_size = check->header.size;
+        if ( check_size < chunk_size )
         {
+            chunk = check->next;
+            chunk_size = check_size;
         }
 
-        for ( heap_chunk* left = chunk->child[ 0 ]; left; left = left->child[ 0 ] )
-        {
-            size_t left_size = left->header.size;
-            if ( left_size < chunk_size )
-            {
-                chunk = left;
-                chunk_size = left_size;
-            }
-        }
-*/
-    return nullptr;
+        check = heap_tree_leftwards( check );
+    }
+
+    return chunk;
 }
 
 heap_chunk* heap_state::best_fit_large_chunk( size_t index, size_t size )
