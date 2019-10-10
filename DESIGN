@@ -193,6 +193,12 @@ builtins:
     isinf( n )
     isfinite( n )
     fmod( n, n )
+    log2( n )
+    log( n )
+    exp( n )
+    exp2( n )
+    clz( n )
+    ctz( n )
 
     pi
     tau
