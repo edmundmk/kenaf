@@ -20,10 +20,6 @@
 namespace kf
 {
 
-struct heap_state;
-struct heap_segment;
-struct heap_chunk;
-
 /*
     Count leading and trailing zeroes.
 */
@@ -330,9 +326,9 @@ inline size_t heap_largebin_index( size_t size )
     }
     else if ( size < ( 12 << 20 ) )
     {
-        size_t log2size = sizeof( uint32_t ) * CHAR_BIT - 1 * clz( (uint32_t)size );
+        size_t log2size = sizeof( uint32_t ) * CHAR_BIT - 1 - clz( (uint32_t)size );
         size_t index = ( log2size - 8 ) * 2;
-        size_t ihalf = size >> ( ( log2size - 1 ) & 1 );
+        size_t ihalf = ( size >> ( log2size - 1 ) ) & 1;
         return index + ihalf;
     }
     else
@@ -961,7 +957,7 @@ heap_chunk* heap_state::alloc_segment( size_t size )
     void* vmalloc = heap_vmalloc( size );
 
     // Add segment.
-    heap_chunk* segment_chunk = (heap_chunk*)( (char*)vmalloc + segment_size - sizeof( heap_segment ) );
+    heap_chunk* segment_chunk = (heap_chunk*)( (char*)vmalloc + size - sizeof( heap_segment ) );
     heap_chunk_set_segment( segment_chunk );
     heap_segment* segment = (heap_segment*)segment_chunk;
     segment->base = vmalloc;
@@ -993,7 +989,7 @@ heap_chunk* heap_state::alloc_segment( size_t size )
     heap_chunk* free_chunk = (heap_chunk*)segment->base;
 
     // Attempt to merge with previous segment.
-    if ( prev && heap_segment_can_merge( prev, segment ) && 0 )
+    if ( prev && heap_segment_can_merge( prev, segment ) )
     {
         // Remove segment.
         unlink_segment( prev );
@@ -1100,7 +1096,7 @@ void heap_state::debug_print()
 
     for ( heap_segment* s = segments; s; s = s->next )
     {
-        printf( "SEGMENT %p:%zu:\n", s->base, heap_segment_size( s ) );
+        printf( "SEGMENT %p %p:%zu:\n", s, s->base, heap_segment_size( s ) );
         heap_chunk* c = (heap_chunk*)s->base;
         while ( true )
         {
