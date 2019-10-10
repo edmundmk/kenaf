@@ -42,7 +42,7 @@ const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
 
 static size_t idx = 0;
-void* ALLOC[ 4 ] = { (void*)0x10d000000, (void*)0x10d200000, (void*)0x10d400000, (void*)0x10d600000 };
+void* ALLOC[ 4 ] = { (void*)0x10d000000, (void*)0x10d400000, (void*)0x10d200000, (void*)0x10d600000 };
 
 void* heap_vmalloc( size_t size )
 {
@@ -154,7 +154,7 @@ inline heap_chunk* heap_chunk_head( void* p )
 
 inline void* heap_chunk_data( heap_chunk* p )
 {
-    return p + 1;
+    return &p->header + 1;
 }
 
 inline heap_chunk_footer* heap_chunk_prev_footer( heap_chunk* chunk )
@@ -1029,11 +1029,6 @@ heap_chunk* heap_state::alloc_segment( size_t size )
     heap_segment* next = segment->next;
     if ( next && heap_segment_can_merge( segment, next ) && next->base != this )
     {
-        // Remove segment.
-        segment = next;
-        next->base = segment->base;
-        unlink_segment( segment );
-
         // Merge free space.
         free_size += sizeof( heap_segment );
 
@@ -1045,6 +1040,11 @@ heap_chunk* heap_state::alloc_segment( size_t size )
             remove_chunk( next_chunk_size, next_chunk );
             free_size += next_chunk_size;
         }
+
+        // Remove segment.
+        next->base = segment->base;
+        unlink_segment( segment );
+        segment = next;
     }
 
     // Construct free chunk in space.
@@ -1177,7 +1177,6 @@ size_t heap_malloc_size( void* p )
 
 }
 
-
 /*
     Testing of heap.
 */
@@ -1193,6 +1192,11 @@ int main( int argc, char* argv[] )
     heap.debug_print();
 
     void* q = heap.malloc( 1024 * 1024 );
+    heap.debug_print();
+
+    printf( "------- %p\n", p );
+    printf( "------- %p\n", q );
+    heap.free( p );
     heap.debug_print();
 
     return EXIT_SUCCESS;
