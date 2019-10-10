@@ -70,7 +70,7 @@ void heap_vmfree( void* p, size_t size )
         --- next chunk        / U / 1
 
     A free chunk which is too small to link into a bin (i.e. smaller than a
-    header + two pointers) looks like this:
+    header + three pointers) looks like this:
 
         --> u32 size of chunk / 0 / P
             ...
