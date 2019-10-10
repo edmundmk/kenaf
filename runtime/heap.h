@@ -36,6 +36,7 @@ public:
 
     void* malloc( size_t size );
     void free( void* p );
+    void debug_print() const;
 
 private:
 
