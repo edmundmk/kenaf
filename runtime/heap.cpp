@@ -23,8 +23,8 @@ struct heap_state;
 struct heap_segment;
 struct heap_chunk;
 
-const unsigned HEAP_INVALID_WORD = 0xDEFDEF;
-const unsigned HEAP_FREE_WORD = 0xFEEFEE;
+const unsigned HEAP_WORD_INTERNAL = 0xDEFDEF;
+const unsigned HEAP_WORD_FREE = 0xFEEFEE;
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
 
@@ -111,6 +111,8 @@ void heap_vmfree( void* p, size_t size )
     Chunks are 8-byte aligned with a maximum size of just under 4GiB.
 */
 
+const size_t HEAP_MIN_BINNED_SIZE = 8 + sizeof( void* ) * 3;
+
 struct heap_chunk_header
 {
     uint32_t p : 1;
@@ -130,12 +132,17 @@ struct heap_chunk
     // Used for large free chunks.
     heap_chunk* parent;
     heap_chunk* child[ 2 ];
+    size_t index;
 };
 
 struct heap_chunk_footer
 {
     uint32_t size;
 };
+
+/*
+    Navigating chunks in memory.
+*/
 
 inline heap_chunk* heap_chunk_head( void* p )
 {
@@ -145,12 +152,6 @@ inline heap_chunk* heap_chunk_head( void* p )
 inline void* heap_chunk_data( heap_chunk* p )
 {
     return p + 1;
-}
-
-inline heap_chunk_footer* heap_chunk_this_footer( heap_chunk* chunk )
-{
-    assert( ! chunk->header.u );
-    return (heap_chunk_footer*)( (char*)chunk + chunk->header.size ) - 1;
 }
 
 inline heap_chunk_footer* heap_chunk_prev_footer( heap_chunk* chunk )
@@ -167,6 +168,27 @@ inline heap_chunk* heap_chunk_prev( heap_chunk* chunk )
 inline heap_chunk* heap_chunk_next( heap_chunk* chunk )
 {
     return (heap_chunk*)( (char*)chunk + chunk->header.size );
+}
+
+/*
+    Setting chunk headers and footers.
+*/
+
+inline void heap_chunk_set_free( heap_chunk* chunk, size_t size )
+{
+    chunk->header = { true, false, (uint32_t)size, HEAP_WORD_FREE };
+    heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)chunk + size ) - 1;
+    footer->size = size;
+}
+
+inline void heap_chunk_set_allocated( heap_chunk* chunk, size_t size )
+{
+    chunk->header = { true, true, (uint32_t)size, 0 };
+}
+
+inline void heap_chunk_set_internal( heap_chunk* chunk, size_t size )
+{
+    chunk->header = { true, true, (uint32_t)size, HEAP_WORD_INTERNAL };
 }
 
 /*
@@ -313,6 +335,16 @@ inline uint32_t heap_largebin_prefix( size_t size, size_t index )
 }
 
 /*
+    Tree navigation.
+*/
+
+inline heap_chunk* heap_tree_rightwards( heap_chunk* chunk )
+{
+    heap_chunk* right = chunk->child[ 1 ];
+    return right ? right : chunk->child[ 0 ];
+}
+
+/*
     Main heap data structure, at the end of the initial segment.  Note that
     smallbin_anchors are the sentinel nodes in doubly-linked lists of chunks.
     However, we only store the next and prev pointers.
@@ -336,11 +368,17 @@ struct heap_state
     std::mutex mutex;
 
     void* malloc( size_t size );
+    size_t make_victim( size_t size );
+
     void free( void* p );
 
     heap_chunk* smallbin_anchor( size_t i );
     void insert_chunk( size_t size, heap_chunk* chunk );
     void remove_chunk( size_t size, heap_chunk* chunk );
+    heap_chunk* remove_small_chunk( size_t size, heap_chunk* chunk );
+    heap_chunk* remove_large_chunk( heap_chunk* chunk );
+
+    heap_chunk* alloc_segment( size_t size );
     void free_segment( heap_segment* segment );
 };
 
@@ -375,13 +413,12 @@ heap_state::heap_state( size_t segment_size )
     {
         size_t size = segment_size - sizeof( heap_state ) - sizeof( heap_segment );
         assert( size <= HEAP_MAX_CHUNK_SIZE );
-        free_chunk->header = { true, false, (uint32_t)size, HEAP_FREE_WORD };
-        heap_chunk_this_footer( free_chunk )->size = size;
+        heap_chunk_set_free( free_chunk, size );
         victim_size = size;
         victim = free_chunk;
     }
 
-    segment_chunk->header = { false, true, 0, HEAP_INVALID_WORD };
+    heap_chunk_set_internal( segment_chunk, sizeof( heap_segment ) );
     initial_segment = (heap_segment*)segment_chunk;
     initial_segment->base = this;
     initial_segment->next = nullptr;
@@ -402,7 +439,7 @@ void* heap_state::malloc( size_t size )
 {
     // Chunk size is larger due to overhead, and must be aligned.
     size = size + sizeof( heap_chunk_header );
-    size = ( size + HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
+    size = size + ( HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
     if ( size > HEAP_MAX_CHUNK_SIZE )
     {
         throw std::bad_alloc();
@@ -416,18 +453,16 @@ void* heap_state::malloc( size_t size )
     {
         // Small chunk.
         size_t index = heap_smallbin_index( size );
-        uint32_t bin_map = smallbin_map >> index;
-
-        if ( bin_map & 0xF )
+        uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
+        if ( bin_map )
         {
             /*
                 Use the entirety of a chunk in the smallbin of a size where
                 the remaining size after we split is too small to hold a free
                 chunk. Free chunks on 64-bit systems take up 32 bytes/4 bins.
             */
-            unsigned waste = ctz( bin_map );
-            size += waste * 8;
-            index += waste;
+            index = ctz( bin_map );
+            size = ( index + 1 ) * 8;
 
             assert( smallbin_map & 1u << index );
             heap_chunk* anchor = smallbin_anchor( index );
@@ -436,25 +471,23 @@ void* heap_state::malloc( size_t size )
             heap_chunk* next = chunk->next;
             anchor->next = next;
             next->prev = anchor;
+
+            assert( chunk != anchor );
+            heap_chunk_set_allocated( chunk, size );
+
+            return heap_chunk_data( chunk );
         }
         else
         {
+            /*
+                Pick a victim chunk and split the allocation from the bottom
+                of it.  The victim is not stored in a bin.
+            */
+            size_t vsize = victim_size;
             if ( victim_size < size )
             {
-                insert_chunk( victim_size, victim );
-
-                if ( bin_map )
-                {
-                    // Replace victim with first non-empty smallbin.
-                }
-                else if ( largebin_map )
-                {
-                    // Replace victim with smallest non-empty largebin.
-                }
-                else
-                {
-                    // Make new VM allocation to create a new victim.
-                }
+                vsize = make_victim( size );
+                assert( vsize >= size );
             }
 
             // Split victim chunk.
@@ -484,6 +517,60 @@ void* heap_state::malloc( size_t size )
     return nullptr;
 }
 
+size_t heap_state::make_victim( size_t size )
+{
+    assert( size < HEAP_LARGEBIN_SIZE );
+
+    // Pick the first chunk in a smallbin larger than size.
+    size_t index = heap_smallbin_index( size );
+    uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
+    if ( bin_map )
+    {
+        index = ctz( bin_map );
+        size = ( index + 1 ) * 8;
+
+        assert( index < HEAP_SMALLBIN_COUNT );
+        assert( smallbin_map & 1u << index );
+
+        heap_chunk* anchor = smallbin_anchor( index );
+        victim = remove_small_chunk( size, anchor->next );
+        victim_size = size;
+
+        return size;
+    }
+
+    // Otherwise, pick the smallest chunk in the first non-empty largebin.
+    if ( largebin_map )
+    {
+        size_t index = ctz( largebin_map );
+        assert( index < HEAP_LARGEBIN_COUNT );
+
+        heap_chunk* chunk = largebins[ index ];
+        assert( chunk );
+        size_t chunk_size = chunk->header.size;
+
+        for ( heap_chunk* left = chunk->child[ 0 ]; left; left = left->child[ 0 ] )
+        {
+            size_t left_size = left->header.size;
+            if ( left_size < chunk_size )
+            {
+                chunk = left;
+                chunk_size = left_size;
+            }
+        }
+
+        victim = remove_large_chunk( chunk );
+        victim_size = size = victim->header.size;
+
+        return size;
+    }
+
+    // Otherwise, make new VM allocation.
+    victim = alloc_segment( size );
+    victim_size = size = victim->header.size;
+    return size;
+}
+
 void heap_state::free( void* p )
 {
     // free( nullptr ) is valid.
@@ -498,7 +585,7 @@ void heap_state::free( void* p )
     // We don't have much context, but assert that the chunk is allocated.
     heap_chunk* chunk = heap_chunk_head( p );
     assert( chunk->header.u );
-    uint32_t size = chunk->header.size;
+    size_t size = chunk->header.size;
 
     // Attempt to merge with previous chunk.
     if ( ! chunk->header.p )
@@ -506,7 +593,7 @@ void heap_state::free( void* p )
         heap_chunk* prev = heap_chunk_prev( chunk );
         assert( prev->header.p );
         assert( ! prev->header.u );
-        uint32_t prev_size = prev->header.size;
+        size_t prev_size = prev->header.size;
         remove_chunk( prev_size, prev );
         size += prev_size;
         chunk = prev;
@@ -526,8 +613,7 @@ void heap_state::free( void* p )
     if ( next->header.size != 0 || chunk != ( (heap_segment*)next )->base )
     {
         // This chunk is free.
-        chunk->header = { false, true, size, HEAP_FREE_WORD };
-        heap_chunk_this_footer( chunk )->size = size;
+        heap_chunk_set_free( chunk, size );
         assert( next->header.u );
         next->header.p = false;
         insert_chunk( size, chunk );
@@ -547,7 +633,15 @@ heap_chunk* heap_state::smallbin_anchor( size_t i )
 
 void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 {
-    if ( size < HEAP_LARGEBIN_SIZE )
+    if ( size < HEAP_MIN_BINNED_SIZE )
+    {
+        /*
+            Chunk is too small to add to a free bin at all, since the required
+            pointers won't fit.  It'll be wasted until it can be merged with
+            an adjacent chunk.
+        */
+    }
+    else if ( size < HEAP_LARGEBIN_SIZE )
     {
         size_t index = heap_smallbin_index( size );
 
@@ -611,61 +705,126 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
     }
 }
 
-inline heap_chunk* heap_tree_rightwards( heap_chunk* chunk )
+void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
-    heap_chunk* right = chunk->child[ 1 ];
-    return right ? right : chunk->child[ 0 ];
+    if ( size < HEAP_MIN_BINNED_SIZE )
+    {
+        // Isn't in any bin.
+    }
+    else if ( size < HEAP_LARGEBIN_SIZE )
+    {
+        remove_small_chunk( size, chunk );
+    }
+    else
+    {
+        remove_large_chunk( chunk );
+    }
 }
 
-void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
+heap_chunk* heap_state::remove_small_chunk( size_t size, heap_chunk* chunk )
 {
     heap_chunk* prev = chunk->prev;
     heap_chunk* next = chunk->next;
 
-    if ( size < HEAP_LARGEBIN_SIZE )
+    // Unlink from list.
+    prev->next = next;
+    next->prev = prev;
+
+    // Check if this bin is empty.
+    if ( prev == next )
     {
-        // Unlink from list.
+        size_t index = heap_smallbin_index( size );
+        assert( prev == smallbin_anchor( index ) );
+        smallbin_map &= ~( 1u << index );
+    }
+
+    return chunk;
+}
+
+heap_chunk* heap_state::remove_large_chunk( heap_chunk* chunk )
+{
+    heap_chunk* replace = nullptr;
+    heap_chunk* prev = chunk->prev;
+    heap_chunk* next = chunk->next;
+
+    if ( prev != next )
+    {
+        // Chunk is part of a list.  Unlink it, and replace with next.
         prev->next = next;
         next->prev = prev;
-
-        // Check if this bin is empty.
-        if ( prev == next )
-        {
-            size_t index = heap_smallbin_index( size );
-            assert( prev == smallbin_anchor( index ) );
-            smallbin_map &= ~( 1u << index );
-        }
+        replace = next;
     }
     else
     {
-        heap_chunk* replace = nullptr;
-
-        if ( prev != next )
+        // Choose rightmost leaf as replacment.
+        replace = heap_tree_rightwards( chunk );
+        while ( heap_chunk* right = heap_tree_rightwards( replace ) )
         {
-            // Chunk is part of a list.  Unlink it, and replace with next.
-            prev->next = next;
-            next->prev = prev;
-            replace = next;
+            replace = right;
+        }
+    }
+
+    // If this chunk was a tree node, then replace it.
+    heap_chunk* parent = chunk->parent;
+    if ( ! parent )
+    {
+        return chunk;
+    }
+
+    // Unlink replacement node from its current position.
+    if ( replace )
+    {
+        assert( ! replace->child[ 0 ] && ! replace->child[ 1 ] );
+        heap_chunk* unlink_parent = replace->parent;
+        if ( unlink_parent->child[ 0 ] == replace ) unlink_parent->child[ 0 ] = nullptr;
+        if ( unlink_parent->child[ 1 ] == replace ) unlink_parent->child[ 1 ] = nullptr;
+        replace->child[ 0 ] = chunk->child[ 0 ];
+        replace->child[ 1 ] = chunk->child[ 1 ];
+    }
+
+    if ( parent != chunk )
+    {
+        // Replacing a non-root node.
+        if ( replace ) replace->parent = parent;
+        if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
+        if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
+    }
+    else
+    {
+        // Replacing the root node of the tree.
+        size_t index = chunk->index;
+        assert( largebin_map & ( 1u << index ) );
+        largebins[ index ] = replace;
+        if ( replace )
+        {
+            // Mark as root by linking it back to itself.
+            replace->parent = replace;
         }
         else
         {
-            // Choose rightmost leaf as replacment.
-            replace = heap_tree_rightwards( chunk );
-            while ( heap_chunk* right = heap_tree_rightwards( replace ) )
-            {
-                replace = right;
-            }
-        }
-
-        // If this chunk was a tree node, then replace it.
-        heap_chunk* parent = chunk->parent;
-        if ( parent )
-        {
-            if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
-            if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
-            replace->parent = parent;
+            // Bin is now empty.
+            largebin_map &= ~( 1u << index );
         }
     }
+
+    return chunk;
+}
+
+heap_chunk* heap_state::alloc_segment( size_t size )
+{
+    // Add space for segment header, and align to VM allocation granularity.
+    size += sizeof( heap_segment );
+    size = size + ( HEAP_VM_GRANULARITY - 1 ) & ~( HEAP_VM_GRANULARITY - 1 );
+
+    // Make VM allocation.
+    void* vmalloc = heap_vmalloc( size );
+
+    // Check if it is directly adjacent to an already-allocated segment.
+
+
+
+    // TODO.
+    return nullptr;
 }
 
 void heap_state::free_segment( heap_segment* segment )
