@@ -92,7 +92,7 @@ void heap_vmfree( void* p, size_t size )
     A large free chunk looks like this:
 
         --> u32 size of chunk / 0 / P
-            u32 empty
+            u32 ...
           & chunk* next
             chunk* prev
             chunk* left
@@ -487,19 +487,12 @@ void* heap_state::malloc( size_t size )
         // Small chunk.
 
         /*
-            Use the entirety of a chunk in a smallbin of the correct or
-            slightly larger size.
+            Use the entirety of a chunk in a smallbin of the correct size.
         */
         size_t index = heap_smallbin_index( size );
         uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
-        if ( bin_map & 0x03 )
+        if ( bin_map & 1 )
         {
-            if ( ~bin_map & 1 )
-            {
-                index += 1;
-                size += 8;
-            }
-
             assert( smallbin_map & 1u << index );
             heap_chunk* anchor = smallbin_anchor( index );
             chunk = remove_small_chunk( size, anchor->next );
@@ -688,17 +681,17 @@ heap_chunk* heap_state::smallest_large_chunk( size_t index )
     heap_chunk* chunk = largebins[ index ];
     size_t chunk_size = chunk->header.size;
 
-    heap_chunk* check = heap_tree_leftwards( chunk );
-    while ( check )
+    heap_chunk* tree = heap_tree_leftwards( chunk );
+    while ( tree )
     {
-        size_t check_size = check->header.size;
-        if ( check_size < chunk_size )
+        size_t tree_size = tree->header.size;
+        if ( tree_size < chunk_size )
         {
-            chunk = check->next;
-            chunk_size = check_size;
+            chunk = tree->next;
+            chunk_size = tree_size;
         }
 
-        check = heap_tree_leftwards( check );
+        tree = heap_tree_leftwards( tree );
     }
 
     return chunk;
@@ -706,32 +699,68 @@ heap_chunk* heap_state::smallest_large_chunk( size_t index )
 
 heap_chunk* heap_state::best_fit_large_chunk( size_t index, size_t size )
 {
-/*
     heap_chunk* chunk = nullptr;
     size_t chunk_size = SIZE_MAX;
 
-    // Search tree for a better fitting chunk.
+    // Search down tree limited by the size we're looking for.
+    heap_chunk* right_tree = nullptr;
     heap_chunk* tree = largebins[ index ];
+    uint32_t prefix = heap_largebin_prefix( size, index );
     while ( true )
     {
-        size_t tree_chunk_size = tree->header.size;
-        if ( tree_chunk_size < chunk_size && tree_chunk_size >= size )
+        size_t tree_size = tree->header.size;
+        if ( size <= tree_size && tree_size < chunk_size )
         {
-            // Prefer non-tree node, if one exists.
-            chunk = tree_chunk->next;
-            chunk_size = tree_chunk_size;
+            chunk = tree->next;
+            chunk_size = tree_size;
+            if ( chunk_size == size )
+            {
+                break;
+            }
+        }
+
+        heap_chunk* right = tree->child[ 1 ];
+        tree = tree->child[ prefix >> 31 ];
+        prefix <<= 1;
+
+        if ( right && right != tree )
+        {
+            right_tree = right;
+        }
+
+        if ( ! tree )
+        {
+            tree = right_tree;
+            break;
+        }
+    }
+
+    if ( ! tree && ! chunk )
+    {
+        // Didn't find anything useful in this tree, so start at the
+        // root of next non-empty bin.
+        uint32_t bin_map = largebin_map & ~( ( 1u << ( index + 1 ) ) - 1 );
+        if ( bin_map )
+        {
+            index = ctz( bin_map );
+            tree = largebins[ index ];
+        }
+    }
+
+    // Go down the left side to find smallest chunk.
+    while ( tree )
+    {
+        size_t tree_size = tree->header.size;
+        if ( tree_size < chunk_size )
+        {
+            chunk = tree->next;
+            chunk_size = tree_size;
         }
 
         tree = heap_tree_leftwards( tree );
     }
 
-
-    heap_chunk* chunk = largebins[ index ];
-    size_t chunk_size = chunk->header.size;
-
-    heap_chunk* smaller = heap_tree_
-*/
-    return nullptr;
+    return chunk;
 }
 
 heap_chunk* heap_state::smallbin_anchor( size_t i )
@@ -805,7 +834,7 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 
             parent = node;
             link = &node->child[ prefix >> 31 ];
-            prefix >>= 1;
+            prefix <<= 1;
             node = *link;
         }
 
