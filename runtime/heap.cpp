@@ -387,12 +387,10 @@ struct heap_state
     std::mutex mutex;
 
     void* malloc( size_t size );
-    void* split_chunk( heap_chunk** psplit, uint32_t* psplit_size, size_t size );
-    void make_victim( size_t size );
+    void free( void* p );
+
     heap_chunk* smallest_large_chunk( size_t index );
     heap_chunk* best_fit_large_chunk( size_t index, size_t size );
-
-    void free( void* p );
 
     heap_chunk* smallbin_anchor( size_t i );
     void insert_chunk( size_t size, heap_chunk* chunk );
@@ -427,7 +425,7 @@ heap_state::heap_state( size_t segment_size )
         Initial segment looks like this:
 
             heap_state
-            heap_chunk free_chunk
+            free_chunk
             heap_segment
     */
     assert( segment_size >= sizeof( heap_state ) + sizeof( heap_segment ) );
@@ -470,8 +468,6 @@ heap_state::~heap_state()
 
 void* heap_state::malloc( size_t size )
 {
-    void* p = nullptr;
-
     // Chunk size is larger due to overhead, and must be aligned.
     size = size + sizeof( heap_chunk_header );
     size = size + ( HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
@@ -483,196 +479,154 @@ void* heap_state::malloc( size_t size )
     // Lock.
     std::lock_guard< std::mutex > lock( mutex );
 
+    heap_chunk* chunk = nullptr;
+    size_t chunk_size = 0;
+
     if ( size < HEAP_LARGE_SIZE )
     {
         // Small chunk.
+
+        /*
+            Use the entirety of a chunk in a smallbin of the correct or
+            slightly larger size.
+        */
         size_t index = heap_smallbin_index( size );
         uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
-        if ( bin_map )
+        if ( bin_map & 0x03 )
         {
-            /*
-                Use the entirety of a chunk in the smallbin of a size where
-                the remaining size after we split is too small to hold a free
-                chunk. Free chunks on 64-bit systems take up 32 bytes/4 bins.
-            */
-            index = ctz( bin_map );
-            size = ( index + 1 ) * 8;
+            if ( ~bin_map & 1 )
+            {
+                index += 1;
+                size += 8;
+            }
 
             assert( smallbin_map & 1u << index );
             heap_chunk* anchor = smallbin_anchor( index );
-            heap_chunk* chunk = remove_small_chunk( size, anchor->next );
+            chunk = remove_small_chunk( size, anchor->next );
             assert( chunk != anchor );
+
             heap_chunk_set_allocated( chunk, size );
-            p = heap_chunk_data( chunk );
+            return heap_chunk_data( chunk );
+        }
+
+        /*
+            Locate a chunk to split.
+        */
+        if ( size <= victim_size )
+        {
+            // Use existing victim chunk.
+            chunk = victim;
+            chunk_size = victim_size;
+        }
+        else if ( bin_map )
+        {
+            // Use smallest chunk in smallbins that can satisfy the request.
+            index = ctz( bin_map );
+            chunk_size = ( index + 1 ) * 8;
+
+            assert( index < HEAP_SMALLBIN_COUNT );
+            assert( smallbin_map & 1u << index );
+
+            heap_chunk* anchor = smallbin_anchor( index );
+            chunk = remove_small_chunk( chunk_size, anchor->next );
+            assert( chunk != anchor );
+        }
+        else if ( largebin_map )
+        {
+            // Pick smallest chunk in the first non-empty largebin.
+            size_t index = ctz( largebin_map );
+            assert( index < HEAP_LARGEBIN_COUNT );
+            chunk = remove_large_chunk( smallest_large_chunk( index ) );
+            chunk_size = chunk->header.size;
         }
         else
         {
-            /*
-                Pick a victim chunk and split the allocation from the bottom
-                of it.  The victim is not stored in a bin.
-            */
-            if ( size >= victim_size )
-            {
-                insert_chunk( victim_size, victim );
-                make_victim( size );
-            }
-
-            p = split_chunk( &victim, &victim_size, size );
+            // Allocate new VM segment.
+            chunk = alloc_segment( size );
+            chunk_size = chunk->header.size;
         }
     }
     else
     {
         // Large chunk.
 
-        // Find best fit binned chunk.
-        heap_chunk* split = nullptr;
+        /*
+            Search for best fit in binned large chunks.
+        */
         size_t index = heap_largebin_index( size );
-        uint32_t bin_map = largebin_map & ~( ( 1 << index ) - 1 );
+        uint32_t bin_map = largebin_map & ~( ( 1u << index ) - 1 );
         if ( bin_map )
         {
             index = ctz( bin_map );
             assert( largebin_map & 1u << index );
-            split = best_fit_large_chunk( index, size );
-        }
-/*
-        // Check if victim is a better fit.
-        bool victim_
 
-        if ( victim_size < size || ( split && split->header.size < victim_size ) )
-        {
+            chunk = best_fit_large_chunk( index, size );
+            chunk_size = chunk->header.size;
 
-        }
-
-
-        if ( victim_size < size || ( split && split->header.size < victim_size ) )
-        {
-
-        }
-
-
-
-        if ( ( ! split || victim_size < split->header.size ) && size <= victim_size )
-        {
-            p = split_chunk( &victim, &victim_size, size );
-        }
-        else
-        {
-
-        if ( split )
-        {
-            // Split from binned chunk.
-            remove_large_chunk( split );
-        }
-        else
-        {
-            // Have to allocate more space.
-            split = alloc_segment( size );
-        }
-
-        // Split allocation from best fitting chunk, and bin remainder.
-        uint32_t split_size = split->header.size;
-        p = split_chunk( &split, &split_size, size );
-        insert_chunk( split_size, split );
-*/
-    }
-
-    return p;
-}
-
-void* heap_state::split_chunk( heap_chunk** psplit, uint32_t* psplit_size, size_t size )
-{
-    // TODO.
-    return nullptr;
-}
-
-void heap_state::make_victim( size_t size )
-{
-    assert( size < HEAP_LARGE_SIZE );
-
-    // Pick the first chunk in a smallbin larger than size.
-    size_t index = heap_smallbin_index( size );
-    uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
-    if ( bin_map )
-    {
-        index = ctz( bin_map );
-        size = ( index + 1 ) * 8;
-
-        assert( index < HEAP_SMALLBIN_COUNT );
-        assert( smallbin_map & 1u << index );
-
-        heap_chunk* anchor = smallbin_anchor( index );
-        victim = remove_small_chunk( size, anchor->next );
-        victim_size = size;
-        return;
-    }
-
-    // Otherwise, pick the smallest chunk in the first non-empty largebin.
-    if ( largebin_map )
-    {
-        size_t index = ctz( largebin_map );
-        assert( index < HEAP_LARGEBIN_COUNT );
-
-        heap_chunk* chunk = smallest_large_chunk( index );
-        victim = remove_large_chunk( chunk );
-        victim_size = victim->header.size;
-        return;
-    }
-
-    // Otherwise, make new VM allocation.
-    victim = alloc_segment( size );
-    victim_size = victim->header.size;
-}
-
-heap_chunk* heap_state::smallest_large_chunk( size_t index )
-{
-/*
-        heap_chunk* chunk = largebins[ index ];
-        size_t chunk_size = chunk->header.size;
-        while ( heap_chunk* left = heap_tree_leftwards( left ) )
-        {
-        }
-
-        for ( heap_chunk* left = chunk->child[ 0 ]; left; left = left->child[ 0 ] )
-        {
-            size_t left_size = left->header.size;
-            if ( left_size < chunk_size )
+            if ( victim_size >= chunk_size && size > victim_size )
             {
-                chunk = left;
-                chunk_size = left_size;
+                // Binned chunk will be split.
+                remove_large_chunk( chunk );
+            }
+            else
+            {
+                // Victim is a better fit.
+                chunk = victim;
+                chunk_size = victim_size;
             }
         }
-*/
-    return nullptr;
-}
-
-heap_chunk* heap_state::best_fit_large_chunk( size_t index, size_t size )
-{
-/*
-    heap_chunk* chunk = nullptr;
-    size_t chunk_size = SIZE_MAX;
-
-    // Search tree for a better fitting chunk.
-    heap_chunk* tree = largebins[ index ];
-    while ( true )
-    {
-        size_t tree_chunk_size = tree->header.size;
-        if ( tree_chunk_size < chunk_size && tree_chunk_size >= size )
+        else if ( size <= victim_size )
         {
-            // Prefer non-tree node, if one exists.
-            chunk = tree_chunk->next;
-            chunk_size = tree_chunk_size;
+            // Use existing victim chunk.
+            chunk = victim;
+            chunk_size = victim_size;
         }
-
-        tree = heap_tree_leftwards( tree );
+        else
+        {
+            // Allocate new VM segment.
+            chunk = alloc_segment( size );
+            chunk_size = chunk->header.size;
+        }
     }
 
+    assert( chunk );
+    assert( chunk->header.p );
+    assert( ! chunk->header.u );
+    assert( size <= chunk_size );
 
-    heap_chunk* chunk = largebins[ index ];
-    size_t chunk_size = chunk->header.size;
+    heap_chunk* split_chunk = nullptr;
+    size_t split_chunk_size = 0;
 
-    heap_chunk* smaller = heap_tree_
-*/
-    return nullptr;
+    if ( chunk_size - size >= HEAP_MIN_BINNED_SIZE )
+    {
+        // Allocate.
+        heap_chunk_set_allocated( chunk, size );
+
+        // Set up split chunk in remaining space.
+        split_chunk = (heap_chunk*)( (char*)chunk + size );
+        split_chunk_size = chunk_size - size;
+        heap_chunk_set_free( split_chunk, split_chunk_size );
+    }
+    else
+    {
+        // Splitting the chunk will leave us with a free chunk that we cannot
+        // link into a bin, so just use the entire chunk.
+        heap_chunk_set_allocated( chunk, chunk_size );
+    }
+
+    if ( chunk == victim || size < HEAP_LARGE_SIZE )
+    {
+        // Update victim chunk.
+        victim = split_chunk;
+        victim_size = split_chunk_size;
+    }
+    else
+    {
+        // Add split chunk to bin.
+        insert_chunk( split_chunk_size, split_chunk );
+    }
+
+    return heap_chunk_data( chunk );
 }
 
 void heap_state::free( void* p )
@@ -727,6 +681,58 @@ void heap_state::free( void* p )
         // This chunk spans the entire segment, so free the segment.
         free_segment( (heap_segment*)next );
     }
+}
+
+heap_chunk* heap_state::smallest_large_chunk( size_t index )
+{
+/*
+        heap_chunk* chunk = largebins[ index ];
+        size_t chunk_size = chunk->header.size;
+        while ( heap_chunk* left = heap_tree_leftwards( left ) )
+        {
+        }
+
+        for ( heap_chunk* left = chunk->child[ 0 ]; left; left = left->child[ 0 ] )
+        {
+            size_t left_size = left->header.size;
+            if ( left_size < chunk_size )
+            {
+                chunk = left;
+                chunk_size = left_size;
+            }
+        }
+*/
+    return nullptr;
+}
+
+heap_chunk* heap_state::best_fit_large_chunk( size_t index, size_t size )
+{
+/*
+    heap_chunk* chunk = nullptr;
+    size_t chunk_size = SIZE_MAX;
+
+    // Search tree for a better fitting chunk.
+    heap_chunk* tree = largebins[ index ];
+    while ( true )
+    {
+        size_t tree_chunk_size = tree->header.size;
+        if ( tree_chunk_size < chunk_size && tree_chunk_size >= size )
+        {
+            // Prefer non-tree node, if one exists.
+            chunk = tree_chunk->next;
+            chunk_size = tree_chunk_size;
+        }
+
+        tree = heap_tree_leftwards( tree );
+    }
+
+
+    heap_chunk* chunk = largebins[ index ];
+    size_t chunk_size = chunk->header.size;
+
+    heap_chunk* smaller = heap_tree_
+*/
+    return nullptr;
 }
 
 heap_chunk* heap_state::smallbin_anchor( size_t i )
