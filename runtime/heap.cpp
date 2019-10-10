@@ -23,11 +23,6 @@ struct heap_state;
 struct heap_segment;
 struct heap_chunk;
 
-const unsigned HEAP_WORD_INTERNAL = 0xDEFDEF;
-const unsigned HEAP_WORD_FREE = 0xFEEFEE;
-const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
-const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
-
 /*
     Count leading and trailing zeroes.
 */
@@ -45,6 +40,9 @@ inline uint32_t ctz( uint32_t x )
 /*
     Allocate and free virtual memory from the system.
 */
+
+const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
+const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
 
 void* heap_vmalloc( size_t size )
 {
@@ -111,7 +109,11 @@ void heap_vmfree( void* p, size_t size )
     Chunks are 8-byte aligned with a maximum size of just under 4GiB.
 */
 
+const size_t HEAP_CHUNK_ALIGNMENT = 8;
 const size_t HEAP_MIN_BINNED_SIZE = 8 + sizeof( void* ) * 3;
+
+const uint32_t HEAP_WORD_INTERNAL = 0xDEFDEF;
+const uint32_t HEAP_WORD_FREE = 0xFEEFEE;
 
 struct heap_chunk_header
 {
@@ -176,6 +178,7 @@ inline heap_chunk* heap_chunk_next( heap_chunk* chunk )
 
 inline void heap_chunk_set_free( heap_chunk* chunk, size_t size )
 {
+    assert( size >= 8 );
     chunk->header = { true, false, (uint32_t)size, HEAP_WORD_FREE };
     heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)chunk + size ) - 1;
     footer->size = size;
@@ -215,6 +218,8 @@ inline void heap_chunk_set_internal( heap_chunk* chunk, size_t size )
     of the segment.
 */
 
+const size_t HEAP_MAX_CHUNK_SIZE = 0xFFFFFFE0;
+
 struct heap_segment
 {
     heap_chunk_header header;
@@ -225,6 +230,15 @@ struct heap_segment
 inline size_t heap_segment_size( heap_segment* segment )
 {
     return (char*)( segment + 1 ) - (char*)segment->base;
+}
+
+inline bool heap_segment_can_merge( heap_segment* prev, heap_segment* next )
+{
+    if ( prev + 1 != next->base )
+        return false;
+
+    size_t total_size = heap_segment_size( prev ) + heap_segment_size( next );
+    return total_size - sizeof( heap_segment ) <= HEAP_MAX_CHUNK_SIZE;
 }
 
 /*
@@ -299,11 +313,11 @@ inline size_t heap_segment_size( heap_segment* segment )
 
 const size_t HEAP_SMALLBIN_COUNT = 32;
 const size_t HEAP_LARGEBIN_COUNT = 32;
-const size_t HEAP_LARGEBIN_SIZE = 256;
+const size_t HEAP_LARGE_SIZE = 256;
 
 inline size_t heap_smallbin_index( size_t size )
 {
-    assert( size < HEAP_LARGEBIN_SIZE );
+    assert( size < HEAP_LARGE_SIZE );
     return size / 8;
 }
 
@@ -350,9 +364,6 @@ inline heap_chunk* heap_tree_rightwards( heap_chunk* chunk )
     However, we only store the next and prev pointers.
 */
 
-const size_t HEAP_MAX_CHUNK_SIZE = 0xFFFFFFE0;
-const size_t HEAP_CHUNK_ALIGNMENT = 8;
-
 struct heap_state
 {
     explicit heap_state( size_t segment_size );
@@ -361,7 +372,8 @@ struct heap_state
     uint32_t smallbin_map;
     uint32_t largebin_map;
     uint32_t victim_size;
-    heap_segment* initial_segment;
+    uint32_t segment_size;
+    heap_segment* segments;
     heap_chunk* victim;
     heap_chunk* smallbin_anchors[ HEAP_SMALLBIN_COUNT * 2 ];
     heap_chunk* largebins[ HEAP_LARGEBIN_COUNT ];
@@ -380,12 +392,15 @@ struct heap_state
 
     heap_chunk* alloc_segment( size_t size );
     void free_segment( heap_segment* segment );
+    void unlink_segment( heap_segment* segment );
 };
 
 heap_state::heap_state( size_t segment_size )
     :   smallbin_map( 0 )
     ,   largebin_map( 0 )
     ,   victim_size( 0 )
+    ,   segment_size( segment_size )
+    ,   segments( nullptr )
     ,   victim( nullptr )
     ,   smallbin_anchors{}
     ,   largebins{}
@@ -414,23 +429,26 @@ heap_state::heap_state( size_t segment_size )
         size_t size = segment_size - sizeof( heap_state ) - sizeof( heap_segment );
         assert( size <= HEAP_MAX_CHUNK_SIZE );
         heap_chunk_set_free( free_chunk, size );
-        victim_size = size;
         victim = free_chunk;
+        victim_size = size;
     }
 
     heap_chunk_set_internal( segment_chunk, sizeof( heap_segment ) );
-    initial_segment = (heap_segment*)segment_chunk;
-    initial_segment->base = this;
-    initial_segment->next = nullptr;
+    segments = (heap_segment*)segment_chunk;
+    segments->base = this;
+    segments->next = nullptr;
 }
 
 heap_state::~heap_state()
 {
-    heap_segment* s = initial_segment;
+    heap_segment* s = segments;
     while ( s )
     {
         heap_segment* next = s->next;
-        heap_vmfree( s->base, heap_segment_size( s ) );
+        if ( s->base != this )
+        {
+            heap_vmfree( s->base, heap_segment_size( s ) );
+        }
         s = next;
     }
 }
@@ -449,7 +467,7 @@ void* heap_state::malloc( size_t size )
     std::lock_guard< std::mutex > lock( mutex );
 
     heap_chunk* chunk = nullptr;
-    if ( size < HEAP_LARGEBIN_SIZE )
+    if ( size < HEAP_LARGE_SIZE )
     {
         // Small chunk.
         size_t index = heap_smallbin_index( size );
@@ -519,7 +537,7 @@ void* heap_state::malloc( size_t size )
 
 size_t heap_state::make_victim( size_t size )
 {
-    assert( size < HEAP_LARGEBIN_SIZE );
+    assert( size < HEAP_LARGE_SIZE );
 
     // Pick the first chunk in a smallbin larger than size.
     size_t index = heap_smallbin_index( size );
@@ -641,7 +659,7 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
             an adjacent chunk.
         */
     }
-    else if ( size < HEAP_LARGEBIN_SIZE )
+    else if ( size < HEAP_LARGE_SIZE )
     {
         size_t index = heap_smallbin_index( size );
 
@@ -707,11 +725,11 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 
 void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
-    if ( size < HEAP_MIN_BINNED_SIZE )
+    if ( size < HEAP_MIN_BINNED_SIZE || chunk == victim )
     {
         // Isn't in any bin.
     }
-    else if ( size < HEAP_LARGEBIN_SIZE )
+    else if ( size < HEAP_LARGE_SIZE )
     {
         remove_small_chunk( size, chunk );
     }
@@ -819,32 +837,109 @@ heap_chunk* heap_state::alloc_segment( size_t size )
     // Make VM allocation.
     void* vmalloc = heap_vmalloc( size );
 
-    // Check if it is directly adjacent to an already-allocated segment.
+    // Add segment.
+    heap_chunk* segment_chunk = (heap_chunk*)( (char*)vmalloc + segment_size - sizeof( heap_segment ) );
+    heap_chunk_set_internal( segment_chunk, sizeof( heap_segment ) );
+    heap_segment* segment = (heap_segment*)segment_chunk;
+    segment->base = vmalloc;
 
+    // Add to segment list in memory address order.
+    heap_segment* prev = nullptr;
+    if ( std::less< void* >()( vmalloc, segments->base ) )
+    {
+        segment->next = segments;
+        segments = segment;
+    }
+    else
+    {
+        prev = segments;
+        while ( true )
+        {
+            heap_segment* next = prev->next;
+            if ( ! next || std::less< void* >()( vmalloc, next->base ) )
+                break;
+        }
 
+        assert( prev );
+        segment->next = prev->next;
+        prev->next = segment;
+    }
 
-    // TODO.
-    return nullptr;
+    // Create free chunk.
+    size_t free_size = size - sizeof( heap_segment );
+    heap_chunk* free_chunk = (heap_chunk*)segment->base;
+
+    // Attempt to merge with previous chunk.
+    if ( heap_segment_can_merge( prev, segment ) )
+    {
+        // Remove segment.
+        unlink_segment( prev );
+        segment->base = prev->base;
+
+        // Merge free space.
+        heap_chunk* prev_chunk = (heap_chunk*)prev;
+        assert( prev_chunk->header.u );
+        assert( prev_chunk->header.size == sizeof( heap_segment ) );
+        free_size += sizeof( heap_segment );
+        free_chunk = prev_chunk;
+
+        if ( ! free_chunk->header.p )
+        {
+            prev_chunk = heap_chunk_prev( free_chunk );
+            assert( prev_chunk->header.p );
+            assert( ! prev_chunk->header.u );
+            size_t prev_chunk_size = prev_chunk->header.size;
+            remove_chunk( prev_chunk_size, prev_chunk );
+            free_size += prev_chunk_size;
+            free_chunk = prev_chunk;
+        }
+    }
+
+    // And with next chunk.
+    if ( heap_segment_can_merge( segment, segment->next ) && segment->next->base != this )
+    {
+        // Remove segment.
+        segment = segment->next;
+        segment->next->base = segment->base;
+        unlink_segment( segment );
+
+        // Merge free space.
+        free_size += sizeof( heap_segment );
+
+        heap_chunk* next_chunk = (heap_chunk*)( segment + 1 );
+        assert( next_chunk->header.p );
+        if ( ! next_chunk->header.u )
+        {
+            size_t next_chunk_size = next_chunk->header.size;
+            remove_chunk( next_chunk_size, next_chunk );
+            free_size += next_chunk_size;
+        }
+    }
+
+    // Construct free chunk in space.
+    heap_chunk_set_free( free_chunk, free_size );
+    return free_chunk;
 }
 
 void heap_state::free_segment( heap_segment* segment )
 {
-    // Unlink from list.
-    heap_segment* s = initial_segment;
-    heap_segment** pback = &initial_segment;
-    while ( s )
+    assert( segment->base != this );
+    unlink_segment( segment );
+    heap_vmfree( segment->base, heap_segment_size( segment ) );
+}
+
+void heap_state::unlink_segment( heap_segment* segment )
+{
+    heap_segment** link = &segments;
+    while ( heap_segment* s = *link )
     {
         if ( s == segment ) break;
-        pback = &s->next;
+        link = &s->next;
         s = s->next;
     }
 
-    assert( s );
-    assert( *pback != initial_segment );
-    *pback = s->next;
-
-    // Free memory.
-    heap_vmfree( segment->base, heap_segment_size( segment ) );
+    assert( *link == segment );
+    *link = segment->next;
 }
 
 /*
@@ -858,7 +953,9 @@ heap::heap()
 
 heap::~heap()
 {
+    size_t vmsize = _state->segment_size;
     _state->~heap_state();
+    heap_vmfree( _state, vmsize );
 }
 
 void* heap::malloc( size_t size )
