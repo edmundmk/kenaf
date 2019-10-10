@@ -41,13 +41,17 @@ inline uint32_t ctz( uint32_t x )
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
 
+static size_t idx = 0;
+void* ALLOC[ 4 ] = { (void*)0x10d000000, (void*)0x10d200000, (void*)0x10d400000, (void*)0x10d600000 };
+
 void* heap_vmalloc( size_t size )
 {
-    void* p = mmap( nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
+    void* p = mmap( ALLOC[ idx++ ], size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
     if ( p == MAP_FAILED )
     {
         throw std::bad_alloc();
     }
+    printf( "************** ALLOC: %p\n", p );
     return p;
 }
 
@@ -801,6 +805,7 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
         // Set tree node properties.
         chunk->child[ 0 ] = nullptr;
         chunk->child[ 1 ] = nullptr;
+        chunk->index = index;
 
         // Link into tree.
         assert( index < HEAP_LARGEBIN_COUNT );
@@ -894,10 +899,11 @@ heap_chunk* heap_state::remove_large_chunk( heap_chunk* chunk )
     else
     {
         // Choose rightmost leaf as replacment.
-        replace = heap_tree_rightwards( chunk );
-        while ( heap_chunk* right = heap_tree_rightwards( replace ) )
+        heap_chunk* tree = heap_tree_rightwards( chunk );
+        while ( tree )
         {
-            replace = right;
+            replace = tree;
+            tree = heap_tree_rightwards( tree );
         }
     }
 
@@ -977,6 +983,7 @@ heap_chunk* heap_state::alloc_segment( size_t size )
             heap_segment* next = prev->next;
             if ( ! next || std::less< void* >()( vmalloc, next->base ) )
                 break;
+            prev = next;
         }
 
         assert( prev );
@@ -1059,7 +1066,6 @@ void heap_state::unlink_segment( heap_segment* segment )
     {
         if ( s == segment ) break;
         link = &s->next;
-        s = s->next;
     }
 
     assert( *link == segment );
@@ -1183,10 +1189,10 @@ int main( int argc, char* argv[] )
     kf::heap heap;
     heap.debug_print();
 
-    void* p = heap.malloc( 32 );
+    void* p = heap.malloc( 1024 * 1024 );
     heap.debug_print();
 
-    void* q = heap.malloc( 2048 * 1024 );
+    void* q = heap.malloc( 1024 * 1024 );
     heap.debug_print();
 
     return EXIT_SUCCESS;
