@@ -10,6 +10,7 @@
 
 #include "heap.h"
 #include <stdint.h>
+#include <limits.h>
 #include <assert.h>
 #include <mutex>
 #include <new>
@@ -997,6 +998,10 @@ heap_chunk* heap_state::alloc_segment( size_t size )
         // Remove segment.
         unlink_segment( prev );
         segment->base = prev->base;
+        if ( segment->base == this )
+        {
+            segment_size = heap_segment_size( segment );
+        }
 
         // Merge free space.
         heap_chunk* prev_chunk = (heap_chunk*)prev;
