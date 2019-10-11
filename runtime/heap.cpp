@@ -611,12 +611,12 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
         size_bits <<= 1;
     }
 
-    printf( " / %p:%zu i:%zu p:%p l:%p r:%p\n", chunk, (size_t)chunk->header.size, chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
+    printf( " -> %p/%s/%s:%zu i:%zu p:%p l:%p r:%p\n", chunk, chunk->header.u ? "U" : "-", chunk->header.p ? "P" : "-", (size_t)chunk->header.size, chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
 
     heap_chunk* c = chunk;
     do
     {
-        printf( "%*s%p:%zu i:%zu @:%p <-> %p\n", ( level + 3 ) * 2, "", c, (size_t)c->header.size, c->index, c->prev, c->next );
+        printf( "%*s%p/%s/%s:%zu i:%zu @:%p <-> %p\n", ( level + 3 ) * 2, "", c, c->header.u ? "U" : "-", c->header.p ? "P" : "-", (size_t)c->header.size, c->index, c->prev, c->next );
         c = c->next;
     }
     while ( c != chunk );
@@ -757,9 +757,8 @@ void* heap_state::malloc( size_t size )
         */
         size_t index = heap_smallbin_index( size );
         uint32_t bin_map = smallbin_map & ~( ( 1u << index ) - 1 );
-        if ( bin_map & 1 )
+        if ( bin_map & 1u << index )
         {
-            assert( smallbin_map & 1u << index );
             heap_chunk* anchor = smallbin_anchor( index );
             chunk = remove_small_chunk( size, anchor->next );
             assert( chunk != anchor );
@@ -1024,8 +1023,8 @@ heap_chunk* heap_state::remove_small_chunk( size_t size, heap_chunk* chunk )
     prev->next = next;
     next->prev = prev;
 
-    // Check if this bin is empty.
-    if ( next == chunk )
+    // Check if this bin is now empty.
+    if ( next == prev )
     {
         size_t index = heap_smallbin_index( size );
         assert( prev == smallbin_anchor( index ) );
@@ -1206,7 +1205,7 @@ void heap_state::debug_print()
         heap_chunk* c = (heap_chunk*)s->base;
         while ( true )
         {
-            printf( "  %p:%zu/%s/%s", c, (size_t)c->header.size, c->header.u ? "U" : "-", c->header.p ? "P" : "-" );
+            printf( "  %p/%s/%s:%zu", c, c->header.u ? "U" : "-", c->header.p ? "P" : "-", (size_t)c->header.size );
             if ( ! c->header.u )
             {
                 if ( c == victim )
