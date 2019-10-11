@@ -366,6 +366,8 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
     assert( heap_largebin_index( size ) == index );
     uint32_t prefix = trie_prefix( index, size );
 
+    printf( "---- LARGEBIN INSERT: %zu %zu %p\n", index, size, chunk );
+
     // Set tree node properties.
     chunk->child[ 0 ] = nullptr;
     chunk->child[ 1 ] = nullptr;
@@ -404,12 +406,16 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
         prefix <<= 1;
         node = *link;
     }
+
+    debug_print( index );
 }
 
 bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 {
     assert( chunk->index == index );
     assert( heap_largebin_index( chunk->header.size ) == index );
+
+    printf( "---- LARGEBIN INSERT: %zu %zu %p\n", index, (size_t)chunk->header.size, chunk );
 
     heap_chunk* replace = nullptr;
     heap_chunk* prev = chunk->prev;
@@ -437,6 +443,7 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
     heap_chunk* parent = chunk->parent;
     if ( ! parent )
     {
+        debug_print( index );
         return true;
     }
 
@@ -457,6 +464,7 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         if ( replace ) replace->parent = parent;
         if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
         if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
+        debug_print( index );
         return true;
     }
     else
@@ -468,11 +476,13 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         {
             // Mark as root by linking it back to itself.
             replace->parent = replace;
+            debug_print( index );
             return true;
         }
         else
         {
             // Bin is now empty.
+            debug_print( index );
             return false;
         }
     }
@@ -590,7 +600,7 @@ void heap_largebin::debug_print( size_t index )
 
 void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_chunk* chunk )
 {
-    printf( "%*s[", level + 2, "" );
+    printf( "%*s[", ( level + 1 ) * 2, "" );
     for ( int i = 0; i < level; ++i )
     {
         printf( "%c", ( prefix << i ) >> 31 ? '1' : '0' );
@@ -610,7 +620,7 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
     heap_chunk* c = chunk;
     do
     {
-        printf( "%*s%p:%zu i:%zu @:%p <-> %p\n", level + 4, "", c, (size_t)c->header.size, c->index, c->prev, c->next );
+        printf( "%*s%p:%zu i:%zu @:%p <-> %p\n", ( level + 3 ) * 2, "", c, (size_t)c->header.size, c->index, c->prev, c->next );
         c = c->next;
     }
     while ( c != chunk );
@@ -621,7 +631,7 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
     }
     if ( c->child[ 1 ] )
     {
-        debug_print( index, level + 1, prefix | ( 1u << ( 30 - level ) ), c->child[ 1 ] );
+        debug_print( index, level + 1, prefix | ( 1u << ( 31 - level ) ), c->child[ 1 ] );
     }
 }
 
@@ -1289,6 +1299,22 @@ size_t heap_malloc_size( void* p )
 
 int main( int argc, char* argv[] )
 {
+    kf::heap_largebin bin;
+    kf::heap_chunk chunks[ 4 ] =
+    {
+        { { true, false, 264, 0 } },
+        { { true, false, 264, 0 } },
+        { { true, false, 264, 0 } },
+        { { true, false, 264, 0 } },
+    };
+
+    bin.insert( 0, 264, chunks + 0 );
+    bin.insert( 0, 264, chunks + 1 );
+    bin.insert( 0, 264, chunks + 2 );
+
+    return EXIT_SUCCESS;
+
+
     kf::heap heap;
 
     srand( clock() );
