@@ -1206,7 +1206,7 @@ void heap_state::unlink_segment( heap_segment* segment )
 
 void heap_state::debug_print()
 {
-//    std::lock_guard< std::mutex > lock( mutex );
+    std::lock_guard< std::mutex > lock( mutex );
 
     printf( "HEAP %p:\n", this );
     printf( "  smallbin_map: %08X\n", smallbin_map );
