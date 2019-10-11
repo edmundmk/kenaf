@@ -450,6 +450,9 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
     assert( chunk->index == index );
     assert( heap_largebin_index( chunk->header.size() ) == index );
 
+    printf( "REMOVE: %p\n", chunk );
+    debug_print( index );
+
     heap_chunk* replace = nullptr;
     heap_chunk* prev = chunk->prev;
     heap_chunk* next = chunk->next;
@@ -493,12 +496,22 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         }
     }
 
+    if ( replace )
+    {
+        replace->child[ 0 ] = chunk->child[ 0 ];
+        replace->child[ 1 ] = chunk->child[ 1 ];
+        if ( replace->child[ 0 ] ) replace->child[ 0 ]->parent = replace;
+        if ( replace->child[ 1 ] ) replace->child[ 1 ]->parent = replace;
+    }
+
     if ( parent != chunk )
     {
         // Replacing a non-root node.
         if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
         if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
         if ( replace ) replace->parent = parent;
+
+        debug_print( index );
         return true;
     }
     else
@@ -510,11 +523,13 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         {
             // Mark as root by linking it back to itself.
             replace->parent = replace;
+            debug_print( index );
             return true;
         }
         else
         {
             // Bin is now empty.
+            debug_print( index );
             return false;
         }
     }
@@ -653,7 +668,7 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
         size_bits <<= 1;
     }
 
-    printf( " -> %p/%s/%s:%zu i:%zu p:%p l:%p r:%p\n", chunk, chunk->header.u() ? "U" : "-", chunk->header.p() ? "P" : "-", chunk->header.size(), chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
+    printf( " -> %p/%s/%s:%zu i:%zu u:%p l:%p r:%p\n", chunk, chunk->header.u() ? "U" : "-", chunk->header.p() ? "P" : "-", chunk->header.size(), chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
 
     heap_chunk* c = chunk;
     do
@@ -969,7 +984,7 @@ void* heap_state::malloc( size_t size )
             insert_chunk( old_victim_size, old_victim );
         }
     }
-    else
+    else if ( split_chunk )
     {
         // Add split chunk to bin.
         insert_chunk( split_chunk_size, split_chunk );
@@ -1070,6 +1085,8 @@ heap_chunk* heap_state::smallbin_anchor( size_t i )
 
 void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 {
+    assert( size > 0 );
+    assert( chunk );
     assert( chunk != victim );
 
     if ( size < HEAP_MIN_BINNED_SIZE )
@@ -1433,11 +1450,30 @@ bool visit_largebin( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* 
             ok = false;
         }
         bins->emplace( chunk, 32 + index );
+        chunk = chunk->next;
     }
     while ( chunk != tree );
 
-    if ( tree->child[ 0 ] ) if ( ! visit_largebin( heap, bins, index, tree->child[ 0 ] ) ) ok = false;
-    if ( tree->child[ 1 ] ) if ( ! visit_largebin( heap, bins, index, tree->child[ 1 ] ) ) ok = false;
+    if ( tree->child[ 0 ] )
+    {
+        if ( tree->child[ 0 ]->parent != tree )
+        {
+            printf( "******** PARENT LINK IN LARGEBIN IS WRONG %p -> %p (wrong %p)\n", tree, tree->child[ 0 ], tree->child[ 0 ]->parent );
+            ok = false;
+        }
+        if ( ! visit_largebin( heap, bins, index, tree->child[ 0 ] ) )
+            ok = false;
+    }
+    if ( tree->child[ 1 ] )
+    {
+        if ( tree->child[ 1 ]->parent != tree )
+        {
+            printf( "******** PARENT LINK IN LARGEBIN IS WRONG %p -> %p (wrong %p)\n", tree, tree->child[ 1 ], tree->child[ 1 ]->parent );
+            ok = false;
+        }
+        if ( ! visit_largebin( heap, bins, index, tree->child[ 1 ] ) )
+            ok = false;
+    }
 
     return ok;
 }
@@ -1518,16 +1554,26 @@ bool check_bins( kf::heap_state* heap )
                 {
                     if ( bins.find( c ) != bins.end() )
                     {
-                        printf( "******** UNBINNABLE CHUNK IS IN BIN\n" );
+                        printf( "******** UNBINNABLE CHUNK %p IS IN BIN\n", c );
                         ok = false;
                     }
                 }
                 else if ( c->header.size() < kf::HEAP_LARGE_SIZE )
                 {
+                    if ( bins.find( c ) == bins.end() )
+                    {
+                        printf( "******** BINNED SMALL CHUNK %p IS NOT IN BIN\n", c );
+                        ok = false;
+                    }
                     bins.erase( c );
                 }
                 else
                 {
+                    if ( bins.find( c ) == bins.end() )
+                    {
+                        printf( "******** BINNED LARGE CHUNK %p IS NOT IN BIN\n", c );
+                        ok = false;
+                    }
                     bins.erase( c );
                 }
             }
