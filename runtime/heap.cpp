@@ -425,10 +425,9 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 
     if ( next != chunk )
     {
-        // Chunk is part of a list.  Unlink it, and replace with next.
+        // Chunk is part of a list.  Unlink it.
         prev->next = next;
         next->prev = prev;
-        replace = next;
 
         // If original chunk wasn't a tree node, then we're done.
         if ( ! parent )
@@ -436,6 +435,9 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
             debug_print( index );
             return true;
         }
+
+        // Otherwise replace the node with the next one in the list.
+        replace = next;
     }
     else
     {
