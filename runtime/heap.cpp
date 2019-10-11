@@ -450,9 +450,6 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
     assert( chunk->index == index );
     assert( heap_largebin_index( chunk->header.size() ) == index );
 
-    printf( "REMOVE: %p\n", chunk );
-    debug_print( index );
-
     heap_chunk* replace = nullptr;
     heap_chunk* prev = chunk->prev;
     heap_chunk* next = chunk->next;
@@ -510,8 +507,6 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
         if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
         if ( replace ) replace->parent = parent;
-
-        debug_print( index );
         return true;
     }
     else
@@ -523,13 +518,11 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         {
             // Mark as root by linking it back to itself.
             replace->parent = replace;
-            debug_print( index );
             return true;
         }
         else
         {
             // Bin is now empty.
-            debug_print( index );
             return false;
         }
     }
@@ -784,8 +777,6 @@ heap_state::~heap_state()
 
 void* heap_state::malloc( size_t size )
 {
-    printf( "MALLOC\n" );
-
     // Chunk size is larger due to overhead, and must be aligned.
     size = size + sizeof( heap_chunk_header );
     size = size + ( HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
@@ -818,7 +809,6 @@ void* heap_state::malloc( size_t size )
             heap_chunk_set_allocated( chunk, size );
             heap_chunk_next( chunk, size )->header.set_p();
 
-            printf( "MALLOC TOTAL FROM SMALL BIN: %zu\n", index );
             return heap_chunk_data( chunk );
         }
 
@@ -830,7 +820,6 @@ void* heap_state::malloc( size_t size )
             // Use existing victim chunk.
             chunk = victim;
             chunk_size = victim_size;
-            printf( "MALLOC FROM VICTIM: %p\n", chunk );
         }
         else if ( bin_map )
         {
@@ -845,7 +834,6 @@ void* heap_state::malloc( size_t size )
             heap_chunk* anchor = smallbin_anchor( index );
             chunk = remove_small_chunk( index, anchor->next );
             assert( chunk != anchor );
-            printf( "MALLOC SMALL FROM SMALL CHUNK: %p %zu\n", chunk, chunk_size );
         }
         else if ( largebin_map )
         {
@@ -854,14 +842,12 @@ void* heap_state::malloc( size_t size )
             assert( index < HEAP_LARGEBIN_COUNT );
             chunk = remove_large_chunk( index, largebins[ index ].smallest( index ) );
             chunk_size = chunk->header.size();
-            printf( "MALLOC SMALL FROM LARGE CHUNK: %p %zu\n", chunk, chunk_size );
         }
         else
         {
             // Allocate new VM segment.
             chunk = alloc_segment( size );
             chunk_size = chunk->header.size();
-            printf( "MALLOC SMALL FROM NEW VM SEGMENT: %p %zu\n", chunk, chunk_size );
         }
     }
     else
@@ -880,14 +866,6 @@ void* heap_state::malloc( size_t size )
                 // Search bin of appropriate size for smallest chunk that fits.
                 chunk = largebins[ index ].best_fit( index, size );
                 bin_map &= ~( 1u << index );
-                if ( chunk )
-                {
-                    printf( "BEST FIT: (%zu) %p %zu\n", index, chunk, chunk->header.size() );
-                }
-                else
-                {
-                    printf( "BEST FIT: (%zu) nullptr\n", index );
-                }
             }
 
             if ( ! chunk && bin_map )
@@ -896,7 +874,6 @@ void* heap_state::malloc( size_t size )
                 // smallest chunk in a larger bin (if one exists).
                 index = ctz( bin_map );
                 chunk = largebins[ index ].smallest( index );
-                printf( "SMALLEST: %p\n", chunk );
             }
         }
 
@@ -909,14 +886,12 @@ void* heap_state::malloc( size_t size )
             {
                 // Binned chunk will be split.
                 remove_large_chunk( chunk->index, chunk );
-                printf( "  CONFIRM\n" );
             }
             else
             {
                 // Victim is a better fit.
                 chunk = victim;
                 chunk_size = victim_size;
-                printf( "  USE VICTIM INSTEAD: %p\n", chunk );
             }
         }
         else if ( size <= victim_size )
@@ -924,14 +899,12 @@ void* heap_state::malloc( size_t size )
             // Use existing victim chunk.
             chunk = victim;
             chunk_size = victim_size;
-            printf( "  USE VICTIM: %p\n", chunk );
         }
         else
         {
             // Neither large chunks nor victim fit, allocate new VM segment.
             chunk = alloc_segment( size );
             chunk_size = chunk->header.size();
-            printf( "  ALLOC NEW VM: %p\n", chunk );
         }
     }
 
@@ -946,20 +919,17 @@ void* heap_state::malloc( size_t size )
     if ( chunk_size - size >= HEAP_MIN_BINNED_SIZE )
     {
         // Allocate.
-        printf( "SPLIT CHUNK: %p %zu\n", chunk, size );
         heap_chunk_set_allocated( chunk, size );
 
         // Set up split chunk in remaining space.
         split_chunk = heap_chunk_next( chunk, size );
         split_chunk_size = chunk_size - size;
-        printf( "SPLIT REMAINDER: %p %zu\n", split_chunk, split_chunk_size );
         heap_chunk_set_free( split_chunk, split_chunk_size );
     }
     else
     {
         // Splitting the chunk will leave us with a free chunk that we cannot
         // link into a bin, so just use the entire chunk.
-        printf( "SPLIT REMAINDERLESS: %p %zu\n", chunk, chunk_size );
         heap_chunk_set_allocated( chunk, chunk_size );
         heap_chunk_next( chunk, chunk_size )->header.set_p();
     }
@@ -995,8 +965,6 @@ void* heap_state::malloc( size_t size )
 
 void heap_state::free( void* p )
 {
-    printf( "FREE\n" );
-
     // free( nullptr ) is valid.
     if ( ! p )
     {
@@ -1066,7 +1034,6 @@ void heap_state::free( void* p )
     }
     else
     {
-        printf( "===================    FREE SEGMENT    ====================\n" );
         // This chunk spans the entire segment, so free the segment.
         free_segment( (heap_segment*)next );
         if ( chunk == victim )
@@ -1636,6 +1603,8 @@ int main( int argc, char* argv[] )
         size_t free_count = rand() % allocs.size();
         for ( size_t j = 0; j < free_count; ++j )
         {
+            bool ok = true;
+
             size_t alloc_index = rand() % allocs.size();
             alloc a = allocs.at( alloc_index );
 
@@ -1644,36 +1613,46 @@ int main( int argc, char* argv[] )
                 if ( *( (char*)a.p + j ) != (char)a.b )
                 {
                     printf( "******** BLOCK AT %p:%zu CORRUPT SHOULD BE %02X\n", a.p, a.size, a.b );
+                    ok = false;
                     break;
                 }
             }
+
+            assert( ok );
 
             printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
             heap.free( a.p );
             allocs.erase( allocs.begin() + alloc_index );
 
             heap.debug_print();
-            bool ok = check_bins( state );
+            if ( ! check_bins( state ) )
+                ok = false;
             assert( ok );
         }
     }
 
     for ( const alloc& a : allocs )
     {
+        bool ok = true;
+
         for ( size_t j = 0; j < a.size; ++j )
         {
             if ( *( (char*)a.p + j ) != (char)a.b )
             {
                 printf( "******** BLOCK AT %p:%zu CORRUPT SHOULD BE %02X\n", a.p, a.size, a.b );
+                ok = false;
                 break;
             }
         }
+
+        assert( ok );
 
         printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
         heap.free( a.p );
 
         heap.debug_print();
-        bool ok = check_bins( state );
+        if ( ! check_bins( state ) )
+            ok = false;
         assert( ok );
     }
 
