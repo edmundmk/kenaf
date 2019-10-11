@@ -41,17 +41,13 @@ inline uint32_t ctz( uint32_t x )
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
 
-static size_t idx = 0;
-void* ALLOC[ 4 ] = { (void*)0x10d000000, (void*)0x10d400000, (void*)0x10d200000, (void*)0x10d600000 };
-
 void* heap_vmalloc( size_t size )
 {
-    void* p = mmap( ALLOC[ idx++ ], size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
+    void* p = mmap( nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
     if ( p == MAP_FAILED )
     {
         throw std::bad_alloc();
     }
-    printf( "************** ALLOC: %p\n", p );
     return p;
 }
 
@@ -265,6 +261,40 @@ inline bool heap_segment_can_merge( heap_segment* prev, heap_segment* next )
         [ 30 ] -> >= 8MiB
         [ 31 ] -> >= 12MiB
 
+    Large bins are trees stored in a specific way that minimises insertion
+    cost while allowing us to quickly locate best fit chunks.
+*/
+
+const size_t HEAP_SMALLBIN_COUNT = 32;
+const size_t HEAP_LARGEBIN_COUNT = 32;
+const size_t HEAP_LARGE_SIZE = 256;
+
+inline size_t heap_smallbin_index( size_t size )
+{
+    assert( size < HEAP_LARGE_SIZE );
+    return size / 8;
+}
+
+inline size_t heap_largebin_index( size_t size )
+{
+    if ( size < 256 )
+    {
+        return 0;
+    }
+    else if ( size < ( 12 << 20 ) )
+    {
+        size_t log2size = sizeof( uint32_t ) * CHAR_BIT - 1 - clz( (uint32_t)size );
+        size_t index = ( log2size - 8 ) * 2;
+        size_t ihalf = ( size >> ( log2size - 1 ) ) & 1;
+        return index + ihalf;
+    }
+    else
+    {
+        return 31;
+    }
+}
+
+/*
     Each large bin is a binary tree.  The nodes of the tree are lists of chunks
     with the same size.  Each tree is a 'not quite' prefix tree/bitwise trie
     keyed on the low bits of the chunk size.
@@ -310,59 +340,251 @@ inline bool heap_segment_can_merge( heap_segment* prev, heap_segment* next )
                     .-------'-------.
              [00..] 0010110  [01..] 0110110
 
+    Since tree operations are complex, they are split out here so they can be
+    tested indepedently.
 */
 
-const size_t HEAP_SMALLBIN_COUNT = 32;
-const size_t HEAP_LARGEBIN_COUNT = 32;
-const size_t HEAP_LARGE_SIZE = 256;
-
-inline size_t heap_smallbin_index( size_t size )
+struct heap_largebin
 {
-    assert( size < HEAP_LARGE_SIZE );
-    return size / 8;
+    heap_chunk* root;
+
+    void insert( size_t index, size_t size, heap_chunk* chunk );
+    bool remove( size_t index, heap_chunk* chunk );
+    heap_chunk* smallest( size_t index );
+    heap_chunk* best_fit( size_t index, size_t size );
+
+    uint32_t trie_prefix( size_t index, size_t size );
+    heap_chunk* leftwards( heap_chunk* chunk );
+    heap_chunk* rightwards( heap_chunk* chunk );
+
+    void debug_print();
+};
+
+void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
+{
+    assert( heap_largebin_index( size ) == index );
+    uint32_t prefix = trie_prefix( index, size );
+
+    // Set tree node properties.
+    chunk->child[ 0 ] = nullptr;
+    chunk->child[ 1 ] = nullptr;
+    chunk->index = index;
+
+    // Link into tree.
+    heap_chunk* parent = chunk;
+    heap_chunk** link = &root;
+    heap_chunk* node = *link;
+    while ( true )
+    {
+        if ( ! node )
+        {
+            // Link new node into tree.
+            *link = chunk;
+            chunk->next = chunk;
+            chunk->prev = chunk;
+            chunk->parent = parent;
+            break;
+        }
+
+        if ( node->header.size == size )
+        {
+            // Link new node into the linked list at this tree node.
+            heap_chunk* next = node->next;
+            node->next = chunk;
+            next->prev = chunk;
+            chunk->next = next;
+            chunk->prev = node;
+            chunk->parent = nullptr;
+            break;
+        }
+
+        parent = node;
+        link = &node->child[ prefix >> 31 ];
+        prefix <<= 1;
+        node = *link;
+    }
 }
 
-inline size_t heap_largebin_index( size_t size )
+bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 {
-    if ( size < 256 )
+    assert( chunk->index == index );
+    assert( heap_largebin_index( chunk->header.size ) == index );
+
+    heap_chunk* replace = nullptr;
+    heap_chunk* prev = chunk->prev;
+    heap_chunk* next = chunk->next;
+
+    if ( prev != next )
     {
-        return 0;
-    }
-    else if ( size < ( 12 << 20 ) )
-    {
-        size_t log2size = sizeof( uint32_t ) * CHAR_BIT - 1 - clz( (uint32_t)size );
-        size_t index = ( log2size - 8 ) * 2;
-        size_t ihalf = ( size >> ( log2size - 1 ) ) & 1;
-        return index + ihalf;
+        // Chunk is part of a list.  Unlink it, and replace with next.
+        prev->next = next;
+        next->prev = prev;
+        replace = next;
     }
     else
     {
-        return 31;
+        // Choose rightmost leaf as replacment.
+        heap_chunk* tree = rightwards( chunk );
+        while ( tree )
+        {
+            replace = tree;
+            tree = rightwards( tree );
+        }
+    }
+
+    // If this chunk was a tree node, then replace it.
+    heap_chunk* parent = chunk->parent;
+    if ( ! parent )
+    {
+        return true;
+    }
+
+    // Unlink replacement node from its current position.
+    if ( replace )
+    {
+        assert( ! replace->child[ 0 ] && ! replace->child[ 1 ] );
+        heap_chunk* unlink_parent = replace->parent;
+        if ( unlink_parent->child[ 0 ] == replace ) unlink_parent->child[ 0 ] = nullptr;
+        if ( unlink_parent->child[ 1 ] == replace ) unlink_parent->child[ 1 ] = nullptr;
+        replace->child[ 0 ] = chunk->child[ 0 ];
+        replace->child[ 1 ] = chunk->child[ 1 ];
+    }
+
+    if ( parent != chunk )
+    {
+        // Replacing a non-root node.
+        if ( replace ) replace->parent = parent;
+        if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
+        if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
+        return true;
+    }
+    else
+    {
+        // Replacing the root node of the tree.
+        assert( root == chunk );
+        root = replace;
+        if ( replace )
+        {
+            // Mark as root by linking it back to itself.
+            replace->parent = replace;
+            return true;
+        }
+        else
+        {
+            // Bin is now empty.
+            return false;
+        }
     }
 }
 
-inline uint32_t heap_largebin_prefix( size_t size, size_t index )
+heap_chunk* heap_largebin::smallest( size_t index )
 {
-    // Shift bits of size so most significant bit is the top bit of the range
-    // for the bin at index.
+    heap_chunk* chunk = root;
+    size_t chunk_size = chunk->header.size;
+    assert( heap_largebin_index( chunk_size ) == index );
+
+    heap_chunk* tree = leftwards( chunk );
+    while ( tree )
+    {
+        size_t tree_size = tree->header.size;
+        if ( tree_size < chunk_size )
+        {
+            chunk = tree->next;
+            chunk_size = tree_size;
+        }
+
+        tree = leftwards( tree );
+    }
+
+    return chunk;
+}
+
+heap_chunk* heap_largebin::best_fit( size_t index, size_t size )
+{
+    assert( heap_largebin_index( size ) == index );
+
+    heap_chunk* chunk = nullptr;
+    size_t chunk_size = SIZE_MAX;
+
+    // Search down tree limited by the size we're looking for.
+    heap_chunk* right_tree = nullptr;
+    heap_chunk* tree = root;
+    uint32_t prefix = trie_prefix( index, size );
+    while ( true )
+    {
+        size_t tree_size = tree->header.size;
+        if ( size <= tree_size && tree_size < chunk_size )
+        {
+            chunk = tree->next;
+            chunk_size = tree_size;
+            if ( chunk_size == size )
+            {
+                break;
+            }
+        }
+
+        heap_chunk* right = tree->child[ 1 ];
+        tree = tree->child[ prefix >> 31 ];
+        prefix <<= 1;
+
+        if ( right && right != tree )
+        {
+            right_tree = right;
+        }
+
+        if ( ! tree )
+        {
+            tree = right_tree;
+            break;
+        }
+    }
+
+    // Might not have found anything.
+    if ( ! tree && ! chunk )
+    {
+        return nullptr;
+    }
+
+    // Go down the left hand side to find smallest chunk.
+    while ( tree )
+    {
+        size_t tree_size = tree->header.size;
+        if ( tree_size < chunk_size )
+        {
+            chunk = tree->next;
+            chunk_size = tree_size;
+        }
+
+        tree = leftwards( tree );
+    }
+
+    return chunk;
+}
+
+uint32_t heap_largebin::trie_prefix( size_t index, size_t size )
+{
+    // Shift bits of size so most significant bit is the top bit of our range.
+    assert( heap_largebin_index( size ) == index );
     uint32_t range_bits = 7 + index / 2;
     return (uint32_t)size << ( 32 - range_bits );
 }
 
-/*
-    Tree navigation.
-*/
-
-inline heap_chunk* heap_tree_leftwards( heap_chunk* chunk )
+inline heap_chunk* heap_largebin::leftwards( heap_chunk* chunk )
 {
     heap_chunk* left = chunk->child[ 0 ];
     return left ? left : chunk->child[ 1 ];
 }
 
-inline heap_chunk* heap_tree_rightwards( heap_chunk* chunk )
+inline heap_chunk* heap_largebin::rightwards( heap_chunk* chunk )
 {
     heap_chunk* right = chunk->child[ 1 ];
     return right ? right : chunk->child[ 0 ];
+}
+
+void heap_largebin::debug_print()
+{
+    // TODO.
+    printf( "%p\n", root );
 }
 
 /*
@@ -384,20 +606,17 @@ struct heap_state
     heap_segment* segments;
     heap_chunk* victim;
     heap_chunk* smallbin_anchors[ HEAP_SMALLBIN_COUNT * 2 ];
-    heap_chunk* largebins[ HEAP_LARGEBIN_COUNT ];
+    heap_largebin largebins[ HEAP_LARGEBIN_COUNT ];
     std::mutex mutex;
 
     void* malloc( size_t size );
     void free( void* p );
 
-    heap_chunk* smallest_large_chunk( size_t index );
-    heap_chunk* best_fit_large_chunk( size_t index, size_t size );
-
     heap_chunk* smallbin_anchor( size_t i );
     void insert_chunk( size_t size, heap_chunk* chunk );
     void remove_chunk( size_t size, heap_chunk* chunk );
     heap_chunk* remove_small_chunk( size_t size, heap_chunk* chunk );
-    heap_chunk* remove_large_chunk( heap_chunk* chunk );
+    heap_chunk* remove_large_chunk( size_t index, heap_chunk* chunk );
 
     heap_chunk* alloc_segment( size_t size );
     void free_segment( heap_segment* segment );
@@ -532,7 +751,7 @@ void* heap_state::malloc( size_t size )
             // Pick smallest chunk in the first non-empty largebin.
             size_t index = ctz( largebin_map );
             assert( index < HEAP_LARGEBIN_COUNT );
-            chunk = remove_large_chunk( smallest_large_chunk( index ) );
+            chunk = remove_large_chunk( index, largebins[ index ].smallest( index ) );
             chunk_size = chunk->header.size;
         }
         else
@@ -556,13 +775,28 @@ void* heap_state::malloc( size_t size )
             index = ctz( bin_map );
             assert( largebin_map & 1u << index );
 
-            chunk = best_fit_large_chunk( index, size );
-            chunk_size = chunk->header.size;
+            // Search bin of appropriate size for smallest chunk that fits.
+            chunk = largebins[ index ].best_fit( index, size );
+            if ( ! chunk )
+            {
+                // All chunks in that bin were too small, find smallest chunk
+                // in a larger bin (if one exists).
+                bin_map &= ~( 1u << index );
+                if ( bin_map )
+                {
+                    index = ctz( bin_map );
+                    chunk = largebins[ index ].smallest( index );
+                }
+            }
+        }
 
+        if ( chunk )
+        {
+            chunk_size = chunk->header.size;
             if ( victim_size >= chunk_size && size > victim_size )
             {
                 // Binned chunk will be split.
-                remove_large_chunk( chunk );
+                remove_large_chunk( chunk->index, chunk );
             }
             else
             {
@@ -579,7 +813,7 @@ void* heap_state::malloc( size_t size )
         }
         else
         {
-            // Allocate new VM segment.
+            // Neither large chunks nor victim fit, allocate new VM segment.
             chunk = alloc_segment( size );
             chunk_size = chunk->header.size;
         }
@@ -679,93 +913,6 @@ void heap_state::free( void* p )
     }
 }
 
-heap_chunk* heap_state::smallest_large_chunk( size_t index )
-{
-    heap_chunk* chunk = largebins[ index ];
-    size_t chunk_size = chunk->header.size;
-
-    heap_chunk* tree = heap_tree_leftwards( chunk );
-    while ( tree )
-    {
-        size_t tree_size = tree->header.size;
-        if ( tree_size < chunk_size )
-        {
-            chunk = tree->next;
-            chunk_size = tree_size;
-        }
-
-        tree = heap_tree_leftwards( tree );
-    }
-
-    return chunk;
-}
-
-heap_chunk* heap_state::best_fit_large_chunk( size_t index, size_t size )
-{
-    heap_chunk* chunk = nullptr;
-    size_t chunk_size = SIZE_MAX;
-
-    // Search down tree limited by the size we're looking for.
-    heap_chunk* right_tree = nullptr;
-    heap_chunk* tree = largebins[ index ];
-    uint32_t prefix = heap_largebin_prefix( size, index );
-    while ( true )
-    {
-        size_t tree_size = tree->header.size;
-        if ( size <= tree_size && tree_size < chunk_size )
-        {
-            chunk = tree->next;
-            chunk_size = tree_size;
-            if ( chunk_size == size )
-            {
-                break;
-            }
-        }
-
-        heap_chunk* right = tree->child[ 1 ];
-        tree = tree->child[ prefix >> 31 ];
-        prefix <<= 1;
-
-        if ( right && right != tree )
-        {
-            right_tree = right;
-        }
-
-        if ( ! tree )
-        {
-            tree = right_tree;
-            break;
-        }
-    }
-
-    if ( ! tree && ! chunk )
-    {
-        // Didn't find anything useful in this tree, so start at the
-        // root of next non-empty bin.
-        uint32_t bin_map = largebin_map & ~( ( 1u << ++index ) - 1 );
-        if ( bin_map )
-        {
-            index = ctz( bin_map );
-            tree = largebins[ index ];
-        }
-    }
-
-    // Go down the left side to find smallest chunk.
-    while ( tree )
-    {
-        size_t tree_size = tree->header.size;
-        if ( tree_size < chunk_size )
-        {
-            chunk = tree->next;
-            chunk_size = tree_size;
-        }
-
-        tree = heap_tree_leftwards( tree );
-    }
-
-    return chunk;
-}
-
 heap_chunk* heap_state::smallbin_anchor( size_t i )
 {
     assert( i < HEAP_SMALLBIN_COUNT );
@@ -799,48 +946,9 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
     }
     else
     {
+        // Insert into largebin.
         size_t index = heap_largebin_index( size );
-        uint32_t prefix = heap_largebin_prefix( size, index );
-
-        // Set tree node properties.
-        chunk->child[ 0 ] = nullptr;
-        chunk->child[ 1 ] = nullptr;
-        chunk->index = index;
-
-        // Link into tree.
-        assert( index < HEAP_LARGEBIN_COUNT );
-        heap_chunk* parent = chunk;
-        heap_chunk** link = &largebins[ index ];
-        heap_chunk* node = *link;
-        while ( true )
-        {
-            if ( ! node )
-            {
-                // Link new node into tree.
-                *link = chunk;
-                chunk->next = chunk;
-                chunk->prev = chunk;
-                chunk->parent = parent;
-                break;
-            }
-
-            if ( node->header.size == size )
-            {
-                // Link new node into the linked list at this tree node.
-                heap_chunk* next = node->next;
-                node->next = chunk;
-                next->prev = chunk;
-                chunk->next = next;
-                chunk->prev = node;
-                chunk->parent = nullptr;
-                break;
-            }
-
-            parent = node;
-            link = &node->child[ prefix >> 31 ];
-            prefix <<= 1;
-            node = *link;
-        }
+        largebins[ index ].insert( index, size, chunk );
 
         // Mark largebin map, as this largebin is not empty.
         largebin_map |= 1u << index;
@@ -859,7 +967,7 @@ void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
     }
     else
     {
-        remove_large_chunk( chunk );
+        remove_large_chunk( chunk->index, chunk );
     }
 }
 
@@ -883,71 +991,15 @@ heap_chunk* heap_state::remove_small_chunk( size_t size, heap_chunk* chunk )
     return chunk;
 }
 
-heap_chunk* heap_state::remove_large_chunk( heap_chunk* chunk )
+heap_chunk* heap_state::remove_large_chunk( size_t index, heap_chunk* chunk )
 {
-    heap_chunk* replace = nullptr;
-    heap_chunk* prev = chunk->prev;
-    heap_chunk* next = chunk->next;
+    // Remove from largebin.
+    bool nonempty = largebins[ index ].remove( index, chunk );
 
-    if ( prev != next )
+    // Clear largebin map if the bin is empty.
+    if ( ! nonempty )
     {
-        // Chunk is part of a list.  Unlink it, and replace with next.
-        prev->next = next;
-        next->prev = prev;
-        replace = next;
-    }
-    else
-    {
-        // Choose rightmost leaf as replacment.
-        heap_chunk* tree = heap_tree_rightwards( chunk );
-        while ( tree )
-        {
-            replace = tree;
-            tree = heap_tree_rightwards( tree );
-        }
-    }
-
-    // If this chunk was a tree node, then replace it.
-    heap_chunk* parent = chunk->parent;
-    if ( ! parent )
-    {
-        return chunk;
-    }
-
-    // Unlink replacement node from its current position.
-    if ( replace )
-    {
-        assert( ! replace->child[ 0 ] && ! replace->child[ 1 ] );
-        heap_chunk* unlink_parent = replace->parent;
-        if ( unlink_parent->child[ 0 ] == replace ) unlink_parent->child[ 0 ] = nullptr;
-        if ( unlink_parent->child[ 1 ] == replace ) unlink_parent->child[ 1 ] = nullptr;
-        replace->child[ 0 ] = chunk->child[ 0 ];
-        replace->child[ 1 ] = chunk->child[ 1 ];
-    }
-
-    if ( parent != chunk )
-    {
-        // Replacing a non-root node.
-        if ( replace ) replace->parent = parent;
-        if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
-        if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
-    }
-    else
-    {
-        // Replacing the root node of the tree.
-        size_t index = chunk->index;
-        assert( largebin_map & ( 1u << index ) );
-        largebins[ index ] = replace;
-        if ( replace )
-        {
-            // Mark as root by linking it back to itself.
-            replace->parent = replace;
-        }
-        else
-        {
-            // Bin is now empty.
-            largebin_map &= ~( 1u << index );
-        }
+        largebin_map &= ~( 1u << index );
     }
 
     return chunk;
@@ -1078,7 +1130,7 @@ void heap_state::unlink_segment( heap_segment* segment )
 
 void heap_state::debug_print()
 {
-    std::lock_guard< std::mutex > lock( mutex );
+//    std::lock_guard< std::mutex > lock( mutex );
 
     printf( "HEAP %p:\n", this );
     printf( "  smallbin_map: %08X\n", smallbin_map );
@@ -1098,7 +1150,8 @@ void heap_state::debug_print()
     {
         if ( largebin_map & 1u << index )
         {
-            printf( "    %zu:%p\n", index, largebins[ index ] );
+            printf( "    %zu:\n", index );
+            largebins[ index ].debug_print();
         }
     }
 
@@ -1187,21 +1240,53 @@ size_t heap_malloc_size( void* p )
 
 #ifdef HEAP_TEST
 
+#include <vector>
+
 int main( int argc, char* argv[] )
 {
     kf::heap heap;
-    heap.debug_print();
 
-    void* p = heap.malloc( 1024 * 1024 );
-    heap.debug_print();
+    srand( clock() );
+    struct alloc { void* p; size_t size; int b; };
+    std::vector< alloc > allocs;
+    int b = 0;
 
-    void* q = heap.malloc( 1024 * 1024 );
-    heap.debug_print();
+    // Check small allocations.
+    for ( size_t i = 0; i < 100; ++i )
+    {
+        size_t alloc_count = rand() % 100;
+        for ( size_t j = 0; j < alloc_count; ++j )
+        {
+            size_t alloc_size = rand() % 248;
+            void* p = heap.malloc( alloc_size );
+            memset( p, b, alloc_size );
+            allocs.push_back( { p, alloc_size, b } );
+            b = ( b + 1 ) % 256;
+        }
 
-    printf( "------- %p\n", p );
-    printf( "------- %p\n", q );
-    heap.free( p );
-    heap.debug_print();
+        heap.debug_print();
+
+        size_t free_count = rand() % allocs.size();
+        for ( size_t j = 0; j < free_count; ++j )
+        {
+            size_t alloc_index = rand() % allocs.size();
+            alloc a = allocs.at( alloc_index );
+
+            for ( size_t j = 0; j < a.size; ++j )
+            {
+                if ( *( (char*)a.p + j ) != (char)a.b )
+                {
+                    printf( "******** BLOCK AT %p:%zu CORRUPT SHOULD BE %02X\n", a.p, a.size, a.b );
+                    break;
+                }
+            }
+
+            heap.free( a.p );
+            allocs.erase( allocs.begin() + alloc_index );
+        }
+
+        heap.debug_print();
+    }
 
     return EXIT_SUCCESS;
 }
