@@ -366,8 +366,6 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
     assert( heap_largebin_index( size ) == index );
     uint32_t prefix = trie_prefix( index, size );
 
-    printf( "---- LARGEBIN INSERT: %zu %zu %p\n", index, size, chunk );
-
     // Set tree node properties.
     chunk->child[ 0 ] = nullptr;
     chunk->child[ 1 ] = nullptr;
@@ -406,17 +404,12 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
         prefix <<= 1;
         node = *link;
     }
-
-    debug_print( index );
 }
 
 bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 {
     assert( chunk->index == index );
     assert( heap_largebin_index( chunk->header.size ) == index );
-
-    printf( "---- LARGEBIN REMOVE: %zu %zu %p\n", index, (size_t)chunk->header.size, chunk );
-    debug_print( index );
 
     heap_chunk* replace = nullptr;
     heap_chunk* prev = chunk->prev;
@@ -432,7 +425,6 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         // If original chunk wasn't a tree node, then we're done.
         if ( ! parent )
         {
-            debug_print( index );
             return true;
         }
 
@@ -468,7 +460,6 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         if ( parent->child[ 0 ] == chunk ) parent->child[ 0 ] = replace;
         if ( parent->child[ 1 ] == chunk ) parent->child[ 1 ] = replace;
         if ( replace ) replace->parent = parent;
-        debug_print( index );
         return true;
     }
     else
@@ -480,13 +471,11 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
         {
             // Mark as root by linking it back to itself.
             replace->parent = replace;
-            debug_print( index );
             return true;
         }
         else
         {
             // Bin is now empty.
-            debug_print( index );
             return false;
         }
     }
