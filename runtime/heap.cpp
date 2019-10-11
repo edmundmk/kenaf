@@ -483,6 +483,8 @@ bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 
 heap_chunk* heap_largebin::smallest( size_t index )
 {
+    assert( root );
+
     heap_chunk* chunk = root;
     size_t chunk_size = chunk->header.size;
     assert( heap_largebin_index( chunk_size ) == index );
@@ -506,6 +508,7 @@ heap_chunk* heap_largebin::smallest( size_t index )
 heap_chunk* heap_largebin::best_fit( size_t index, size_t size )
 {
     assert( heap_largebin_index( size ) == index );
+    assert( root );
 
     heap_chunk* chunk = nullptr;
     size_t chunk_size = SIZE_MAX;
@@ -821,6 +824,7 @@ void* heap_state::malloc( size_t size )
                 // Search bin of appropriate size for smallest chunk that fits.
                 chunk = largebins[ index ].best_fit( index, size );
                 bin_map &= ~( 1u << index );
+                printf( "BEST FIT: %p\n", chunk );
             }
 
             if ( ! chunk && bin_map )
@@ -829,6 +833,7 @@ void* heap_state::malloc( size_t size )
                 // smallest chunk in a larger bin (if one exists).
                 index = ctz( bin_map );
                 chunk = largebins[ index ].smallest( index );
+                printf( "SMALLEST: %p\n", chunk );
             }
         }
 
@@ -837,16 +842,18 @@ void* heap_state::malloc( size_t size )
             chunk_size = chunk->header.size;
             assert( size <= chunk_size );
 
-            if ( victim_size >= chunk_size && size > victim_size )
+            if ( victim_size >= chunk_size || size > victim_size )
             {
                 // Binned chunk will be split.
                 remove_large_chunk( chunk->index, chunk );
+                printf( "  CONFIRM\n" );
             }
             else
             {
                 // Victim is a better fit.
                 chunk = victim;
                 chunk_size = victim_size;
+                printf( "  USE VICTIM INSTEAD: %p\n", chunk );
             }
         }
         else if ( size <= victim_size )
@@ -854,12 +861,14 @@ void* heap_state::malloc( size_t size )
             // Use existing victim chunk.
             chunk = victim;
             chunk_size = victim_size;
+            printf( "  USE VICTIM: %p\n", chunk );
         }
         else
         {
             // Neither large chunks nor victim fit, allocate new VM segment.
             chunk = alloc_segment( size );
             chunk_size = chunk->header.size;
+            printf( "  ALLOC NEW VM: %p\n", chunk );
         }
     }
 
