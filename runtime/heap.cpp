@@ -114,11 +114,50 @@ const uint32_t HEAP_WORD_FREE = 0xFEEFEE;
 
 struct heap_chunk_header
 {
-    uint32_t p : 1;
-    uint32_t u : 1;
-    uint32_t size : 30;
+    uint32_t p_u_size;
     uint32_t word;
+
+    heap_chunk_header( bool p, bool u, size_t size, uint32_t word );
+
+    size_t size() const;
+    bool p() const;
+    bool u() const;
+    void set_p();
+    void clear_p();
 };
+
+inline heap_chunk_header::heap_chunk_header( bool p, bool u, size_t size, uint32_t word )
+    :   p_u_size( (uint32_t)size |( u ? 2 : 0 )|( p ? 1 : 0 ) )
+    ,   word( word )
+{
+    assert( ( size & 3 ) == 0 );
+    assert( this->size() == size );
+}
+
+inline size_t heap_chunk_header::size() const
+{
+    return p_u_size & ~3;
+}
+
+inline bool heap_chunk_header::p() const
+{
+    return p_u_size & 1;
+}
+
+inline bool heap_chunk_header::u() const
+{
+    return p_u_size & 2;
+}
+
+inline void heap_chunk_header::set_p()
+{
+    p_u_size |= 1;
+}
+
+inline void heap_chunk_header::clear_p()
+{
+    p_u_size &= ~(uint32_t)1;
+}
 
 struct heap_chunk
 {
@@ -155,7 +194,7 @@ inline void* heap_chunk_data( heap_chunk* p )
 
 inline heap_chunk_footer* heap_chunk_prev_footer( heap_chunk* chunk )
 {
-    assert( ! chunk->header.p );
+    assert( ! chunk->header.p() );
     return (heap_chunk_footer*)chunk - 1;
 }
 
@@ -176,14 +215,14 @@ inline heap_chunk* heap_chunk_next( heap_chunk* chunk, size_t size )
 inline void heap_chunk_set_free( heap_chunk* chunk, size_t size )
 {
     assert( size >= 8 );
-    chunk->header = { true, false, (uint32_t)size, HEAP_WORD_FREE };
+    chunk->header = { true, false, size, HEAP_WORD_FREE };
     heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)chunk + size ) - 1;
     footer->size = size;
 }
 
 inline void heap_chunk_set_allocated( heap_chunk* chunk, size_t size )
 {
-    chunk->header = { true, true, (uint32_t)size, 0 };
+    chunk->header = { true, true, size, 0 };
 }
 
 inline void heap_chunk_set_segment( heap_chunk* chunk )
@@ -387,7 +426,7 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
             break;
         }
 
-        if ( node->header.size == size )
+        if ( node->header.size() == size )
         {
             // Link new node into the linked list at this tree node.
             heap_chunk* next = node->next;
@@ -409,7 +448,7 @@ void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
 bool heap_largebin::remove( size_t index, heap_chunk* chunk )
 {
     assert( chunk->index == index );
-    assert( heap_largebin_index( chunk->header.size ) == index );
+    assert( heap_largebin_index( chunk->header.size() ) == index );
 
     heap_chunk* replace = nullptr;
     heap_chunk* prev = chunk->prev;
@@ -486,13 +525,13 @@ heap_chunk* heap_largebin::smallest( size_t index )
     assert( root );
 
     heap_chunk* chunk = root;
-    size_t chunk_size = chunk->header.size;
+    size_t chunk_size = chunk->header.size();
     assert( heap_largebin_index( chunk_size ) == index );
 
     heap_chunk* tree = leftwards( chunk );
     while ( tree )
     {
-        size_t tree_size = tree->header.size;
+        size_t tree_size = tree->header.size();
         if ( tree_size < chunk_size )
         {
             chunk = tree->next;
@@ -519,7 +558,7 @@ heap_chunk* heap_largebin::best_fit( size_t index, size_t size )
     uint32_t prefix = trie_prefix( index, size );
     while ( true )
     {
-        size_t tree_size = tree->header.size;
+        size_t tree_size = tree->header.size();
         if ( size <= tree_size && tree_size < chunk_size )
         {
             chunk = tree->next;
@@ -555,7 +594,7 @@ heap_chunk* heap_largebin::best_fit( size_t index, size_t size )
     // Go down the left hand side to find smallest chunk.
     while ( tree )
     {
-        size_t tree_size = tree->header.size;
+        size_t tree_size = tree->header.size();
         if ( tree_size < chunk_size )
         {
             chunk = tree->next;
@@ -607,19 +646,19 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
     printf( "..] " );
 
     size_t range_bits = 7 + index / 2;
-    uint32_t size_bits = chunk->header.size << ( 32 - range_bits );
+    uint32_t size_bits = chunk->header.size() << ( 32 - range_bits );
     for ( size_t i = 0; i < range_bits; ++i )
     {
         printf( "%c", size_bits >> 31 ? '1' : '0' );
         size_bits <<= 1;
     }
 
-    printf( " -> %p/%s/%s:%zu i:%zu p:%p l:%p r:%p\n", chunk, chunk->header.u ? "U" : "-", chunk->header.p ? "P" : "-", (size_t)chunk->header.size, chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
+    printf( " -> %p/%s/%s:%zu i:%zu p:%p l:%p r:%p\n", chunk, chunk->header.u() ? "U" : "-", chunk->header.p() ? "P" : "-", chunk->header.size(), chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
 
     heap_chunk* c = chunk;
     do
     {
-        printf( "%*s%p/%s/%s:%zu i:%zu @:%p <-> %p\n", ( level + 3 ) * 2, "", c, c->header.u ? "U" : "-", c->header.p ? "P" : "-", (size_t)c->header.size, c->index, c->prev, c->next );
+        printf( "%*s%p/%s/%s:%zu i:%zu @:%p <-> %p\n", ( level + 3 ) * 2, "", c, c->header.u() ? "U" : "-", c->header.p() ? "P" : "-", c->header.size(), c->index, c->prev, c->next );
         c = c->next;
     }
     while ( c != chunk );
@@ -673,7 +712,8 @@ struct heap_state
 };
 
 heap_state::heap_state( size_t segment_size )
-    :   smallbin_map( 0 )
+    :   header{ true, true, sizeof( heap_state ), 0 }
+    ,   smallbin_map( 0 )
     ,   largebin_map( 0 )
     ,   victim_size( 0 )
     ,   segment_size( segment_size )
@@ -698,11 +738,8 @@ heap_state::heap_state( size_t segment_size )
             heap_segment
     */
     assert( segment_size >= sizeof( heap_state ) + sizeof( heap_segment ) );
-    heap_chunk* state_chunk = (heap_chunk*)this;
     heap_chunk* free_chunk = (heap_chunk*)( this + 1 );
     heap_chunk* segment_chunk = (heap_chunk*)( (char*)this + segment_size - sizeof( heap_segment ) );
-
-    heap_chunk_set_allocated( state_chunk, sizeof( heap_state ) );
 
     if ( free_chunk < segment_chunk )
     {
@@ -737,6 +774,8 @@ heap_state::~heap_state()
 
 void* heap_state::malloc( size_t size )
 {
+    printf( "MALLOC\n" );
+
     // Chunk size is larger due to overhead, and must be aligned.
     size = size + sizeof( heap_chunk_header );
     size = size + ( HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
@@ -763,11 +802,11 @@ void* heap_state::malloc( size_t size )
         if ( bin_map & 1u << index )
         {
             heap_chunk* anchor = smallbin_anchor( index );
-            chunk = remove_small_chunk( size, anchor->next );
+            chunk = remove_small_chunk( index, anchor->next );
             assert( chunk != anchor );
 
             heap_chunk_set_allocated( chunk, size );
-            heap_chunk_next( chunk, size )->header.p = true;
+            heap_chunk_next( chunk, size )->header.set_p();
             return heap_chunk_data( chunk );
         }
 
@@ -790,7 +829,7 @@ void* heap_state::malloc( size_t size )
             assert( smallbin_map & 1u << index );
 
             heap_chunk* anchor = smallbin_anchor( index );
-            chunk = remove_small_chunk( chunk_size, anchor->next );
+            chunk = remove_small_chunk( index, anchor->next );
             assert( chunk != anchor );
         }
         else if ( largebin_map )
@@ -799,13 +838,13 @@ void* heap_state::malloc( size_t size )
             size_t index = ctz( largebin_map );
             assert( index < HEAP_LARGEBIN_COUNT );
             chunk = remove_large_chunk( index, largebins[ index ].smallest( index ) );
-            chunk_size = chunk->header.size;
+            chunk_size = chunk->header.size();
         }
         else
         {
             // Allocate new VM segment.
             chunk = alloc_segment( size );
-            chunk_size = chunk->header.size;
+            chunk_size = chunk->header.size();
         }
     }
     else
@@ -839,7 +878,7 @@ void* heap_state::malloc( size_t size )
 
         if ( chunk )
         {
-            chunk_size = chunk->header.size;
+            chunk_size = chunk->header.size();
             assert( size <= chunk_size );
 
             if ( victim_size >= chunk_size || size > victim_size )
@@ -867,14 +906,14 @@ void* heap_state::malloc( size_t size )
         {
             // Neither large chunks nor victim fit, allocate new VM segment.
             chunk = alloc_segment( size );
-            chunk_size = chunk->header.size;
+            chunk_size = chunk->header.size();
             printf( "  ALLOC NEW VM: %p\n", chunk );
         }
     }
 
     assert( chunk );
-    assert( chunk->header.p );
-    assert( ! chunk->header.u );
+    assert( chunk->header.p() );
+    assert( ! chunk->header.u() );
     assert( size <= chunk_size );
 
     heap_chunk* split_chunk = nullptr;
@@ -895,7 +934,7 @@ void* heap_state::malloc( size_t size )
         // Splitting the chunk will leave us with a free chunk that we cannot
         // link into a bin, so just use the entire chunk.
         heap_chunk_set_allocated( chunk, chunk_size );
-        heap_chunk_next( chunk, size )->header.p = true;
+        heap_chunk_next( chunk, chunk_size )->header.set_p();
     }
 
     if ( chunk == victim || size < HEAP_LARGE_SIZE )
@@ -915,6 +954,8 @@ void* heap_state::malloc( size_t size )
 
 void heap_state::free( void* p )
 {
+    printf( "FREE\n" );
+
     // free( nullptr ) is valid.
     if ( ! p )
     {
@@ -926,18 +967,18 @@ void heap_state::free( void* p )
 
     // We don't have much context, but assert that the chunk is allocated.
     heap_chunk* chunk = heap_chunk_head( p );
-    assert( chunk->header.u );
-    size_t size = chunk->header.size;
+    assert( chunk->header.u() );
+    size_t size = chunk->header.size();
 
     // Attempt to merge with previous chunk.
-    if ( ! chunk->header.p )
+    if ( ! chunk->header.p() )
     {
         heap_chunk* prev = heap_chunk_prev( chunk );
-        assert( prev->header.p );
-        assert( ! prev->header.u );
+        assert( prev->header.p() );
+        assert( ! prev->header.u() );
         if ( prev != victim )
         {
-            size_t prev_size = prev->header.size;
+            size_t prev_size = prev->header.size();
             remove_chunk( prev_size, prev );
             size += prev_size;
         }
@@ -950,12 +991,12 @@ void heap_state::free( void* p )
 
     // Attempt to merge with following chunk.
     heap_chunk* next = heap_chunk_next( chunk, size );
-    if ( ! next->header.u )
+    if ( ! next->header.u() )
     {
-        assert( next->header.p );
+        assert( next->header.p() );
         if ( next != victim )
         {
-            size_t next_size = next->header.size;
+            size_t next_size = next->header.size();
             remove_chunk( next_size, next );
             size += next_size;
         }
@@ -967,12 +1008,12 @@ void heap_state::free( void* p )
         next = heap_chunk_next( chunk, size );
     }
 
-    if ( next->header.size != 0 || chunk != ( (heap_segment*)next )->base )
+    if ( next->header.size() != 0 || chunk != ( (heap_segment*)next )->base )
     {
         // This chunk is free.
         heap_chunk_set_free( chunk, size );
-        assert( next->header.u );
-        next->header.p = false;
+        assert( next->header.u() );
+        next->header.clear_p();
         if ( chunk != victim )
         {
             insert_chunk( size, chunk );
@@ -984,6 +1025,7 @@ void heap_state::free( void* p )
     }
     else
     {
+        printf( "===================    FREE SEGMENT    ====================\n" );
         // This chunk spans the entire segment, so free the segment.
         free_segment( (heap_segment*)next );
         if ( chunk == victim )
@@ -1048,7 +1090,7 @@ void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
     }
     else if ( size < HEAP_LARGE_SIZE )
     {
-        remove_small_chunk( size, chunk );
+        remove_small_chunk( heap_smallbin_index( size ), chunk );
     }
     else
     {
@@ -1056,7 +1098,7 @@ void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
     }
 }
 
-heap_chunk* heap_state::remove_small_chunk( size_t size, heap_chunk* chunk )
+heap_chunk* heap_state::remove_small_chunk( size_t index, heap_chunk* chunk )
 {
     heap_chunk* prev = chunk->prev;
     heap_chunk* next = chunk->next;
@@ -1068,7 +1110,6 @@ heap_chunk* heap_state::remove_small_chunk( size_t size, heap_chunk* chunk )
     // Check if this bin is now empty.
     if ( next == prev )
     {
-        size_t index = heap_smallbin_index( size );
         assert( prev == smallbin_anchor( index ) );
         smallbin_map &= ~( 1u << index );
     }
@@ -1145,19 +1186,19 @@ heap_chunk* heap_state::alloc_segment( size_t size )
 
         // Merge free space.
         heap_chunk* prev_chunk = (heap_chunk*)prev;
-        assert( prev_chunk->header.u );
-        assert( prev_chunk->header.size == 0 );
+        assert( prev_chunk->header.u() );
+        assert( prev_chunk->header.size() == 0 );
         free_size += sizeof( heap_segment );
         free_chunk = prev_chunk;
 
-        if ( ! free_chunk->header.p )
+        if ( ! free_chunk->header.p() )
         {
             prev_chunk = heap_chunk_prev( free_chunk );
-            assert( prev_chunk->header.p );
-            assert( ! prev_chunk->header.u );
+            assert( prev_chunk->header.p() );
+            assert( ! prev_chunk->header.u() );
             if ( prev_chunk != victim )
             {
-                size_t prev_chunk_size = prev_chunk->header.size;
+                size_t prev_chunk_size = prev_chunk->header.size();
                 remove_chunk( prev_chunk_size, prev_chunk );
                 free_size += prev_chunk_size;
             }
@@ -1179,12 +1220,12 @@ heap_chunk* heap_state::alloc_segment( size_t size )
         free_size += sizeof( heap_segment );
 
         heap_chunk* next_chunk = (heap_chunk*)( segment + 1 );
-        assert( next_chunk->header.p );
-        if ( ! next_chunk->header.u )
+        assert( next_chunk->header.p() );
+        if ( ! next_chunk->header.u() )
         {
             if ( next_chunk != victim )
             {
-                size_t next_chunk_size = next_chunk->header.size;
+                size_t next_chunk_size = next_chunk->header.size();
                 remove_chunk( next_chunk_size, next_chunk );
                 free_size += next_chunk_size;
             }
@@ -1197,7 +1238,7 @@ heap_chunk* heap_state::alloc_segment( size_t size )
         }
         else
         {
-            next_chunk->header.p = false;
+            next_chunk->header.clear_p();
         }
 
         // Remove segment.
@@ -1265,18 +1306,18 @@ void heap_state::debug_print()
         heap_chunk* c = (heap_chunk*)s->base;
         while ( true )
         {
-            printf( "  %p/%s/%s:%zu", c, c->header.u ? "U" : "-", c->header.p ? "P" : "-", (size_t)c->header.size );
-            if ( ! c->header.u )
+            printf( "  %p/%s/%s:%zu", c, c->header.u() ? "U" : "-", c->header.p() ? "P" : "-", c->header.size() );
+            if ( ! c->header.u() )
             {
                 if ( c == victim )
                 {
                     printf( " VICTIM" );
                 }
-                else if ( c->header.size < HEAP_MIN_BINNED_SIZE )
+                else if ( c->header.size() < HEAP_MIN_BINNED_SIZE )
                 {
                     printf( " UNBINNED" );
                 }
-                else if ( c->header.size < HEAP_LARGE_SIZE )
+                else if ( c->header.size() < HEAP_LARGE_SIZE )
                 {
                     printf( " @:%p <-> %p", c->prev, c->next );
                 }
@@ -1284,7 +1325,7 @@ void heap_state::debug_print()
                 {
                     printf( " i:%zu u:%p l:%p r:%p @:%p <-> %p", c->index, c->parent, c->child[ 0 ], c->child[ 1 ], c->prev, c->next );
                 }
-                heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)c + c->header.size ) - 1;
+                heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)c + c->header.size() ) - 1;
                 printf( " f:%zu\n", (size_t)footer->size );
             }
             else
@@ -1295,7 +1336,7 @@ void heap_state::debug_print()
             {
                 break;
             }
-            c = heap_chunk_next( c, c->header.size );
+            c = heap_chunk_next( c, c->header.size() );
         }
     }
 }
@@ -1338,8 +1379,8 @@ void heap::debug_print() const
 size_t heap_malloc_size( void* p )
 {
     heap_chunk* chunk = heap_chunk_head( p );
-    assert( chunk->header.u );
-    return chunk->header.size - sizeof( heap_chunk_header );
+    assert( chunk->header.u() );
+    return chunk->header.size() - sizeof( heap_chunk_header );
 }
 
 }
@@ -1387,6 +1428,12 @@ bool visit_bins( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins
         kf::heap_chunk* chunk = anchor->next;
         do
         {
+            if ( smi != kf::heap_smallbin_index( chunk->header.size() ) )
+            {
+                printf( "******** SMALLBIN CHUNK %p HAS INCORRECT INDEX\n", chunk );
+                ok = false;
+            }
+
             bins->emplace( chunk, smi );
             chunk = chunk->next;
         }
@@ -1415,9 +1462,18 @@ bool check_bins( kf::heap_state* heap )
     for ( kf::heap_segment* s = heap->segments; s; s = s->next )
     {
         kf::heap_chunk* c = (kf::heap_chunk*)s->base;
+
+        bool was_u = true;
         while ( true )
         {
-            if ( ! c->header.u )
+            if ( was_u != c->header.p() )
+            {
+                printf( "!!!!!!!! P/U MISMATCH: %p\n", c );
+                ok = false;
+            }
+            was_u = c->header.u();
+
+            if ( ! c->header.u() )
             {
                 if ( c == heap->victim )
                 {
@@ -1426,13 +1482,13 @@ bool check_bins( kf::heap_state* heap )
                         printf( "******** VICTIM CHUNK IS IN BIN\n" );
                         ok = false;
                     }
-                    if ( c->header.size != heap->victim_size )
+                    if ( c->header.size() != heap->victim_size )
                     {
                         printf( "******** VICTIM SIZE MISMATCH\n" );
                         ok = false;
                     }
                 }
-                else if ( c->header.size < kf::HEAP_MIN_BINNED_SIZE )
+                else if ( c->header.size() < kf::HEAP_MIN_BINNED_SIZE )
                 {
                     if ( bins.find( c ) != bins.end() )
                     {
@@ -1440,7 +1496,7 @@ bool check_bins( kf::heap_state* heap )
                         ok = false;
                     }
                 }
-                else if ( c->header.size < kf::HEAP_LARGE_SIZE )
+                else if ( c->header.size() < kf::HEAP_LARGE_SIZE )
                 {
                     bins.erase( c );
                 }
@@ -1452,7 +1508,7 @@ bool check_bins( kf::heap_state* heap )
 
             if ( c == (kf::heap_chunk*)s )
                 break;
-            c = heap_chunk_next( c, c->header.size );
+            c = heap_chunk_next( c, c->header.size() );
         }
     }
 
