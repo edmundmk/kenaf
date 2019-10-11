@@ -1040,6 +1040,10 @@ heap_chunk* heap_state::alloc_segment( size_t size )
             remove_chunk( next_chunk_size, next_chunk );
             free_size += next_chunk_size;
         }
+        else
+        {
+            next_chunk->header.p = false;
+        }
 
         // Remove segment.
         next->base = segment->base;
