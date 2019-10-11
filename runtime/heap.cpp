@@ -949,6 +949,7 @@ void heap_state::free( void* p )
         heap_chunk_set_free( chunk, size );
         assert( next->header.u );
         next->header.p = false;
+        printf( "-- insert freed chunk %p\n", chunk );
         insert_chunk( size, chunk );
     }
     else
@@ -966,6 +967,8 @@ heap_chunk* heap_state::smallbin_anchor( size_t i )
 
 void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 {
+    printf( "********* INSERT CHUNK %zu %p\n", size, chunk );
+
     if ( size < HEAP_MIN_BINNED_SIZE )
     {
         /*
@@ -1002,6 +1005,8 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 
 void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
+    printf( "********* REMOVE CHUNK %zu %p\n", size, chunk );
+
     if ( size < HEAP_MIN_BINNED_SIZE || chunk == victim )
     {
         // Isn't in any bin.
@@ -1293,23 +1298,121 @@ size_t heap_malloc_size( void* p )
 #ifdef HEAP_TEST
 
 #include <vector>
+#include <map>
+
+bool visit_largebin( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins, size_t index, kf::heap_chunk* tree )
+{
+    bool ok = true;
+
+    kf::heap_chunk* chunk = tree;
+    do
+    {
+        if ( chunk->index != index )
+        {
+            printf( "******** LARGEBIN CHUNK %p HAS INCORRECT INDEX\n", chunk );
+            ok = false;
+        }
+        bins->emplace( chunk, 32 + index );
+    }
+    while ( chunk != tree );
+
+    if ( tree->child[ 0 ] ) if ( ! visit_largebin( heap, bins, index, tree->child[ 0 ] ) ) ok = false;
+    if ( tree->child[ 1 ] ) if ( ! visit_largebin( heap, bins, index, tree->child[ 1 ] ) ) ok = false;
+
+    return ok;
+}
+
+bool visit_bins( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins )
+{
+    bool ok = true;
+
+    for ( size_t smi = 0; smi < kf::HEAP_SMALLBIN_COUNT; ++smi )
+    {
+        if ( !( heap->smallbin_map & 1u << smi ) )
+            continue;
+        kf::heap_chunk* anchor = heap->smallbin_anchor( smi );
+        kf::heap_chunk* chunk = anchor->next;
+        do
+        {
+            bins->emplace( chunk, smi );
+            chunk = chunk->next;
+        }
+        while ( chunk != anchor );
+    }
+
+    for ( size_t lgi = 0; lgi < kf::HEAP_LARGEBIN_COUNT; ++lgi )
+    {
+        if ( !( heap->largebin_map & 1u << lgi ) )
+            continue;
+        if ( ! visit_largebin( heap, bins, lgi, heap->largebins[ lgi ].root ) )
+            ok = false;
+    }
+
+    return ok;
+}
+
+bool check_bins( kf::heap_state* heap )
+{
+    bool ok = true;
+
+    std::map< kf::heap_chunk*, size_t > bins;
+    if ( ! visit_bins( heap, &bins ) )
+        ok = false;
+
+    for ( kf::heap_segment* s = heap->segments; s; s = s->next )
+    {
+        kf::heap_chunk* c = (kf::heap_chunk*)s->base;
+        while ( true )
+        {
+            if ( ! c->header.u )
+            {
+                if ( c == heap->victim )
+                {
+                    if ( bins.find( c ) != bins.end() )
+                    {
+                        printf( "******** VICTIM CHUNK IS IN BIN\n" );
+                        ok = false;
+                    }
+                }
+                else if ( c->header.size < kf::HEAP_MIN_BINNED_SIZE )
+                {
+                    if ( bins.find( c ) != bins.end() )
+                    {
+                        printf( "******** UNBINNABLE CHUNK IS IN BIN\n" );
+                        ok = false;
+                    }
+                }
+                else if ( c->header.size < kf::HEAP_LARGE_SIZE )
+                {
+                    bins.erase( c );
+                }
+                else
+                {
+                    bins.erase( c );
+                }
+            }
+
+            if ( c == (kf::heap_chunk*)s )
+                break;
+            c = heap_chunk_next( c, c->header.size );
+        }
+    }
+
+    if ( ! bins.empty() )
+    {
+        printf( "******** BINS HAVE DEAD CHUNKS\n" );
+        for ( const auto& binned_chunk : bins )
+        {
+            printf( "    %p : %zu\n", binned_chunk.first, binned_chunk.second );
+        }
+        ok = false;
+    }
+
+    return ok;
+}
 
 int main( int argc, char* argv[] )
 {
-/*
-    kf::heap_largebin bin;
-    kf::heap_chunk chunks[ 4 ] =
-    {
-        { { true, false, 264, 0 } },
-        { { true, false, 264, 0 } },
-        { { true, false, 264, 0 } },
-        { { true, false, 264, 0 } },
-    };
-
-    bin.insert( 0, 264, chunks + 0 );
-    bin.insert( 0, 264, chunks + 1 );
-    bin.insert( 0, 264, chunks + 2 );
-*/
     kf::heap heap;
 
     srand( clock() );
@@ -1320,6 +1423,8 @@ int main( int argc, char* argv[] )
     // Check small allocations.
     for ( size_t i = 0; i < 100; ++i )
     {
+        printf( "-------- ALLOC\n" );
+
         size_t alloc_count = rand() % 100;
         for ( size_t j = 0; j < alloc_count; ++j )
         {
@@ -1331,6 +1436,10 @@ int main( int argc, char* argv[] )
         }
 
         heap.debug_print();
+        bool ok = check_bins( *(kf::heap_state**)&heap );
+        assert( ok );
+
+        printf( "-------- FREE\n" );
 
         size_t free_count = rand() % allocs.size();
         for ( size_t j = 0; j < free_count; ++j )
@@ -1352,6 +1461,8 @@ int main( int argc, char* argv[] )
         }
 
         heap.debug_print();
+        ok = check_bins( *(kf::heap_state**)&heap );
+        assert( ok );
     }
 
     return EXIT_SUCCESS;
