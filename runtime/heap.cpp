@@ -164,9 +164,9 @@ inline heap_chunk* heap_chunk_prev( heap_chunk* chunk )
     return (heap_chunk*)( (char*)chunk - heap_chunk_prev_footer( chunk )->size );
 }
 
-inline heap_chunk* heap_chunk_next( heap_chunk* chunk )
+inline heap_chunk* heap_chunk_next( heap_chunk* chunk, size_t size )
 {
-    return (heap_chunk*)( (char*)chunk + chunk->header.size );
+    return (heap_chunk*)( (char*)chunk + size );
 }
 
 /*
@@ -764,6 +764,7 @@ void* heap_state::malloc( size_t size )
             assert( chunk != anchor );
 
             heap_chunk_set_allocated( chunk, size );
+            heap_chunk_next( chunk, size )->header.p = true;
             return heap_chunk_data( chunk );
         }
 
@@ -876,7 +877,7 @@ void* heap_state::malloc( size_t size )
         heap_chunk_set_allocated( chunk, size );
 
         // Set up split chunk in remaining space.
-        split_chunk = (heap_chunk*)( (char*)chunk + size );
+        split_chunk = heap_chunk_next( chunk, size );
         split_chunk_size = chunk_size - size;
         heap_chunk_set_free( split_chunk, split_chunk_size );
     }
@@ -885,6 +886,7 @@ void* heap_state::malloc( size_t size )
         // Splitting the chunk will leave us with a free chunk that we cannot
         // link into a bin, so just use the entire chunk.
         heap_chunk_set_allocated( chunk, chunk_size );
+        heap_chunk_next( chunk, size )->header.p = true;
     }
 
     if ( chunk == victim || size < HEAP_LARGE_SIZE )
@@ -931,14 +933,14 @@ void heap_state::free( void* p )
     }
 
     // Attempt to merge with following chunk.
-    heap_chunk* next = (heap_chunk*)( (char*)chunk + size );
+    heap_chunk* next = heap_chunk_next( chunk, size );
     if ( ! next->header.u )
     {
         assert( next->header.p );
         size_t next_size = next->header.size;
         remove_chunk( next_size, next );
         size += next_size;
-        next = (heap_chunk*)( (char*)chunk + size );;
+        next = heap_chunk_next( chunk, size );
     }
 
     if ( next->header.size != 0 || chunk != ( (heap_segment*)next )->base )
@@ -1210,22 +1212,22 @@ void heap_state::debug_print()
             {
                 if ( c == victim )
                 {
-                    printf( " VICTIM\n" );
+                    printf( " VICTIM" );
                 }
                 else if ( c->header.size < HEAP_MIN_BINNED_SIZE )
                 {
-                    printf( " UNBINNED\n" );
+                    printf( " UNBINNED" );
                 }
                 else if ( c->header.size < HEAP_LARGE_SIZE )
                 {
-                    printf( " @:%p <-> %p\n", c->prev, c->next );
+                    printf( " @:%p <-> %p", c->prev, c->next );
                 }
                 else
                 {
-                    printf( " i:%zu u:%p l:%p r:%p @:%p <-> %p\n", c->index, c->parent, c->child[ 0 ], c->child[ 1 ], c->prev, c->next );
+                    printf( " i:%zu u:%p l:%p r:%p @:%p <-> %p", c->index, c->parent, c->child[ 0 ], c->child[ 1 ], c->prev, c->next );
                 }
                 heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)c + c->header.size ) - 1;
-                printf( "    %zu\n", (size_t)footer->size );
+                printf( " f:%zu\n", (size_t)footer->size );
             }
             else
             {
@@ -1235,7 +1237,7 @@ void heap_state::debug_print()
             {
                 break;
             }
-            c = heap_chunk_next( c );
+            c = heap_chunk_next( c, c->header.size );
         }
     }
 }
