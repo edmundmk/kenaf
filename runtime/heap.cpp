@@ -357,7 +357,8 @@ struct heap_largebin
     heap_chunk* leftwards( heap_chunk* chunk );
     heap_chunk* rightwards( heap_chunk* chunk );
 
-    void debug_print();
+    void debug_print( size_t index );
+    void debug_print( size_t index, int level, uint32_t prefix, heap_chunk* chunk );
 };
 
 void heap_largebin::insert( size_t index, size_t size, heap_chunk* chunk )
@@ -581,10 +582,47 @@ inline heap_chunk* heap_largebin::rightwards( heap_chunk* chunk )
     return right ? right : chunk->child[ 0 ];
 }
 
-void heap_largebin::debug_print()
+void heap_largebin::debug_print( size_t index )
 {
-    // TODO.
-    printf( "%p\n", root );
+    printf( "LARGEBIN %zu: %p\n", index, root );
+    debug_print( index, 0, 0, root );
+}
+
+void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_chunk* chunk )
+{
+    printf( "%*s[", level + 2, "" );
+    for ( int i = 0; i < level; ++i )
+    {
+        printf( "%c", ( prefix << i ) >> 31 ? '1' : '0' );
+    }
+    printf( "..] " );
+
+    size_t range_bits = 7 + index / 2;
+    uint32_t size_bits = chunk->header.size << ( 32 - range_bits );
+    for ( size_t i = 0; i < range_bits; ++i )
+    {
+        printf( "%c", size_bits >> 31 ? '1' : '0' );
+        size_bits <<= 1;
+    }
+
+    printf( " / %p:%zu i:%zu p:%p l:%p r:%p\n", chunk, (size_t)chunk->header.size, chunk->index, chunk->parent, chunk->child[ 0 ], chunk->child[ 1 ] );
+
+    heap_chunk* c = chunk;
+    do
+    {
+        printf( "%*s%p:%zu i:%zu @:%p <-> %p\n", level + 4, "", c, (size_t)c->header.size, c->index, c->prev, c->next );
+        c = c->next;
+    }
+    while ( c != chunk );
+
+    if ( c->child[ 0 ] )
+    {
+        debug_print( index, level + 1, prefix, c->child[ 0 ] );
+    }
+    if ( c->child[ 1 ] )
+    {
+        debug_print( index, level + 1, prefix | ( 1u << ( 30 - level ) ), c->child[ 1 ] );
+    }
 }
 
 /*
@@ -1150,8 +1188,7 @@ void heap_state::debug_print()
     {
         if ( largebin_map & 1u << index )
         {
-            printf( "    %zu:\n", index );
-            largebins[ index ].debug_print();
+            largebins[ index ].debug_print( index );
         }
     }
 
@@ -1163,23 +1200,31 @@ void heap_state::debug_print()
         heap_chunk* c = (heap_chunk*)s->base;
         while ( true )
         {
-            printf( "  %p:%zu/%s/%s\n", c, (size_t)c->header.size, c->header.u ? "U" : "-", c->header.p ? "P" : "-" );
+            printf( "  %p:%zu/%s/%s", c, (size_t)c->header.size, c->header.u ? "U" : "-", c->header.p ? "P" : "-" );
             if ( ! c->header.u )
             {
-                if ( c->header.size >= HEAP_MIN_BINNED_SIZE )
-                {
-                    printf( "    %p <-> %p\n", c->prev, c->next );
-                }
-                if ( c->header.size >= HEAP_LARGE_SIZE )
-                {
-                    printf( "    u:%p l:%p r:%p i:%zu\n", c->parent, c->child[ 0 ], c->child[ 1 ], c->index );
-                }
                 if ( c == victim )
                 {
-                    printf( "    VICTIM\n" );
+                    printf( " VICTIM\n" );
+                }
+                else if ( c->header.size < HEAP_MIN_BINNED_SIZE )
+                {
+                    printf( " UNBINNED\n" );
+                }
+                else if ( c->header.size < HEAP_LARGE_SIZE )
+                {
+                    printf( " @:%p <-> %p\n", c->prev, c->next );
+                }
+                else
+                {
+                    printf( " i:%zu u:%p l:%p r:%p @:%p <-> %p\n", c->index, c->parent, c->child[ 0 ], c->child[ 1 ], c->prev, c->next );
                 }
                 heap_chunk_footer* footer = (heap_chunk_footer*)( (char*)c + c->header.size ) - 1;
                 printf( "    %zu\n", (size_t)footer->size );
+            }
+            else
+            {
+                printf( "\n" );
             }
             if ( c == (heap_chunk*)s )
             {
