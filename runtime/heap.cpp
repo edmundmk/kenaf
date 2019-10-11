@@ -595,7 +595,7 @@ heap_chunk* heap_largebin::best_fit( size_t index, size_t size )
     while ( tree )
     {
         size_t tree_size = tree->header.size();
-        if ( tree_size < chunk_size )
+        if ( size <= tree_size && tree_size < chunk_size )
         {
             chunk = tree->next;
             chunk_size = tree_size;
@@ -870,7 +870,14 @@ void* heap_state::malloc( size_t size )
                 // Search bin of appropriate size for smallest chunk that fits.
                 chunk = largebins[ index ].best_fit( index, size );
                 bin_map &= ~( 1u << index );
-                printf( "BEST FIT: %p\n", chunk );
+                if ( chunk )
+                {
+                    printf( "BEST FIT: (%zu) %p %zu\n", index, chunk, chunk->header.size() );
+                }
+                else
+                {
+                    printf( "BEST FIT: (%zu) nullptr\n", index );
+                }
             }
 
             if ( ! chunk && bin_map )
@@ -947,11 +954,25 @@ void* heap_state::malloc( size_t size )
         heap_chunk_next( chunk, chunk_size )->header.set_p();
     }
 
-    if ( chunk == victim || size < HEAP_LARGE_SIZE )
+    if ( chunk == victim )
     {
         // Update victim chunk.
         victim = split_chunk;
         victim_size = split_chunk_size;
+    }
+    else if ( size < HEAP_LARGE_SIZE )
+    {
+        // Update victim chunk.
+        heap_chunk* old_victim = victim;
+        size_t old_victim_size = victim_size;
+
+        victim = split_chunk;
+        victim_size = split_chunk_size;
+
+        if ( old_victim )
+        {
+            insert_chunk( old_victim_size, old_victim );
+        }
     }
     else
     {
