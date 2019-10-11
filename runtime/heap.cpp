@@ -1496,8 +1496,28 @@ int main( int argc, char* argv[] )
             bool ok = check_bins( *(kf::heap_state**)&heap );
             assert( ok );
         }
-
     }
+
+    for ( const alloc& a : allocs )
+    {
+        for ( size_t j = 0; j < a.size; ++j )
+        {
+            if ( *( (char*)a.p + j ) != (char)a.b )
+            {
+                printf( "******** BLOCK AT %p:%zu CORRUPT SHOULD BE %02X\n", a.p, a.size, a.b );
+                break;
+            }
+        }
+
+        printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
+        heap.free( a.p );
+
+        heap.debug_print();
+        bool ok = check_bins( *(kf::heap_state**)&heap );
+        assert( ok );
+    }
+
+    allocs.clear();
 
     return EXIT_SUCCESS;
 }
