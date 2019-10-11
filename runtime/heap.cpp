@@ -1146,9 +1146,18 @@ heap_chunk* heap_state::alloc_segment( size_t size )
             prev_chunk = heap_chunk_prev( free_chunk );
             assert( prev_chunk->header.p );
             assert( ! prev_chunk->header.u );
-            size_t prev_chunk_size = prev_chunk->header.size;
-            remove_chunk( prev_chunk_size, prev_chunk );
-            free_size += prev_chunk_size;
+            if ( prev_chunk != victim )
+            {
+                size_t prev_chunk_size = prev_chunk->header.size;
+                remove_chunk( prev_chunk_size, prev_chunk );
+                free_size += prev_chunk_size;
+            }
+            else
+            {
+                free_size += victim_size;
+                victim = nullptr;
+                victim_size = 0;
+            }
             free_chunk = prev_chunk;
         }
     }
@@ -1164,9 +1173,18 @@ heap_chunk* heap_state::alloc_segment( size_t size )
         assert( next_chunk->header.p );
         if ( ! next_chunk->header.u )
         {
-            size_t next_chunk_size = next_chunk->header.size;
-            remove_chunk( next_chunk_size, next_chunk );
-            free_size += next_chunk_size;
+            if ( next_chunk != victim )
+            {
+                size_t next_chunk_size = next_chunk->header.size;
+                remove_chunk( next_chunk_size, next_chunk );
+                free_size += next_chunk_size;
+            }
+            else
+            {
+                free_size += victim_size;
+                victim = nullptr;
+                victim_size = 0;
+            }
         }
         else
         {
@@ -1451,7 +1469,7 @@ int main( int argc, char* argv[] )
     std::vector< alloc > allocs;
     int b = 0;
 
-    // Check small allocations.
+    // Check allocations.
     for ( size_t i = 0; i < 100; ++i )
     {
         printf( "-------- ALLOC\n" );
@@ -1459,7 +1477,11 @@ int main( int argc, char* argv[] )
         size_t alloc_count = rand() % 100;
         for ( size_t j = 0; j < alloc_count; ++j )
         {
-            size_t alloc_size = rand() % 248;
+            size_t alloc_size = rand() % 512;
+            if ( alloc_size >= 256 )
+            {
+                alloc_size = rand() % ( 16 * 1024 * 1024 );
+            }
             void* p = heap.malloc( alloc_size );
             memset( p, b, alloc_size );
             allocs.push_back( { p, alloc_size, b } );
