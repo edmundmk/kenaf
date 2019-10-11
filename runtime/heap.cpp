@@ -1600,7 +1600,7 @@ int main( int argc, char* argv[] )
 
         printf( "-------- FREE\n" );
 
-        size_t free_count = rand() % allocs.size();
+        size_t free_count = allocs.size() ? rand() % allocs.size() : 0;
         for ( size_t j = 0; j < free_count; ++j )
         {
             bool ok = true;
