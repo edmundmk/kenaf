@@ -674,7 +674,7 @@ void heap_largebin::debug_print( size_t index, int level, uint32_t prefix, heap_
 }
 
 /*
-    Main heap data structure, at the end of the initial segment.  Note that
+    Main heap data structure, at the start of the initial segment.  Note that
     smallbin_anchors are the sentinel nodes in doubly-linked lists of chunks.
     However, we only store the next and prev pointers.
 */
@@ -730,13 +730,8 @@ heap_state::heap_state( size_t segment_size )
         anchor->prev = anchor;
     }
 
-    /*
-        Initial segment looks like this:
-
-            heap_state
-            free_chunk
-            heap_segment
-    */
+    // Set up initial segment, containing this heap_state structure, then a
+    // free chunk, then a heap_segment structure.
     assert( segment_size >= sizeof( heap_state ) + sizeof( heap_segment ) );
     heap_chunk* free_chunk = (heap_chunk*)( this + 1 );
     heap_chunk* segment_chunk = (heap_chunk*)( (char*)this + segment_size - sizeof( heap_segment ) );
@@ -1559,6 +1554,7 @@ bool check_bins( kf::heap_state* heap )
 int main( int argc, char* argv[] )
 {
     kf::heap heap;
+    kf::heap_state* state = *(kf::heap_state**)&heap;
 
     srand( clock() );
     struct alloc { void* p; size_t size; int b; };
@@ -1585,7 +1581,7 @@ int main( int argc, char* argv[] )
 
             printf( "    -------- %p\n", kf::heap_chunk_head( p ) );
             heap.debug_print();
-            bool ok = check_bins( *(kf::heap_state**)&heap );
+            bool ok = check_bins( state );
             assert( ok );
         }
 
@@ -1611,7 +1607,7 @@ int main( int argc, char* argv[] )
             allocs.erase( allocs.begin() + alloc_index );
 
             heap.debug_print();
-            bool ok = check_bins( *(kf::heap_state**)&heap );
+            bool ok = check_bins( state );
             assert( ok );
         }
     }
@@ -1631,7 +1627,7 @@ int main( int argc, char* argv[] )
         heap.free( a.p );
 
         heap.debug_print();
-        bool ok = check_bins( *(kf::heap_state**)&heap );
+        bool ok = check_bins( state );
         assert( ok );
     }
 
