@@ -926,9 +926,16 @@ void heap_state::free( void* p )
         heap_chunk* prev = heap_chunk_prev( chunk );
         assert( prev->header.p );
         assert( ! prev->header.u );
-        size_t prev_size = prev->header.size;
-        remove_chunk( prev_size, prev );
-        size += prev_size;
+        if ( prev != victim )
+        {
+            size_t prev_size = prev->header.size;
+            remove_chunk( prev_size, prev );
+            size += prev_size;
+        }
+        else
+        {
+            size += victim_size;
+        }
         chunk = prev;
     }
 
@@ -937,9 +944,17 @@ void heap_state::free( void* p )
     if ( ! next->header.u )
     {
         assert( next->header.p );
-        size_t next_size = next->header.size;
-        remove_chunk( next_size, next );
-        size += next_size;
+        if ( next != victim )
+        {
+            size_t next_size = next->header.size;
+            remove_chunk( next_size, next );
+            size += next_size;
+        }
+        else
+        {
+            victim = chunk;
+            size += victim_size;
+        }
         next = heap_chunk_next( chunk, size );
     }
 
@@ -949,13 +964,24 @@ void heap_state::free( void* p )
         heap_chunk_set_free( chunk, size );
         assert( next->header.u );
         next->header.p = false;
-        printf( "-- insert freed chunk %p\n", chunk );
-        insert_chunk( size, chunk );
+        if ( chunk != victim )
+        {
+            insert_chunk( size, chunk );
+        }
+        else
+        {
+            victim_size = size;
+        }
     }
     else
     {
         // This chunk spans the entire segment, so free the segment.
         free_segment( (heap_segment*)next );
+        if ( chunk == victim )
+        {
+            victim = nullptr;
+            victim_size = 0;
+        }
     }
 }
 
@@ -967,7 +993,7 @@ heap_chunk* heap_state::smallbin_anchor( size_t i )
 
 void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 {
-    printf( "********* INSERT CHUNK %zu %p\n", size, chunk );
+    assert( chunk != victim );
 
     if ( size < HEAP_MIN_BINNED_SIZE )
     {
@@ -1005,7 +1031,7 @@ void heap_state::insert_chunk( size_t size, heap_chunk* chunk )
 
 void heap_state::remove_chunk( size_t size, heap_chunk* chunk )
 {
-    printf( "********* REMOVE CHUNK %zu %p\n", size, chunk );
+    assert( chunk != victim );
 
     if ( size < HEAP_MIN_BINNED_SIZE || chunk == victim )
     {
@@ -1373,6 +1399,11 @@ bool check_bins( kf::heap_state* heap )
                         printf( "******** VICTIM CHUNK IS IN BIN\n" );
                         ok = false;
                     }
+                    if ( c->header.size != heap->victim_size )
+                    {
+                        printf( "******** VICTIM SIZE MISMATCH\n" );
+                        ok = false;
+                    }
                 }
                 else if ( c->header.size < kf::HEAP_MIN_BINNED_SIZE )
                 {
@@ -1433,11 +1464,12 @@ int main( int argc, char* argv[] )
             memset( p, b, alloc_size );
             allocs.push_back( { p, alloc_size, b } );
             b = ( b + 1 ) % 256;
-        }
 
-        heap.debug_print();
-        bool ok = check_bins( *(kf::heap_state**)&heap );
-        assert( ok );
+            printf( "    -------- %p\n", kf::heap_chunk_head( p ) );
+            heap.debug_print();
+            bool ok = check_bins( *(kf::heap_state**)&heap );
+            assert( ok );
+        }
 
         printf( "-------- FREE\n" );
 
@@ -1456,13 +1488,15 @@ int main( int argc, char* argv[] )
                 }
             }
 
+            printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
             heap.free( a.p );
             allocs.erase( allocs.begin() + alloc_index );
+
+            heap.debug_print();
+            bool ok = check_bins( *(kf::heap_state**)&heap );
+            assert( ok );
         }
 
-        heap.debug_print();
-        ok = check_bins( *(kf::heap_state**)&heap );
-        assert( ok );
     }
 
     return EXIT_SUCCESS;
