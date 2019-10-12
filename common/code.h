@@ -38,8 +38,8 @@ enum opcode : uint8_t
 
     OP_NULL,            // r = null                 | K | r | - | - |
     OP_BOOL,            // r = c ? true : false     | K | r |   c   |
-    OP_K,               // r = k[c]                 | K | r |   c   |
-    OP_I,               // r = j                    | K | r |   j   |
+    OP_LOADK,           // r = k[c]                 | K | r |   c   |
+    OP_LOADI,           // r = j                    | K | r |   j   |
 
     OP_LENGTH,          // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
@@ -50,12 +50,12 @@ enum opcode : uint8_t
     OP_ADD,             // r = a + b                | A | r | a | b |
     OP_ADDK,            // r = a + k[b]             | A | r | a | b |
     OP_ADDI,            // r = a + i                | A | r | a | i |
+    OP_SUB,             // r = b - a                | A | r | a | b |
+    OP_SUBK,            // r = k[b] - a             | A | r | a | b |
+    OP_SUBI,            // r = i - a                | A | r | a | b |
     OP_MUL,             // r = a * b                | A | r | a | b |
     OP_MULK,            // r = a * k[b]             | A | r | a | b |
     OP_MULI,            // r = a * i                | A | r | a | i |
-    OP_SUB,             // r = a - b                | A | r | a | b |
-    OP_SUBK,            // r = a - k[b]             | A | r | a | b |
-    OP_RSUBK,           // r = k[b] - a             | A | r | a | b |
     OP_CONCAT,          // r = a ~ b                | A | r | a | b |
     OP_CONCATK,         // r = a ~ k[b]             | A | r | a | b |
     OP_RCONCATK,        // r = k[b] ~ a             | A | r | a | b |
