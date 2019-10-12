@@ -1,7 +1,207 @@
+//
+//  types.h
+//
+//  Created by Edmund Kapusniak on 12/10/2019.
+//  Copyright © 2019 Edmund Kapusniak.
+//
+//  Licensed under the MIT License. See LICENSE file in the project root for
+//  full license information.
+//
 
+#ifndef TYPES_H
+#define TYPES_H
+
+/*
+    Object types used by the runtime system.
+*/
+
+#include <vector>
+#include <gc.h>
 
 namespace kf
 {
+
+struct selector;
+struct keyval;
+
+struct o_layout;
+struct o_object;
+struct o_native_object;
+struct o_string;
+struct o_array;
+struct o_table;
+struct o_function;
+struct o_native_function;
+struct o_upval;
+struct o_cothread;
+struct o_code;
+struct o_value_list;
+struct o_keyval_list;
+
+/*
+    Type indexes.
+*/
+
+enum
+{
+    O_TYPE_NONE,
+    O_TYPE_OBJECT,
+    O_TYPE_NATIVE_OBJECT,
+    O_TYPE_LAYOUT,
+    O_TYPE_STRING,
+    O_TYPE_ARRAY,
+    O_TYPE_TABLE,
+    O_TYPE_FUNCTION,
+    O_TYPE_NATIVE_FUNCTION,
+    O_TYPE_UPVAL,
+    O_TYPE_COTHREAD,
+    O_TYPE_CODE,
+    O_TYPE_VALUE_LIST,
+    O_TYPE_KEYVAL_LIST,
+};
+
+/*
+    A selector caches the result of key lookup.
+*/
+
+struct selector
+{
+    uint32_t layout_cookie;
+    uint32_t slot_index;
+    gc_value* slot_pointer;
+};
+
+/*
+    A single keyval entry in a table.
+*/
+
+struct keyval
+{
+    gc_value key;
+    gc_value value;
+    size_t next;
+};
+
+/*
+    A layout represents a unique mapping from key strings to slot indexes.
+    Layout records form a tree.  Each time a key is added to an object, the
+    runtime looks up a layout with parent equal to the object's current layout
+    and key equal to the key.  If it doesn't exist, it is created.
+*/
+
+struct o_layout
+{
+    gc_ref< o_object > prototype;
+    gc_ref< o_layout > parent;
+    gc_ref< o_string > key;
+    uint32_t layout_cookie;
+    uint32_t slot_index;
+};
+
+/*
+    An object is a dynamic data structure which maps keys to values.  The
+    mapping of keys to values is determined by the object's layout, which
+    changes as keys are added.
+*/
+
+struct o_object
+{
+    gc_ref< o_layout > layout;
+    gc_ref< o_value_list > slots;
+};
+
+/*
+    A native object has a pointer to a native object.
+*/
+
+struct o_native_object : public o_object
+{
+    void* native;
+};
+
+/*
+    A string.
+*/
+
+struct o_string
+{
+    uint32_t length;
+    uint32_t hash;
+    char c[];
+};
+
+/*
+    An array is a dynamic data structure mapping integer indexes to values.
+*/
+
+struct o_array
+{
+    gc_ref< o_value_list > values;
+    size_t length;
+};
+
+/*
+    A table is a dynamic data structure mapping key values to values.
+*/
+
+struct o_table
+{
+    gc_ref< o_keyval_list > keyvals;
+    size_t occupancy;
+};
+
+/*
+    A function.
+*/
+
+struct o_function
+{
+    gc_ref< o_program > program;
+    gc_value u[];
+};
+
+/*
+    A native function.
+*/
+
+struct o_native_function
+{
+    void* native;
+    void* cookie;
+};
+
+/*
+    An upval.
+*/
+
+struct o_upval
+{
+    gc_ref< o_cothread > cothread;
+    gc_value v;
+};
+
+/*
+    A value list.
+*/
+
+struct o_value_list
+{
+    gc_value v[];
+};
+
+/*
+    A keyval list.
+*/
+
+struct o_keyval_list
+{
+    o_keyval kv[]
+};
+
+}
+
+#endif
+
 
 /*
     Runtime has the following tables:
@@ -85,92 +285,3 @@ namespace kf
     Is fine.
 
 */
-
-
-struct layout_record
-{
-    // gcword
-    // prototype
-    // previous
-    // keyindex[]
-};
-
-struct object_record
-{
-    // gcword
-    // is_sealed?
-    // layout
-    // slotsv[]
-};
-
-struct cobject_record : public object_record
-{
-    // gcword
-    // layout
-    // slotsv[]
-    // -native
-};
-
-struct array : public object_record
-{
-    // gcword
-    // length
-    // values[]
-};
-
-struct table : public object_record
-{
-    // gcword
-    // length
-    // keyval[]
-};
-
-struct cothread : public object_record
-{
-    // gcword
-    // mark
-    // framev[]
-    // stackv[]
-    // upstkv[]
-};
-
-struct function
-{
-    // gcword
-    // program
-    // upvals[ n ]
-};
-
-struct program
-{
-    // gcword
-    // constants[]
-    // programs[]
-    // -code
-};
-
-struct code /* leaf */
-{
-
-};
-
-struct cfunction /* leaf */
-{
-    // gcword
-    // -native
-    // -native
-};
-
-struct string /* leaf */
-{
-    // gcword
-    // is_key
-    // length
-    // hash
-    // chars[]
-};
-
-
-
-}
-
