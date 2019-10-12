@@ -36,7 +36,10 @@ enum
 enum
 {
     GC_FLAGS_NONE,
-    GC_FLAGS_LEAF,
+    GC_FLAGS_LEAF       = 1 << 0,
+    GC_FLAGS_HASH       = 1 << 1,
+    GC_FLAGS_KEY        = 1 << 2,
+    GC_FLAGS_PROTOTYPE  = 1 << 3,
 };
 
 struct gc_header
@@ -44,7 +47,7 @@ struct gc_header
     atomic_u8 color;
     uint8_t flags;
     uint8_t type_index;
-    uint8_t refcount;
+    uint8_t ref_count;
 };
 
 /*
