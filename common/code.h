@@ -20,6 +20,13 @@
 namespace kf
 {
 
+struct code_script;
+struct code_function;
+struct code_selector;
+struct code_constant;
+struct code_debug_variable;
+struct code_debug_var_span;
+
 enum
 {
     OP_MOV,             // r = a                    | M | r | a | - |
@@ -146,30 +153,69 @@ const uint32_t CODE_MAGIC = 0x5B2A2A5D; // '[**]'
 
 struct code_script
 {
+    uint32_t magic;
+    uint32_t code_size;
+    uint32_t script_name;
+    uint32_t function_count;
+    uint32_t heap_size;
+//  code_function functions[ function_count ];
+//  char heap[ heap_size ];
+//  code_debug_function debug_functions[ function_count ];
+};
+
+enum
+{
+    CODE_FLAGS_NONE         = 0,
+    CODE_FLAGS_VARARGS      = 1 << 0,
+    CODE_FLAGS_GENERATOR    = 1 << 1,
 };
 
 struct code_function
 {
+    uint32_t code_size;
+    uint32_t op_count;
+    uint16_t constant_count;
+    uint8_t selector_count;
+    uint8_t stack_size;
+    uint8_t upstack_size;
+    uint8_t upval_count;
+    uint8_t param_count;
+    uint8_t flags;
 };
 
 struct code_selector
 {
+    uint32_t key;
 };
 
 struct code_constant
 {
+    uint64_t constant;
 };
 
 struct code_debug_function
 {
+    uint32_t function_name;
+    uint32_t variable_count;
+    uint32_t var_span_count;
+    uint32_t heap_size;
+//  uint32_t slocs[ opcode_count ];
+//  code_debug_variable variables[ variable_count ];
+//  code_debug_var_span var_spans[ var_span_count ];
+//  char heap[ heap_size ];
 };
 
 struct code_debug_variable
 {
+    uint32_t variable_name : 24;
+    uint32_t r : 8;
 };
 
 struct code_debug_var_span
 {
+    uint32_t variable_index;
+    uint32_t lower;
+    uint32_t upper;
 };
 
 }
