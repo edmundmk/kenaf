@@ -26,9 +26,9 @@ enum
     OP_SWP,             // r <-> a                  | M | r | a | - |
 
     OP_NULL,            // r = null                 | K | r | - | - |
-    OP_BOOL,            // r = true/false           | K | r |   k   |
-    OP_K,               // r = k                    | K | r |   k   |
-    OP_I,               // r = i                    | K | r |   i   |
+    OP_BOOL,            // r = c ? true : false     | K | r |   c   |
+    OP_K,               // r = k[c]                 | K | r |   c   |
+    OP_I,               // r = j                    | K | r |   j   |
 
     OP_LENGTH,          // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
@@ -37,17 +37,17 @@ enum
     OP_NOT,             // r = not a                | A | r | a | - |
 
     OP_ADD,             // r = a + b                | A | r | a | b |
-    OP_ADD_K,           // r = a + k                | A | r | a | k |
-    OP_ADD_I,           // r = a + i                | A | r | a | i |
+    OP_ADDK,            // r = a + k[b]             | A | r | a | b |
+    OP_ADDI,            // r = a + i                | A | r | a | i |
     OP_MUL,             // r = a * b                | A | r | a | b |
-    OP_MUL_K,           // r = a * k                | A | r | a | k |
-    OP_MUL_I,           // r = a * i                | A | r | a | i |
+    OP_MULK,            // r = a * k[b]             | A | r | a | b |
+    OP_MULI,            // r = a * i                | A | r | a | i |
     OP_SUB,             // r = a - b                | A | r | a | b |
-    OP_SUB_K,           // r = a - k                | A | r | a | k |
-    OP_RSUB_K,          // r = k - a                | A | r | a | k |
+    OP_SUBK,            // r = a - k[b]             | A | r | a | b |
+    OP_RSUBK,           // r = k[b] - a             | A | r | a | b |
     OP_CONCAT,          // r = a ~ b                | A | r | a | b |
-    OP_CONCAT_K,        // r = a ~ k                | A | r | a | k |
-    OP_RCONCAT_K,       // r = k ~ a                | A | r | a | k |
+    OP_CONCATK,         // r = a ~ k[b]             | A | r | a | b |
+    OP_RCONCATK,        // r = k[b] ~ a             | A | r | a | b |
     OP_DIV,             // r = a / b                | A | r | a | b |
     OP_INTDIV,          // r = a // b               | A | r | a | b |
     OP_MOD,             // r = a % b                | A | r | a | b |
@@ -65,45 +65,45 @@ enum
     OP_IS,              // r = a is b               | A | r | a | b |
 
     OP_JUMP,            // jump                     | J | - |   j   |
-    OP_CLOSE,           // close upstack, jump      | J | u |   j   |
+    OP_JCLOSE,          // close upstack, jump      | J | r |   j   |
     OP_JT,              // if r then jump           | T | r |   j   |
     OP_JF,              // if not r then jump       | T | r |   j   |
     OP_JEQ,             // if a == b then jump      | T | - | a | b || J | - |   j   |
-    OP_JEQ_K,           // if a == k then jump      | T | - | a | k || J | - |   j   |
+    OP_JEQK,            // if a == k[b] then jump   | T | - | a | b || J | - |   j   |
     OP_JNE,             // if a != b then jump      | T | - | a | b || J | - |   j   |
-    OP_JNE_K,           // if a != k then jump      | T | - | a | k || J | - |   j   |
+    OP_JNEK,            // if a != k[b] then jump   | T | - | a | b || J | - |   j   |
     OP_JLT,             // if a < b then jump       | T | - | a | b || J | - |   j   |
-    OP_JLT_K,           // if a < k then jump       | T | - | a | k || J | - |   j   |
-    OP_JGT_K,           // if a > k then jump       | T | - | a | k || J | - |   j   |
+    OP_JLTK,            // if a < k[b] then jump    | T | - | a | b || J | - |   j   |
+    OP_JGTK,            // if a > k[b] then jump    | T | - | a | b || J | - |   j   |
     OP_JLE,             // if a <= b then jump      | T | - | a | b || J | - |   j   |
-    OP_JLE_K,           // if a <= k then jump      | T | - | a | k || J | - |   j   |
-    OP_JGE_K,           // if a >= k then jump      | T | - | a | k || J | - |   j   |
+    OP_JLEK,            // if a <= k[b] then jump   | T | - | a | b || J | - |   j   |
+    OP_JGEK,            // if a >= k[b] then jump   | T | - | a | b || J | - |   j   |
 
-    OP_GET_GLOBAL,      // r = globals[ name ]      | G | r |   k   |
-    OP_GET_UPVAL,       // r = upval[ u ]           | G | r | u | - |
-    OP_SET_UPVAL,       // upval[ u ] = r           | G | r | u | - |
-    OP_GET_KEY,         // r = a[ selector ]        | G | r | a | s |
-    OP_SET_KEY,         // a[ selector ] = r        | G | r | a | s |
+    OP_GET_GLOBAL,      // r = g[ c ]               | G | r |   c   |
+    OP_GET_UPVAL,       // r = u[ a ]               | G | r | a | - |
+    OP_SET_UPVAL,       // u[ a ] = r               | G | r | a | - |
+    OP_GET_KEY,         // r = s[ b ]               | G | r | a | b |
+    OP_SET_KEY,         // s[ b ] = r               | G | r | a | b |
     OP_GET_INDEX,       // r = a[ b ]               | G | r | a | b |
-    OP_GET_INDEX_K,     // r = a[ k ]               | G | r | a | k |
-    OP_GET_INDEX_I,     // r = a[ i ]               | G | r | a | u |
+    OP_GET_INDEXK,      // r = a[ k[b] ]            | G | r | a | b |
+    OP_GET_INDEXI,      // r = a[ %b ]              | G | r | a | b |
     OP_SET_INDEX,       // a[ b ] = r               | G | r | a | b |
-    OP_SET_INDEX_K,     // a[ k ] = r               | G | r | a | k |
-    OP_SET_INDEX_I,     // a[ i ] = r               | G | r | a | u |
+    OP_SET_INDEXK,      // a[ k[b] ] = r            | G | r | a | b |
+    OP_SET_INDEXI,      // a[ %b ] = r              | G | r | a | b |
 
     OP_NEW_OBJECT,      // r = object proto         | N | r | a | - |
-    OP_NEW_ARRAY,       // r = []                   | N | r |   c   |
-    OP_NEW_TABLE,       // r = {}                   | N | r |   c   |
+    OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
+    OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
     OP_APPEND,          // r.append( a )            | G | r | a | - |
 
-    OP_FUNCTION,        // r = close function       | N | r |   k   |
-    OP_UPVAL,           // r->[ u ] = new upval     | F | r | u | u |
-    OP_UCOPY,           // r->[ u ] = upval[ u ]    | F | r | u | u |
+    OP_FUNCTION,        // r = close function       | N | r |   c   |
+    OP_UPVAL,           // r->[ a ] = new upval b   | F | r | a | b |
+    OP_UCOPY,           // r->[ a ] = u[ b ]        | F | r | a | b |
 
-    OP_CALL_V,          // b = call( r:a )          | X | r | a | b |
-    OP_CALL_X,          // r:b = call( r:a )        | X | r | a | b |
-    OP_YCALL_V,         // b = yield call( r:a )    | X | r | a | b |
-    OP_YCALL_X,         // r:b = call( r:a )        | X | r | a | b |
+    OP_CALL,            // b = call( r:a )          | X | r | a | b |
+    OP_CALLX,           // r:b = call( r:a )        | X | r | a | b |
+    OP_YCALL,           // b = yield call( r:a )    | X | r | a | b |
+    OP_YCALLX,          // r:b = call( r:a )        | X | r | a | b |
     OP_YIELD,           // r:b = yield r:a          | X | r | a | b |
     OP_EXTEND,          // b.append( r:a )          | X | r | a | b |
     OP_RETURN,          // return r:a               | X | r | a | - |
@@ -111,13 +111,38 @@ enum
     OP_UNPACK,          // r:b = a ...              | X | r | a | b |
 
     OP_GENERATE,        // r,b = generate a         | F | r | a | b |
-    OP_FOR_EACH,        // r:b = generate q,a       | F | r | a | b || J | q |   j   |
-    OP_FOR_STEP,        // r = for step a,b,q       | F | r | a | b || J | q |   j   |
+    OP_FOR_EACH,        // r:b = generate r',a      | F | r | a | b || J | r'|   j   |
+    OP_FOR_STEP,        // r = for step a,b,r'      | F | r | a | b || J | r'|   j   |
 
     OP_SUPER,           // r = super a              | G | r | a | - |
     OP_THROW,           // throw r                  | J | r | - | - |
 };
 
+struct op
+{
+    op();
+    op( opcode opcode, uint8_t r, uint8_t a, uint8_t b );
+    op( opcode opcode, uint8_t r, uint8_t a, int8_t i );
+    op( opcode opcode, uint8_t r, uint16_t c );
+    op( opcode opcode, uint8_t r, int16_t j );
+
+    uint8_t opcode;
+    uint8_t r;
+    union
+    {
+        struct { uint8_t a; struct { uint8_t b; int8_t i; }; }
+        uint16_t c;
+        int16_t j;
+    };
+};
+
+inline op::op() : opcode( OP_MOV ), r( 0 ), a( 0 ), b( 0 ) {}
+inline op::op( opcode opcode, uint8_t r, uint8_t a, uint8_t b ) : opcode( opcode ), r( r ), a( a ), b( b ) {}
+inline op::op( opcode opcode, uint8_t r, uint8_t a, int8_t i ) : opcode( opcode ), r( r ), a( a ), i( i ) {}
+inline op::op( opcode opcode, uint8_t r, uint16_t c ) : opcode( opcode ), r( r ), c( c ) {}
+inline op::op( opcode opcode, uint8_t r, int16_t j ) : opcode( opcode ), r( r ), j( j ) {}
+
+const uint32_t CODE_MAGIC = 0x5B2A2A5D; // '[**]'
 
 struct code_script
 {
