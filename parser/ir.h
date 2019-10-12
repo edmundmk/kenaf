@@ -187,7 +187,7 @@ enum ir_opcode : uint8_t
     IR_NE,                      // a != b
     IR_LT,                      // a < b, or b > a
     IR_LE,                      // a <= b, or b >= a
-    IR_IS,                      // a is b, or not not a is b
+    IR_IS,                      // a is b
     IR_NOT,                     // not a
 
     // Other instructions.
@@ -229,7 +229,7 @@ enum ir_opcode : uint8_t
     IR_FOR_EACH_HEAD,           // [g/i] = generate( a )
     IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
     IR_FOR_EACH_ITEMS,          // a, b, c = [g/i]
-    IR_FOR_STEP_HEAD,           // [i/l/s] = start, limit step
+    IR_FOR_STEP_HEAD,           // [i/l/s] = start, limit, step
     IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
     IR_FOR_STEP_INDEX,          // a = [i/l/s]
 

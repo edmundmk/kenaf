@@ -58,24 +58,26 @@ enum
     OP_BITXOR,          // r = a ^ b                | A | r | a | b |
     OP_BITOR,           // r = a | b                | A | r | a | b |
 
+    OP_EQ,              // r = a == b               | A | r | a | b |
+    OP_NE,              // r = a != b               | A | r | a | b |
+    OP_LT,              // r = a < b                | A | r | a | b |
+    OP_LE,              // r = a <= b               | A | r | a | b |
+    OP_IS,              // r = a is b               | A | r | a | b |
+
     OP_JUMP,            // jump                     | J | - |   j   |
     OP_CLOSE,           // close upstack, jump      | J | u |   j   |
-    OP_TEST,            // if r then jump           | T | r |   j   |
-    OP_EQ,              // if a == b then jump      | T | - | a | b || J | - |   j   |
-    OP_EQ_K,            // if a == k then jump      | T | - | a | k || J | - |   j   |
-    OP_EQ_V,            // r = a == b               | A | r | a | b |
-    OP_NE,              // if a != b then jump      | T | - | a | b || J | - |   j   |
-    OP_NE_K,            // if a != k then jump      | T | - | a | k || J | - |   j   |
-    OP_NE_V,            // r = a != b               | A | r | a | b |
-    OP_LT,              // if a < b then jump       | T | - | a | b || J | - |   j   |
-    OP_LT_K,            // if a < k then jump       | T | - | a | k || J | - |   j   |
-    OP_GT_K,            // if a > k then jump       | T | - | a | k || J | - |   j   |
-    OP_LT_V,            // r = a < b                | A | r | a | b |
-    OP_LE,              // if a <= b then jump      | T | - | a | b || J | - |   j   |
-    OP_LE_K,            // if a <= k then jump      | T | - | a | k || J | - |   j   |
-    OP_GE_K,            // if a >= k then jump      | T | - | a | k || J | - |   j   |
-    OP_LE_V,            // r = a <= b               | A | r | a | b |
-    OP_IS,              // r = a is b               | A | r | a | b |
+    OP_JT,              // if r then jump           | T | r |   j   |
+    OP_JF,              // if not r then jump       | T | r |   j   |
+    OP_JEQ,             // if a == b then jump      | T | - | a | b || J | - |   j   |
+    OP_JEQ_K,           // if a == k then jump      | T | - | a | k || J | - |   j   |
+    OP_JNE,             // if a != b then jump      | T | - | a | b || J | - |   j   |
+    OP_JNE_K,           // if a != k then jump      | T | - | a | k || J | - |   j   |
+    OP_JLT,             // if a < b then jump       | T | - | a | b || J | - |   j   |
+    OP_JLT_K,           // if a < k then jump       | T | - | a | k || J | - |   j   |
+    OP_JGT_K,           // if a > k then jump       | T | - | a | k || J | - |   j   |
+    OP_JLE,             // if a <= b then jump      | T | - | a | b || J | - |   j   |
+    OP_JLE_K,           // if a <= k then jump      | T | - | a | k || J | - |   j   |
+    OP_JGE_K,           // if a >= k then jump      | T | - | a | k || J | - |   j   |
 
     OP_GET_GLOBAL,      // r = globals[ name ]      | G | r |   k   |
     OP_GET_UPVAL,       // r = upval[ u ]           | G | r | u | - |
