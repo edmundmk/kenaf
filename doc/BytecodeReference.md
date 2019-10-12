@@ -65,9 +65,9 @@ Loads `null` into register `r`.
 Loads a boolean value into register `r`.  If `c` is zero, the value is `false`,
 otherwise the value is `true`.
 
-### LOADK
+### LDK
 
-    AC  [                   c |        r |    LOADK ]   LOADK r, [c]
+    AC  [                   c |        r |      LDK ]   LDK r, [c]
 
 Loads a value from the function's constant pool, indexed by `c`, into the
 destination register `r`.
