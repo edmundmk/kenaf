@@ -152,6 +152,14 @@ struct code_function
 {
 };
 
+struct code_selector
+{
+};
+
+struct code_constant
+{
+};
+
 struct code_debug_function
 {
 };
