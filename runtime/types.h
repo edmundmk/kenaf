@@ -8,7 +8,8 @@ namespace kf
 
         roots       -> map[ value -> refcount ]                    // strong refs to values
         key_names   -> map[ string ]                             // weak ref to strings
-        key_map     -> map[ layout, string -> index/layout ]
+        key_map     -> map[ layout, string -> index ]
+        addkey_map  -> map[ layout, string -> layout ]
         proto_map   -> map[ object -> layout ]
 
 
@@ -68,6 +69,21 @@ namespace kf
 
     Cothread stacks are marked eagerly.  This means that the entire state of
     the stack has to be marked before it can be modified.
+
+
+    Concurrent GC.  On x86, mov gives us all the ordering guarantees we need.
+    On ARM, section 6.3:
+        http://infocenter.arm.com/help/topic/com.arm.doc.genc007826/Barrier_Litmus_Tests_and_Cookbook_A08.pdf
+
+        create object and construct it
+        dmb st
+        store pointer to object (relaxed)
+
+        read pointer to object (relaxed)
+        access object through pointer
+
+    Is fine.
+
 */
 
 
