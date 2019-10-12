@@ -15,7 +15,10 @@
     This describes our bytecode, and a serialization of it.
 */
 
+#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+#include <limits.h>
 
 namespace kf
 {
@@ -24,10 +27,11 @@ struct code_script;
 struct code_function;
 struct code_selector;
 struct code_constant;
+struct code_debug_function;
 struct code_debug_variable;
 struct code_debug_var_span;
 
-enum
+enum opcode : uint8_t
 {
     OP_MOV,             // r = a                    | M | r | a | - |
     OP_SWP,             // r <-> a                  | M | r | a | - |
@@ -128,26 +132,26 @@ enum
 struct op
 {
     op();
-    op( opcode opcode, uint8_t r, uint8_t a, uint8_t b );
-    op( opcode opcode, uint8_t r, uint8_t a, int8_t i );
-    op( opcode opcode, uint8_t r, uint16_t c );
-    op( opcode opcode, uint8_t r, int16_t j );
+    op( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b );
+    op( enum opcode opcode, uint8_t r, uint8_t a, int8_t i );
+    op( enum opcode opcode, uint8_t r, uint16_t c );
+    op( enum opcode opcode, uint8_t r, int16_t j );
 
-    uint8_t opcode;
+    enum opcode opcode;
     uint8_t r;
     union
     {
-        struct { uint8_t a; struct { uint8_t b; int8_t i; }; }
+        struct { uint8_t a; struct { uint8_t b; int8_t i; }; };
         uint16_t c;
         int16_t j;
     };
 };
 
 inline op::op() : opcode( OP_MOV ), r( 0 ), a( 0 ), b( 0 ) {}
-inline op::op( opcode opcode, uint8_t r, uint8_t a, uint8_t b ) : opcode( opcode ), r( r ), a( a ), b( b ) {}
-inline op::op( opcode opcode, uint8_t r, uint8_t a, int8_t i ) : opcode( opcode ), r( r ), a( a ), i( i ) {}
-inline op::op( opcode opcode, uint8_t r, uint16_t c ) : opcode( opcode ), r( r ), c( c ) {}
-inline op::op( opcode opcode, uint8_t r, int16_t j ) : opcode( opcode ), r( r ), j( j ) {}
+inline op::op( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b ) : opcode( opcode ), r( r ), a( a ), b( b ) {}
+inline op::op( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) : opcode( opcode ), r( r ), a( a ), i( i ) {}
+inline op::op( enum opcode opcode, uint8_t r, uint16_t c ) : opcode( opcode ), r( r ), c( c ) {}
+inline op::op( enum opcode opcode, uint8_t r, int16_t j ) : opcode( opcode ), r( r ), j( j ) {}
 
 const uint32_t CODE_MAGIC = 0x5B2A2A5D; // '[**]'
 
@@ -156,11 +160,11 @@ struct code_script
     uint32_t magic;
     uint32_t code_size;
     uint32_t script_name;
-    uint32_t function_count;
     uint32_t heap_size;
-//  code_function functions[ function_count ];
-//  char heap[ heap_size ];
-//  code_debug_function debug_functions[ function_count ];
+    uint32_t function_count;
+
+    const char* heap() const;
+    const code_function* functions() const;
 };
 
 enum
@@ -181,28 +185,58 @@ struct code_function
     uint8_t upval_count;
     uint8_t param_count;
     uint8_t flags;
+
+    const op* ops() const;
+    const code_constant* constants() const;
+    const code_selector* selectors() const;
+    const code_debug_function* debug_function() const;
+    const code_function* next() const;
+
+    void debug_print( const code_script* script ) const;
 };
+
+struct code_constant
+{
+    uint64_t v;
+
+    code_constant();
+    explicit code_constant( double n );
+    explicit code_constant( uint32_t s );
+
+    bool is_number() const;
+    double as_number() const;
+    size_t as_offset() const;
+};
+
+inline code_constant::code_constant() {}
+inline code_constant::code_constant( double n ) { uint64_t u; memcpy( &u, &n, sizeof( u ) ); v = ~u; }
+inline code_constant::code_constant( uint32_t s ) { v = s; }
+inline bool code_constant::is_number() const { return v > UINT_MAX; }
+inline double code_constant::as_number() const { uint64_t u = ~v; double n; memcpy( &n, &u, sizeof( n ) ); return n; }
+inline size_t code_constant::as_offset() const { return (uint32_t)v; }
 
 struct code_selector
 {
     uint32_t key;
 };
 
-struct code_constant
-{
-    uint64_t constant;
-};
-
 struct code_debug_function
 {
+    uint32_t code_size;
     uint32_t function_name;
+    uint32_t sloc_count;
+    uint32_t newline_count;
     uint32_t variable_count;
     uint32_t var_span_count;
     uint32_t heap_size;
-//  uint32_t slocs[ opcode_count ];
-//  code_debug_variable variables[ variable_count ];
-//  code_debug_var_span var_spans[ var_span_count ];
-//  char heap[ heap_size ];
+
+    const uint32_t* slocs() const;
+    const uint32_t* newlines() const;
+    const code_debug_variable* variables() const;
+    const code_debug_var_span* var_spans() const;
+    const char* heap() const;
+
+    void debug_print( const code_script* script ) const;
 };
 
 struct code_debug_variable

@@ -15,6 +15,7 @@ lemon_buildsh = find_program( 'lemon.sh' )
 lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ lemon_program.path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
 
 sources = [
+    'common/code.cpp',
     'parser/build_ir.cpp',
     'parser/ir.cpp',
     'parser/lexer.cpp',
