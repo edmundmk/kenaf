@@ -72,12 +72,6 @@ otherwise the value is `true`.
 Loads a value from the function's constant pool, indexed by `c`, into the
 destination register `r`.
 
-### LOADI
-
-    AJ  [                   j |        r |    LOADI ]   LOADI r, [j]
-
-Loads a 16-bit signed integer immediate `j` into the destination register `r`.
-
 ## Arithmetic
 
 ### LENGTH

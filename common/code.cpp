@@ -83,7 +83,6 @@ const char* const OPCODE_PRINT[] =
     [ OP_NULL       ] = "NULL %r",
     [ OP_BOOL       ] = "BOOL %r, %Bc",
     [ OP_LOADK      ] = "LOADK %r, [%Kc]",
-    [ OP_LOADI      ] = "LOADI %r, [%j]",
     [ OP_LENGTH     ] = "LENGTH %r, %a",
     [ OP_NEG        ] = "NEG %r, %a",
     [ OP_POS        ] = "POS %r, %a",

@@ -39,7 +39,6 @@ enum opcode : uint8_t
     OP_NULL,            // r = null                 | K | r | - | - |
     OP_BOOL,            // r = c ? true : false     | K | r |   c   |
     OP_LOADK,           // r = k[c]                 | K | r |   c   |
-    OP_LOADI,           // r = j                    | K | r |   j   |
 
     OP_LENGTH,          // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
