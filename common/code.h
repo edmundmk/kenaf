@@ -40,7 +40,7 @@ enum opcode : uint8_t
     OP_BOOL,            // r = c ? true : false     | K | r |   c   |
     OP_LOADK,           // r = k[c]                 | K | r |   c   |
 
-    OP_LENGTH,          // r = #a                   | A | r | a | - |
+    OP_LEN,             // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
     OP_POS,             // r = +a                   | A | r | a | - |
     OP_BITNOT,          // r = ~a                   | A | r | a | - |

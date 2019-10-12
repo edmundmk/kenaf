@@ -74,9 +74,9 @@ destination register `r`.
 
 ## Arithmetic
 
-### LENGTH
+### LEN
 
-    AB  [        - |        a |        r |   LENGTH ]   LENGTH r, a
+    AB  [        - |        a |        r |      LEN ]   LEN r, a
 
 Queries the length of the value in register `a` and writes the result to
 register `r`.
