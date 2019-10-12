@@ -93,8 +93,8 @@ enum opcode : uint8_t
     OP_GET_GLOBAL,      // r = g[ c ]               | G | r |   c   |
     OP_GET_UPVAL,       // r = u[ a ]               | G | r | a | - |
     OP_SET_UPVAL,       // u[ a ] = r               | G | r | a | - |
-    OP_GET_KEY,         // r = s[ b ]               | G | r | a | b |
-    OP_SET_KEY,         // s[ b ] = r               | G | r | a | b |
+    OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |
+    OP_SET_KEY,         // a[ s[b] ] = r            | G | r | a | b |
     OP_GET_INDEX,       // r = a[ b ]               | G | r | a | b |
     OP_GET_INDEXK,      // r = a[ k[b] ]            | G | r | a | b |
     OP_GET_INDEXI,      // r = a[ %b ]              | G | r | a | b |
@@ -106,10 +106,6 @@ enum opcode : uint8_t
     OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
     OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
     OP_APPEND,          // r.append( a )            | G | r | a | - |
-
-    OP_FUNCTION,        // r = close function       | N | r |   c   |
-    OP_UPVAL,           // r->[ a ] = new upval b   | F | r | a | b |
-    OP_UCOPY,           // r->[ a ] = u[ b ]        | F | r | a | b |
 
     OP_CALL,            // b = call( r:a )          | X | r | a | b |
     OP_CALLX,           // r:b = call( r:a )        | X | r | a | b |
@@ -127,6 +123,10 @@ enum opcode : uint8_t
 
     OP_SUPER,           // r = super a              | G | r | a | - |
     OP_THROW,           // throw r                  | J | r | - | - |
+
+    OP_FUNCTION,        // r = close function       | N | r |   c   |
+    OP_UPVAL,           // upstack r = upval a      | F | r | a | - |
+    OP_UCOPY,           // copy upval a             | F | - | a | - |
 };
 
 struct op
