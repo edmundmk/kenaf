@@ -182,7 +182,11 @@ void fold_ir::fold_phi_step()
 
 void fold_ir::fold_constants()
 {
-    _stack.push_back( { IR_O_BLOCK, 0 } );
+    if ( _f->blocks.size() )
+    {
+        _stack.push_back( { IR_O_BLOCK, 0 } );
+    }
+
     while ( ! _stack.empty() )
     {
         ir_operand block_operand = _stack.back();
@@ -221,6 +225,54 @@ void fold_ir::fold_constants()
         else
         {
             assert( jump.opcode == IR_JUMP_THROW || jump.opcode == IR_JUMP_RETURN );
+        }
+    }
+}
+
+void fold_ir::fold_constants( ir_block* block )
+{
+    for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
+    {
+        ir_op* op = &_f->ops.at( op_index );
+        if ( op->opcode == IR_PHI )
+        {
+            continue;
+        }
+
+        switch ( op->opcode )
+        {
+        case IR_NEG:
+        case IR_POS:
+        case IR_BITNOT:
+            fold_unarithmetic( op );
+            break;
+
+        case IR_MUL:
+        case IR_DIV:
+        case IR_INTDIV:
+        case IR_MOD:
+        case IR_ADD:
+        case IR_SUB:
+        case IR_LSHIFT:
+        case IR_RSHIFT:
+        case IR_ASHIFT:
+        case IR_BITAND:
+        case IR_BITXOR:
+        case IR_BITOR:
+            fold_biarithmetic( op );
+            break;
+
+        case IR_EQ:
+        case IR_NE:
+            fold_equal( op );
+            break;
+
+        case IR_LT:
+        case IR_LE:
+            fold_compare( op );
+            break;
+
+        default: break;
         }
     }
 }
@@ -291,7 +343,14 @@ double fold_ir::to_number( ir_operand operand )
     return _f->numbers.at( operand.index ).n;
 }
 
-template < typename F > bool fold_ir::fold_unarithmetic( ir_op* op, F fold )
+std::string_view fold_ir::to_string( ir_operand operand )
+{
+    assert( operand.kind == IR_O_STRING );
+    const ir_string& s = _f->strings.at( operand.index );
+    return std::string_view( s.text, s.size );
+}
+
+bool fold_ir::fold_unarithmetic( ir_op* op )
 {
     assert( op->ocount == 1 );
     ir_operand u = fold_operand( op->oindex );
@@ -299,7 +358,16 @@ template < typename F > bool fold_ir::fold_unarithmetic( ir_op* op, F fold )
     if ( u.kind == IR_O_NUMBER )
     {
         // Perform calculation.
-        double result = fold( to_number( u ) );
+        double result = 0.0;
+        double a = to_number( u );
+
+        switch ( op->opcode )
+        {
+        case IR_NEG:        result = -a;            break;
+        case IR_POS:        result = +a;            break;
+        case IR_BITNOT:     result = ibitnot( a );  break;
+        default: break;
+        }
 
         // Update operand.
         ir_operand* operand = &_f->operands.at( op->oindex );
@@ -320,7 +388,7 @@ template < typename F > bool fold_ir::fold_unarithmetic( ir_op* op, F fold )
     return false;
 }
 
-template < typename F > bool fold_ir::fold_biarithmetic( ir_op* op, F fold )
+bool fold_ir::fold_biarithmetic( ir_op* op )
 {
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
@@ -329,7 +397,26 @@ template < typename F > bool fold_ir::fold_biarithmetic( ir_op* op, F fold )
     if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
     {
         // Perform calculation.
-        double result = fold( to_number( u ), to_number( v ) );
+        double result = 0.0;
+        double a = to_number( u );
+        double b = to_number( v );
+
+        switch ( op->opcode )
+        {
+        case IR_MUL:        result = a * b;                 break;
+        case IR_DIV:        result = a / b;                 break;
+        case IR_INTDIV:     result = ifloordiv( a, b );     break;
+        case IR_MOD:        result = ifloormod( a, b );     break;
+        case IR_ADD:        result = a + b;                 break;
+        case IR_SUB:        result = a - b;                 break;
+        case IR_LSHIFT:     result = ilshift( a, b );       break;
+        case IR_RSHIFT:     result = irshift( a, b );       break;
+        case IR_ASHIFT:     result = iashift( a, b );       break;
+        case IR_BITAND:     result = ibitand( a, b );       break;
+        case IR_BITXOR:     result = ibitxor( a, b );       break;
+        case IR_BITOR:      result = ibitor( a, b );        break;
+        default: break;
+        }
 
         // Update operand.
         ir_operand* operand = &_f->operands.at( op->oindex );
@@ -351,38 +438,50 @@ template < typename F > bool fold_ir::fold_biarithmetic( ir_op* op, F fold )
     return false;
 }
 
-void fold_ir::fold_constants( ir_block* block )
+bool fold_ir::fold_equal( ir_op* op )
 {
-    for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
+    assert( op->ocount == 2 );
+    ir_operand u = fold_operand( op->oindex + 0 );
+    ir_operand v = fold_operand( op->oindex + 1 );
+
+    if ( is_constant( u ) && is_constant( v ) )
     {
-        ir_op* op = &_f->ops.at( op_index );
-        if ( op->opcode == IR_PHI )
+        bool equal;
+        if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
         {
-            continue;
+            double a = to_number( u );
+            double b = to_number( v );
+            equal = ( a == b );
+        }
+        else if ( u.kind == IR_O_STRING && v.kind == IR_O_STRING )
+        {
+            std::string_view a = to_string( u );
+            std::string_view b = to_string( v );
+            equal = ( a == b );
+        }
+        else
+        {
+            equal = ( u.kind == v.kind );
         }
 
-        switch ( op->opcode )
-        {
-        case IR_NEG:    fold_unarithmetic( op, []( double u ) { return -u; } );                             break;
-        case IR_POS:    fold_unarithmetic( op, []( double u ) { return +u; } );                             break;
-        case IR_BITNOT: fold_unarithmetic( op, []( double u ) { return ibitnot( u ); } );                   break;
+        bool result = op->opcode == IR_EQ ? equal : ! equal;
 
-        case IR_MUL:    fold_biarithmetic( op, []( double u, double v ) { return u * v; } );                break;
-        case IR_DIV:    fold_biarithmetic( op, []( double u, double v ) { return u / v; } );                break;
-        case IR_INTDIV: fold_biarithmetic( op, []( double u, double v ) { return ifloordiv( u, v ); } );    break;
-        case IR_MOD:    fold_biarithmetic( op, []( double u, double v ) { return ifloormod( u, v ); } );    break;
-        case IR_ADD:    fold_biarithmetic( op, []( double u, double v ) { return u + v; } );                break;
-        case IR_SUB:    fold_biarithmetic( op, []( double u, double v ) { return u - v; } );                break;
-        case IR_LSHIFT: fold_biarithmetic( op, []( double u, double v ) { return ilshift( u, v ); } );      break;
-        case IR_RSHIFT: fold_biarithmetic( op, []( double u, double v ) { return irshift( u, v ); } );      break;
-        case IR_ASHIFT: fold_biarithmetic( op, []( double u, double v ) { return iashift( u, v ); } );      break;
-        case IR_BITAND: fold_biarithmetic( op, []( double u, double v ) { return ibitand( u, v ); } );      break;
-        case IR_BITXOR: fold_biarithmetic( op, []( double u, double v ) { return ibitxor( u, v ); } );      break;
-        case IR_BITOR:  fold_biarithmetic( op, []( double u, double v ) { return ibitor( u, v ); } );       break;
+        // Update operand.
+        ir_operand* operand = &_f->operands.at( op->oindex );
+        operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
 
-        default: break;
-        }
+        // Change op to constant.
+        op->opcode = IR_CONST;
+        op->ocount = 1;
+        return true;
     }
+
+    return false;
+}
+
+bool fold_ir::fold_compare( ir_op* op )
+{
+    return false;
 }
 
 void fold_ir::remove_unreachable_blocks()

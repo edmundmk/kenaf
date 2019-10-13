@@ -30,24 +30,51 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
     _f = std::make_unique< ir_function >();
     _f->ast = function;
 
-    // Visit AST.
-    node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
-    visit( node );
-
-    // Clean up.
-    assert( _o.empty() );
-    for ( size_t i = 0; i < GOTO_MAX; ++i )
+    // Check limits.
+    if ( _f->ast->locals.size() >= IR_INVALID_LOCAL )
     {
-        assert( _goto_stacks[ i ].fixups.empty() );
-        assert( _goto_stacks[ i ].index == 0 );
+        _source->error( _f->ast->sloc, "internal: too many local variables" );
+        return nullptr;
     }
-    assert( _loop_stack.size() == 1 && _loop_stack.back() == IR_INVALID_INDEX );
-    assert( _block_index == IR_INVALID_INDEX );
-    assert( _def_stack.empty() );
-    _defs.clear();
 
-    // Done.
-    return std::move( _f );
+    try
+    {
+        // Visit AST.
+        node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
+        visit( node );
+
+        // Clean up.
+        assert( _o.empty() );
+        for ( size_t i = 0; i < GOTO_MAX; ++i )
+        {
+            assert( _goto_stacks[ i ].fixups.empty() );
+            assert( _goto_stacks[ i ].index == 0 );
+        }
+        assert( _loop_stack.size() == 1 && _loop_stack.back() == IR_INVALID_INDEX );
+        assert( _block_index == IR_INVALID_INDEX );
+        assert( _def_stack.empty() );
+        _defs.clear();
+
+        // Done.
+        return std::move( _f );
+    }
+    catch ( std::exception& e )
+    {
+        // Clean up.
+        _o.clear();
+        for ( size_t i = 0; i < GOTO_MAX; ++i )
+        {
+            _goto_stacks[ i ].fixups.clear();
+            _goto_stacks[ i ].index = 0;
+        }
+        _loop_stack.resize( 1 );
+        _block_index = IR_INVALID_INDEX;
+        _defs.clear();
+
+        // Report error.
+        _source->error( _f->ast->sloc, "internal: %s", e.what() );
+        return nullptr;
+    }
 }
 
 build_ir::node_index build_ir::child_node( node_index node )
@@ -1318,12 +1345,16 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     op.sloc = sloc;
 
     unsigned op_index = _f->ops.size();
+    if ( op_index >= IR_INVALID_INDEX )
+        throw std::out_of_range( "too many instructions" );
     _f->ops.push_back( op );
 
     assert( ocount <= _o.size() );
     unsigned oindex = _o.size() - ocount;
     for ( unsigned i = 0; i < ocount; ++i )
     {
+        if ( _f->operands.size() >= IR_INVALID_INDEX )
+            throw std::out_of_range( "too many operands" );
         _f->operands.push_back( ignore_pin( _o[ oindex + i ] ) );
     }
     _o.resize( oindex );
@@ -1504,6 +1535,8 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
 
     assert( _block_index == IR_INVALID_INDEX );
     _block_index = _f->blocks.size();
+    if ( _block_index >= IR_INVALID_INDEX )
+        throw std::out_of_range( "too many blocks" );
     _f->blocks.push_back( block );
 
     _o.push_back( { IR_O_BLOCK, _block_index } );
@@ -1693,6 +1726,8 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
     phi.local = local;
     phi.phi_next = IR_INVALID_INDEX;
     unsigned phi_index = _f->ops.size();
+    if ( phi_index >= IR_INVALID_INDEX )
+        throw std::out_of_range( "too many instructions" );
     _f->ops.push_back( phi );
 
     // Link into block's list of phi ops.

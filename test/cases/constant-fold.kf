@@ -32,6 +32,17 @@ closure()
 test( x + 99 )
 test( y + 99 )
 
+if 3 == 3 then end
+if 3 != 3 then end
+if "hello" == "hello" then end
+if "hello" == 3 then end
+if null == null then end
+if "hello" == null then end
+if 3 == null then end
+if true == true then end
+if true == false then end
+if 3 == true then end
+
 return 3 + 4
 
 

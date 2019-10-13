@@ -49,14 +49,19 @@ private:
     void fold_phi_step();
 
     void fold_constants();
+    void fold_constants( ir_block* block );
+
     ir_operand jump_block_operand( unsigned operand_index );
     ir_operand fold_operand( unsigned operand_index );
     bool is_constant( ir_operand operand );
     bool is_upval( const ir_op* op );
     double to_number( ir_operand operand );
-    template < typename F > bool fold_unarithmetic( ir_op* op, F fold );
-    template < typename F > bool fold_biarithmetic( ir_op* op, F fold );
-    void fold_constants( ir_block* block );
+    std::string_view to_string( ir_operand operand );
+
+    bool fold_unarithmetic( ir_op* op );
+    bool fold_biarithmetic( ir_op* op );
+    bool fold_equal( ir_op* op );
+    bool fold_compare( ir_op* op );
 
     void remove_unreachable_blocks();
 
