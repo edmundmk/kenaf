@@ -123,7 +123,7 @@ void fold_ir::fold_phi_step()
     /*
         Simplify by folding all phi operands that reference a phi that
         references a single other op.  This is the same simplification which
-        was performed when closing the phi in the build set.
+        was performed when closing the phi in the build step.
     */
     for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
     {
