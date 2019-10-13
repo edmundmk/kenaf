@@ -1,0 +1,37 @@
+
+test( -3 )
+test( +3 )
+test( ~3 )
+
+test( 3 * 4 )
+test( 3 / 4 )
+test( 15 // 6 )
+test( 8 % 6 )
+test( 3 + 4 )
+test( 3 - 4 )
+test( 3 << 4 )
+test( 3 >> 1 )
+test( -44 ~>> 3 )
+test( 0x7F & 0xFF81 )
+test( 0x7F ^ 0xFF81 )
+test( 0x7F | 0xFF81 )
+
+test( 3 + null )
+
+var x = 99
+var y = "hello"
+
+if something() then something_else() end
+
+def closure()
+    y = 99
+end
+
+closure()
+
+test( x + 99 )
+test( y + 99 )
+
+return 3 + 4
+
+
