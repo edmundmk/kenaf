@@ -27,6 +27,7 @@ void fold_ir::fold( ir_function* function )
 {
     _f = function;
     fold_constants();
+    remove_unreachable_blocks();
 }
 
 void fold_ir::fold_constants()
@@ -87,6 +88,41 @@ ir_block_index fold_ir::jump_block_index( unsigned operand_index )
     o = _f->operands.at( block.oindex );
     assert( o.kind == IR_O_BLOCK );
     return o.index;
+}
+
+void fold_ir::remove_unreachable_blocks()
+{
+    for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
+    {
+        ir_block* block = &_f->blocks[ block_index ];
+        if ( block->reachable )
+            continue;
+
+        // Remove block.
+        block->kind = IR_BLOCK_NONE;
+        block->preceding_lower = block->preceding_upper = IR_INVALID_INDEX;
+
+        // Remove phi ops.
+        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+        {
+            ir_op* phi = &_f->ops.at( phi_index );
+            phi->opcode = IR_NOP;
+            phi->ocount = 0;
+            phi->oindex = IR_INVALID_INDEX;
+        }
+        block->phi_head = block->phi_tail = IR_INVALID_INDEX;
+
+        // Remove instructions.
+        for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
+        {
+            ir_op* op = &_f->ops.at( op_index );
+            if ( op->opcode == IR_PHI )
+                continue;
+            op->opcode = IR_NOP;
+            op->ocount = 0;
+            op->oindex = IR_INVALID_INDEX;
+        }
+    }
 }
 
 }

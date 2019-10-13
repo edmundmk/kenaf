@@ -227,16 +227,16 @@ enum ir_opcode : uint8_t
 
     // Instructions operating on loop variables.
     IR_FOR_EACH_HEAD,           // [g/i] = generate( a )
-    IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
     IR_FOR_EACH_ITEMS,          // a, b, c = [g/i]
     IR_FOR_STEP_HEAD,           // [i/l/s] = start, limit, step
-    IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
     IR_FOR_STEP_INDEX,          // a = [i/l/s]
 
     // Block and jump instructions.
     IR_BLOCK,                   // Block header.
     IR_JUMP,                    // Jump to new block.
     IR_JUMP_TEST,               // test, iftrue, iffalse
+    IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
+    IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
     IR_JUMP_THROW,              // value
     IR_JUMP_RETURN,             // value+
 

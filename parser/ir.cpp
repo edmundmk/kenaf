@@ -89,15 +89,15 @@ const char* const OPCODE_NAMES[] =
     [ IR_B_PHI          ] = "B_PHI",
 
     [ IR_FOR_EACH_HEAD  ] = "FOR_EACH_HEAD",
-    [ IR_JUMP_FOR_EACH  ] = "JUMP_FOR_EACH",
     [ IR_FOR_EACH_ITEMS ] = "FOR_EACH_ITEMS",
     [ IR_FOR_STEP_HEAD  ] = "FOR_STEP_HEAD",
-    [ IR_JUMP_FOR_STEP  ] = "JUMP_FOR_STEP",
     [ IR_FOR_STEP_INDEX ] = "FOR_STEP_INDEX",
 
     [ IR_BLOCK          ] = "BLOCK",
     [ IR_JUMP           ] = "JUMP",
     [ IR_JUMP_TEST      ] = "JUMP_TEST",
+    [ IR_JUMP_FOR_EACH  ] = "JUMP_FOR_EACH",
+    [ IR_JUMP_FOR_STEP  ] = "JUMP_FOR_STEP",
     [ IR_JUMP_THROW     ] = "JUMP_THROW",
     [ IR_JUMP_RETURN    ] = "JUMP_RETURN",
 

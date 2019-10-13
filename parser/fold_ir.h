@@ -44,8 +44,9 @@ private:
 
     void fold_constants();
     void fold_constants( ir_block* block );
-
     ir_block_index jump_block_index( unsigned operand_index );
+
+    void remove_unreachable_blocks();
 
     source* _source;
     ir_function* _f;
