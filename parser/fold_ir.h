@@ -50,7 +50,7 @@ private:
     void fold_phi();
     void fold_phi_step();
     void fold_phi_loop();
-    bool phi_loop_search( ir_operand loop_phi, ir_operand operand );
+    bool phi_loop_check( ir_operand loop_phi, ir_operand operand );
 
     ir_operand fold_operand( unsigned operand_index );
     bool is_constant( ir_operand operand );

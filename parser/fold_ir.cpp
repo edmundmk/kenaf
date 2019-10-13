@@ -44,8 +44,8 @@ void fold_ir::fold_phi()
         another simplification pass to simplify past collapsed loop headers.
     */
     fold_phi_step();
-//    fold_phi_loop();
-//    fold_phi_step();
+    fold_phi_loop();
+    fold_phi_step();
 
     _f->debug_print_phi_graph();
 }
@@ -103,7 +103,7 @@ void fold_ir::fold_phi_step()
 void fold_ir::fold_phi_loop()
 {
     /*
-        Break phi defs that loop back.
+        Break phi defs that immediately loop back to a loop header.
     */
     for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
     {
@@ -122,8 +122,7 @@ void fold_ir::fold_phi_loop()
             {
                 ir_operand operand = _f->operands.at( phi->oindex + j );
                 assert( operand.kind == IR_O_OP );
-
-                if ( phi_loop_search( { IR_O_OP, phi_index }, operand ) )
+                if ( phi_loop_check( { IR_O_OP, phi_index }, operand ) )
                 {
                     continue;
                 }
@@ -139,36 +138,23 @@ void fold_ir::fold_phi_loop()
     }
 }
 
-bool fold_ir::phi_loop_search( ir_operand loop_phi, ir_operand operand )
+bool fold_ir::phi_loop_check( ir_operand loop_phi, ir_operand operand )
 {
     /*
-        Follow phi links until we find loop_phi, or a non-phi op.
+        Check if the operand is a phi op that links back to loop_phi.
     */
     assert( operand.kind == IR_O_OP );
     const ir_op* op = &_f->ops.at( operand.index );
-    if ( op->opcode != IR_PHI )
+    if ( op->opcode == IR_PHI && op->ocount == 1 )
+    {
+        ir_operand operand = _f->operands.at( op->oindex );
+        assert( operand.kind == IR_O_OP );
+        return operand.index == loop_phi.index;
+    }
+    else
     {
         return false;
     }
-
-    for ( unsigned j = 0; j < op->ocount; ++j )
-    {
-        ir_operand operand = _f->operands.at( op->oindex + j );
-        assert( operand.kind == IR_O_OP );
-
-        if ( operand.index == loop_phi.index )
-        {
-            continue;
-        }
-
-        if ( ! phi_loop_search( loop_phi, operand ) )
-        {
-            return false;
-        }
-    }
-
-
-    return true;
 }
 
 /*
