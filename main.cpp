@@ -14,6 +14,7 @@
 #include "parser/parser.h"
 #include "parser/resolve_names.h"
 #include "parser/build_ir.h"
+#include "parser/fold_ir.h"
 
 int main( int argc, char* argv[] )
 {
@@ -60,10 +61,13 @@ int main( int argc, char* argv[] )
     if ( ! source.has_error )
     {
         kf::build_ir build_ir( &source );
+        kf::fold_ir fold_ir( &source );
+
         for ( const auto& function : ast_script->functions )
         {
             function->debug_print();
             std::unique_ptr< kf::ir_function > ir = build_ir.build( function.get() );
+            fold_ir.fold( ir.get() );
             ir->debug_print();
         }
     }

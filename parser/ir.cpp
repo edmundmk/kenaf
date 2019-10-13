@@ -98,7 +98,6 @@ const char* const OPCODE_NAMES[] =
     [ IR_BLOCK          ] = "BLOCK",
     [ IR_JUMP           ] = "JUMP",
     [ IR_JUMP_TEST      ] = "JUMP_TEST",
-    [ IR_JUMP_TFOR      ] = "JUMP_TFOR",
     [ IR_JUMP_THROW     ] = "JUMP_THROW",
     [ IR_JUMP_RETURN    ] = "JUMP_RETURN",
 
@@ -108,6 +107,7 @@ const char* const OPCODE_NAMES[] =
 
 const char* const BLOCK_KIND_NAMES[] =
 {
+    [ IR_BLOCK_NONE     ] = "NONE",
     [ IR_BLOCK_BASIC    ] = "BASIC",
     [ IR_BLOCK_LOOP     ] = "LOOP",
     [ IR_BLOCK_UNSEALED ] = "UNSEALED"

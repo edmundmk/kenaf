@@ -237,7 +237,6 @@ enum ir_opcode : uint8_t
     IR_BLOCK,                   // Block header.
     IR_JUMP,                    // Jump to new block.
     IR_JUMP_TEST,               // test, iftrue, iffalse
-    IR_JUMP_TFOR,               // for_each/for_step, iftrue, ifalse
     IR_JUMP_THROW,              // value
     IR_JUMP_RETURN,             // value+
 
@@ -273,6 +272,7 @@ enum ir_operand_kind : uint8_t
 
 enum ir_block_kind : uint8_t
 {
+    IR_BLOCK_NONE,
     IR_BLOCK_BASIC,
     IR_BLOCK_LOOP,
     IR_BLOCK_UNSEALED,
@@ -322,6 +322,7 @@ struct ir_block
 {
     ir_block()
         :   kind( IR_BLOCK_BASIC )
+        ,   reachable( false )
         ,   loop( IR_INVALID_INDEX )
         ,   preceding_lower( IR_INVALID_INDEX )
         ,   preceding_upper( IR_INVALID_INDEX )
@@ -332,7 +333,8 @@ struct ir_block
     {
     }
 
-    ir_block_kind kind : 8;     // Block kind.
+    ir_block_kind kind : 7;     // Block kind.
+    unsigned reachable : 1;     // Is this block reachable?
     ir_block_index loop : 24;   // Index of loop containing this block.
     unsigned preceding_lower;   // Index of first block in preceding_blocks.
     unsigned preceding_upper;   // Index past last preceding block.

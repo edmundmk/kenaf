@@ -1648,10 +1648,9 @@ ir_operand build_ir::end_block( ir_operand jump )
 
     assert( jump.kind == IR_O_OP );
     const ir_op& op = _f->ops.at( jump.index );
-    assert( op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
-        || op.opcode == IR_JUMP_TEST || op.opcode == IR_JUMP_TFOR
-        || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN
-        || op.opcode == IR_JUMP );
+    assert( op.opcode == IR_JUMP || op.opcode == IR_JUMP_TEST
+        || op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
+        || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN );
 
     assert( _block_index != IR_INVALID_INDEX );
     ir_block* block = &_f->blocks.at( _block_index );
