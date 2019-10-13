@@ -43,8 +43,14 @@ public:
 private:
 
     void fold_constants();
-    void fold_constants( ir_block* block );
     ir_block_index jump_block_index( unsigned operand_index );
+
+    ir_operand fold_operand( unsigned operand_index );
+    bool is_constant( ir_operand operand );
+    double to_number( ir_operand operand );
+    template < typename F > bool fold_unarithmetic( ir_op* op, F fold );
+    template < typename F > bool fold_biarithmetic( ir_op* op, F fold );
+    void fold_constants( ir_block* block );
 
     void remove_unreachable_blocks();
 

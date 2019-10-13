@@ -44,13 +44,13 @@ inline double ilshift( double u, double v )
 inline double irshift( double u, double v )
 {
     uint32_t amount = ibitint( v );
-    return amount < 32 ? ibitint( v ) >> amount : 0;
+    return amount < 32 ? ibitint( u ) >> amount : 0;
 }
 
 inline double iashift( double u, double v )
 {
     uint32_t amount = ibitint( v );
-    return amount < 32 ? (uint32_t)( (int32_t) ibitint( v ) >> amount ) : ~(uint32_t)0;
+    return amount < 32 ? (uint32_t)( (int32_t) ibitint( u ) >> amount ) : ~(uint32_t)0;
 }
 
 inline double ibitand( double u, double v )

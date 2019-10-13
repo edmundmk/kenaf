@@ -582,8 +582,7 @@ ir_operand build_ir::visit( node_index node )
         }
 
         visit_children( node );
-        _o.push_back( { IR_O_NULL } );
-        end_block( emit( node->sloc, IR_JUMP_RETURN, 1 ) );
+        end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
         return { IR_O_NONE };
     }
 
@@ -860,8 +859,7 @@ ir_operand build_ir::visit( node_index node )
         }
         else
         {
-            _o.push_back( { IR_O_NULL } );
-            end_block( emit( node->sloc, IR_JUMP_RETURN, 1 ) );
+            end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
         }
         return { IR_O_NONE };
     }
