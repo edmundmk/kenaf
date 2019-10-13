@@ -1740,30 +1740,39 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
 
         // Find def in previous block.
         ir_operand def = search_def( preceding_index, local );
+        assert( def.kind == IR_O_OP );
 
         // Look through phi with single operand.
-        while ( true )
+        ir_op* op = &_f->ops.at( def.index );
+        if ( op->opcode == IR_PHI && op->ocount == 1 )
         {
+            def = _f->operands.at( op->oindex );
             assert( def.kind == IR_O_OP );
-            ir_op* op = &_f->ops.at( def.index );
-            if ( op->opcode == IR_PHI && op->ocount == 1 )
-            {
-                def = _f->operands.at( op->oindex );
-            }
-            else
-            {
-                break;
-            }
         }
 
         // Ignore selection of this phi again.
-        assert( def.kind == IR_O_OP );
         if ( def.index == phi_index )
         {
             continue;
         }
 
-        _def_stack.push_back( search_def( preceding_index, local ) );
+        // Merge defs that are identical.
+        bool exists = false;
+        for ( size_t i = def_index; i < _def_stack.size(); ++i )
+        {
+            if ( def.index == _def_stack[ i ].index )
+            {
+                exists = true;
+                break;
+            }
+        }
+
+        if ( exists )
+        {
+            continue;
+        }
+
+        _def_stack.push_back( def );
     }
 
     // Add operands to phi.

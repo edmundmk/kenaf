@@ -15,14 +15,13 @@
     The folding process performs the following transformations:
 
       - Phi operands which merge the same definition are simplified.
-
       - Expressions involving only constants are precomputed.
       - Conditional branches based on constant values are made unconditional.
-
       - Unreachable blocks are removed.
+
+
       - Instructions are marked if their value is used.
       - Unused instructions are removed.
-
       - Constants are inlined into instructions that allow constant operands.
       - Constants and selectors are allocated space in the function's tables.
 
@@ -45,9 +44,9 @@ public:
 private:
 
     void fold_phi();
-    void fold_phi_step();
     void fold_phi_loop();
-    bool phi_loop_check( ir_operand loop_phi, ir_operand operand );
+    bool phi_loop_search( ir_operand loop_phi, ir_operand operand );
+    void fold_phi_step();
 
     void fold_constants();
     ir_operand jump_block_operand( unsigned operand_index );

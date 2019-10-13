@@ -39,72 +39,19 @@ void fold_ir::fold_phi()
         Fold the function's phigraph.  Each phi should reference either a
         non-phi op, or a phi op that merges multiple distinct definitions.
 
-        Since blocks are in dominance order, we perform a first simplification
-        pass to reduce the complexity of the phi graph.  Then we collapse any
-        defs in loop headers which loop back to the header.  Then we perform
-        another simplification pass to simplify past collapsed loop headers.
+        First we break links which always loop back to a loop header.  Then
+        we simplify by skipping phi definitions with a single operand.
     */
-    fold_phi_step();
     fold_phi_loop();
     fold_phi_step();
 
     _f->debug_print_phi_graph();
 }
 
-void fold_ir::fold_phi_step()
-{
-    /*
-        Simplify by folding all phi operands that reference a phi that
-        references a single other op.
-    */
-    for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
-    {
-        ir_block* block = &_f->blocks[ block_index ];
-
-        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
-        {
-            ir_op* phi = &_f->ops.at( phi_index );
-            assert( phi->opcode == IR_PHI );
-
-            for ( unsigned j = 0; j < phi->ocount; ++j )
-            {
-                ir_operand operand = _f->operands.at( phi->oindex + j );
-                assert( operand.kind == IR_O_OP );
-
-                ir_op* def = &_f->ops.at( operand.index );
-                if ( def->opcode == IR_PHI && def->ocount == 1 )
-                {
-                    operand = _f->operands.at( def->oindex );
-                }
-
-                bool exists = false;
-                for ( ir_operand existing : _stack )
-                {
-                    if ( existing.index == operand.index )
-                    {
-                        exists = true;
-                        break;
-                    }
-                }
-
-                if ( ! exists && operand.index != phi_index )
-                {
-                    _stack.push_back( operand );
-                }
-            }
-
-            assert( _stack.size() <= phi->ocount );
-            std::copy( _stack.begin(), _stack.end(), _f->operands.begin() + phi->oindex );
-            phi->ocount = _stack.size();
-            _stack.clear();
-        }
-    }
-}
-
 void fold_ir::fold_phi_loop()
 {
     /*
-        Break phi defs that immediately loop back to a loop header.
+        Break links from loop header phi ops which loop back to the header.
     */
     for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
     {
@@ -123,7 +70,8 @@ void fold_ir::fold_phi_loop()
             {
                 ir_operand operand = _f->operands.at( phi->oindex + j );
                 assert( operand.kind == IR_O_OP );
-                if ( phi_loop_check( { IR_O_OP, phi_index }, operand ) )
+
+                if ( phi_loop_search( { IR_O_OP, phi_index }, operand ) )
                 {
                     continue;
                 }
@@ -139,25 +87,98 @@ void fold_ir::fold_phi_loop()
     }
 }
 
-bool fold_ir::phi_loop_check( ir_operand loop_phi, ir_operand operand )
+bool fold_ir::phi_loop_search( ir_operand loop_phi, ir_operand operand )
 {
     /*
-        Check if the operand is a phi op that links back to loop_phi.
+        Return true if all reachable ops from operand terminate at loop_phi.
     */
     assert( operand.kind == IR_O_OP );
     const ir_op* op = &_f->ops.at( operand.index );
-    if ( op->opcode == IR_PHI && op->ocount == 1 )
-    {
-        ir_operand operand = _f->operands.at( op->oindex );
-        assert( operand.kind == IR_O_OP );
-        return operand.index == loop_phi.index;
-    }
-    else
+    if ( op->opcode != IR_PHI )
     {
         return false;
     }
+
+    for ( unsigned j = 0; j < op->ocount; ++j )
+    {
+        ir_operand operand = _f->operands.at( op->oindex + j );
+        assert( operand.kind == IR_O_OP );
+
+        if ( operand.index == loop_phi.index )
+        {
+            continue;
+        }
+
+        if ( ! phi_loop_search( loop_phi, operand ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
+void fold_ir::fold_phi_step()
+{
+    /*
+        Simplify by folding all phi operands that reference a phi that
+        references a single other op.  This is the same simplification which
+        was performed when closing the phi in the build set.
+    */
+    for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
+    {
+        ir_block* block = &_f->blocks[ block_index ];
+
+        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+        {
+            ir_op* phi = &_f->ops.at( phi_index );
+            assert( phi->opcode == IR_PHI );
+
+            for ( unsigned j = 0; j < phi->ocount; ++j )
+            {
+                ir_operand def = _f->operands.at( phi->oindex + j );
+                assert( def.kind == IR_O_OP );
+
+                // Look through phi ops with a single operand.
+                ir_op* op = &_f->ops.at( def.index );
+                if ( op->opcode == IR_PHI && op->ocount == 1 )
+                {
+                    def = _f->operands.at( op->oindex );
+                    assert( def.kind == IR_O_OP );
+                }
+
+                // Ignore loop back to this phi.
+                if ( def.index == phi_index )
+                {
+                    continue;
+                }
+
+                // Merge defs that are identical.
+                bool exists = false;
+                for ( size_t i = 0; i < _stack.size(); ++i )
+                {
+                    if ( def.index == _stack[ i ].index )
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if ( exists )
+                {
+                    continue;
+                }
+
+                _stack.push_back( def );
+            }
+
+            assert( _stack.size() <= phi->ocount );
+            std::copy( _stack.begin(), _stack.end(), _f->operands.begin() + phi->oindex );
+            phi->ocount = _stack.size();
+            _stack.clear();
+        }
+    }
+}
 
 void fold_ir::fold_constants()
 {
