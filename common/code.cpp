@@ -9,6 +9,7 @@
 //
 
 #include "code.h"
+#include <stdio.h>
 
 namespace kf
 {
@@ -131,8 +132,8 @@ const char* const OPCODE_PRINT[] =
     [ OP_GET_GLOBAL ] = "GET_GLOBAL [%Kc]",
     [ OP_GET_UPVAL  ] = "GET_UPVAL %r, ^%a",
     [ OP_SET_UPVAL  ] = "SET_UPVAL %r, ^%a",
-    [ OP_GET_KEY    ] = "GET_KEY %r, %a, ?%b",
-    [ OP_SET_KEY    ] = "SET_KEY %r, %a, ?%b",
+    [ OP_GET_KEY    ] = "GET_KEY %r, %a, ?%Sb",
+    [ OP_SET_KEY    ] = "SET_KEY %r, %a, ?%Sb",
     [ OP_GET_INDEX  ] = "GET_INDEX %r, %a, %b",
     [ OP_GET_INDEXK ] = "GET_INDEXK %r, %a, [%Kb]",
     [ OP_GET_INDEXI ] = "GET_INDEXI %r, %a, [%b]",
@@ -157,10 +158,141 @@ const char* const OPCODE_PRINT[] =
     [ OP_FOR_STEP   ] = "FOR_STEP %r, %a, %b, %q",
     [ OP_SUPER      ] = "SUPER %r, %a",
     [ OP_THROW      ] = "THROW %r",
-    [ OP_FUNCTION   ] = "FUNCTION %r, %Fc",
+    [ OP_FUNCTION   ] = "FUNCTION %r, @%c",
     [ OP_UPVAL      ] = "UPVAL !%r, %a",
     [ OP_UCOPY      ] = "UCOPY ^%a",
 };
+
+void code_function::debug_print( const code_script* script ) const
+{
+    const char* heap = script->heap();
+    const code_debug_function* debug = this->debug_function();
+    const op* ops = this->ops();
+    const code_constant* constants = this->constants();
+    const code_selector* selectors = this->selectors();
+
+    if ( debug )
+        printf( "FUNCTION %s:\n", debug->heap() + debug->function_name );
+    else
+        printf( "FUNCTION:\n" );
+    printf( "  %u STACK SIZE\n", stack_size );
+    printf( "  %u UPSTACK SIZE\n", upstack_size );
+    printf( "  %u UPVAL COUNT\n", upval_count );
+    printf( "  %u PARAM COUNT\n", param_count );
+    if ( flags & CODE_FLAGS_VARARGS )
+        printf( "  VARARGS\n" );
+    if ( flags & CODE_FLAGS_GENERATOR )
+        printf( "  GENERATOR\n" );
+
+    if ( debug )
+    {
+        debug->debug_print( script );
+    }
+
+    printf( "  CONSTANTS\n" );
+    for ( unsigned i = 0; i < constant_count; ++i )
+    {
+        const code_constant& k = constants[ i ];
+        if ( k.is_number() )
+            printf( "    %u : %f\n", i, k.as_number() );
+        else
+            printf( "    %u : \"%s\"\n", i, heap + k.as_offset() );
+    }
+
+    printf( "  SELECTORS\n" );
+    for ( unsigned i = 0; i < selector_count; ++i )
+    {
+        const code_selector& s = selectors[ i ];
+        printf( "    %u : '%s'\n", i, heap + s.key );
+    }
+
+    for ( unsigned i = 0; i < op_count; ++i )
+    {
+        const op& op = ops[ i ];
+        printf( ":%04X ", i );
+        for ( const char* p = OPCODE_PRINT[ op.opcode ]; p[ 0 ]; ++p )
+        {
+            if ( p[ 0 ] == '%' )
+            {
+                char okind = 'R';
+                char field = p[ 1 ];
+                if ( field >= 'A' & field <= 'Z' )
+                {
+                    okind = field;
+                    field = p[ 2 ];
+                }
+
+                int v = 0;
+                switch ( field )
+                {
+                case 'r': v = op.r; break;
+                case 'a': v = op.a; break;
+                case 'b': v = op.b; break;
+                case 'c': v = op.c; break;
+                case 'i': v = op.i; break;
+                case 'j': v = op.j; break;
+                }
+
+                switch ( okind )
+                {
+                case 'R':
+                {
+                    printf( "%d", v );
+                    break;
+                }
+
+                case 'B':
+                {
+                    printf( "%s", v ? "true" : "false" );
+                    break;
+                }
+
+                case 'K':
+                {
+                    const code_constant& k = constants[ v ];
+                    if ( k.is_number() )
+                        printf( "%f", k.as_number() );
+                    else
+                        printf( "\"%s\"", heap + k.as_offset() );
+                    break;
+                }
+
+                case 'S':
+                {
+                    const code_selector& s = selectors[ v ];
+                    printf( "'%s'", heap + s.key );
+                    break;
+                }
+                }
+            }
+            else
+            {
+                putchar( p[ 0 ] );
+            }
+        }
+    }
+}
+
+void code_debug_function::debug_print( const code_script* script ) const
+{
+    const char* heap = this->heap();
+    const code_debug_variable* variables = this->variables();
+    const code_debug_var_span* var_spans = this->var_spans();
+
+    printf( "  VARIABLES:\n" );
+    for ( unsigned i = 0; i < variable_count; ++i )
+    {
+        const code_debug_variable& v = variables[ i ];
+        printf( "    %u : [%u] %s\n", i, v.r, heap + v.variable_name );
+    }
+
+    printf( "  VAR SPANS:\n" );
+    for ( unsigned i = 0; i < var_span_count; ++i )
+    {
+        const code_debug_var_span& s = var_spans[ i ];
+        printf( "    %u : %u :%04X:%04X\n", i, s.variable_index, s.lower, s.upper );
+    }
+}
 
 }
 
