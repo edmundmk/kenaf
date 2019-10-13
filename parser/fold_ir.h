@@ -56,6 +56,7 @@ private:
     bool is_constant( ir_operand operand );
     bool is_upval( const ir_op* op );
     double to_number( ir_operand operand );
+    bool test_constant( ir_operand operand );
     std::string_view to_string( ir_operand operand );
 
     bool fold_unarithmetic( ir_op* op );
@@ -63,6 +64,7 @@ private:
     bool fold_equal( ir_op* op );
     bool fold_compare( ir_op* op );
     bool fold_not( ir_op* op );
+    bool fold_test( ir_op* op );
 
     void remove_unreachable_blocks();
 

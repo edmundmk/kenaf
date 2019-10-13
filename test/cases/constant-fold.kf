@@ -57,6 +57,13 @@ if not 33 then end
 if not not null then end
 if not not not "EA" then end
 
+var a = 33 and 44 or 23
+
+while true do hello() break end
+while false do something() end
+while 33 == 33 do nothing() break end
+while 33 != 33 do nothingx() end
+
 return 3 + 4
 
 

@@ -276,6 +276,16 @@ void fold_ir::fold_constants( ir_block* block )
             fold_not( op );
             break;
 
+        case IR_B_AND:
+        case IR_B_CUT:
+        case IR_B_PHI:
+            // TODO.
+            break;
+
+        case IR_JUMP_TEST:
+            fold_test( op );
+            break;
+
         default: break;
         }
     }
@@ -345,6 +355,16 @@ double fold_ir::to_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     return _f->numbers.at( operand.index ).n;
+}
+
+bool fold_ir::test_constant( ir_operand operand )
+{
+    if ( operand.kind == IR_O_NULL || operand.kind == IR_O_FALSE )
+        return false;
+    else if ( operand.kind == IR_O_NUMBER )
+        return to_number( operand ) != 0.0;
+    else
+        return true;
 }
 
 std::string_view fold_ir::to_string( ir_operand operand )
@@ -537,13 +557,7 @@ bool fold_ir::fold_not( ir_op* op )
         return false;
     }
 
-    bool test;
-    if ( u.kind == IR_O_NULL || u.kind == IR_O_FALSE )
-        test = false;
-    else if ( u.kind == IR_O_NUMBER )
-        test = to_number( u ) != 0.0;
-    else
-        test = true;
+    bool test = test_constant( u );
 
     // Update operand.
     ir_operand* operand = &_f->operands.at( op->oindex );
@@ -551,6 +565,28 @@ bool fold_ir::fold_not( ir_op* op )
 
     // Change op to constant.
     op->opcode = IR_CONST;
+    op->ocount = 1;
+    return true;
+}
+
+bool fold_ir::fold_test( ir_op* op )
+{
+    assert( op->opcode == IR_JUMP_TEST );
+    assert( op->ocount == 3 );
+    ir_operand u = fold_operand( op->oindex );
+
+    if ( ! is_constant( u ) )
+    {
+        return false;
+    }
+
+    bool test = test_constant( u );
+
+    // Change test to unconditional jump.
+    ir_operand* operand = &_f->operands.at( op->oindex );
+    ir_operand* jump = &_f->operands.at( op->oindex + ( test ? 1 : 2 ) );
+    *operand = *jump;
+    op->opcode = IR_JUMP;
     op->ocount = 1;
     return true;
 }
