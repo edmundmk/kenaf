@@ -28,8 +28,8 @@ void fold_ir::fold( ir_function* function )
 {
     _f = function;
     fold_phi();
-//    fold_constants();
-//    remove_unreachable_blocks();
+    fold_constants();
+    remove_unreachable_blocks();
 }
 
 void fold_ir::fold_phi()
@@ -157,16 +157,17 @@ bool fold_ir::phi_loop_check( ir_operand loop_phi, ir_operand operand )
     }
 }
 
-/*
+
 void fold_ir::fold_constants()
 {
-    _stack.push_back( 0 );
+    _stack.push_back( { IR_O_BLOCK, 0 } );
     while ( ! _stack.empty() )
     {
-        ir_block_index block_index = _stack.back();
+        ir_operand block_operand = _stack.back();
         _stack.pop_back();
 
-        ir_block* block = &_f->blocks.at( block_index );
+        assert( block_operand.kind == IR_O_BLOCK );
+        ir_block* block = &_f->blocks.at( block_operand.index );
 
         // If we've already visited, continue.
         if ( block->reachable )
@@ -181,19 +182,19 @@ void fold_ir::fold_constants()
         if ( jump.opcode == IR_JUMP )
         {
             assert( jump.ocount == 1 );
-            _stack.push_back( jump_block_index( jump.oindex ) );
+            _stack.push_back( jump_block_operand( jump.oindex ) );
         }
         else if ( jump.opcode == IR_JUMP_TEST )
         {
             assert( jump.ocount == 3 );
-            _stack.push_back( jump_block_index( jump.oindex + 1 ) );
-            _stack.push_back( jump_block_index( jump.oindex + 2 ) );
+            _stack.push_back( jump_block_operand( jump.oindex + 1 ) );
+            _stack.push_back( jump_block_operand( jump.oindex + 2 ) );
         }
         else if ( jump.opcode == IR_JUMP_FOR_EACH || jump.opcode == IR_JUMP_FOR_STEP )
         {
             assert( jump.ocount == 2 );
-            _stack.push_back( jump_block_index( jump.oindex + 0 ) );
-            _stack.push_back( jump_block_index( jump.oindex + 1 ) );
+            _stack.push_back( jump_block_operand( jump.oindex + 0 ) );
+            _stack.push_back( jump_block_operand( jump.oindex + 1 ) );
         }
         else
         {
@@ -202,7 +203,7 @@ void fold_ir::fold_constants()
     }
 }
 
-ir_block_index fold_ir::jump_block_index( unsigned operand_index )
+ir_operand fold_ir::jump_block_operand( unsigned operand_index )
 {
     ir_operand o = _f->operands.at( operand_index );
     assert( o.kind == IR_O_JUMP );
@@ -211,7 +212,7 @@ ir_block_index fold_ir::jump_block_index( unsigned operand_index )
     assert( block.ocount == 1 );
     o = _f->operands.at( block.oindex );
     assert( o.kind == IR_O_BLOCK );
-    return o.index;
+    return o;
 }
 
 ir_operand fold_ir::fold_operand( unsigned operand_index )
@@ -381,6 +382,6 @@ void fold_ir::remove_unreachable_blocks()
         }
     }
 }
-*/
+
 }
 

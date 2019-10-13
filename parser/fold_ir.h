@@ -44,14 +44,13 @@ public:
 
 private:
 
-    void fold_constants();
-    ir_block_index jump_block_index( unsigned operand_index );
-
     void fold_phi();
     void fold_phi_step();
     void fold_phi_loop();
     bool phi_loop_check( ir_operand loop_phi, ir_operand operand );
 
+    void fold_constants();
+    ir_operand jump_block_operand( unsigned operand_index );
     ir_operand fold_operand( unsigned operand_index );
     bool is_constant( ir_operand operand );
     double to_number( ir_operand operand );
