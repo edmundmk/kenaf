@@ -133,6 +133,7 @@ struct ir_function
     ~ir_function();
 
     void debug_print() const;
+    void debug_print_phi_graph() const;
 
     ast_function* ast;
     std::vector< ir_op > ops;

@@ -67,6 +67,7 @@ int main( int argc, char* argv[] )
         {
             function->debug_print();
             std::unique_ptr< kf::ir_function > ir = build_ir.build( function.get() );
+            ir->debug_print_phi_graph();
             fold_ir.fold( ir.get() );
             ir->debug_print();
         }

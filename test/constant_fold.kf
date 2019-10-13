@@ -18,6 +18,12 @@ test( 0x7F | 0xFF81 )
 
 test( 3 + null )
 
+var x = 99
+
+if something() then x = 99 end
+
+test( x + 99 )
+
 return 3 + 4
 
 

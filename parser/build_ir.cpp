@@ -1722,6 +1722,11 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
 
 void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned phi_index )
 {
+    /*
+        Construct phi op by searching for definitions that reach the block.
+            http://compilers.cs.uni-saarland.de/papers/bbhlmz13cc.pdf
+    */
+
     assert( block_index != IR_INVALID_INDEX );
     ir_block* block = &_f->blocks.at( block_index );
 
@@ -1732,6 +1737,32 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
         ir_block_index preceding_index = _f->preceding_blocks.at( index );
         if ( preceding_index == IR_INVALID_INDEX )
             continue;
+
+        // Find def in previous block.
+        ir_operand def = search_def( preceding_index, local );
+
+        // Look through phi with single operand.
+        while ( true )
+        {
+            assert( def.kind == IR_O_OP );
+            ir_op* op = &_f->ops.at( def.index );
+            if ( op->opcode == IR_PHI && op->ocount == 1 )
+            {
+                def = _f->operands.at( op->oindex );
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Ignore selection of this phi again.
+        assert( def.kind == IR_O_OP );
+        if ( def.index == phi_index )
+        {
+            continue;
+        }
+
         _def_stack.push_back( search_def( preceding_index, local ) );
     }
 

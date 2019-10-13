@@ -103,7 +103,10 @@ ir_operand fold_ir::fold_operand( unsigned operand_index )
             op = &_f->ops.at( oval.index );
         }
 
-        // TODO: Merge phi ops?
+        if ( op->opcode == IR_PHI )
+        {
+//            operand = fold_phi( operand );
+        }
 
         if ( op->opcode == IR_CONST )
         {
@@ -113,6 +116,30 @@ ir_operand fold_ir::fold_operand( unsigned operand_index )
     }
 
     return operand;
+}
+
+ir_operand fold_ir::fold_phi( ir_operand phi_operand )
+{
+    ir_op* phi = &_f->ops.at( phi_operand.index );
+    assert( phi->opcode == IR_PHI );
+
+    if ( phi->ocount == 0 )
+    {
+        return phi_operand;
+    }
+
+    ir_operand operand = fold_operand( phi->oindex );
+    if ( ! is_constant( operand ) )
+    {
+        return phi_operand;
+    }
+
+    for ( unsigned i = 1; i < phi->ocount; ++i )
+    {
+//        ir_operand
+    }
+
+    return phi_operand;
 }
 
 bool fold_ir::is_constant( ir_operand operand )
@@ -180,7 +207,7 @@ template < typename F > bool fold_ir::fold_biarithmetic( ir_op* op, F fold )
         return true;
     }
 
-    if ( is_constant( u ) || is_constant( v ) )
+    if ( is_constant( u ) && is_constant( v ) )
     {
         _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
     }

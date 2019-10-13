@@ -277,5 +277,37 @@ void ir_function::debug_print() const
     }
 }
 
+void ir_function::debug_print_phi_graph() const
+{
+    printf( "digraph { rankdir = BT;\n" );
+    for ( unsigned i = 0; i < ops.size(); ++i )
+    {
+        const ir_op& op = ops.at( i );
+        if ( op.opcode != IR_PHI )
+            continue;
+
+        const ast_local& local = ast->locals.at( op.local );
+        for ( unsigned j = 0; j < op.ocount; ++j )
+        {
+            const ir_operand& operand = operands.at( op.oindex + j );
+            assert( operand.kind == IR_O_OP );
+
+            const ir_op& to_op = ops.at( operand.index );
+            const ast_local& to_local = ast->locals.at( to_op.local );
+
+            printf
+            (
+                "%.*s_%04X -> %.*s_%04X;\n",
+                (int)local.name.size(), local.name.data(),
+                i,
+                (int)to_local.name.size(), to_local.name.data(),
+                operand.index
+            );
+        }
+
+    }
+    printf( "}\n" );
+}
+
 }
 
