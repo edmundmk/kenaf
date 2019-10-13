@@ -280,31 +280,45 @@ void ir_function::debug_print() const
 void ir_function::debug_print_phi_graph() const
 {
     printf( "digraph { rankdir = BT;\n" );
-    for ( unsigned i = 0; i < ops.size(); ++i )
+    for ( unsigned block_index = 0; block_index < blocks.size(); ++block_index )
     {
-        const ir_op& op = ops.at( i );
-        if ( op.opcode != IR_PHI )
-            continue;
+        const ir_block& block = blocks[ block_index ];
 
-        const ast_local& local = ast->locals.at( op.local );
-        for ( unsigned j = 0; j < op.ocount; ++j )
+        for ( unsigned phi_index = block.phi_head; phi_index != IR_INVALID_INDEX; phi_index = ops.at( phi_index ).phi_next )
         {
-            const ir_operand& operand = operands.at( op.oindex + j );
-            assert( operand.kind == IR_O_OP );
+            const ir_op& phi = ops.at( phi_index );
+            assert( phi.opcode == IR_PHI );
 
-            const ir_op& to_op = ops.at( operand.index );
-            const ast_local& to_local = ast->locals.at( to_op.local );
+            const ast_local& local = ast->locals.at( phi.local );
 
-            printf
-            (
-                "%.*s_%04X -> %.*s_%04X;\n",
-                (int)local.name.size(), local.name.data(),
-                i,
-                (int)to_local.name.size(), to_local.name.data(),
-                operand.index
-            );
+            if ( block.kind == IR_BLOCK_LOOP )
+            {
+                printf
+                (
+                    "%.*s_%04X [style=filled, fillcolor=gray];\n",
+                    (int)local.name.size(), local.name.data(),
+                    phi_index
+                );
+            }
+
+            for ( unsigned j = 0; j < phi.ocount; ++j )
+            {
+                const ir_operand& operand = operands.at( phi.oindex + j );
+                assert( operand.kind == IR_O_OP );
+
+                const ir_op& to_op = ops.at( operand.index );
+                const ast_local& to_local = ast->locals.at( to_op.local );
+
+                printf
+                (
+                    "%.*s_%04X -> %.*s_%04X;\n",
+                    (int)local.name.size(), local.name.data(),
+                    phi_index,
+                    (int)to_local.name.size(), to_local.name.data(),
+                    operand.index
+                );
+            }
         }
-
     }
     printf( "}\n" );
 }

@@ -14,6 +14,8 @@
 /*
     The folding process performs the following transformations:
 
+      - Phi operands which merge the same definition are simplified.
+
       - Expressions involving only constants are precomputed.
       - Conditional branches based on constant values are made unconditional.
 
@@ -45,8 +47,12 @@ private:
     void fold_constants();
     ir_block_index jump_block_index( unsigned operand_index );
 
+    void fold_phi();
+    void fold_phi_step();
+    void fold_phi_loop();
+    bool phi_loop_search( ir_operand loop_phi, ir_operand operand );
+
     ir_operand fold_operand( unsigned operand_index );
-    ir_operand fold_phi( ir_operand phi_operand );
     bool is_constant( ir_operand operand );
     double to_number( ir_operand operand );
     template < typename F > bool fold_unarithmetic( ir_op* op, F fold );
@@ -57,7 +63,7 @@ private:
 
     source* _source;
     ir_function* _f;
-    std::vector< ir_block_index > _block_stack;
+    std::vector< ir_operand > _stack;
 
 };
 
