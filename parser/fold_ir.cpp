@@ -272,6 +272,10 @@ void fold_ir::fold_constants( ir_block* block )
             fold_compare( op );
             break;
 
+        case IR_NOT:
+            fold_not( op );
+            break;
+
         default: break;
         }
     }
@@ -516,6 +520,34 @@ bool fold_ir::fold_compare( ir_op* op )
     // Update operand.
     ir_operand* operand = &_f->operands.at( op->oindex );
     operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
+
+    // Change op to constant.
+    op->opcode = IR_CONST;
+    op->ocount = 1;
+    return true;
+}
+
+bool fold_ir::fold_not( ir_op* op )
+{
+    assert( op->ocount == 1 );
+    ir_operand u = fold_operand( op->oindex );
+
+    if ( ! is_constant( u ) )
+    {
+        return false;
+    }
+
+    bool test;
+    if ( u.kind == IR_O_NULL || u.kind == IR_O_FALSE )
+        test = false;
+    else if ( u.kind == IR_O_NUMBER )
+        test = to_number( u ) != 0.0;
+    else
+        test = true;
+
+    // Update operand.
+    ir_operand* operand = &_f->operands.at( op->oindex );
+    operand->kind = test ? IR_O_FALSE : IR_O_TRUE;
 
     // Change op to constant.
     op->opcode = IR_CONST;
