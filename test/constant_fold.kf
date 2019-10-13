@@ -1,0 +1,23 @@
+
+test( -3 )
+test( +3 )
+test( ~3 )
+
+test( 3 * 4 )
+test( 3 / 4 )
+test( 15 // 6 )
+test( 8 % 6 )
+test( 3 + 4 )
+test( 3 - 4 )
+test( 3 << 4 )
+test( 3 >> 1 )
+test( -44 ~>> 3 )
+test( 0x7F & 0xFF81 )
+test( 0x7F ^ 0xFF81 )
+test( 0x7F | 0xFF81 )
+
+test( 3 + null )
+
+return 3 + 4
+
+

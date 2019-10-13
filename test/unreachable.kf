@@ -1,0 +1,32 @@
+
+while true do
+
+    do_something()
+
+    if true then continue end
+
+    do_something_else()
+
+    break
+
+    for i = 0 : 4 do
+
+        do_something()
+
+        if someone_watching() then
+            break
+        else
+            do_something_else()
+        end
+
+    end
+
+end
+
+wunderbar()
+
+return null
+
+definitely_unreachable()
+
+return 3
