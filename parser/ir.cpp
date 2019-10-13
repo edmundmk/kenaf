@@ -198,12 +198,6 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
-        case IR_O_DEFAULT_PROTOTYPE:
-        {
-            printf( " DEFAULT_PROTOTYPE" );
-            break;
-        }
-
         case IR_O_LOCAL_INDEX:
         {
             const ast_local& local = f->ast->locals.at( operand.index );

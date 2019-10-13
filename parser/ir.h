@@ -263,8 +263,6 @@ enum ir_operand_kind : uint8_t
     IR_O_NUMBER,                // Constant number.
     IR_O_STRING,                // Constant string.
 
-    IR_O_DEFAULT_PROTOTYPE,     // Default prototype.
-
     IR_O_LOCAL_INDEX,           // Index of local.
     IR_O_UPVAL_INDEX,           // Index of upval.
     IR_O_FUNCTION_INDEX,        // Index of function.

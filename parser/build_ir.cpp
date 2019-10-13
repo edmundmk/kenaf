@@ -891,7 +891,7 @@ ir_operand build_ir::visit( node_index node )
         }
         else
         {
-            _o.push_back( { IR_O_DEFAULT_PROTOTYPE } );
+            _o.push_back( { IR_O_NULL } );
             _o.push_back( emit( node->sloc, IR_CONST, 1 ) );
         }
 

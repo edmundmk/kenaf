@@ -53,6 +53,7 @@ private:
     ir_operand jump_block_operand( unsigned operand_index );
     ir_operand fold_operand( unsigned operand_index );
     bool is_constant( ir_operand operand );
+    bool is_upval( const ir_op* op );
     double to_number( ir_operand operand );
     template < typename F > bool fold_unarithmetic( ir_op* op, F fold );
     template < typename F > bool fold_biarithmetic( ir_op* op, F fold );
