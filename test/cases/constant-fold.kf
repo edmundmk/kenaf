@@ -43,6 +43,16 @@ if true == true then end
 if true == false then end
 if 3 == true then end
 
+if 3 < 4 then end
+if 4 < 3 then end
+if 3 <= 3 then end
+if 4 <= 4 then end
+if "ABC" < "BCD" then end
+if "ABC" <= "ABC" then end
+if "ABC" > "BCD" then end
+if "ABC" >= "ABC" then end
+if "PQ" > "AB" then end
+
 return 3 + 4
 
 

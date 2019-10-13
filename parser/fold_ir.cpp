@@ -355,6 +355,11 @@ bool fold_ir::fold_unarithmetic( ir_op* op )
     assert( op->ocount == 1 );
     ir_operand u = fold_operand( op->oindex );
 
+    if ( ! is_constant( u ) )
+    {
+        return false;
+    }
+
     if ( u.kind == IR_O_NUMBER )
     {
         // Perform calculation.
@@ -379,13 +384,11 @@ bool fold_ir::fold_unarithmetic( ir_op* op )
         op->opcode = IR_CONST;
         return true;
     }
-
-    if ( is_constant( u ) )
+    else
     {
         _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        return false;
     }
-
-    return false;
 }
 
 bool fold_ir::fold_biarithmetic( ir_op* op )
@@ -393,6 +396,11 @@ bool fold_ir::fold_biarithmetic( ir_op* op )
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
     ir_operand v = fold_operand( op->oindex + 1 );
+
+    if ( ! is_constant( u ) || ! is_constant( v ) )
+    {
+        return false;
+    }
 
     if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
     {
@@ -429,13 +437,11 @@ bool fold_ir::fold_biarithmetic( ir_op* op )
         op->ocount = 1;
         return true;
     }
-
-    if ( is_constant( u ) && is_constant( v ) )
+    else
     {
         _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        return false;
     }
-
-    return false;
 }
 
 bool fold_ir::fold_equal( ir_op* op )
@@ -444,44 +450,77 @@ bool fold_ir::fold_equal( ir_op* op )
     ir_operand u = fold_operand( op->oindex + 0 );
     ir_operand v = fold_operand( op->oindex + 1 );
 
-    if ( is_constant( u ) && is_constant( v ) )
+    if ( ! is_constant( u ) || ! is_constant( v ) )
     {
-        bool equal;
-        if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
-        {
-            double a = to_number( u );
-            double b = to_number( v );
-            equal = ( a == b );
-        }
-        else if ( u.kind == IR_O_STRING && v.kind == IR_O_STRING )
-        {
-            std::string_view a = to_string( u );
-            std::string_view b = to_string( v );
-            equal = ( a == b );
-        }
-        else
-        {
-            equal = ( u.kind == v.kind );
-        }
-
-        bool result = op->opcode == IR_EQ ? equal : ! equal;
-
-        // Update operand.
-        ir_operand* operand = &_f->operands.at( op->oindex );
-        operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
-
-        // Change op to constant.
-        op->opcode = IR_CONST;
-        op->ocount = 1;
-        return true;
+        return false;
     }
 
-    return false;
+    bool result;
+    if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
+    {
+        double a = to_number( u );
+        double b = to_number( v );
+        result = op->opcode == IR_EQ ? a == b : a != b;
+    }
+    else if ( u.kind == IR_O_STRING && v.kind == IR_O_STRING )
+    {
+        std::string_view a = to_string( u );
+        std::string_view b = to_string( v );
+        result = op->opcode == IR_EQ ? a == b : a != b;
+    }
+    else
+    {
+        result = op->opcode == IR_EQ ? u.kind == v.kind : u.kind != v.kind;
+    }
+
+    // Update operand.
+    ir_operand* operand = &_f->operands.at( op->oindex );
+    operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
+
+    // Change op to constant.
+    op->opcode = IR_CONST;
+    op->ocount = 1;
+    return true;
 }
 
 bool fold_ir::fold_compare( ir_op* op )
 {
-    return false;
+    assert( op->ocount == 2 );
+    ir_operand u = fold_operand( op->oindex + 0 );
+    ir_operand v = fold_operand( op->oindex + 1 );
+
+    if ( ! is_constant( u ) || ! is_constant( v ) )
+    {
+        return false;
+    }
+
+    bool result;
+    if ( u.kind == IR_O_NUMBER && v.kind == IR_O_NUMBER )
+    {
+        double a = to_number( u );
+        double b = to_number( v );
+        result = op->opcode == IR_LT ? a < b : a <= b;
+    }
+    else if ( u.kind == IR_O_STRING && v.kind == IR_O_STRING )
+    {
+        std::string_view a = to_string( u );
+        std::string_view b = to_string( v );
+        result = op->opcode == IR_LT ? a < b : a <= b;
+    }
+    else
+    {
+        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        return false;
+    }
+
+    // Update operand.
+    ir_operand* operand = &_f->operands.at( op->oindex );
+    operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
+
+    // Change op to constant.
+    op->opcode = IR_CONST;
+    op->ocount = 1;
+    return true;
 }
 
 void fold_ir::remove_unreachable_blocks()
