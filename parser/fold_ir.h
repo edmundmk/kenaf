@@ -64,6 +64,7 @@ private:
     bool fold_equal( ir_op* op );
     bool fold_compare( ir_op* op );
     bool fold_not( ir_op* op );
+    bool fold_cut( ir_op* op );
     bool fold_test( ir_op* op );
 
     void remove_unreachable_blocks();

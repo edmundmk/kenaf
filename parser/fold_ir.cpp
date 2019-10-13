@@ -278,6 +278,9 @@ void fold_ir::fold_constants( ir_block* block )
 
         case IR_B_AND:
         case IR_B_CUT:
+            fold_cut( op );
+            break;
+
         case IR_B_PHI:
             // TODO.
             break;
@@ -549,6 +552,7 @@ bool fold_ir::fold_compare( ir_op* op )
 
 bool fold_ir::fold_not( ir_op* op )
 {
+    assert( op->opcode == IR_NOT );
     assert( op->ocount == 1 );
     ir_operand u = fold_operand( op->oindex );
 
@@ -569,26 +573,55 @@ bool fold_ir::fold_not( ir_op* op )
     return true;
 }
 
+bool fold_ir::fold_cut( ir_op* op )
+{
+    // TODO.
+    return false;
+}
+
 bool fold_ir::fold_test( ir_op* op )
 {
     assert( op->opcode == IR_JUMP_TEST );
     assert( op->ocount == 3 );
     ir_operand u = fold_operand( op->oindex );
 
-    if ( ! is_constant( u ) )
+    if ( is_constant( u ) )
     {
-        return false;
+        // Change test to unconditional jump.
+        bool test = test_constant( u );
+        ir_operand* operand = &_f->operands.at( op->oindex );
+        ir_operand* jump = &_f->operands.at( op->oindex + ( test ? 1 : 2 ) );
+        *operand = *jump;
+        op->opcode = IR_JUMP;
+        op->ocount = 1;
+        return true;
     }
 
-    bool test = test_constant( u );
+    // Count nots in test expression.
+    const ir_op* not_op;
+    size_t not_count = 0;
+    while ( u.kind == IR_O_OP && ( not_op = &_f->ops.at( u.index ) )->opcode == IR_NOT )
+    {
+        u = _f->operands.at( not_op->oindex );
+        not_count += 1;
+    }
 
-    // Change test to unconditional jump.
-    ir_operand* operand = &_f->operands.at( op->oindex );
-    ir_operand* jump = &_f->operands.at( op->oindex + ( test ? 1 : 2 ) );
-    *operand = *jump;
-    op->opcode = IR_JUMP;
-    op->ocount = 1;
-    return true;
+    if ( not_count )
+    {
+        // Skip past nots.
+        ir_operand* operand = &_f->operands.at( op->oindex );
+        *operand = u;
+
+        // Swap true/false if not_count is odd.
+        if ( not_count % 2 )
+        {
+            ir_operand* jt = &_f->operands.at( op->oindex + 1 );
+            ir_operand* jf = &_f->operands.at( op->oindex + 2 );
+            std::swap( *jt, *jf );
+        }
+    }
+
+    return false;
 }
 
 void fold_ir::remove_unreachable_blocks()

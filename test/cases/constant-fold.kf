@@ -64,6 +64,8 @@ while false do something() end
 while 33 == 33 do nothing() break end
 while 33 != 33 do nothingx() end
 
+if not not gg then tt() else ff() end
+
 return 3 + 4
 
 
