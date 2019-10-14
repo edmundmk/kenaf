@@ -15,6 +15,7 @@
 #include "parser/resolve_names.h"
 #include "parser/build_ir.h"
 #include "parser/fold_ir.h"
+#include "parser/live_ir.h"
 
 int main( int argc, char* argv[] )
 {
@@ -62,6 +63,7 @@ int main( int argc, char* argv[] )
     {
         kf::build_ir build_ir( &source );
         kf::fold_ir fold_ir( &source );
+        kf::live_ir live_ir( &source );
 
         for ( const auto& function : ast_script->functions )
         {
@@ -72,6 +74,7 @@ int main( int argc, char* argv[] )
             }
 
             fold_ir.fold( ir.get() );
+            live_ir.live( ir.get() );
             ir->debug_print();
         }
     }

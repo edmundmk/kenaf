@@ -21,6 +21,7 @@
     the variable.  The live ranges of these ops should not overlap.
 */
 
+#include <unordered_set>
 #include "ir.h"
 
 namespace kf
@@ -37,10 +38,9 @@ public:
 
 private:
 
-    void live_linear_pass();
-    bool has_side_effects( ir_op* op );
-
-    void live_dataflow_pass();
+    void live_linear();
+    void live_successor( ir_block_index block_index, ir_operand jump );
+    void mark_use( ir_operand def, unsigned use_index );
 
     source* _source;
     ir_function* _f;

@@ -128,9 +128,11 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
     printf( "%*s:%04X", indent, "", i );
     if ( op.live_range != IR_INVALID_INDEX )
-        printf( " ;%04X", op.live_range );
+        printf( ":%04X", op.live_range );
+    else if ( op.mark )
+        printf( ":====" );
     else
-        printf( " ;----" );
+        printf( "     " );
     printf( " %s", OPCODE_NAMES[ op.opcode ] );
 
     for ( unsigned o = 0; o < op.ocount; ++o )

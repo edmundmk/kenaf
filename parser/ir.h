@@ -122,9 +122,9 @@ struct ir_operand;
 struct ir_block;
 struct ir_number;
 struct ir_string;
-struct ir_lrange;
+struct ir_live_value;
+struct ir_live_range;
 
-typedef unsigned ir_lindex;
 typedef unsigned ir_block_index;
 
 /*
@@ -160,9 +160,9 @@ struct ir_function
     std::vector< ir_number > numbers;
     std::vector< ir_string > strings;
 
-    // Live ranges of local variables.
-    std::vector< ir_lindex > llookup;
-    std::vector< ir_lrange > lranges;
+    // Live ranges of local and for loop variables.
+    std::vector< ir_live_value > live_values;
+    std::vector< ir_live_range > live_ranges;
 };
 
 /*
@@ -299,11 +299,21 @@ enum ir_block_kind : uint8_t
     IR_BLOCK_UNSEALED,
 };
 
+enum ir_live_value_kind : uint8_t
+{
+    IR_LV_LOCAL,
+    IR_LV_FOR_INDEX,
+    IR_LV_FOR_LIMIT,
+    IR_LV_FOR_STEP,
+    IR_LV_FOR_GENERATOR,
+    IR_LV_FOR_GEN_INDEX,
+};
+
 struct ir_op
 {
     ir_op()
         :   opcode( IR_NOP )
-        ,   mark( IR_INVALID_REGISTER )
+        ,   mark( 0 )
         ,   localu( IR_INVALID_LOCAL )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
@@ -376,10 +386,15 @@ struct ir_string
     size_t size;
 };
 
-struct ir_lrange
+struct ir_live_value
 {
-    unsigned local : 8;         // Local index.
-    unsigned index : 24;        // Index of op that defines range.
+    ir_live_value_kind kind;    // Kind.
+    unsigned index;             // Local or block index.
+};
+
+struct ir_live_range
+{
+    unsigned index;             // Index of op that defines range.
     unsigned lower;             // Lower index of live range.
     unsigned upper;             // Upper index of live range.
 };
