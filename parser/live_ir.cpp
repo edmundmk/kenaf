@@ -233,7 +233,7 @@ void live_ir::mark_use( ir_operand def, unsigned use_index )
     op->mark = mark >= op->mark ? mark : IR_MARK_STICKY;
 
     // Update live_range.
-    unsigned live_range = op->live_range != IR_INVALID_INDEX ? op->live_range : def.index;
+    unsigned live_range = op->live_range != IR_INVALID_INDEX ? op->live_range : 0;
     op->live_range = std::max( live_range, use_index );
 }
 
