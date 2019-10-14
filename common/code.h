@@ -89,7 +89,7 @@ enum opcode : uint8_t
     OP_JLEK,            // if a <= k[b] then jump   | T | - | a | b || J | - |   j   |
     OP_JGEK,            // if a >= k[b] then jump   | T | - | a | b || J | - |   j   |
 
-    OP_GET_GLOBAL,      // r = g[ c ]               | G | r |   c   |
+    OP_GET_GLOBAL,      // r = s[c]                 | G | r |   c   |
     OP_GET_UPVAL,       // r = u[ a ]               | G | r | a | - |
     OP_SET_UPVAL,       // u[ a ] = r               | G | r | a | - |
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |

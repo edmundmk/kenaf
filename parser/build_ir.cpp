@@ -1767,6 +1767,7 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
 
     // Recursively search for definitions in predecessor blocks.
     size_t def_index = _def_stack.size();
+    ir_operand def_self = { IR_O_NONE };
     for ( unsigned index = block->preceding_lower; index < block->preceding_upper; ++index )
     {
         ir_block_index preceding_index = _f->preceding_blocks.at( index );
@@ -1776,7 +1777,6 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
         // Find def in previous block.
         ir_operand def = search_def( preceding_index, local );
         assert( def.kind == IR_O_OP );
-        printf( "SEARCH DEF %u %u %04X\n", preceding_index, local, def.index );
 
         // Look through phi with single operand.
         ir_op* op = &_f->ops.at( def.index );
@@ -1786,9 +1786,10 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
             assert( def.kind == IR_O_OP );
         }
 
-        // Ignore selection of this phi again.
+        // Avoid generating phi( def, self ) with a single non-self def.
         if ( def.index == phi_index )
         {
+            def_self = def;
             continue;
         }
 
@@ -1809,6 +1810,12 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
         }
 
         _def_stack.push_back( def );
+    }
+
+    // Add self reference if there was more than one real def.
+    if ( def_self.kind != IR_O_NONE && _def_stack.size() - def_index > 1 )
+    {
+        _def_stack.insert( _def_stack.begin() + def_index, def_self );
     }
 
     // Add operands to phi.

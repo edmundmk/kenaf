@@ -40,8 +40,8 @@ void fold_ir::fold_phi()
         Fold the function's phigraph.  Each phi should reference either a
         non-phi op, or a phi op that merges multiple distinct definitions.
 
-        First we break links which always loop back to a loop header.  Then
-        we simplify by skipping phi definitions with a single operand.
+        First we replace links which loop back to the header with a self-def.
+        Then we simplify by skipping phi definitions with a single operand.
     */
     fold_phi_loop();
     fold_phi_step();
@@ -52,7 +52,7 @@ void fold_ir::fold_phi()
 void fold_ir::fold_phi_loop()
 {
     /*
-        Break links from loop header phi ops which loop back to the header.
+       Replace links which always loop back to the header.
     */
     for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
     {
@@ -74,7 +74,7 @@ void fold_ir::fold_phi_loop()
 
                 if ( phi_loop_search( { IR_O_OP, phi_index }, operand ) )
                 {
-                    continue;
+                    operand = { IR_O_OP, phi_index };
                 }
 
                 _stack.push_back( operand );
@@ -135,6 +135,7 @@ void fold_ir::fold_phi_step()
             ir_op* phi = &_f->ops.at( phi_index );
             assert( phi->opcode == IR_PHI );
 
+            ir_operand def_self = { IR_O_NONE };
             for ( unsigned j = 0; j < phi->ocount; ++j )
             {
                 ir_operand def = _f->operands.at( phi->oindex + j );
@@ -148,9 +149,10 @@ void fold_ir::fold_phi_step()
                     assert( def.kind == IR_O_OP );
                 }
 
-                // Ignore loop back to this phi.
+                // Avoid generating phi( def, self ) with a single non-self def.
                 if ( def.index == phi_index )
                 {
+                    def_self = def;
                     continue;
                 }
 
@@ -171,6 +173,12 @@ void fold_ir::fold_phi_step()
                 }
 
                 _stack.push_back( def );
+            }
+
+            // Add self reference if there was more than one real def.
+            if ( def_self.kind != IR_O_NONE && _stack.size() > 1 )
+            {
+                _stack.insert( _stack.begin(), def_self );
             }
 
             assert( _stack.size() <= phi->ocount );
@@ -657,9 +665,12 @@ bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
             for ( unsigned i = op_index; i < next_index; ++i )
             {
                 ir_op* nop = &_f->ops.at( i );
-                nop->opcode = IR_NOP;
-                nop->ocount = 0;
-                nop->oindex = IR_INVALID_INDEX;
+                if ( nop->opcode != IR_PHI )
+                {
+                    nop->opcode = IR_NOP;
+                    nop->ocount = 0;
+                    nop->oindex = IR_INVALID_INDEX;
+                }
             }
         }
         else
@@ -676,9 +687,12 @@ bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
             for ( unsigned i = def_index; i < phi_index; ++i )
             {
                 ir_op* nop = &_f->ops.at( i );
-                nop->opcode = IR_NOP;
-                nop->ocount = 0;
-                nop->oindex = IR_INVALID_INDEX;
+                if ( nop->opcode != IR_PHI )
+                {
+                    nop->opcode = IR_NOP;
+                    nop->ocount = 0;
+                    nop->oindex = IR_INVALID_INDEX;
+                }
             }
 
             // Update PHI's final operand.

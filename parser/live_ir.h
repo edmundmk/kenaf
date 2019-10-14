@@ -40,6 +40,12 @@ public:
 
 private:
 
+    void live_linear_pass();
+    bool has_side_effects( ir_op* op );
+
+    void live_dataflow_pass();
+
+
     source* _source;
     ir_function* _f;
 
