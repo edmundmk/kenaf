@@ -122,7 +122,6 @@ private:
 
     // Block construction and branch stacks.
     goto_stack _goto_stacks[ GOTO_MAX ];
-    std::vector< ir_block_index > _loop_stack;
     ir_block_index _block_index;
 
     // Definitions per block.

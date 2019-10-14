@@ -17,7 +17,6 @@ build_ir::build_ir( source* source )
     :   _source( source )
     ,   _block_index( IR_INVALID_INDEX )
 {
-    _loop_stack.push_back( IR_INVALID_INDEX );
 }
 
 build_ir::~build_ir()
@@ -50,7 +49,6 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
             assert( _goto_stacks[ i ].fixups.empty() );
             assert( _goto_stacks[ i ].index == 0 );
         }
-        assert( _loop_stack.size() == 1 && _loop_stack.back() == IR_INVALID_INDEX );
         assert( _block_index == IR_INVALID_INDEX );
         assert( _def_stack.empty() );
         _defs.clear();
@@ -67,7 +65,6 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
             _goto_stacks[ i ].fixups.clear();
             _goto_stacks[ i ].index = 0;
         }
-        _loop_stack.resize( 1 );
         _block_index = IR_INVALID_INDEX;
         _defs.clear();
 
@@ -1507,7 +1504,6 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
 
     ir_block block;
     block.kind = kind;
-    block.loop = _loop_stack.back();
     block.lower = _f->ops.size();
     block.preceding_lower = _f->preceding_blocks.size();
 
@@ -1549,17 +1545,14 @@ ir_block_index build_ir::new_loop( ir_block_index loop_header )
 {
     assert( loop_header == _block_index );
     assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED );
-    _loop_stack.push_back( loop_header );
     return loop_header;
 }
 
 void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
 {
-    // Pop block from loop stack.
+    // Find loop header block.
     ir_block* block = &_f->blocks.at( loop_header );
     assert( block->kind == IR_BLOCK_UNSEALED );
-    assert( _loop_stack.back() == loop_header );
-    _loop_stack.pop_back();
 
     // Add predecessor blocks to the block's predecessor list.
     goto_stack& stack = _goto_stacks[ scope.kind ];
