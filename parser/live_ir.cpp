@@ -13,9 +13,22 @@
 namespace kf
 {
 
+live_ir::live_ir( source* source )
+    :   _source( source )
+{
+}
 
+live_ir::~live_ir()
+{
+}
 
+void live_ir::live( ir_function* function )
+{
+    /*
 
+    */
+
+}
 
 }
 

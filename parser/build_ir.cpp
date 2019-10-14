@@ -1742,9 +1742,10 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
         block->phi_head = block->phi_tail = phi_index;
     }
 
-    // This phi acts as the def for this block.
+    // This phi acts as the def for this block, but only if the block doesn't
+    // have a real definition already.
     ir_operand operand = { IR_O_OP, phi_index };
-    _defs.emplace( block_local{ block_index, local }, operand );
+    _defs.try_emplace( block_local{ block_index, local }, operand );
 
     // If block is sealed, perform recursive search for defs now.
     if ( block->kind != IR_BLOCK_UNSEALED )
@@ -1775,6 +1776,7 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
         // Find def in previous block.
         ir_operand def = search_def( preceding_index, local );
         assert( def.kind == IR_O_OP );
+        printf( "SEARCH DEF %u %u %04X\n", preceding_index, local, def.index );
 
         // Look through phi with single operand.
         ir_op* op = &_f->ops.at( def.index );
@@ -1864,9 +1866,10 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     assert( op->local == IR_INVALID_LOCAL );
     op->local = local;
 
-    // Add to def lookup.
+    // Add to def lookup.  This overrides any previous def of this local in
+    // this block.
     assert( _block_index != IR_INVALID_INDEX );
-    _defs.emplace( block_local{ _block_index, local }, operand );
+    _defs.insert_or_assign( block_local{ _block_index, local }, operand );
 }
 
 }

@@ -41,6 +41,7 @@ public:
 private:
 
     source* _source;
+    ir_function* _f;
 
 };
 

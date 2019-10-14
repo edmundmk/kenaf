@@ -100,7 +100,8 @@
           op creates a new temporary value copied from a local.
 
         - Each value live in a block must have a op which defines its live
-          range, whether that is a real op or a PHI in the block header.
+          range, whether that is a real op or a PHI in the block header.  Only
+          PHI ops reference ops in other blocks.
 
     These properties ensure that the register allocator has all the information
     it needs in order to allocate a single register for each local.
