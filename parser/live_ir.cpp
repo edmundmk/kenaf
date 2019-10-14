@@ -62,7 +62,7 @@ void live_ir::live_linear_pass()
         ir_op* op = &_f->ops[ op_index ];
 
         // Skip phi ops, they will be dealt with when we reach the block.
-        if ( op->opcode == IR_PHI )
+        if ( op->opcode == IR_PHI || op->opcode == IR_REF )
         {
             continue;
         }

@@ -1754,71 +1754,67 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
     /*
         Construct phi op by searching for definitions that reach the block.
     */
-
     assert( block_index != IR_INVALID_INDEX );
     ir_block* block = &_f->blocks.at( block_index );
+    size_t def_index = _def_stack.size();
 
     // Recursively search for definitions in predecessor blocks.
-    size_t def_index = _def_stack.size();
-    ir_operand def_self = { IR_O_NONE };
+    size_t ref_count = 0;
+    ir_operand ref = { IR_O_NONE };
     for ( unsigned index = block->preceding_lower; index < block->preceding_upper; ++index )
     {
         ir_block_index preceding_index = _f->preceding_blocks.at( index );
-        if ( preceding_index == IR_INVALID_INDEX )
-            continue;
 
-        // Find def in previous block.
-        ir_operand def = search_def( preceding_index, local );
-        assert( def.kind == IR_O_OP );
-
-        // Look through phi with single operand.
-        ir_op* op = &_f->ops.at( def.index );
-        if ( op->opcode == IR_PHI && op->ocount == 1 )
+        // Find definition coming from this op.
+        ir_operand def = { IR_O_NONE };
+        if ( preceding_index != IR_INVALID_INDEX )
         {
+            def = search_def( preceding_index, local );
+            assert( def.kind == IR_O_OP );
+        }
+
+        // Look through refs.
+        ir_op* op = &_f->ops.at( def.index );
+        if ( op->opcode == IR_REF )
+        {
+            assert( op->ocount == 1 );
             def = _f->operands.at( op->oindex );
             assert( def.kind == IR_O_OP );
         }
 
-        // Avoid generating phi( def, self ) with a single non-self def.
-        if ( def.index == phi_index )
+        // Detect case of single non-self ref.
+        if ( def.index != phi_index && def.index != ref.index )
         {
-            def_self = def;
-            continue;
+            ref = def;
+            ref_count += 1;
         }
 
-        // Merge defs that are identical.
-        bool exists = false;
-        for ( size_t i = def_index; i < _def_stack.size(); ++i )
-        {
-            if ( def.index == _def_stack[ i ].index )
-            {
-                exists = true;
-                break;
-            }
-        }
-
-        if ( exists )
-        {
-            continue;
-        }
-
+        // Add operand, in order of predecessor blocks.
         _def_stack.push_back( def );
     }
 
-    // Add self reference if there was more than one real def.
-    if ( def_self.kind != IR_O_NONE && _def_stack.size() - def_index > 1 )
-    {
-        _def_stack.insert( _def_stack.begin() + def_index, def_self );
-    }
-
-    // Add operands to phi.
+    // Modify open phi op.
     ir_op* op = &_f->ops.at( phi_index );
     assert( op->opcode == IR_PHI_OPEN );
     assert( op->local == local );
-    op->opcode = IR_PHI;
-    op->oindex = _f->operands.size();
-    _f->operands.insert( _f->operands.end(), _def_stack.begin() + def_index, _def_stack.end() );
-    op->ocount = _f->operands.size() - op->oindex;
+
+    if ( ref_count != 1 )
+    {
+        // Add phi.
+        op->opcode = IR_PHI;
+        op->oindex = _f->operands.size();
+        _f->operands.insert( _f->operands.end(), _def_stack.begin() + def_index, _def_stack.end() );
+        op->ocount = _f->operands.size() - op->oindex;
+    }
+    else
+    {
+        // Add ref.
+        op->opcode = IR_REF;
+        op->oindex = _f->operands.size();
+        _f->operands.push_back( ref );
+        op->ocount = 1;
+    }
+
     _def_stack.resize( def_index );
 }
 

@@ -65,25 +65,21 @@ void fold_ir::fold_phi_loop()
         for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
         {
             ir_op* phi = &_f->ops.at( phi_index );
-            assert( phi->opcode == IR_PHI );
+            if ( phi->opcode == IR_REF )
+            {
+                continue;
+            }
 
             for ( unsigned j = 0; j < phi->ocount; ++j )
             {
-                ir_operand operand = _f->operands.at( phi->oindex + j );
-                assert( operand.kind == IR_O_OP );
+                ir_operand* operand = &_f->operands.at( phi->oindex + j );
+                assert( operand->kind == IR_O_OP );
 
-                if ( phi_loop_search( { IR_O_OP, phi_index }, operand ) )
+                if ( phi_loop_search( { IR_O_OP, phi_index }, *operand ) )
                 {
-                    operand = { IR_O_OP, phi_index };
+                    *operand = { IR_O_OP, phi_index };
                 }
-
-                _stack.push_back( operand );
             }
-
-            assert( _stack.size() <= phi->ocount );
-            std::copy( _stack.begin(), _stack.end(), _f->operands.begin() + phi->oindex );
-            phi->ocount = _stack.size();
-            _stack.clear();
         }
     }
 }
@@ -95,7 +91,7 @@ bool fold_ir::phi_loop_search( ir_operand loop_phi, ir_operand operand )
     */
     assert( operand.kind == IR_O_OP );
     const ir_op* op = &_f->ops.at( operand.index );
-    if ( op->opcode != IR_PHI )
+    if ( op->opcode != IR_PHI && op->opcode != IR_REF )
     {
         return false;
     }
@@ -133,58 +129,40 @@ void fold_ir::fold_phi_step()
         for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
         {
             ir_op* phi = &_f->ops.at( phi_index );
-            assert( phi->opcode == IR_PHI );
+            assert( phi->opcode == IR_PHI || phi->opcode == IR_REF );
 
-            ir_operand def_self = { IR_O_NONE };
+            size_t ref_count = 0;
+            ir_operand ref = { IR_O_NONE };
             for ( unsigned j = 0; j < phi->ocount; ++j )
             {
                 ir_operand def = _f->operands.at( phi->oindex + j );
                 assert( def.kind == IR_O_OP );
 
-                // Look through phi ops with a single operand.
+                // Look through refs.
                 ir_op* op = &_f->ops.at( def.index );
-                if ( op->opcode == IR_PHI && op->ocount == 1 )
+                if ( op->opcode == IR_REF )
                 {
+                    assert( op->ocount == 1 );
                     def = _f->operands.at( op->oindex );
                     assert( def.kind == IR_O_OP );
                 }
 
-                // Avoid generating phi( def, self ) with a single non-self def.
-                if ( def.index == phi_index )
+                // Detect case of single non-self ref.
+                if ( def.index != phi_index && def.index != ref.index )
                 {
-                    def_self = def;
-                    continue;
+                    ref = def;
+                    ref_count += 1;
                 }
-
-                // Merge defs that are identical.
-                bool exists = false;
-                for ( size_t i = 0; i < _stack.size(); ++i )
-                {
-                    if ( def.index == _stack[ i ].index )
-                    {
-                        exists = true;
-                        break;
-                    }
-                }
-
-                if ( exists )
-                {
-                    continue;
-                }
-
-                _stack.push_back( def );
             }
 
-            // Add self reference if there was more than one real def.
-            if ( def_self.kind != IR_O_NONE && _stack.size() > 1 )
+            // Collapse phi to ref.
+            assert( phi->ocount >= 1 );
+            if ( ref_count == 1 )
             {
-                _stack.insert( _stack.begin(), def_self );
+                phi->opcode = IR_REF;
+                phi->ocount = 1;
+                _f->operands.at( phi->oindex ) = ref;
             }
-
-            assert( _stack.size() <= phi->ocount );
-            std::copy( _stack.begin(), _stack.end(), _f->operands.begin() + phi->oindex );
-            phi->ocount = _stack.size();
-            _stack.clear();
         }
     }
 }
@@ -243,7 +221,7 @@ void fold_ir::fold_constants( ir_block* block )
     for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
     {
         ir_op* op = &_f->ops.at( op_index );
-        if ( op->opcode == IR_PHI )
+        if ( op->opcode == IR_PHI || op->opcode == IR_REF )
         {
             continue;
         }
@@ -332,8 +310,7 @@ ir_operand fold_ir::fold_operand( unsigned operand_index )
             return operand;
         }
 
-        while ( op->opcode == IR_VAL
-            || ( op->opcode == IR_PHI && op->ocount == 1 )
+        while ( op->opcode == IR_VAL || op->opcode == IR_REF
             || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
         {
             assert( op->ocount == 1 );
@@ -665,7 +642,7 @@ bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
             for ( unsigned i = op_index; i < next_index; ++i )
             {
                 ir_op* nop = &_f->ops.at( i );
-                if ( nop->opcode != IR_PHI )
+                if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
                 {
                     nop->opcode = IR_NOP;
                     nop->ocount = 0;
@@ -687,7 +664,7 @@ bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
             for ( unsigned i = def_index; i < phi_index; ++i )
             {
                 ir_op* nop = &_f->ops.at( i );
-                if ( nop->opcode != IR_PHI )
+                if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
                 {
                     nop->opcode = IR_NOP;
                     nop->ocount = 0;
@@ -812,9 +789,26 @@ void fold_ir::fold_uses()
         const ir_op* op = &_f->ops.at( operand->index );
         if ( op->opcode == IR_B_PHI && op->ocount == 1 )
         {
+            _stack.push_back( *operand );
             *operand = _f->operands.at( op->oindex );
         }
     }
+
+    for ( ir_operand operand : _stack )
+    {
+        ir_op* op = &_f->ops.at( operand.index );
+        if ( op->opcode == IR_NOP )
+        {
+            continue;
+        }
+
+        assert( op->opcode == IR_B_PHI && op->ocount == 1 );
+        op->opcode = IR_NOP;
+        op->ocount = 0;
+        op->oindex = IR_INVALID_INDEX;
+    }
+
+    _stack.clear();
 }
 
 void fold_ir::remove_unreachable_blocks()
@@ -843,7 +837,7 @@ void fold_ir::remove_unreachable_blocks()
         for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
         {
             ir_op* op = &_f->ops.at( op_index );
-            if ( op->opcode == IR_PHI )
+            if ( op->opcode == IR_PHI || op->opcode != IR_REF )
                 continue;
             op->opcode = IR_NOP;
             op->ocount = 0;

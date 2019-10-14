@@ -103,6 +103,7 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_PHI            ] = "PHI",
     [ IR_PHI_OPEN       ] = "PHI_OPEN",
+    [ IR_REF            ] = "REF",
 };
 
 const char* const BLOCK_KIND_NAMES[] =
@@ -117,7 +118,8 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 {
     const ir_op& op = f->ops.at( i );
 
-    bool grey = op.opcode == IR_NOP || op.opcode == IR_PIN || ( op.opcode == IR_PHI && indent == 0 );
+    bool grey = op.opcode == IR_NOP || op.opcode == IR_PIN
+        || ( ( op.opcode == IR_PHI || op.opcode == IR_REF ) && indent == 0 );
     if ( grey )
     {
         printf( "\x1B[90m" );
@@ -287,17 +289,18 @@ void ir_function::debug_print_phi_graph() const
         for ( unsigned phi_index = block.phi_head; phi_index != IR_INVALID_INDEX; phi_index = ops.at( phi_index ).phi_next )
         {
             const ir_op& phi = ops.at( phi_index );
-            assert( phi.opcode == IR_PHI );
+            assert( phi.opcode == IR_PHI || phi.opcode == IR_REF );
 
             const ast_local& local = ast->locals.at( phi.local );
 
-            if ( block.kind == IR_BLOCK_LOOP )
+            if ( phi.opcode == IR_REF || block.kind == IR_BLOCK_LOOP )
             {
                 printf
                 (
-                    "%.*s_%04X [style=filled, fillcolor=gray];\n",
+                    "%.*s_%04X [style=filled, fillcolor=%s];\n",
                     (int)local.name.size(), local.name.data(),
-                    phi_index
+                    phi_index,
+                    phi.opcode == IR_REF ? "grey" : "lightsteelblue"
                 );
             }
 
