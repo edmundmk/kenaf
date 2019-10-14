@@ -17,6 +17,8 @@
       - Phi operands which merge the same definition are simplified.
       - Expressions involving only constants are precomputed.
       - Conditional branches based on constant values are made unconditional.
+      - Branch phi sequences based on constants are simplified.
+      - Uses of single values are updated to use the target value.
       - Unreachable blocks are removed.
 
 
@@ -53,19 +55,25 @@ private:
 
     ir_operand jump_block_operand( unsigned operand_index );
     ir_operand fold_operand( unsigned operand_index );
+
     bool is_constant( ir_operand operand );
     bool is_upval( const ir_op* op );
     double to_number( ir_operand operand );
-    bool test_constant( ir_operand operand );
     std::string_view to_string( ir_operand operand );
+
+    bool test_constant( ir_operand operand );
+    std::pair< ir_operand, size_t > count_nots( ir_operand operand );
 
     bool fold_unarithmetic( ir_op* op );
     bool fold_biarithmetic( ir_op* op );
     bool fold_equal( ir_op* op );
     bool fold_compare( ir_op* op );
     bool fold_not( ir_op* op );
-    bool fold_cut( ir_op* op );
+    bool fold_cut( unsigned op_index, ir_op* op );
+    bool fold_phi( ir_op* op );
     bool fold_test( ir_op* op );
+
+    void fold_uses();
 
     void remove_unreachable_blocks();
 

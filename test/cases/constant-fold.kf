@@ -69,3 +69,9 @@ if not not gg then tt() else ff() end
 return 3 + 4
 
 
+
+def f()
+
+    return if false then 33 elif true then 44 else 99 end
+
+end
