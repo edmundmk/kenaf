@@ -201,6 +201,10 @@ void fold_ir::fold_constants()
             _stack.push_back( jump_block_operand( jump.oindex + 1 ) );
             _stack.push_back( jump_block_operand( jump.oindex + 2 ) );
         }
+        else if ( jump.opcode == IR_JUMP_FOR_EGEN || jump.opcode == IR_JUMP_FOR_SGEN )
+        {
+            _stack.push_back( jump_block_operand( jump.oindex + jump.ocount - 1 ) );
+        }
         else if ( jump.opcode == IR_JUMP_FOR_EACH || jump.opcode == IR_JUMP_FOR_STEP )
         {
             assert( jump.ocount == 2 );

@@ -247,22 +247,13 @@ enum ir_opcode : uint8_t
     IR_B_DEF,                   // link_cut, value, jump_phi
     IR_B_PHI,                   // def, def, def, ..., value
 
-    // Instructions operating on loop variables.
-    IR_FOR_EACH_HEAD,           // [g/i] = generate( a )
-    IR_FOR_EACH_ITEMS,          // a, b, c = [g/i]
-    IR_FOR_STEP_HEAD,           // [i/l/s] = start, limit, step
-    IR_FOR_STEP_INDEX,          // a = [i/l/s]
-
     // Block and jump instructions.
     IR_BLOCK,                   // Block header.
     IR_JUMP,                    // Jump to new block.
     IR_JUMP_TEST,               // test, iftrue, iffalse
-    IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
-    IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
     IR_JUMP_THROW,              // value
     IR_JUMP_RETURN,             // value*
-/*
-    IR_JUMP_FOR_EGEN,           // list/generator, jump
+    IR_JUMP_FOR_EGEN,           // g, jump
     IR_JUMP_FOR_EACH,           // loop, break
     IR_JUMP_FOR_SGEN,           // start, limit, step, jump
     IR_JUMP_FOR_STEP,           // loop, break
@@ -270,7 +261,7 @@ enum ir_opcode : uint8_t
     // For loop variables.
     IR_FOR_EACH_ITEMS,          // results are generated items
     IR_FOR_STEP_INDEX,          // result is for step index
-*/
+
     // Phi instructions.
     IR_PHI,                     // Phi function.
     IR_PHI_OPEN,                // Open phi function in unclosed loop.

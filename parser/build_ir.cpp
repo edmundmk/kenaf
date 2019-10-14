@@ -715,7 +715,9 @@ ir_operand build_ir::visit( node_index node )
         _o.push_back( visit( start ) );
         _o.push_back( visit( limit ) );
         _o.push_back( visit( step ) );
-        emit( node->sloc, IR_FOR_STEP_HEAD, 3 );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        end_block( emit_jump( node->sloc, IR_JUMP_FOR_SGEN, 3, GOTO_ELSE ) );
+        goto_block( goto_else );
 
         // Start of loop.
         ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
@@ -751,7 +753,9 @@ ir_operand build_ir::visit( node_index node )
 
         // Evaluate generator expression.
         _o.push_back( visit( expr ) );
-        emit( node->sloc, IR_FOR_EACH_HEAD, 1 );
+        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        end_block( emit_jump( node->sloc, IR_JUMP_FOR_EGEN, 1, GOTO_ELSE ) );
+        goto_block( goto_else );
 
         // Start of loop.
         ir_block_index loop = new_loop( new_block( node->sloc, IR_BLOCK_UNSEALED ) );
@@ -1679,6 +1683,7 @@ ir_operand build_ir::end_block( ir_operand jump )
     assert( jump.kind == IR_O_OP );
     const ir_op& op = _f->ops.at( jump.index );
     assert( op.opcode == IR_JUMP || op.opcode == IR_JUMP_TEST
+        || op.opcode == IR_JUMP_FOR_EGEN || op.opcode == IR_JUMP_FOR_SGEN
         || op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
         || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN );
 
