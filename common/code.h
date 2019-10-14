@@ -117,7 +117,7 @@ enum opcode : uint8_t
     OP_UNPACK,          // r:b = a ...              | X | r | a | b |
 
     OP_GENERATE,        // r,b = generate a         | F | r | a | b |
-    OP_FOR_EACH,        // r:b = generate r',a      | F | r | a | b || J | r'|   j   |
+    OP_FOR_EACH,        // r:b = generate a,r'      | F | r | a | b || J | r'|   j   |
     OP_FOR_STEP,        // r = for step a,b,r'      | F | r | a | b || J | r'|   j   |
 
     OP_SUPER,           // r = super a              | G | r | a | - |

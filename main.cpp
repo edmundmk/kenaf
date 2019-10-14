@@ -65,14 +65,12 @@ int main( int argc, char* argv[] )
 
         for ( const auto& function : ast_script->functions )
         {
-            function->debug_print();
             std::unique_ptr< kf::ir_function > ir = build_ir.build( function.get() );
             if ( ! ir )
             {
                 continue;
             }
 
-            ir->debug_print_phi_graph();
             fold_ir.fold( ir.get() );
             ir->debug_print();
         }

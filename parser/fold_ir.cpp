@@ -45,8 +45,6 @@ void fold_ir::fold_phi()
     */
     fold_phi_loop();
     fold_phi_step();
-
-    _f->debug_print_phi_graph();
 }
 
 void fold_ir::fold_phi_loop()
@@ -344,7 +342,7 @@ bool fold_ir::is_constant( ir_operand operand )
 
 bool fold_ir::is_upval( const ir_op* op )
 {
-    return op->local != IR_INVALID_LOCAL && _f->ast->locals.at( op->local ).upstack_index != AST_INVALID_INDEX;
+    return op->local() != IR_INVALID_LOCAL && _f->ast->locals.at( op->local() ).upstack_index != AST_INVALID_INDEX;
 }
 
 double fold_ir::to_number( ir_operand operand )

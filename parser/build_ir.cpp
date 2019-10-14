@@ -773,15 +773,18 @@ ir_operand build_ir::visit( node_index node )
             node_index name_done = names;
 
             ir_op* op = &_f->ops.at( items.index );
-            op->unpack = 0;
+            unsigned unpack = 0;
 
             for ( ; name.index < name_done.index; name = next_node( name ) )
             {
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( items );
-                _o.push_back( { IR_O_SELECT, op->unpack++ } );
+                _o.push_back( { IR_O_SELECT, unpack++ } );
                 def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ) );
             }
+
+            assert( op->local() == IR_INVALID_LOCAL );
+            op->set_unpack( unpack );
         }
         else
         {
@@ -1234,7 +1237,8 @@ ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
     assert( operand.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( operand.index );
     assert( op->opcode == IR_VARARG || op->opcode == IR_CALL || op->opcode == IR_YCALL || op->opcode == IR_YIELD || op->opcode == IR_UNPACK );
-    op->unpack = unpack;
+    assert( op->local() == IR_INVALID_LOCAL );
+    op->set_unpack( unpack );
 
     // Return op that unpacks.
     return operand;
@@ -1386,7 +1390,7 @@ ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
     }
 
     ir_op* op = &_f->ops.at( operand.index );
-    if ( op->local == IR_INVALID_LOCAL )
+    if ( op->local() == IR_INVALID_LOCAL )
     {
         return operand;
     }
@@ -1395,7 +1399,9 @@ ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
     _o.push_back( operand );
     operand = emit( sloc, IR_PIN, 1 );
     operand.kind = IR_O_PIN;
-    _f->ops.at( operand.index ).local = op->local;
+    ir_op* pin = &_f->ops.at( operand.index );
+    assert( pin->unpack() == 1 );
+    pin->set_local( op->local() );
 
     // Done.
     return operand;
@@ -1425,14 +1431,14 @@ void build_ir::fix_local_pins( unsigned local )
 
         ir_op* op = &_f->ops.at( pin->index );
         assert( op->opcode == IR_PIN );
-        if ( op->local != local )
+        if ( op->local() != local )
         {
             continue;
         }
 
         pin->kind = IR_O_OP;
         op->opcode = IR_VAL;
-        op->local = IR_INVALID_LOCAL;
+        op->set_local( IR_INVALID_LOCAL );
     }
 }
 
@@ -1448,14 +1454,14 @@ void build_ir::fix_upval_pins()
 
         ir_op* op = &_f->ops.at( pin->index );
         assert( op->opcode == IR_PIN );
-        if ( _f->ast->locals.at( op->local ).upstack_index == AST_INVALID_INDEX )
+        if ( _f->ast->locals.at( op->local() ).upstack_index == AST_INVALID_INDEX )
         {
             continue;
         }
 
         pin->kind = IR_O_OP;
         op->opcode = IR_VAL;
-        op->local = IR_INVALID_LOCAL;
+        op->set_local( IR_INVALID_LOCAL );
     }
 }
 
@@ -1716,7 +1722,7 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
     // Construct open phi.
     ir_op phi;
     phi.opcode = IR_PHI_OPEN;
-    phi.local = local;
+    phi.set_local( local );
     phi.phi_next = IR_INVALID_INDEX;
     unsigned phi_index = _f->ops.size();
     if ( phi_index >= IR_INVALID_INDEX )
@@ -1796,7 +1802,7 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
     // Modify open phi op.
     ir_op* op = &_f->ops.at( phi_index );
     assert( op->opcode == IR_PHI_OPEN );
-    assert( op->local == local );
+    assert( op->local() == local );
 
     if ( ref_count != 1 )
     {
@@ -1827,7 +1833,7 @@ void build_ir::seal_loop( ir_block_index loop_header )
     // Go through all phis and resolve them.
     for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
     {
-        close_phi( loop_header, _f->ops.at( phi_index ).local, phi_index );
+        close_phi( loop_header, _f->ops.at( phi_index ).local(), phi_index );
     }
 
     // Mark as sealed.
@@ -1851,16 +1857,17 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     ir_op* op = &_f->ops.at( operand.index );
 
     // If defining from a previous definition of a local, create new value.
-    if ( op->local != IR_INVALID_LOCAL )
+    if ( op->local() != IR_INVALID_LOCAL )
     {
         _o.push_back( { IR_O_OP, operand.index } );
         operand = emit( sloc, IR_VAL, 1 );
         op = &_f->ops.at( operand.index );
     }
 
-    // op is the new definition of the local.
-    assert( op->local == IR_INVALID_LOCAL );
-    op->local = local;
+    // op is the new definition of the local
+    assert( op->local() == IR_INVALID_LOCAL );
+    assert( op->unpack() == 1 );
+    op->set_local( local );
 
     // Add to def lookup.  This overrides any previous def of this local in
     // this block.

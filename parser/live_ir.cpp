@@ -28,40 +28,25 @@ void live_ir::live( ir_function* function )
 {
     /*
         Our language has no goto, and the IR has been built in program order,
-        which means that blocks are in dominance order already.  Liveness
-        analysis proceeds like this:
-
-          - A linear scan of all instructions from bottom to top, counting
-            the number of uses for each value and the address of the last use
-            in the block.
-
-          - Only phi ops in loop headers are able to reference ops later in
-            the dominance order.  If such a reference makes a value live when
-            it wasn't before, the op is pushed onto a stack.
-
-          - In the second stage, dataflow analysis is performed on ops in the
-            stack to mark uses from backlinks in loop headers.
-
-        Live ranges for variables are pushed when each op that defines the
-        variable is made live.
+        which means that blocks are in dominance order already.  Additionally,
+        uses in the body of a block must reference either another op in the
+        block or a PHI/REF from the block header.
     */
-
-//    live_linear_pass();
+    live_linear_pass();
 //    live_dataflow_pass();
 }
 
 void live_ir::live_linear_pass()
 {
     /*
-        Scan entire instruction list from bottom to top, marking uses of each
-        operand of each live op.
+        Scan entire instruction list from bottom to top, marking uses of
+        each operand of each live op.  This gives us a good first pass at
+        liveness, though it ignores variables live across loop edges.
     */
     unsigned op_index = _f->ops.size();
     while ( op_index-- )
     {
         ir_op* op = &_f->ops[ op_index ];
-
-        // Skip phi ops, they will be dealt with when we reach the block.
         if ( op->opcode == IR_PHI || op->opcode == IR_REF )
         {
             continue;
@@ -71,6 +56,11 @@ void live_ir::live_linear_pass()
         if ( op->opcode == IR_BLOCK )
         {
 
+        }
+
+        // And with block footer.
+        if ( op->opcode >= IR_JUMP && op->opcode <= IR_JUMP_RETURN )
+        {
         }
 
         // Mark ops with side effects.

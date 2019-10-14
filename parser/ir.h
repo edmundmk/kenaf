@@ -132,9 +132,9 @@ typedef unsigned ir_block_index;
 */
 
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
-const unsigned IR_INVALID_REGISTER = 0xFF;
-const unsigned IR_INVALID_LOCAL = 0xFF;
+const unsigned IR_INVALID_LOCAL = 0xFEFF;
 const unsigned IR_UNPACK_ALL = 0xFF;
+const unsigned IR_INVALID_REGISTER = 0xFF;
 
 /*
     Stores the intermediate representation for a function.
@@ -260,8 +260,17 @@ enum ir_opcode : uint8_t
     IR_JUMP_FOR_EACH,           // [update g/i] iftrue, iffalse
     IR_JUMP_FOR_STEP,           // [update i/l/s] iftrue, iffalse
     IR_JUMP_THROW,              // value
-    IR_JUMP_RETURN,             // value+
+    IR_JUMP_RETURN,             // value*
+/*
+    IR_JUMP_FOR_EGEN,           // list/generator, jump
+    IR_JUMP_FOR_EACH,           // loop, break
+    IR_JUMP_FOR_SGEN,           // start, limit, step, jump
+    IR_JUMP_FOR_STEP,           // loop, break
 
+    // For loop variables.
+    IR_FOR_EACH_ITEMS,          // results are generated items
+    IR_FOR_STEP_INDEX,          // result is for step index
+*/
     // Phi instructions.
     IR_PHI,                     // Phi function.
     IR_PHI_OPEN,                // Open phi function in unclosed loop.
@@ -303,27 +312,24 @@ struct ir_op
 {
     ir_op()
         :   opcode( IR_NOP )
-        ,   r( IR_INVALID_REGISTER )
-        ,   mark( 0 )
-        ,   unpack( 1 )
+        ,   mark( IR_INVALID_REGISTER )
+        ,   localu( IR_INVALID_LOCAL )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
-        ,   local( IR_INVALID_LOCAL )
+        ,   r( IR_INVALID_REGISTER )
         ,   live_range( IR_INVALID_INDEX )
         ,   sloc( 0 )
     {
     }
 
     ir_opcode opcode;           // Opcode.
-
-    uint8_t r;                  // Allocated register.
-    uint8_t mark;               // Liveness count, or stack top at this op.
-    uint8_t unpack;             // Number of results requested.
+    uint8_t mark;               // Liveness count.
+    uint16_t localu : 16;       // Local variable index or unpack count.
 
     unsigned ocount : 8;        // Number of operands.
     unsigned oindex : 24;       // Index into operand list.
 
-    unsigned local : 8;         // Index of local result is assigned to.
+    unsigned r : 8;             // Allocated register.
     unsigned live_range : 24;   // Last use in this block.
 
     union
@@ -331,6 +337,11 @@ struct ir_op
         srcloc sloc;            // Source location.
         unsigned phi_next;      // Next phi in block.
     };
+
+    unsigned local() const              { return std::min< unsigned >( localu, IR_INVALID_LOCAL ); }
+    unsigned unpack() const             { return localu >= 0xFF00 ? localu & 0xFF : 1; }
+    void set_local( unsigned local )    { localu = local; }
+    void set_unpack( unsigned unpack )  { localu = 0xFF00 | unpack; }
 };
 
 struct ir_operand

@@ -17,11 +17,8 @@
     to the index of the op in the block where the op dies (or the closing
     jump, if it survives the block).
 
-    Additionally, live ranges for each local are computed.  Locals are the
-    only values that can cross block boundaries.
-
-    See this paper:
-        http://hal.archives-ouvertes.fr/docs/00/55/85/09/PDF/RR-7503.pdf
+    Liveness information for variables consists of a list of ops which define
+    the variable.  The live ranges of these ops should not overlap.
 */
 
 #include "ir.h"
@@ -44,7 +41,6 @@ private:
     bool has_side_effects( ir_op* op );
 
     void live_dataflow_pass();
-
 
     source* _source;
     ir_function* _f;

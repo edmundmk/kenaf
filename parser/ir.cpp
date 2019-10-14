@@ -233,9 +233,9 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         }
         }
     }
-    if ( op.local != IR_INVALID_LOCAL )
+    if ( op.local() != IR_INVALID_LOCAL )
     {
-        std::string_view name = f->ast->locals.at( op.local ).name;
+        std::string_view name = f->ast->locals.at( op.local() ).name;
         printf( " /* %.*s */", (int)name.size(), name.data() );
     }
 
@@ -285,7 +285,7 @@ void ir_function::debug_print_phi_graph() const
             const ir_op& phi = ops.at( phi_index );
             assert( phi.opcode == IR_PHI || phi.opcode == IR_REF );
 
-            const ast_local& local = ast->locals.at( phi.local );
+            const ast_local& local = ast->locals.at( phi.local() );
 
             if ( phi.opcode == IR_REF || block.kind == IR_BLOCK_LOOP )
             {
@@ -304,7 +304,7 @@ void ir_function::debug_print_phi_graph() const
                 assert( operand.kind == IR_O_OP );
 
                 const ir_op& to_op = ops.at( operand.index );
-                const ast_local& to_local = ast->locals.at( to_op.local );
+                const ast_local& to_local = ast->locals.at( to_op.local() );
 
                 printf
                 (
