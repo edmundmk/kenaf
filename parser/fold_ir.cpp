@@ -817,7 +817,9 @@ void fold_ir::remove_unreachable_blocks()
     {
         ir_block* block = &_f->blocks[ block_index ];
         if ( block->reachable )
+        {
             continue;
+        }
 
         // Remove block.
         block->kind = IR_BLOCK_NONE;
@@ -837,7 +839,7 @@ void fold_ir::remove_unreachable_blocks()
         for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
         {
             ir_op* op = &_f->ops.at( op_index );
-            if ( op->opcode == IR_PHI || op->opcode != IR_REF )
+            if ( op->opcode == IR_PHI || op->opcode == IR_REF )
                 continue;
             op->opcode = IR_NOP;
             op->ocount = 0;

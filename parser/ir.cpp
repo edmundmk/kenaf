@@ -122,6 +122,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         || ( ( op.opcode == IR_PHI || op.opcode == IR_REF ) && indent == 0 );
     if ( grey )
     {
+        return;
         printf( "\x1B[90m" );
     }
 
@@ -248,25 +249,18 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
     if ( op.opcode == IR_BLOCK )
     {
         const ir_block& block = f->blocks.at( f->operands.at( op.oindex ).index );
-        printf( "  %s", BLOCK_KIND_NAMES[ block.kind ] );
-        if ( block.loop != IR_INVALID_INDEX )
-            printf( " / LOOP @%u", block.loop );
-        if ( block.preceding_lower < block.preceding_upper )
+        printf( "  %s :%04X:%04X", BLOCK_KIND_NAMES[ block.kind ], block.lower, block.upper );
+        for ( unsigned preceding = block.preceding_lower; preceding < block.preceding_upper; ++preceding )
         {
-            printf( " / PRECEDING" );
-            for ( unsigned preceding = block.preceding_lower; preceding < block.preceding_upper; ++preceding )
-            {
-                ir_block_index index = f->preceding_blocks.at( preceding );
-                if ( index != IR_INVALID_INDEX )
-                    printf( " @%u", index );
-            }
+            ir_block_index index = f->preceding_blocks.at( preceding );
+            if ( index != IR_INVALID_INDEX )
+                printf( " @%u", index );
         }
         printf( "\n" );
         for( unsigned phi = block.phi_head; phi != IR_INVALID_INDEX; phi = f->ops.at( phi ).phi_next )
         {
             debug_print_op( f, phi, 2 );
         }
-        printf( "  OPS :%04X:%04X\n", block.lower, block.upper );
     }
 }
 

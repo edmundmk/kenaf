@@ -344,25 +344,23 @@ struct ir_block
     ir_block()
         :   kind( IR_BLOCK_BASIC )
         ,   reachable( false )
-        ,   loop( IR_INVALID_INDEX )
+        ,   lower( IR_INVALID_INDEX )
+        ,   upper( IR_INVALID_INDEX )
         ,   preceding_lower( IR_INVALID_INDEX )
         ,   preceding_upper( IR_INVALID_INDEX )
         ,   phi_head( IR_INVALID_INDEX )
         ,   phi_tail( IR_INVALID_INDEX )
-        ,   lower( IR_INVALID_INDEX )
-        ,   upper( IR_INVALID_INDEX )
     {
     }
 
     ir_block_kind kind : 7;     // Block kind.
     unsigned reachable : 1;     // Is this block reachable?
-    ir_block_index loop : 24;   // Index of loop containing this block.
+    unsigned lower : 24;        // Index of first op in block.
+    unsigned upper;             // Index past last op in block.
     unsigned preceding_lower;   // Index of first block in preceding_blocks.
     unsigned preceding_upper;   // Index past last preceding block.
     unsigned phi_head;          // Index of first phi op in block.
     unsigned phi_tail;          // Index of last phi op in block.
-    unsigned lower;             // Index of first op in block.
-    unsigned upper;             // Index past last op in block.
 };
 
 struct ir_number
