@@ -12,7 +12,9 @@
 #define BUILD_IR_H
 
 /*
-    Traverses an AST and builds IR.
+    Traverses an AST and builds IR.  Performs SSA form construction using
+    ideas from this paper:
+        http://compilers.cs.uni-saarland.de/papers/bbhlmz13cc.pdf
 */
 
 #include <unordered_map>

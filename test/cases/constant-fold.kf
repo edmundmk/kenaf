@@ -72,6 +72,8 @@ return 3 + 4
 
 def f()
 
+    var x = if not q() then p() else w() end
+
     return if false then 33 elif true then 44 else 99 end
 
 end

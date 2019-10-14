@@ -20,6 +20,7 @@ sources = [
     'parser/build_ir.cpp',
     'parser/fold_ir.cpp',
     'parser/lexer.cpp',
+    'parser/live_ir.cpp',
     'parser/source.cpp',
     'parser/parser.cpp',
     'parser/resolve_names.cpp',

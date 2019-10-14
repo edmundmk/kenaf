@@ -1759,7 +1759,6 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
 {
     /*
         Construct phi op by searching for definitions that reach the block.
-            http://compilers.cs.uni-saarland.de/papers/bbhlmz13cc.pdf
     */
 
     assert( block_index != IR_INVALID_INDEX );

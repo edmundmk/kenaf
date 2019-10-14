@@ -87,13 +87,23 @@
     amount of SSA variables we need to consider.
 
 
-    -- Restrictions
+    -- SSA Form
 
-    The IR has one major restriction.  Only one definition of each local can be
-    live at any point.  This allows register allocation to allocate a single
-    register for each local.  This is achieved when generating the IR through
-    use of PIN and VAL ops.
+    The IR is SSA form, but with some major restrictions:
 
+        - Only explicitly declared local variables participate in SSA
+          construction.  Implicit loop variables and B_DEF/B_PHI are handled
+          outside the main SSA form, keeping the number of variables low.
+
+        - Only one definition of each local variable is live at any point.
+          This is enforced during construction using PIN and VAL ops - a VAL
+          op creates a new temporary value copied from a local.
+
+        - Each value live in a block must have a op which defines its live
+          range, whether that is a real op or a PHI in the block header.
+
+    These properties ensure that the register allocator has all the information
+    it needs in order to allocate a single register for each local.
 */
 
 #include <stdint.h>
@@ -111,7 +121,9 @@ struct ir_operand;
 struct ir_block;
 struct ir_number;
 struct ir_string;
+struct ir_lrange;
 
+typedef unsigned ir_lindex;
 typedef unsigned ir_block_index;
 
 /*
@@ -136,12 +148,20 @@ struct ir_function
     void debug_print_phi_graph() const;
 
     ast_function* ast;
+
+    // Main IR structures.
     std::vector< ir_op > ops;
     std::vector< ir_operand > operands;
     std::vector< ir_block > blocks;
     std::vector< ir_block_index > preceding_blocks;
+
+    // Constant numbers and strings.
     std::vector< ir_number > numbers;
     std::vector< ir_string > strings;
+
+    // Live ranges of local variables.
+    std::vector< ir_lindex > llookup;
+    std::vector< ir_lrange > lranges;
 };
 
 /*
@@ -282,7 +302,7 @@ struct ir_op
     ir_op()
         :   opcode( IR_NOP )
         ,   r( IR_INVALID_REGISTER )
-        ,   stack_top( IR_INVALID_REGISTER )
+        ,   mark( 0 )
         ,   unpack( 1 )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
@@ -295,7 +315,7 @@ struct ir_op
     ir_opcode opcode;           // Opcode.
 
     uint8_t r;                  // Allocated register.
-    uint8_t stack_top;          // Stack top at this op.
+    uint8_t mark;               // Liveness count, or stack top at this op.
     uint8_t unpack;             // Number of results requested.
 
     unsigned ocount : 8;        // Number of operands.
@@ -352,6 +372,14 @@ struct ir_string
 {
     const char* text;
     size_t size;
+};
+
+struct ir_lrange
+{
+    unsigned local : 8;         // Local index.
+    unsigned index : 24;        // Index of op that defines range.
+    unsigned lower;             // Lower index of live range.
+    unsigned upper;             // Upper index of live range.
 };
 
 }
