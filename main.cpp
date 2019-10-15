@@ -16,7 +16,7 @@
 #include "parser/build_ir.h"
 #include "parser/fold_ir.h"
 #include "parser/live_ir.h"
-#include "parser/alloc_k_ir.h"
+#include "parser/foldk_ir.h"
 
 int main( int argc, char* argv[] )
 {
@@ -65,7 +65,7 @@ int main( int argc, char* argv[] )
         kf::build_ir build_ir( &source );
         kf::fold_ir fold_ir( &source );
         kf::live_ir live_ir( &source );
-        kf::alloc_k_ir alloc_k_ir( &source );
+        kf::foldk_ir foldk_ir( &source );
 
         for ( const auto& function : ast_script->functions )
         {
@@ -77,7 +77,12 @@ int main( int argc, char* argv[] )
 
             fold_ir.fold( ir.get() );
             live_ir.live( ir.get() );
-            alloc_k_ir.alloc_k( ir.get() );
+            if ( foldk_ir.foldk( ir.get() ) )
+            {
+                live_ir.reset_live( ir.get() );
+                live_ir.live( ir.get() );
+            }
+
             ir->debug_print();
         }
     }

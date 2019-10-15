@@ -216,7 +216,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
-        case IR_O_IMM8:
+        case IR_O_IMMEDIATE:
         {
             int i = (int8_t)operand.index;
             printf( " %i", i );

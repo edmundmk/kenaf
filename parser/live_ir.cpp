@@ -38,6 +38,16 @@ void live_ir::live( ir_function* function )
     live_blocks();
 }
 
+void live_ir::reset_live( ir_function* function )
+{
+    for ( unsigned op_index = 0; op_index < function->ops.size(); ++op_index )
+    {
+        ir_op* op = &function->ops[ op_index ];
+        op->mark = 0;
+        op->live_range = IR_INVALID_INDEX;
+    }
+}
+
 void live_ir::live_blocks()
 {
     // Set work flags on all blocks, to prevent them being pushed on the
