@@ -24,6 +24,7 @@ alloc_ir::~alloc_ir()
 
 void alloc_ir::alloc( ir_function* function )
 {
+    _f = function;
 }
 
 }

@@ -76,6 +76,8 @@ private:
 
 };
 
+ir_operand ir_fold_operand( ir_function* f, ir_operand operand );
+
 }
 
 #endif

@@ -12,15 +12,11 @@
 #define ALLOC_IR_H
 
 /*
-    First, operand selection.  Certain bytecode instructions have forms which
-    use constant or immediate operands, and we can avoid emitting load
-    instructions by inlining constant values.
-
-    Constants and selectors must be allocated indexes in the final tables.
-
     Finally, register allocation.  Registers are allocated to values in a
     fashion which attempts to both minimize unecessary moves and minimize the
     total number of registers used.
+
+    Constants and selectors must also be allocated indexes in the final tables.
 */
 
 #include "ir.h"

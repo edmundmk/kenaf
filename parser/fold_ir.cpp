@@ -302,39 +302,7 @@ ir_operand fold_ir::jump_block_operand( unsigned operand_index )
 
 ir_operand fold_ir::fold_operand( unsigned operand_index )
 {
-    ir_operand operand = _f->operands.at( operand_index );
-
-    if ( operand.kind == IR_O_OP )
-    {
-        const ir_op* op = &_f->ops.at( operand.index );
-        if ( is_upval( op ) )
-        {
-            return operand;
-        }
-
-        while ( op->opcode == IR_VAL || op->opcode == IR_REF
-            || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
-        {
-            assert( op->ocount == 1 );
-            ir_operand oval = _f->operands.at( op->oindex );
-            assert( oval.kind == IR_O_OP );
-            op = &_f->ops.at( oval.index );
-            if ( is_upval( op ) )
-            {
-                return operand;
-            }
-        }
-
-        if ( op->opcode == IR_CONST )
-        {
-            assert( op->ocount == 1 );
-            operand = _f->operands.at( op->oindex );
-            assert( is_constant( operand ) );
-            return operand;
-        }
-    }
-
-    return operand;
+    return ir_fold_operand( _f, _f->operands.at( operand_index ) );
 }
 
 bool fold_ir::is_constant( ir_operand operand )
@@ -342,11 +310,6 @@ bool fold_ir::is_constant( ir_operand operand )
     return operand.kind == IR_O_NULL
         || operand.kind == IR_O_TRUE || operand.kind == IR_O_FALSE
         || operand.kind == IR_O_NUMBER || operand.kind == IR_O_STRING;
-}
-
-bool fold_ir::is_upval( const ir_op* op )
-{
-    return op->local() != IR_INVALID_LOCAL && _f->ast->locals.at( op->local() ).upstack_index != AST_INVALID_INDEX;
 }
 
 double fold_ir::to_number( ir_operand operand )
@@ -848,6 +811,46 @@ void fold_ir::remove_unreachable_blocks()
             op->oindex = IR_INVALID_INDEX;
         }
     }
+}
+
+ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
+{
+    if ( operand.kind != IR_O_OP )
+    {
+        return operand;
+    }
+
+    const ir_op* op = &f->ops.at( operand.index );
+    while ( true )
+    {
+        // Don't fold upvals.
+        if ( op->local() != IR_INVALID_LOCAL && f->ast->locals.at( op->local() ).upstack_index != AST_INVALID_INDEX )
+        {
+            return operand;
+        }
+
+        // Look past VAL/REF.
+        if ( op->opcode == IR_VAL || op->opcode == IR_REF
+            || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
+        {
+            assert( op->ocount == 1 );
+            ir_operand oval = f->operands.at( op->oindex );
+            assert( oval.kind == IR_O_OP );
+            op = &f->ops.at( oval.index );
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if ( op->opcode == IR_CONST )
+    {
+        assert( op->ocount == 1 );
+        return f->operands.at( op->oindex );
+    }
+
+    return operand;
 }
 
 }

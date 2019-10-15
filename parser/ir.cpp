@@ -128,11 +128,11 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
     printf( "%*s:%04X", indent, "", i );
     if ( op.live_range != IR_INVALID_INDEX )
-        printf( ":%04X", op.live_range );
+        printf( " ↓%04X", op.live_range );
     else if ( op.mark )
-        printf( ":====" );
+        printf( " ↓====" );
     else
-        printf( "     " );
+        printf( "      " );
     printf( " %s", OPCODE_NAMES[ op.opcode ] );
 
     for ( unsigned o = 0; o < op.ocount; ++o )
@@ -206,6 +206,20 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         {
             const ir_string& s = f->strings.at( operand.index );
             printf( " \"%.*s\"", (int)s.size, s.text );
+            break;
+        }
+
+        case IR_O_SELECTOR:
+        {
+            const ir_string& s = f->selectors.at( operand.index );
+            printf( " \'%.*s\'", (int)s.size, s.text );
+            break;
+        }
+
+        case IR_O_IMM8:
+        {
+            int i = (int8_t)operand.index;
+            printf( " %i", i );
             break;
         }
 

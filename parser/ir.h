@@ -161,6 +161,7 @@ struct ir_function
     // Constant numbers and strings.
     std::vector< ir_number > numbers;
     std::vector< ir_string > strings;
+    std::vector< ir_string > selectors;
 
     // Live ranges of local and for loop variables.
     std::vector< ir_live_value > live_values;
@@ -286,6 +287,8 @@ enum ir_operand_kind : uint8_t
     IR_O_FALSE,                 // false
     IR_O_NUMBER,                // Constant number.
     IR_O_STRING,                // Constant string.
+    IR_O_SELECTOR,              // Constant selector.
+    IR_O_IMM8,                  // 8-bit signed immediate.
 
     IR_O_LOCAL_INDEX,           // Index of local.
     IR_O_UPVAL_INDEX,           // Index of upval.

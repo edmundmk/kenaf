@@ -16,10 +16,11 @@ lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
 
 sources = [
     'common/code.cpp',
-    'parser/ir.cpp',
     'parser/alloc_ir.cpp',
+    'parser/alloc_k_ir.cpp',
     'parser/build_ir.cpp',
     'parser/fold_ir.cpp',
+    'parser/ir.cpp',
     'parser/lexer.cpp',
     'parser/live_ir.cpp',
     'parser/source.cpp',
