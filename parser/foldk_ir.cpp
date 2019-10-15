@@ -9,6 +9,7 @@
 //
 
 #include "foldk_ir.h"
+#include <string.h>
 #include "fold_ir.h"
 #include "ast.h"
 

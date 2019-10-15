@@ -216,7 +216,7 @@ void code_function::debug_print( const code_script* script ) const
             {
                 char okind = 'R';
                 char field = p[ 1 ];
-                if ( field >= 'A' & field <= 'Z' )
+                if ( field >= 'A' && field <= 'Z' )
                 {
                     okind = field;
                     field = p[ 2 ];

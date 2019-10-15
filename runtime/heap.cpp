@@ -779,7 +779,7 @@ void* heap_state::malloc( size_t size )
 {
     // Chunk size is larger due to overhead, and must be aligned.
     size = size + sizeof( heap_chunk_header );
-    size = size + ( HEAP_CHUNK_ALIGNMENT - 1 ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
+    size = ( size + ( HEAP_CHUNK_ALIGNMENT - 1 ) ) & ~( HEAP_CHUNK_ALIGNMENT - 1 );
     if ( size > HEAP_MAX_CHUNK_SIZE )
     {
         throw std::bad_alloc();
@@ -1145,7 +1145,7 @@ heap_chunk* heap_state::alloc_segment( size_t size )
 {
     // Add space for segment header, and align to VM allocation granularity.
     size += sizeof( heap_segment );
-    size = size + ( HEAP_VM_GRANULARITY - 1 ) & ~( HEAP_VM_GRANULARITY - 1 );
+    size = ( size + ( HEAP_VM_GRANULARITY - 1 ) ) & ~( HEAP_VM_GRANULARITY - 1 );
 
     // Make VM allocation.
     void* vmalloc = heap_vmalloc( size );
