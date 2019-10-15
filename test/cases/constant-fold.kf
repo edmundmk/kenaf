@@ -1,4 +1,6 @@
 
+test( "Hello," ~ " World!" )
+
 test( -3 )
 test( +3 )
 test( ~3 )

@@ -89,6 +89,7 @@ struct source
     source_location location( srcloc sloc ) const;
 
     const source_string* new_string( const char* text, size_t size );
+    const source_string* new_string( const char* atext, size_t asize, const char* btext, size_t bsize );
 
     void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
     void error( srcloc sloc, const char* message, va_list ap );

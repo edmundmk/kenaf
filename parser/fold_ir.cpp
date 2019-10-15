@@ -251,6 +251,10 @@ void fold_ir::fold_constants( ir_block* block )
             fold_biarithmetic( op );
             break;
 
+        case IR_CONCAT:
+            fold_concat( op );
+            break;
+
         case IR_PIN:
             // Unpromoted pins aren't useful.
             op->opcode = IR_NOP;
@@ -428,6 +432,41 @@ bool fold_ir::fold_biarithmetic( ir_op* op )
         operand->kind = IR_O_NUMBER;
         operand->index = _f->constants.size();
         _f->constants.push_back( ir_constant( result ) );
+
+        // Change op to constant.
+        op->opcode = IR_CONST;
+        op->ocount = 1;
+        return true;
+    }
+    else
+    {
+        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        return false;
+    }
+}
+
+bool fold_ir::fold_concat( ir_op* op )
+{
+    assert( op->ocount == 2 );
+    ir_operand u = fold_operand( op->oindex + 0 );
+    ir_operand v = fold_operand( op->oindex + 1 );
+
+    if ( ! is_constant( u ) || ! is_constant( v ) )
+    {
+        return false;
+    }
+
+    if ( u.kind == IR_O_STRING && v.kind == IR_O_STRING )
+    {
+        std::string_view ustring = to_string( u );
+        std::string_view vstring = to_string( v );
+
+        // Concatenate string.
+        ir_operand* operand = &_f->operands.at( op->oindex );
+        operand->kind = IR_O_STRING;
+        operand->index = _f->constants.size();
+        const source_string* result = _source->new_string( ustring.data(), ustring.size(), vstring.data(), vstring.size() );
+        _f->constants.push_back( ir_constant( result->text, result->size ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;

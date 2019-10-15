@@ -57,6 +57,16 @@ const source_string* source::new_string( const char* text, size_t size )
     return s;
 }
 
+const source_string* source::new_string( const char* atext, size_t asize, const char* btext, size_t bsize )
+{
+    source_string* s = (source_string*)malloc( sizeof( source_string ) + asize + bsize );
+    s->size = asize + bsize;
+    memcpy( (char*)s->text, atext, asize );
+    memcpy( (char*)s->text + asize, btext, bsize );
+    strings.push_back( s );
+    return s;
+}
+
 source_location source::location( srcloc sloc ) const
 {
     auto i = --std::upper_bound( newlines.begin(), newlines.end(), sloc );
