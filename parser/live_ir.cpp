@@ -13,11 +13,10 @@
 namespace kf
 {
 
-const uint8_t IR_MARK_STICKY = 0xFF;
-
 live_ir::live_ir( source* source )
     :   _source( source )
 {
+    (void)_source;
 }
 
 live_ir::~live_ir()

@@ -18,10 +18,10 @@
     jump, if it survives the block).
 
     Liveness information for variables consists of a list of ops which define
-    the variable.  The live ranges of these ops should not overlap.
+    the variable.  The live ranges of these ops should not overlap.  Variables
+    are also constructed for the hidden variables used by for loops.
 */
 
-#include <unordered_set>
 #include "ir.h"
 
 namespace kf

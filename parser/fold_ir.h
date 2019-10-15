@@ -20,13 +20,6 @@
       - Branch phi sequences based on constants are simplified.
       - Uses of single values are updated to use the target value.
       - Unreachable blocks are removed.
-
-
-      - Instructions are marked if their value is used.
-      - Unused instructions are removed.
-      - Constants are inlined into instructions that allow constant operands.
-      - Constants and selectors are allocated space in the function's tables.
-
 */
 
 #include "ir.h"
