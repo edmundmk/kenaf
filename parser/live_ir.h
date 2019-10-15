@@ -35,7 +35,7 @@ public:
     ~live_ir();
 
     void live( ir_function* function );
-    void reset_live( ir_function* function );
+    void reset( ir_function* function );
 
 private:
 

@@ -79,7 +79,7 @@ int main( int argc, char* argv[] )
             live_ir.live( ir.get() );
             if ( foldk_ir.foldk( ir.get() ) )
             {
-                live_ir.reset_live( ir.get() );
+                live_ir.reset( ir.get() );
                 live_ir.live( ir.get() );
             }
 

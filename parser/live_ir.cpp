@@ -38,7 +38,7 @@ void live_ir::live( ir_function* function )
     live_blocks();
 }
 
-void live_ir::reset_live( ir_function* function )
+void live_ir::reset( ir_function* function )
 {
     for ( unsigned op_index = 0; op_index < function->ops.size(); ++op_index )
     {
