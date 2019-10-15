@@ -329,7 +329,7 @@ token lexer::lex()
             else
             {
                 next();
-                return source_token( TOKEN_TILDE, sloc );
+                return assign_token( TOKEN_TILDE, TOKEN_CONCAT_ASSIGN, sloc );
             }
 
         case '\0':
