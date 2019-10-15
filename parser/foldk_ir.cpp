@@ -156,9 +156,61 @@ void foldk_ir::inline_operands()
             break;
         }
 
+        case IR_EQ:
+        case IR_NE:
+        case IR_LT:
+        case IR_LE:
+        {
+            // Can only inline when directly followed by a jump that uses op.
+            ir_op* jump = &_f->ops.at( op_index + 1 );
+            if ( jump->opcode != IR_JUMP_TEST )
+            {
+                break;
+            }
+            ir_operand test = _f->operands.at( jump->oindex );
+            if ( test.kind != IR_O_OP || test.index != op_index )
+            {
+                break;
+            }
+
+            // Can inline.
+            ir_operand* u = &_f->operands.at( op->oindex + 0 );
+            ir_operand* v = &_f->operands.at( op->oindex + 1 );
+            ir_operand fold_u = ir_fold_operand( _f, *u );
+            ir_operand fold_v = ir_fold_operand( _f, *v );
+
+            if ( fold_v.kind == IR_O_NUMBER )
+            {
+                *v = insert_number( fold_v );
+            }
+            else if ( fold_v.kind == IR_O_STRING )
+            {
+                *v = insert_string( fold_v );
+            }
+            else if ( fold_u.kind == IR_O_NUMBER )
+            {
+                *u = insert_number( fold_u );
+                if ( op->opcode == IR_EQ || op->opcode == IR_NE )
+                {
+                    std::swap( *u, *v );
+                }
+            }
+            else if ( fold_u.kind == IR_O_STRING )
+            {
+                *u = insert_string( fold_u );
+                if ( op->opcode == IR_EQ || op->opcode == IR_NE )
+                {
+                    std::swap( *u, *v );
+                }
+            }
+
+            break;
+        }
+
         case IR_GET_KEY:
         case IR_SET_KEY:
         {
+            // Do key selectors in first pass.
             ir_operand* s = &_f->operands.at( op->oindex + 1 );
             *s = insert_selector( *s );
             if ( s->index > 0xFF )
@@ -167,7 +219,6 @@ void foldk_ir::inline_operands()
             }
             break;
         }
-
 
         case IR_GET_INDEX:
         case IR_SET_INDEX:
