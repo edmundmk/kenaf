@@ -85,7 +85,6 @@ private:
 
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
-    void close_upstack( node_index node );
 
     // Pins.
     ir_operand pin( srcloc sloc, ir_operand value );
@@ -114,6 +113,12 @@ private:
     void seal_loop( ir_block_index loop_header );
     void def( srcloc sloc, unsigned local, ir_operand operand );
 
+    // Upvals must be referenced by close instructions so they stay live.
+    void push_upvals( srcloc sloc, unsigned upstack_index );
+    void declare_upval( srcloc sloc, unsigned local );
+    void close_upvals( srcloc sloc, unsigned upstack_index );
+    void pop_upvals( srcloc sloc, unsigned upstack_index );
+
     // Function under construction.
     source* _source;
     std::unique_ptr< ir_function > _f;
@@ -131,6 +136,10 @@ private:
     struct block_local_equal { bool operator () ( block_local a, block_local b ) const; };
     std::unordered_map< block_local, ir_operand, block_local_hash, block_local_equal > _defs;
     std::vector< ir_operand > _def_stack;
+
+    // Upstack tracking.
+    std::vector< unsigned > _upstack;
+    size_t _upscope;
 
 };
 
