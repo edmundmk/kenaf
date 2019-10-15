@@ -44,6 +44,7 @@ void live_ir::reset( ir_function* function )
     {
         ir_op* op = &function->ops[ op_index ];
         op->mark = 0;
+        op->r = IR_INVALID_REGISTER;
         op->live_range = IR_INVALID_INDEX;
     }
 }
@@ -139,7 +140,7 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
             if ( ! op->mark )
             {
                 op->mark = IR_MARK_STICKY;
-                op->r = true;
+                op->r = 1;
             }
             break;
 
@@ -148,7 +149,7 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
         }
 
         // Skip ops which are not live or which have already had uses marked.
-        if ( ! op->r )
+        if ( op->r != 1 )
         {
             continue;
         }
@@ -166,7 +167,7 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
         }
 
         // Marked all uses.
-        op->r = false;
+        op->r = IR_INVALID_REGISTER;
     }
 }
 
@@ -193,7 +194,7 @@ void live_ir::live_head( ir_block_index block_index, ir_block* block )
         ir_op* phi = &_f->ops.at( phi_index );
 
         // Skip ops which are not live or which have already had uses marked.
-        if ( ! phi->r )
+        if ( phi->r != 1 )
         {
             phi_index = phi->phi_next;
             continue;
@@ -250,7 +251,7 @@ void live_ir::live_head( ir_block_index block_index, ir_block* block )
         }
 
         // Marked all uses.
-        phi->r = false;
+        phi->r = IR_INVALID_REGISTER;
     }
 }
 
@@ -291,7 +292,7 @@ bool live_ir::mark_use( ir_operand def, unsigned use_index )
     // Set r flag if marking it made this op live.
     if ( old_mark == 0 )
     {
-        op->r = true;
+        op->r = 1;
         return true;
     }
     else
