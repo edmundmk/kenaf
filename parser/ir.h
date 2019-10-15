@@ -241,6 +241,7 @@ enum ir_opcode : uint8_t
     IR_SELECT,                  // select( a ..., index )
 
     // Close upvals.
+    IR_REDEF_UPLOCAL,           // value, previous def
     IR_CLOSE_UPSTACK,           // index
 
     // Shortcut branches.
@@ -359,8 +360,9 @@ struct ir_block
 {
     ir_block()
         :   kind( IR_BLOCK_BASIC )
-        ,   reachable( false )
         ,   lower( IR_INVALID_INDEX )
+        ,   mark( 0 )
+        ,   reachable( false )
         ,   upper( IR_INVALID_INDEX )
         ,   preceding_lower( IR_INVALID_INDEX )
         ,   preceding_upper( IR_INVALID_INDEX )
@@ -369,11 +371,11 @@ struct ir_block
     {
     }
 
-    ir_block_kind kind : 4;     // Block kind.
-    unsigned mark : 3;          // Analysis mark.
-    unsigned reachable : 1;     // Is this block reachable?
+    ir_block_kind kind : 8;     // Block kind.
     unsigned lower : 24;        // Index of first op in block.
-    unsigned upper;             // Index past last op in block.
+    unsigned mark : 7;          // Analysis mark.
+    unsigned reachable : 1;     // Is this block reachable?
+    unsigned upper : 24;        // Index past last op in block.
     unsigned preceding_lower;   // Index of first block in preceding_blocks.
     unsigned preceding_upper;   // Index past last preceding block.
     unsigned phi_head;          // Index of first phi op in block.

@@ -154,9 +154,9 @@ void fold_ir::fold_phi_step()
             }
 
             // Collapse phi to ref.
-            assert( phi->ocount >= 1 );
             if ( ref_count == 1 )
             {
+                assert( phi->ocount >= 1 );
                 phi->opcode = IR_REF;
                 phi->ocount = 1;
                 _f->operands.at( phi->oindex ) = ref;

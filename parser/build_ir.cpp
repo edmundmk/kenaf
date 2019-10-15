@@ -543,8 +543,8 @@ ir_operand build_ir::visit( node_index node )
             for ( ; name.index < name_done.index; name = next_node( name ), ++rv )
             {
                 assert( name->kind == AST_LOCAL_DECL );
-                def( name->sloc, name->leaf_index().index, _o.at( rv ) );
                 declare_upval( name->sloc, name->leaf_index().index );
+                def( name->sloc, name->leaf_index().index, _o.at( rv ) );
             }
 
             _o.resize( rvindex );
@@ -556,8 +556,8 @@ ir_operand build_ir::visit( node_index node )
             {
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( { IR_O_NULL } );
-                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ) );
                 declare_upval( name->sloc, name->leaf_index().index );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ) );
             }
         }
 
@@ -572,8 +572,8 @@ ir_operand build_ir::visit( node_index node )
         ir_operand object = visit( value );
         if ( qname->kind == AST_LOCAL_DECL )
         {
-            def( node->sloc, qname->leaf_index().index, object );
             declare_upval( node->sloc, qname->leaf_index().index );
+            def( node->sloc, qname->leaf_index().index, object );
         }
         else
         {
@@ -610,8 +610,8 @@ ir_operand build_ir::visit( node_index node )
             assert( self.is_parameter );
             assert( self.is_implicit_self );
             _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
-            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
             declare_upval( node->sloc, 0 );
+            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
         }
 
         visit_children( node );
@@ -630,8 +630,8 @@ ir_operand build_ir::visit( node_index node )
 
             unsigned local = param->leaf_index().index;
             _o.push_back( { IR_O_LOCAL_INDEX, local } );
-            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
             declare_upval( node->sloc, local );
+            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
         }
         return { IR_O_NONE };
     }
@@ -753,8 +753,8 @@ ir_operand build_ir::visit( node_index node )
 
         // Get index at head of loop.
         assert( name->kind == AST_LOCAL_DECL );
-        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ) );
         declare_upval( name->sloc, name->leaf_index().index );
+        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ) );
 
         // Visit the body of the loop.
         visit( body );

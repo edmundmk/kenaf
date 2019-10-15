@@ -81,6 +81,7 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_SELECT         ] = "SELECT",
 
+    [ IR_REDEF_UPLOCAL  ] = "REDEF_UPLOCAL",
     [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
 
     [ IR_B_AND          ] = "B_AND",
