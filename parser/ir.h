@@ -240,8 +240,8 @@ enum ir_opcode : uint8_t
     // Select a result from a stack top instruction.
     IR_SELECT,                  // select( a ..., index )
 
-    // Close upvals.
-    IR_REDEF_UPLOCAL,           // value, previous def
+    // Upvals.
+    IR_UPVAL_ESCAPES,           // list of upvals that might escape
     IR_CLOSE_UPSTACK,           // index
 
     // Shortcut branches.

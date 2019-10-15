@@ -116,6 +116,7 @@ private:
     // Upvals must be referenced by close instructions so they stay live.
     void push_upvals( srcloc sloc, unsigned upstack_index );
     void declare_upval( srcloc sloc, unsigned local );
+    void upval_escapes( srcloc sloc );
     void close_upvals( srcloc sloc, unsigned upstack_index );
     void pop_upvals( srcloc sloc, unsigned upstack_index );
 

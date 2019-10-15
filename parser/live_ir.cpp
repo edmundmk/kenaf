@@ -134,6 +134,7 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
         case IR_YCALL:
         case IR_YIELD:
         case IR_EXTEND:
+        case IR_UPVAL_ESCAPES:
         case IR_CLOSE_UPSTACK:
             // These instructions have side effects so they need to
             // stay live no matter what.

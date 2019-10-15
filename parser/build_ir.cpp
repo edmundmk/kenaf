@@ -805,6 +805,7 @@ ir_operand build_ir::visit( node_index node )
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( items );
                 _o.push_back( { IR_O_SELECT, unpack++ } );
+                declare_upval( name->sloc, name->leaf_index().index );
                 def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ) );
             }
 
@@ -815,6 +816,7 @@ ir_operand build_ir::visit( node_index node )
         {
             node_index name = names;
             assert( name->kind == AST_LOCAL_DECL );
+            declare_upval( name->sloc, name->leaf_index().index );
             def( name->sloc, name->leaf_index().index, items );
         }
 
@@ -1336,6 +1338,11 @@ ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
         else
             _o.push_back( expr_unpack( arg, IR_UNPACK_ALL ) );
         ocount += 1;
+    }
+
+    if ( opcode == IR_CALL || opcode == IR_YCALL || opcode == IR_YIELD )
+    {
+        upval_escapes( node->sloc );
     }
 
     ir_operand call = emit( node->sloc, opcode, ocount );
@@ -1917,6 +1924,23 @@ void build_ir::declare_upval( srcloc sloc, unsigned local )
     _upstack.resize( std::max< size_t >( _upstack.size(), upstack_index + 1 ), IR_INVALID_LOCAL );
     assert( _upstack[ upstack_index ] == IR_INVALID_LOCAL );
     _upstack[ upstack_index ] = local;
+}
+
+void build_ir::upval_escapes( srcloc sloc )
+{
+    // Reference all values on upstack, since they might escape the function.
+    unsigned ocount = 0;
+    for ( unsigned index = _upscope; index < _upstack.size(); ++index )
+    {
+        unsigned local = _upstack.at( index );
+        if ( local != AST_INVALID_INDEX )
+        {
+            _o.push_back( use( sloc, local ) );
+            ocount += 1;
+        }
+    }
+
+    emit( sloc, IR_UPVAL_ESCAPES, ocount );
 }
 
 void build_ir::close_upvals( srcloc sloc, unsigned upstack_index )

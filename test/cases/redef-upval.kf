@@ -1,0 +1,27 @@
+
+var x = 33
+
+def f()
+    x = 24
+end
+
+x = 34
+x += 2
+
+while x != 13 do
+    f()
+
+    x = "hello"
+
+    if qq() then
+        x = 33
+    else
+        x ~= "SOMETHING"
+    end
+
+    f()
+end
+
+return x
+
+
