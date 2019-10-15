@@ -365,7 +365,8 @@ struct ir_block
     {
     }
 
-    ir_block_kind kind : 7;     // Block kind.
+    ir_block_kind kind : 4;     // Block kind.
+    unsigned mark : 3;          // Analysis mark.
     unsigned reachable : 1;     // Is this block reachable?
     unsigned lower : 24;        // Index of first op in block.
     unsigned upper;             // Index past last op in block.

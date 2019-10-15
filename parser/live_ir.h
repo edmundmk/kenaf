@@ -38,12 +38,17 @@ public:
 
 private:
 
-    void live_linear();
-    void live_successor( ir_block_index block_index, ir_operand jump );
-    void mark_use( ir_operand def, unsigned use_index );
+    enum { LIVE_BODY = 1 << 0, LIVE_HEAD = 1 << 1 };
+
+    void live_blocks();
+    void live_body( ir_block_index block_index, ir_block* block );
+    void live_head( ir_block_index block_index, ir_block* block );
+    ir_operand match_phi( ir_block* block, unsigned local );
+    bool mark_use( ir_operand def, unsigned use_index );
 
     source* _source;
     ir_function* _f;
+    std::vector< ir_block_index > _work_stack;
 
 };
 

@@ -15,13 +15,6 @@ namespace kf
 
 const uint8_t IR_MARK_STICKY = 0xFF;
 
-inline uint8_t sticky_add( uint8_t a, uint8_t b )
-{
-    uint8_t c = a + b;
-    return c >= a ? a : IR_MARK_STICKY;
-}
-
-
 live_ir::live_ir( source* source )
     :   _source( source )
 {
@@ -38,203 +31,264 @@ void live_ir::live( ir_function* function )
         which means that blocks are in dominance order already.  Additionally,
         uses in the body of a block must reference either another op in the
         block or a PHI/REF from the block header.
+
+        During liveness analysis, the r field is used as a flag to indicate
+        that the op has been made live, but its uses have not yet been marked.
     */
     _f = function;
-    live_linear();
+    live_blocks();
 }
 
-void live_ir::live_linear()
+void live_ir::live_blocks()
 {
-    /*
-        Scan entire instruction list from bottom to top, marking uses of
-        each operand of each live op.  This gives us a good first pass at
-        liveness, though it ignores variables live across loop edges.
-    */
+    // Set work flags on all blocks, to prevent them being pushed on the
+    // work stack until they've been processed once.
+    for ( ir_block& block : _f->blocks )
+    {
+        block.mark = LIVE_BODY | LIVE_HEAD;
+    }
+
+    // Do an initial reverse pass through the block list, marking live ops.
+    // This should make all values live except those referenced by loop edges.
     unsigned block_index = _f->blocks.size();
     while ( block_index-- )
     {
         ir_block* block = &_f->blocks[ block_index ];
+        if ( block->kind == IR_BLOCK_NONE )
+            continue;
 
-        unsigned op_index = block->upper;
-        while ( op_index-- > block->lower )
+        block->mark = 0;
+        live_body( block_index, block );
+        live_head( block_index, block );
+    }
+
+    // If ops are made live by loop edges, we need to mark values live
+    // recursively.  Continue to process until there is no more work to do.
+    while ( ! _work_stack.empty() )
+    {
+        ir_block_index block_index = _work_stack.back();
+        _work_stack.pop_back();
+
+        ir_block* block = &_f->blocks.at( block_index );
+        unsigned block_mark = block->mark;
+        block->mark = 0;
+
+        if ( block_mark & LIVE_BODY )
         {
-
-            ir_op* op = &_f->ops[ op_index ];
-
-            switch ( op->opcode )
-            {
-            case IR_PHI:
-            case IR_REF:
-                continue;
-
-            case IR_BLOCK:
-                continue;
-
-            case IR_JUMP:
-            case IR_JUMP_FOR_EGEN:
-            case IR_JUMP_FOR_SGEN:
-                assert( op->ocount >= 1 );
-                live_successor( block_index, _f->operands.at( op->oindex + op->ocount - 1 ) );
-                op->mark = IR_MARK_STICKY;
-                break;
-
-            case IR_JUMP_TEST:
-            case IR_JUMP_FOR_EACH:
-            case IR_JUMP_FOR_STEP:
-                assert( op->ocount >= 2 );
-                live_successor( block_index, _f->operands.at( op->oindex + op->ocount - 2 ) );
-                live_successor( block_index, _f->operands.at( op->oindex + op->ocount - 1 ) );
-                op->mark = IR_MARK_STICKY;
-                break;
-
-            case IR_JUMP_THROW:
-            case IR_JUMP_RETURN:
-                op->mark = IR_MARK_STICKY;
-                break;
-
-            case IR_SET_UPVAL:
-            case IR_SET_KEY:
-            case IR_SET_INDEX:
-            case IR_APPEND:
-            case IR_CALL:
-            case IR_YCALL:
-            case IR_YIELD:
-            case IR_EXTEND:
-            case IR_CLOSE_UPSTACK:
-                // These opcodes have side effects so they need to stay live.
-                op->mark = IR_MARK_STICKY;
-                break;
-
-            default: break;
-            }
-
-            // Skip ops with no uses.
-            if ( op->mark == 0 )
-            {
-                continue;
-            }
-
-            // Mark all ops used by this op.
-            for ( unsigned j = 0; j < op->ocount; ++j )
-            {
-                ir_operand operand = _f->operands.at( op->oindex + j );
-                if ( operand.kind == IR_O_OP )
-                {
-                    mark_use( operand, op_index );
-                }
-            }
+            // Ops in the body can make ops in the head live.
+            live_body( block_index, block );
+            live_head( block_index, block );
+        }
+        else if ( block_mark & LIVE_HEAD )
+        {
+            // Locals are live across the block but are not defined in it.
+            live_head( block_index, block );
         }
     }
 }
 
-void live_ir::live_successor( ir_block_index block_index, ir_operand jump )
+void live_ir::live_body( ir_block_index block_index, ir_block* block )
 {
     /*
-        Examine variables live in the header of a successor block.  For each,
-        either the definition is in this block, in which case mark the op, or
-        we should have a PHI or REF in our header that matches it, in which
-        case mark that op.
+        References from successor blocks should have made some of our ops live.
+        Visit each op, and if the r flag is set, mark its uses, potentially
+        setting the r flag of other values in the block.  Also, some ops need
+        to be live no matter what (e.g. return, call).
     */
 
-    // Find this block.
-    ir_block* this_block = &_f->blocks.at( block_index );
-
-    // Find successor block.
-    assert( jump.kind == IR_O_JUMP );
-    ir_op* next_block_op = &_f->ops.at( jump.index );
-    assert( next_block_op->opcode == IR_BLOCK );
-    assert( next_block_op->ocount == 1 );
-    ir_operand next_block_operand = _f->operands.at( next_block_op->oindex );
-    assert( next_block_operand.kind == IR_O_BLOCK );
-    ir_block* next_block = &_f->blocks.at( next_block_operand.index );
-
-    // Find index of this block in preceding blocks list.
-    unsigned prindex = 0;
-    unsigned prcount = next_block->preceding_upper - next_block->preceding_lower;
-    for ( ; prindex < prcount; ++prindex )
+    unsigned op_index = block->upper;
+    while ( op_index-- > block->lower )
     {
-        unsigned prblock_index = _f->preceding_blocks.at( next_block->preceding_lower + prindex );
-        if ( prblock_index == block_index )
+        ir_op* op = &_f->ops[ op_index ];
+
+        switch ( op->opcode )
         {
+        case IR_PHI:
+        case IR_REF:
+        case IR_BLOCK:
+            continue;
+
+        case IR_JUMP:
+        case IR_JUMP_FOR_EGEN:
+        case IR_JUMP_FOR_SGEN:
+        case IR_JUMP_TEST:
+        case IR_JUMP_FOR_EACH:
+        case IR_JUMP_FOR_STEP:
+        case IR_JUMP_THROW:
+        case IR_JUMP_RETURN:
+        case IR_SET_UPVAL:
+        case IR_SET_KEY:
+        case IR_SET_INDEX:
+        case IR_APPEND:
+        case IR_CALL:
+        case IR_YCALL:
+        case IR_YIELD:
+        case IR_EXTEND:
+        case IR_CLOSE_UPSTACK:
+            // These instructions have side effects so they need to
+            // stay live no matter what.
+            if ( ! op->mark )
+            {
+                op->mark = IR_MARK_STICKY;
+                op->r = true;
+            }
+            break;
+
+        default:
             break;
         }
+
+        // Skip ops which are not live or which have already had uses marked.
+        if ( ! op->r )
+        {
+            continue;
+        }
+
+        // Mark all ops used by this op.
+        for ( unsigned j = 0; j < op->ocount; ++j )
+        {
+            ir_operand operand = _f->operands.at( op->oindex + j );
+            if ( operand.kind != IR_O_OP )
+            {
+                continue;
+            }
+
+            mark_use( operand, op_index );
+        }
+
+        // Marked all uses.
+        op->r = false;
+    }
+}
+
+void live_ir::live_head( ir_block_index block_index, ir_block* block )
+{
+    /*
+        Go through all ref/phi ops in the head of a block.  These reference
+        ops in predecessor blocks, which potentially need to be processed.
+    */
+
+    // Get list of preceding blocks.
+    ir_block_index* prblock_indexes = nullptr;
+    unsigned prcount = 0;
+    if ( block->preceding_lower < block->preceding_upper )
+    {
+        prblock_indexes = &_f->preceding_blocks.at( block->preceding_lower );
+        prcount = block->preceding_upper - block->preceding_lower;
     }
 
-    assert( prindex < prcount );
-
-    // Go through phi/ref ops in successor block.
-    unsigned phi_index = next_block->phi_head;
+    // Visit each op in the header.
+    unsigned phi_index = block->phi_head;
     while ( phi_index != IR_INVALID_INDEX )
     {
         ir_op* phi = &_f->ops.at( phi_index );
 
-        // Skip unmarked phi ops.
-        if ( phi->mark == 0 )
+        // Skip ops which are not live or which have already had uses marked.
+        if ( ! phi->r )
         {
             phi_index = phi->phi_next;
             continue;
         }
 
-        // Find def referenced by op.
-        ir_operand def;
-        if ( phi->opcode == IR_REF )
+        // Mark all defs in preceding blocks.
+        for ( unsigned pr = 0; pr < prcount; ++pr )
         {
-            def = _f->operands.at( phi->oindex );
-        }
-        else
-        {
-            assert( phi->ocount == prcount );
-            def = _f->operands.at( phi->oindex + prindex );
-        }
+            ir_block_index prblock_index = prblock_indexes[ pr ];
+            ir_block* prblock = &_f->blocks.at( prblock_index );
 
-        assert( def.kind == IR_O_OP );
-        ir_op* op = &_f->ops.at( def.index );
-
-        if ( op->opcode != IR_PHI && op->opcode != IR_REF
-            && def.index >= this_block->lower && def.index < this_block->upper )
-        {
-            // Def is in this block.
-            mark_use( def, this_block->upper );
-        }
-        else
-        {
-            // Def is not in the block, should match in the header.
-            unsigned local = op->local();
-            assert( local != IR_INVALID_LOCAL );
-
-            ir_op* this_phi = nullptr;
-            unsigned index = this_block->phi_head;
-            while ( index != IR_INVALID_INDEX )
+            // Find def incoming from this preceding block.
+            ir_operand def;
+            if ( phi->opcode == IR_REF )
             {
-                this_phi = &_f->ops.at( index );
-                if ( this_phi->local() == local )
-                {
-                    mark_use( { IR_O_OP, index }, this_block->upper );
-                    break;
-                }
-
-                index = this_phi->phi_next;
+                assert( phi->ocount == 1 );
+                def = _f->operands.at( phi->oindex );
+            }
+            else
+            {
+                assert( phi->ocount == prcount );
+                def = _f->operands.at( phi->oindex + pr );
             }
 
-            assert( index != IR_INVALID_INDEX );
+            assert( def.kind == IR_O_OP );
+            ir_op* op = &_f->ops.at( def.index );
+            unsigned block_mark = 0;
+
+            if ( op->opcode != IR_PHI && op->opcode != IR_REF &&
+                def.index >= prblock->lower && def.index < prblock->upper )
+            {
+                // Def is in previous block's body.  Mark it directly.
+                block_mark |= LIVE_BODY;
+            }
+            else
+            {
+                // Def was imported into the previous block's header.  There
+                // must be a matching phi/ref in that header.
+                def = match_phi( prblock, phi->local() );
+                assert( def.kind == IR_O_OP );
+                block_mark |= LIVE_HEAD;
+            }
+
+            if ( mark_use( def, prblock->upper ) )
+            {
+                // Op in predecessor block was made live.  Ensure we revisit.
+                assert( block_mark );
+                if ( ! prblock->mark )
+                {
+                    _work_stack.push_back( prblock_index );
+                }
+                prblock->mark |= block_mark;
+            }
+        }
+
+        // Marked all uses.
+        phi->r = false;
+    }
+}
+
+ir_operand live_ir::match_phi( ir_block* block, unsigned local )
+{
+    // Search block header for a phi matching the local.
+    unsigned phi_index = block->phi_head;
+    while ( phi_index != IR_INVALID_INDEX )
+    {
+        ir_op* phi = &_f->ops.at( phi_index );
+
+        if ( phi->local() == local )
+        {
+            return { IR_O_OP, phi_index };
         }
 
         phi_index = phi->phi_next;
     }
+
+    // Should never happen!
+    return { IR_O_NONE };
 }
 
-void live_ir::mark_use( ir_operand def, unsigned use_index )
+bool live_ir::mark_use( ir_operand def, unsigned use_index )
 {
     assert( def.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( def.index );
 
     // Increment mark.
-    uint8_t mark = op->mark + 1;
-    op->mark = mark >= op->mark ? mark : IR_MARK_STICKY;
+    uint8_t old_mark = op->mark;
+    uint8_t new_mark = op->mark + 1;
+    op->mark = new_mark >= old_mark ? new_mark : IR_MARK_STICKY;
 
     // Update live_range.
     unsigned live_range = op->live_range != IR_INVALID_INDEX ? op->live_range : 0;
     op->live_range = std::max( live_range, use_index );
+
+    // Set r flag if marking it made this op live.
+    if ( old_mark == 0 )
+    {
+        op->r = true;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 }
