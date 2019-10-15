@@ -543,8 +543,7 @@ ir_operand build_ir::visit( node_index node )
             for ( ; name.index < name_done.index; name = next_node( name ), ++rv )
             {
                 assert( name->kind == AST_LOCAL_DECL );
-                declare_upval( name->sloc, name->leaf_index().index );
-                def( name->sloc, name->leaf_index().index, _o.at( rv ) );
+                def( name->sloc, name->leaf_index().index, _o.at( rv ), true );
             }
 
             _o.resize( rvindex );
@@ -556,8 +555,7 @@ ir_operand build_ir::visit( node_index node )
             {
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( { IR_O_NULL } );
-                declare_upval( name->sloc, name->leaf_index().index );
-                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ) );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ), true );
             }
         }
 
@@ -572,8 +570,7 @@ ir_operand build_ir::visit( node_index node )
         ir_operand object = visit( value );
         if ( qname->kind == AST_LOCAL_DECL )
         {
-            declare_upval( node->sloc, qname->leaf_index().index );
-            def( node->sloc, qname->leaf_index().index, object );
+            def( node->sloc, qname->leaf_index().index, object, true );
         }
         else
         {
@@ -610,8 +607,7 @@ ir_operand build_ir::visit( node_index node )
             assert( self.is_parameter );
             assert( self.is_implicit_self );
             _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
-            declare_upval( node->sloc, 0 );
-            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
+            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ), true );
         }
 
         visit_children( node );
@@ -630,8 +626,7 @@ ir_operand build_ir::visit( node_index node )
 
             unsigned local = param->leaf_index().index;
             _o.push_back( { IR_O_LOCAL_INDEX, local } );
-            declare_upval( node->sloc, local );
-            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ) );
+            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ), true );
         }
         return { IR_O_NONE };
     }
@@ -753,8 +748,7 @@ ir_operand build_ir::visit( node_index node )
 
         // Get index at head of loop.
         assert( name->kind == AST_LOCAL_DECL );
-        declare_upval( name->sloc, name->leaf_index().index );
-        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ) );
+        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ), true );
 
         // Visit the body of the loop.
         visit( body );
@@ -805,8 +799,7 @@ ir_operand build_ir::visit( node_index node )
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( items );
                 _o.push_back( { IR_O_SELECT, unpack++ } );
-                declare_upval( name->sloc, name->leaf_index().index );
-                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ) );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ), true );
             }
 
             assert( op->local() == IR_INVALID_LOCAL );
@@ -816,8 +809,7 @@ ir_operand build_ir::visit( node_index node )
         {
             node_index name = names;
             assert( name->kind == AST_LOCAL_DECL );
-            declare_upval( name->sloc, name->leaf_index().index );
-            def( name->sloc, name->leaf_index().index, items );
+            def( name->sloc, name->leaf_index().index, items, true );
         }
 
         // Visit the body of the loop.
@@ -913,6 +905,7 @@ ir_operand build_ir::visit( node_index node )
         }
         else
         {
+            close_upvals( node->sloc, 0 );
             end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
         }
         return { IR_O_NONE };
@@ -921,6 +914,7 @@ ir_operand build_ir::visit( node_index node )
     case AST_STMT_THROW:
     {
         _o.push_back( visit( child_node( node ) ) );
+        close_upvals( node->sloc, 0 );
         end_block( emit( node->sloc, IR_JUMP_THROW, 1 ) );
         return { IR_O_NONE };
     }
@@ -1275,7 +1269,7 @@ void build_ir::assign( node_index lval, ir_operand rval )
 {
     if ( lval->kind == AST_LOCAL_NAME )
     {
-        def( lval->sloc, lval->leaf_index().index, rval );
+        def( lval->sloc, lval->leaf_index().index, rval, false );
     }
     else if ( lval->kind == AST_UPVAL_NAME )
     {
@@ -1340,9 +1334,9 @@ ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
         ocount += 1;
     }
 
-    if ( opcode == IR_CALL || opcode == IR_YCALL || opcode == IR_YIELD )
+    if ( opcode == IR_JUMP_RETURN )
     {
-        upval_escapes( node->sloc );
+        close_upvals( node->sloc, 0 );
     }
 
     ir_operand call = emit( node->sloc, opcode, ocount );
@@ -1870,7 +1864,7 @@ void build_ir::seal_loop( ir_block_index loop_header )
     block->kind = IR_BLOCK_LOOP;
 }
 
-void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
+void build_ir::def( srcloc sloc, unsigned local, ir_operand operand, bool declare )
 {
     // Upgrade pins on the stack that refer to the same local.
     fix_local_pins( local );
@@ -1893,8 +1887,25 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand )
     assert( op->unpack() == 1 );
     op->set_local( local );
 
-    // Add to def lookup.  This overrides any previous def of this local in
-    // this block.
+    // Check if it's an uplocal.
+    unsigned upstack_index = _f->ast->locals.at( local ).upstack_index;
+    if ( upstack_index != AST_INVALID_INDEX )
+    {
+        if ( declare )
+        {
+            // Add local to upstack.
+            declare_upval( sloc, local );
+        }
+        else
+        {
+            // Don't redefine uplocals, have all uses reach the original
+            // definition.  Basically we can't use SSA form for uplocals.
+            return;
+        }
+    }
+
+    // Add to def lookup.  This overrides any previous def of
+    // this local in this block.
     assert( _block_index != IR_INVALID_INDEX );
     _defs.insert_or_assign( block_local{ _block_index, local }, operand );
 }
@@ -1926,23 +1937,6 @@ void build_ir::declare_upval( srcloc sloc, unsigned local )
     _upstack[ upstack_index ] = local;
 }
 
-void build_ir::upval_escapes( srcloc sloc )
-{
-    // Reference all values on upstack, since they might escape the function.
-    unsigned ocount = 0;
-    for ( unsigned index = _upscope; index < _upstack.size(); ++index )
-    {
-        unsigned local = _upstack.at( index );
-        if ( local != AST_INVALID_INDEX )
-        {
-            _o.push_back( use( sloc, local ) );
-            ocount += 1;
-        }
-    }
-
-    emit( sloc, IR_UPVAL_ESCAPES, ocount );
-}
-
 void build_ir::close_upvals( srcloc sloc, unsigned upstack_index )
 {
     if ( upstack_index == AST_INVALID_INDEX )
@@ -1962,7 +1956,15 @@ void build_ir::close_upvals( srcloc sloc, unsigned upstack_index )
         ocount += 1;
     }
 
-    emit( sloc, IR_CLOSE_UPSTACK, ocount );
+    assert( upstack_index == 0 || ocount > 1 );
+    if ( ocount > 1 )
+    {
+        emit( sloc, IR_CLOSE_UPSTACK, ocount );
+    }
+    else
+    {
+        _o.pop_back();
+    }
 }
 
 void build_ir::pop_upvals( srcloc sloc, unsigned upstack_index )

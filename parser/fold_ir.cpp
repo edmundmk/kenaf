@@ -255,11 +255,6 @@ void fold_ir::fold_constants( ir_block* block )
             fold_concat( op );
             break;
 
-        case IR_PIN:
-            // Unpromoted pins aren't useful.
-            op->opcode = IR_NOP;
-            break;
-
         case IR_EQ:
         case IR_NE:
             fold_equal( op );
@@ -852,6 +847,11 @@ void fold_ir::remove_unreachable_blocks()
     }
 }
 
+bool ir_is_upval( ir_function* f, unsigned local )
+{
+    return local != IR_INVALID_LOCAL && f->ast->locals.at( local ).upstack_index != AST_INVALID_INDEX;
+}
+
 ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
 {
     if ( operand.kind != IR_O_OP )
@@ -863,7 +863,7 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
     while ( true )
     {
         // Don't fold upvals.
-        if ( op->local() != IR_INVALID_LOCAL && f->ast->locals.at( op->local() ).upstack_index != AST_INVALID_INDEX )
+        if ( ir_is_upval( f, op->local() ) )
         {
             return operand;
         }

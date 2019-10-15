@@ -9,6 +9,7 @@
 //
 
 #include "live_ir.h"
+#include "fold_ir.h"
 
 namespace kf
 {
@@ -134,7 +135,6 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
         case IR_YCALL:
         case IR_YIELD:
         case IR_EXTEND:
-        case IR_UPVAL_ESCAPES:
         case IR_CLOSE_UPSTACK:
             // These instructions have side effects so they need to
             // stay live no matter what.
@@ -147,6 +147,13 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
 
         default:
             break;
+        }
+
+        // All defs of upvals need to remain live.
+        if ( ! op->mark && ir_is_upval( _f, op->local() ) )
+        {
+            op->mark = IR_MARK_STICKY;
+            op->r = 1;
         }
 
         // Skip ops which are not live or which have already had uses marked.

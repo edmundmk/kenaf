@@ -241,7 +241,6 @@ enum ir_opcode : uint8_t
     IR_SELECT,                  // select( a ..., index )
 
     // Upvals.
-    IR_UPVAL_ESCAPES,           // list of upvals that might escape
     IR_CLOSE_UPSTACK,           // index
 
     // Shortcut branches.

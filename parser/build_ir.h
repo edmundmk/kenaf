@@ -111,12 +111,11 @@ private:
     ir_operand search_def( ir_block_index block_index, unsigned local );
     void close_phi( ir_block_index block_index, unsigned local, unsigned phi_index );
     void seal_loop( ir_block_index loop_header );
-    void def( srcloc sloc, unsigned local, ir_operand operand );
+    void def( srcloc sloc, unsigned local, ir_operand operand, bool declare );
 
     // Upvals must be referenced by close instructions so they stay live.
     void push_upvals( srcloc sloc, unsigned upstack_index );
     void declare_upval( srcloc sloc, unsigned local );
-    void upval_escapes( srcloc sloc );
     void close_upvals( srcloc sloc, unsigned upstack_index );
     void pop_upvals( srcloc sloc, unsigned upstack_index );
 
