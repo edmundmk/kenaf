@@ -81,6 +81,7 @@ private:
     // Constants.
     ir_operand number_operand( node_index node );
     ir_operand string_operand( node_index node );
+    ir_operand selector_operand( node_index node );
 
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );

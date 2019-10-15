@@ -425,7 +425,7 @@ ir_operand build_ir::visit( node_index node )
     {
         node_index u = child_node( node );
         _o.push_back( visit( u ) );
-        _o.push_back( string_operand( node ) );
+        _o.push_back( selector_operand( node ) );
         return emit( node->sloc, IR_GET_KEY, 2 );
     }
 
@@ -938,7 +938,7 @@ ir_operand build_ir::visit( node_index node )
 
             assert( name->kind == AST_OBJKEY_DECL );
             _o.push_back( object );
-            _o.push_back( string_operand( name ) );
+            _o.push_back( selector_operand( name ) );
             _o.push_back( visit( value ) );
             emit( child->sloc, IR_SET_KEY, 3 );
         }
@@ -972,7 +972,7 @@ ir_operand build_ir::visit( node_index node )
 
     case AST_GLOBAL_NAME:
     {
-        _o.push_back( string_operand( node ) );
+        _o.push_back( selector_operand( node ) );
         return emit( node->sloc, IR_GET_GLOBAL, 1 );
     }
 
@@ -1100,7 +1100,7 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
         if ( lval->kind == AST_EXPR_KEY )
         {
             uoperand = visit( child_node( lval ) );
-            voperand = string_operand( lval );
+            voperand = selector_operand( lval );
             _o.push_back( uoperand );
             _o.push_back( voperand );
             _o.push_back( emit( lval->sloc, IR_GET_KEY, 2 ) );
@@ -1263,7 +1263,7 @@ void build_ir::assign( node_index lval, ir_operand rval )
     else if ( lval->kind == AST_EXPR_KEY )
     {
         _o.push_back( visit( child_node( lval ) ) );
-        _o.push_back( string_operand( lval ) );
+        _o.push_back( selector_operand( lval ) );
         _o.push_back( rval );
         emit( lval->sloc, IR_SET_KEY, 3 );
     }
@@ -1294,7 +1294,7 @@ ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
         {
             ir_operand self = visit( child_node( arg ) );
             _o.push_back( self );
-            _o.push_back( string_operand( arg ) );
+            _o.push_back( selector_operand( arg ) );
             _o.push_back( emit( arg->sloc, IR_GET_KEY, 2 ) );
             _o.push_back( self );
             ocount += 2;
@@ -1324,16 +1324,23 @@ ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
 
 ir_operand build_ir::number_operand( node_index node )
 {
-    unsigned index = _f->numbers.size();
-    _f->numbers.push_back( { node->leaf_number().n } );
+    unsigned index = _f->constants.size();
+    _f->constants.push_back( ir_constant( node->leaf_number().n ) );
     return { IR_O_NUMBER, index };
 }
 
 ir_operand build_ir::string_operand( node_index node )
 {
-    unsigned index = _f->strings.size();
-    _f->strings.push_back( { node->leaf_string().text, node->leaf_string().size } );
+    unsigned index = _f->constants.size();
+    _f->constants.push_back( ir_constant( node->leaf_string().text, node->leaf_string().size ) );
     return { IR_O_STRING, index };
+}
+
+ir_operand build_ir::selector_operand( node_index node )
+{
+    unsigned index = _f->selectors.size();
+    _f->selectors.push_back( { node->leaf_string().text, node->leaf_string().size } );
+    return { IR_O_SELECTOR, index };
 }
 
 ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )

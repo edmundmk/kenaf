@@ -93,9 +93,9 @@ void alloc_k_ir::alloc_operands()
             if ( fold_v.kind == IR_O_NUMBER )
             {
                 // Convert to ADD with negated operand.
-                double constant = _f->numbers.at( fold_v.index ).n;
-                fold_v.index = _f->numbers.size();
-                _f->numbers.push_back( { -constant } );
+                double constant = _f->constants.at( fold_v.index ).n;
+                fold_v.index = _f->constants.size();
+                _f->constants.push_back( ir_constant( -constant ) );
                 op->opcode = IR_ADD;
                 *v = operand_imm8( fold_v );
             }
@@ -124,7 +124,7 @@ ir_operand alloc_k_ir::operand_imm8( ir_operand operand )
 {
     if ( operand.kind == IR_O_NUMBER )
     {
-        double number = _f->numbers.at( operand.index ).n;
+        double number = _f->constants.at( operand.index ).n;
         int8_t imm8 = (int8_t)number;
         if ( (double)imm8 == number )
         {

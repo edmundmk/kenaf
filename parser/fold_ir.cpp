@@ -315,13 +315,13 @@ bool fold_ir::is_constant( ir_operand operand )
 double fold_ir::to_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
-    return _f->numbers.at( operand.index ).n;
+    return _f->constants.at( operand.index ).n;
 }
 
 std::string_view fold_ir::to_string( ir_operand operand )
 {
     assert( operand.kind == IR_O_STRING );
-    const ir_string& s = _f->strings.at( operand.index );
+    const ir_constant& s = _f->constants.at( operand.index );
     return std::string_view( s.text, s.size );
 }
 
@@ -374,8 +374,8 @@ bool fold_ir::fold_unarithmetic( ir_op* op )
         // Update operand.
         ir_operand* operand = &_f->operands.at( op->oindex );
         operand->kind = IR_O_NUMBER;
-        operand->index = _f->numbers.size();
-        _f->numbers.push_back( { result } );
+        operand->index = _f->constants.size();
+        _f->constants.push_back( ir_constant( result ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;
@@ -426,8 +426,8 @@ bool fold_ir::fold_biarithmetic( ir_op* op )
         // Update operand.
         ir_operand* operand = &_f->operands.at( op->oindex );
         operand->kind = IR_O_NUMBER;
-        operand->index = _f->numbers.size();
-        _f->numbers.push_back( { result } );
+        operand->index = _f->constants.size();
+        _f->constants.push_back( ir_constant( result ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;

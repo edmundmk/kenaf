@@ -120,8 +120,8 @@ struct ir_function;
 struct ir_op;
 struct ir_operand;
 struct ir_block;
-struct ir_number;
-struct ir_string;
+struct ir_constant;
+struct ir_selector;
 struct ir_live_value;
 struct ir_live_range;
 
@@ -159,9 +159,8 @@ struct ir_function
     std::vector< ir_block_index > preceding_blocks;
 
     // Constant numbers and strings.
-    std::vector< ir_number > numbers;
-    std::vector< ir_string > strings;
-    std::vector< ir_string > selectors;
+    std::vector< ir_constant > constants;
+    std::vector< ir_selector > selectors;
 
     // Live ranges of local and for loop variables.
     std::vector< ir_live_value > live_values;
@@ -381,12 +380,16 @@ struct ir_block
     unsigned phi_tail;          // Index of last phi op in block.
 };
 
-struct ir_number
+struct ir_constant
 {
-    double n;
+    explicit ir_constant( double n ) : text( nullptr ), n( n ) {}
+    explicit ir_constant( const char* text, size_t size ) : text( text ), size( size ) {}
+
+    const char* text;
+    union { size_t size; double n; };
 };
 
-struct ir_string
+struct ir_selector
 {
     const char* text;
     size_t size;

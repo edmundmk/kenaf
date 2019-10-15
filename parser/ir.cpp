@@ -197,21 +197,21 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
         case IR_O_NUMBER:
         {
-            const ir_number& n = f->numbers.at( operand.index );
+            const ir_constant& n = f->constants.at( operand.index );
             printf( " %f", n.n );
             break;
         }
 
         case IR_O_STRING:
         {
-            const ir_string& s = f->strings.at( operand.index );
+            const ir_constant& s = f->constants.at( operand.index );
             printf( " \"%.*s\"", (int)s.size, s.text );
             break;
         }
 
         case IR_O_SELECTOR:
         {
-            const ir_string& s = f->selectors.at( operand.index );
+            const ir_selector& s = f->selectors.at( operand.index );
             printf( " \'%.*s\'", (int)s.size, s.text );
             break;
         }
