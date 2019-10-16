@@ -61,7 +61,7 @@ int main( int argc, char* argv[] )
         ast_script->debug_print();
     }
 
-    if ( 0 && ! source.has_error )
+    if ( ! source.has_error )
     {
         kf::ir_build ir_build( &source );
         kf::ir_fold ir_fold( &source );

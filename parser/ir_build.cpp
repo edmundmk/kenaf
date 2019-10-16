@@ -610,13 +610,14 @@ ir_operand ir_build::visit( node_index node )
             def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ), true );
         }
 
-        for ( node_index param = child_node( node ); param.index < node.index; param = next_node( param ) )
+        for ( node_index param = child_node( parameters ); param.index < parameters.index; param = next_node( param ) )
         {
             if ( param->kind == AST_VARARG_PARAM )
             {
                 continue;
             }
 
+            assert( param->kind == AST_LOCAL_DECL );
             unsigned local_index = param->leaf_index().index;
             _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
             def( param->sloc, local_index, emit( param->sloc, IR_PARAM, 1 ), true );
