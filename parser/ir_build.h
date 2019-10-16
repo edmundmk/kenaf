@@ -1,5 +1,5 @@
 //
-//  build_ir.h
+//  ir_build.h
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef BUILD_IR_H
-#define BUILD_IR_H
+#ifndef IR_BUILD_H
+#define IR_BUILD_H
 
 /*
     Traverses an AST and builds IR.  Performs SSA form construction using
@@ -24,12 +24,12 @@
 namespace kf
 {
 
-class build_ir
+class ir_build
 {
 public:
 
-    explicit build_ir( source* source );
-    ~build_ir();
+    explicit ir_build( source* source );
+    ~ir_build();
 
     std::unique_ptr< ir_function > build( ast_function* function );
 

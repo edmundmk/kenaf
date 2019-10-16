@@ -1,5 +1,5 @@
 //
-//  live_ir.cpp
+//  ir_live.cpp
 //
 //  Created by Edmund Kapusniak on 14/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,23 +8,23 @@
 //  full license information.
 //
 
-#include "live_ir.h"
-#include "fold_ir.h"
+#include "ir_live.h"
+#include "ir_fold.h"
 
 namespace kf
 {
 
-live_ir::live_ir( source* source )
+ir_live::ir_live( source* source )
     :   _source( source )
 {
     (void)_source;
 }
 
-live_ir::~live_ir()
+ir_live::~ir_live()
 {
 }
 
-void live_ir::live( ir_function* function )
+void ir_live::live( ir_function* function )
 {
     /*
         Our language has no goto, and the IR has been built in program order,
@@ -39,7 +39,7 @@ void live_ir::live( ir_function* function )
     live_blocks();
 }
 
-void live_ir::reset( ir_function* function )
+void ir_live::reset( ir_function* function )
 {
     for ( unsigned op_index = 0; op_index < function->ops.size(); ++op_index )
     {
@@ -50,7 +50,7 @@ void live_ir::reset( ir_function* function )
     }
 }
 
-void live_ir::live_blocks()
+void ir_live::live_blocks()
 {
     // Set work flags on all blocks, to prevent them being pushed on the
     // work stack until they've been processed once.
@@ -98,7 +98,7 @@ void live_ir::live_blocks()
     }
 }
 
-void live_ir::live_body( ir_block_index block_index, ir_block* block )
+void ir_live::live_body( ir_block_index block_index, ir_block* block )
 {
     /*
         References from successor blocks should have made some of our ops live.
@@ -179,7 +179,7 @@ void live_ir::live_body( ir_block_index block_index, ir_block* block )
     }
 }
 
-void live_ir::live_head( ir_block_index block_index, ir_block* block )
+void ir_live::live_head( ir_block_index block_index, ir_block* block )
 {
     /*
         Go through all ref/phi ops in the head of a block.  These reference
@@ -263,7 +263,7 @@ void live_ir::live_head( ir_block_index block_index, ir_block* block )
     }
 }
 
-ir_operand live_ir::match_phi( ir_block* block, unsigned local )
+ir_operand ir_live::match_phi( ir_block* block, unsigned local )
 {
     // Search block header for a phi matching the local.
     unsigned phi_index = block->phi_head;
@@ -283,7 +283,7 @@ ir_operand live_ir::match_phi( ir_block* block, unsigned local )
     return { IR_O_NONE };
 }
 
-bool live_ir::mark_use( ir_operand def, unsigned use_index )
+bool ir_live::mark_use( ir_operand def, unsigned use_index )
 {
     assert( def.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( def.index );

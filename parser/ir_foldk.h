@@ -1,5 +1,5 @@
 //
-//  foldk_ir.h
+//  ir_foldk.h
 //
 //  Created by Edmund Kapusniak on 15/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef FOLDK_IR_H
-#define FOLDK_IR_H
+#ifndef IR_FOLDK_H
+#define IR_FOLDK_H
 
 /*
     Builds final constant tables and inlines constant operands into
@@ -22,12 +22,12 @@
 namespace kf
 {
 
-class foldk_ir
+class ir_foldk
 {
 public:
 
-    foldk_ir( source* source );
-    ~foldk_ir();
+    ir_foldk( source* source );
+    ~ir_foldk();
 
     bool foldk( ir_function* function );
 

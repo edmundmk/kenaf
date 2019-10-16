@@ -1,5 +1,5 @@
 //
-//  fold_ir.cpp
+//  ir_fold.cpp
 //
 //  Created by Edmund Kapusniak on 12/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,24 +8,24 @@
 //  full license information.
 //
 
-#include "fold_ir.h"
+#include "ir_fold.h"
 #include "ast.h"
 #include "../common/imath.h"
 
 namespace kf
 {
 
-fold_ir::fold_ir( source* source )
+ir_fold::ir_fold( source* source )
     :   _source( source )
     ,   _f( nullptr )
 {
 }
 
-fold_ir::~fold_ir()
+ir_fold::~ir_fold()
 {
 }
 
-void fold_ir::fold( ir_function* function )
+void ir_fold::fold( ir_function* function )
 {
     _f = function;
     fold_phi();
@@ -34,7 +34,7 @@ void fold_ir::fold( ir_function* function )
     remove_unreachable_blocks();
 }
 
-void fold_ir::fold_phi()
+void ir_fold::fold_phi()
 {
     /*
         Fold the function's phigraph.  Each phi should reference either a
@@ -47,7 +47,7 @@ void fold_ir::fold_phi()
     fold_phi_step();
 }
 
-void fold_ir::fold_phi_loop()
+void ir_fold::fold_phi_loop()
 {
     /*
        Replace links which always loop back to the header.
@@ -82,7 +82,7 @@ void fold_ir::fold_phi_loop()
     }
 }
 
-bool fold_ir::phi_loop_search( ir_operand loop_phi, ir_operand operand )
+bool ir_fold::phi_loop_search( ir_operand loop_phi, ir_operand operand )
 {
     /*
         Return true if all reachable ops from operand terminate at loop_phi.
@@ -113,7 +113,7 @@ bool fold_ir::phi_loop_search( ir_operand loop_phi, ir_operand operand )
     return true;
 }
 
-void fold_ir::fold_phi_step()
+void ir_fold::fold_phi_step()
 {
     /*
         Simplify by folding all phi operands that reference a phi that
@@ -165,7 +165,7 @@ void fold_ir::fold_phi_step()
     }
 }
 
-void fold_ir::fold_constants()
+void ir_fold::fold_constants()
 {
     if ( _f->blocks.size() )
     {
@@ -218,7 +218,7 @@ void fold_ir::fold_constants()
     }
 }
 
-void fold_ir::fold_constants( ir_block* block )
+void ir_fold::fold_constants( ir_block* block )
 {
     for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
     {
@@ -287,7 +287,7 @@ void fold_ir::fold_constants( ir_block* block )
     }
 }
 
-ir_operand fold_ir::jump_block_operand( unsigned operand_index )
+ir_operand ir_fold::jump_block_operand( unsigned operand_index )
 {
     ir_operand o = _f->operands.at( operand_index );
     assert( o.kind == IR_O_JUMP );
@@ -299,32 +299,32 @@ ir_operand fold_ir::jump_block_operand( unsigned operand_index )
     return o;
 }
 
-ir_operand fold_ir::fold_operand( unsigned operand_index )
+ir_operand ir_fold::fold_operand( unsigned operand_index )
 {
     return ir_fold_operand( _f, _f->operands.at( operand_index ) );
 }
 
-bool fold_ir::is_constant( ir_operand operand )
+bool ir_fold::is_constant( ir_operand operand )
 {
     return operand.kind == IR_O_NULL
         || operand.kind == IR_O_TRUE || operand.kind == IR_O_FALSE
         || operand.kind == IR_O_NUMBER || operand.kind == IR_O_STRING;
 }
 
-double fold_ir::to_number( ir_operand operand )
+double ir_fold::to_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     return _f->constants.at( operand.index ).n;
 }
 
-std::string_view fold_ir::to_string( ir_operand operand )
+std::string_view ir_fold::to_string( ir_operand operand )
 {
     assert( operand.kind == IR_O_STRING );
     const ir_constant& s = _f->constants.at( operand.index );
     return std::string_view( s.text, s.size );
 }
 
-bool fold_ir::test_constant( ir_operand operand )
+bool ir_fold::test_constant( ir_operand operand )
 {
     if ( operand.kind == IR_O_NULL || operand.kind == IR_O_FALSE )
         return false;
@@ -334,7 +334,7 @@ bool fold_ir::test_constant( ir_operand operand )
         return true;
 }
 
-std::pair< ir_operand, size_t > fold_ir::count_nots( ir_operand operand )
+std::pair< ir_operand, size_t > ir_fold::count_nots( ir_operand operand )
 {
     const ir_op* not_op;
     size_t not_count = 0;
@@ -346,7 +346,7 @@ std::pair< ir_operand, size_t > fold_ir::count_nots( ir_operand operand )
     return std::make_pair( operand, not_count );
 }
 
-bool fold_ir::fold_unarithmetic( ir_op* op )
+bool ir_fold::fold_unarithmetic( ir_op* op )
 {
     assert( op->ocount == 1 );
     ir_operand u = fold_operand( op->oindex );
@@ -387,7 +387,7 @@ bool fold_ir::fold_unarithmetic( ir_op* op )
     }
 }
 
-bool fold_ir::fold_biarithmetic( ir_op* op )
+bool ir_fold::fold_biarithmetic( ir_op* op )
 {
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
@@ -440,7 +440,7 @@ bool fold_ir::fold_biarithmetic( ir_op* op )
     }
 }
 
-bool fold_ir::fold_concat( ir_op* op )
+bool ir_fold::fold_concat( ir_op* op )
 {
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
@@ -475,7 +475,7 @@ bool fold_ir::fold_concat( ir_op* op )
     }
 }
 
-bool fold_ir::fold_equal( ir_op* op )
+bool ir_fold::fold_equal( ir_op* op )
 {
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
@@ -514,7 +514,7 @@ bool fold_ir::fold_equal( ir_op* op )
     return true;
 }
 
-bool fold_ir::fold_compare( ir_op* op )
+bool ir_fold::fold_compare( ir_op* op )
 {
     assert( op->ocount == 2 );
     ir_operand u = fold_operand( op->oindex + 0 );
@@ -554,7 +554,7 @@ bool fold_ir::fold_compare( ir_op* op )
     return true;
 }
 
-bool fold_ir::fold_not( ir_op* op )
+bool ir_fold::fold_not( ir_op* op )
 {
     assert( op->opcode == IR_NOT );
     assert( op->ocount == 1 );
@@ -577,7 +577,7 @@ bool fold_ir::fold_not( ir_op* op )
     return true;
 }
 
-bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
+bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
 {
     /*
         B_AND/B_CUT has one of the following forms:
@@ -706,7 +706,7 @@ bool fold_ir::fold_cut( unsigned op_index, ir_op* op )
     return false;
 }
 
-bool fold_ir::fold_phi( ir_op* op )
+bool ir_fold::fold_phi( ir_op* op )
 {
     /*
         After the above transformations of CUT/DEF, some of the operands to
@@ -732,7 +732,7 @@ bool fold_ir::fold_phi( ir_op* op )
     return false;
 }
 
-bool fold_ir::fold_test( ir_op* op )
+bool ir_fold::fold_test( ir_op* op )
 {
     assert( op->opcode == IR_JUMP_TEST );
     assert( op->ocount == 3 );
@@ -770,7 +770,7 @@ bool fold_ir::fold_test( ir_op* op )
     return false;
 }
 
-void fold_ir::fold_uses()
+void ir_fold::fold_uses()
 {
     /*
         Replace any uses of instructions which just pass through their operand
@@ -810,7 +810,7 @@ void fold_ir::fold_uses()
     _stack.clear();
 }
 
-void fold_ir::remove_unreachable_blocks()
+void ir_fold::remove_unreachable_blocks()
 {
     for ( unsigned block_index = 0; block_index < _f->blocks.size(); ++block_index )
     {

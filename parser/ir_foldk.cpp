@@ -1,5 +1,5 @@
 //
-//  foldk_ir.cpp
+//  ir_foldk.cpp
 //
 //  Created by Edmund Kapusniak on 15/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,24 +8,24 @@
 //  full license information.
 //
 
-#include "foldk_ir.h"
+#include "ir_foldk.h"
 #include <string.h>
-#include "fold_ir.h"
+#include "ir_fold.h"
 #include "ast.h"
 
 namespace kf
 {
 
-foldk_ir::foldk_ir( source* source )
+ir_foldk::ir_foldk( source* source )
     :   _source( source )
 {
 }
 
-foldk_ir::~foldk_ir()
+ir_foldk::~ir_foldk()
 {
 }
 
-bool foldk_ir::foldk( ir_function* function )
+bool ir_foldk::foldk( ir_function* function )
 {
     _f = function;
 
@@ -59,7 +59,7 @@ bool foldk_ir::foldk( ir_function* function )
     return true;
 }
 
-void foldk_ir::inline_operands()
+void ir_foldk::inline_operands()
 {
     /*
         The following constant operands can be inlined:
@@ -250,7 +250,7 @@ void foldk_ir::inline_operands()
     }
 }
 
-void foldk_ir::alloc_constants()
+void ir_foldk::alloc_constants()
 {
     /*
         Update all constants and selectors, merging identical constants.
@@ -289,7 +289,7 @@ void foldk_ir::alloc_constants()
 }
 
 
-ir_operand foldk_ir::inline_number( ir_operand operand )
+ir_operand ir_foldk::inline_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     double number = _f->constants.at( operand.index ).n;
@@ -304,7 +304,7 @@ ir_operand foldk_ir::inline_number( ir_operand operand )
     }
 }
 
-ir_operand foldk_ir::insert_number( ir_operand operand )
+ir_operand ir_foldk::insert_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     double number = _f->constants.at( operand.index ).n;
@@ -333,7 +333,7 @@ ir_operand foldk_ir::insert_number( ir_operand operand )
     return { IR_O_NUMBER, index };
 }
 
-ir_operand foldk_ir::insert_string( ir_operand operand )
+ir_operand ir_foldk::insert_string( ir_operand operand )
 {
     assert( operand.kind == IR_O_STRING );
     ir_constant sc = _f->constants.at( operand.index );
@@ -357,7 +357,7 @@ ir_operand foldk_ir::insert_string( ir_operand operand )
     return { IR_O_STRING, index };
 }
 
-ir_operand foldk_ir::insert_selector( ir_operand operand )
+ir_operand ir_foldk::insert_selector( ir_operand operand )
 {
     assert( operand.kind == IR_O_SELECTOR );
     ir_selector sc = _f->selectors.at( operand.index );

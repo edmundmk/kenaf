@@ -1,5 +1,5 @@
 //
-//  live_ir.h
+//  ir_live.h
 //
 //  Created by Edmund Kapusniak on 14/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef LIVE_IR_H
-#define LIVE_IR_H
+#ifndef IR_LIVE_H
+#define IR_LIVE_H
 
 /*
     Perform liveness analysis.  After this process, each op in the IR has
@@ -27,12 +27,12 @@
 namespace kf
 {
 
-class live_ir
+class ir_live
 {
 public:
 
-    explicit live_ir( source* source );
-    ~live_ir();
+    explicit ir_live( source* source );
+    ~ir_live();
 
     void live( ir_function* function );
     void reset( ir_function* function );

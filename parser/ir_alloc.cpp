@@ -1,5 +1,5 @@
 //
-//  alloc_ir.cpp
+//  ir_alloc.cpp
 //
 //  Created by Edmund Kapusniak on 15/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,21 +8,21 @@
 //  full license information.
 //
 
-#include "alloc_ir.h"
+#include "ir_alloc.h"
 
 namespace kf
 {
 
-alloc_ir::alloc_ir( source* source )
+ir_alloc::ir_alloc( source* source )
     :   _source( source )
 {
 }
 
-alloc_ir::~alloc_ir()
+ir_alloc::~ir_alloc()
 {
 }
 
-void alloc_ir::alloc( ir_function* function )
+void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
 }

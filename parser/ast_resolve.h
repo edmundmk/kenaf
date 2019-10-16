@@ -1,5 +1,5 @@
 //
-//  resolve_names.h
+//  ast_resolve.h
 //
 //  Created by Edmund Kapusniak on 30/09/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef RESOLVE_NAMES_H
-#define RESOLVE_NAMES_H
+#ifndef AST_RESOLVE_H
+#define AST_RESOLVE_H
 
 /*
     -- Name Resolution
@@ -80,12 +80,12 @@
 namespace kf
 {
 
-class resolve_names
+class ast_resolve
 {
 public:
 
-    resolve_names( source* source, ast_script* ast_script );
-    ~resolve_names();
+    ast_resolve( source* source, ast_script* ast_script );
+    ~ast_resolve();
 
     void resolve();
 

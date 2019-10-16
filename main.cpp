@@ -12,11 +12,11 @@
 #include "parser/source.h"
 #include "parser/lexer.h"
 #include "parser/parser.h"
-#include "parser/resolve_names.h"
-#include "parser/build_ir.h"
-#include "parser/fold_ir.h"
-#include "parser/live_ir.h"
-#include "parser/foldk_ir.h"
+#include "parser/ast_resolve.h"
+#include "parser/ir_build.h"
+#include "parser/ir_fold.h"
+#include "parser/ir_live.h"
+#include "parser/ir_foldk.h"
 
 int main( int argc, char* argv[] )
 {
@@ -56,31 +56,31 @@ int main( int argc, char* argv[] )
 
     if ( ! source.has_error )
     {
-        kf::resolve_names resolve( &source, ast_script.get() );
+        kf::ast_resolve resolve( &source, ast_script.get() );
         resolve.resolve();
     }
 
     if ( ! source.has_error )
     {
-        kf::build_ir build_ir( &source );
-        kf::fold_ir fold_ir( &source );
-        kf::live_ir live_ir( &source );
-        kf::foldk_ir foldk_ir( &source );
+        kf::ir_build ir_build( &source );
+        kf::ir_fold ir_fold( &source );
+        kf::ir_live ir_live( &source );
+        kf::ir_foldk ir_foldk( &source );
 
         for ( const auto& function : ast_script->functions )
         {
-            std::unique_ptr< kf::ir_function > ir = build_ir.build( function.get() );
+            std::unique_ptr< kf::ir_function > ir = ir_build.build( function.get() );
             if ( ! ir )
             {
                 continue;
             }
 
-            fold_ir.fold( ir.get() );
-            live_ir.live( ir.get() );
-            if ( foldk_ir.foldk( ir.get() ) )
+            ir_fold.fold( ir.get() );
+            ir_live.live( ir.get() );
+            if ( ir_foldk.foldk( ir.get() ) )
             {
-                live_ir.reset( ir.get() );
-                live_ir.live( ir.get() );
+                ir_live.reset( ir.get() );
+                ir_live.live( ir.get() );
             }
 
             ir->debug_print();

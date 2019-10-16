@@ -1,5 +1,5 @@
 //
-//  build_ir.cpp
+//  ir_build.cpp
 //
 //  Created by Edmund Kapusniak on 02/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,23 +8,23 @@
 //  full license information.
 //
 
-#include "build_ir.h"
+#include "ir_build.h"
 
 namespace kf
 {
 
-build_ir::build_ir( source* source )
+ir_build::ir_build( source* source )
     :   _source( source )
     ,   _block_index( IR_INVALID_INDEX )
     ,   _upscope( 0 )
 {
 }
 
-build_ir::~build_ir()
+ir_build::~ir_build()
 {
 }
 
-std::unique_ptr< ir_function > build_ir::build( ast_function* function )
+std::unique_ptr< ir_function > ir_build::build( ast_function* function )
 {
     // Set up for building.
     _f = std::make_unique< ir_function >();
@@ -79,20 +79,20 @@ std::unique_ptr< ir_function > build_ir::build( ast_function* function )
     }
 }
 
-build_ir::node_index build_ir::child_node( node_index node )
+ir_build::node_index ir_build::child_node( node_index node )
 {
     unsigned child_index = node.node->child_index;
     return { &_f->ast->nodes[ child_index ], child_index };
 }
 
-build_ir::node_index build_ir::next_node( node_index node )
+ir_build::node_index ir_build::next_node( node_index node )
 {
     unsigned next_index = node.node->next_index;
     return { &_f->ast->nodes[ next_index ], next_index };
 }
 
 
-ir_operand build_ir::visit( node_index node )
+ir_operand ir_build::visit( node_index node )
 {
     switch ( node->kind )
     {
@@ -1043,7 +1043,7 @@ ir_operand build_ir::visit( node_index node )
     return { IR_O_NONE };
 }
 
-void build_ir::visit_children( node_index node )
+void ir_build::visit_children( node_index node )
 {
     for ( node_index child = child_node( node ); child.index < node.index; child = next_node( child ) )
     {
@@ -1051,7 +1051,7 @@ void build_ir::visit_children( node_index node )
     }
 }
 
-unsigned build_ir::rval_list( node_index node, unsigned unpack )
+unsigned ir_build::rval_list( node_index node, unsigned unpack )
 {
     // Push rvcount rvals onto the evaluation stack, and return the index of
     // the first rval on the evaluation stack.
@@ -1220,7 +1220,7 @@ unsigned build_ir::rval_list( node_index node, unsigned unpack )
     return rvindex;
 }
 
-ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
+ir_operand ir_build::expr_unpack( node_index node, unsigned unpack )
 {
     assert( node->kind == AST_EXPR_UNPACK );
 
@@ -1265,7 +1265,7 @@ ir_operand build_ir::expr_unpack( node_index node, unsigned unpack )
     return operand;
 }
 
-void build_ir::assign( node_index lval, ir_operand rval )
+void ir_build::assign( node_index lval, ir_operand rval )
 {
     if ( lval->kind == AST_LOCAL_NAME )
     {
@@ -1299,7 +1299,7 @@ void build_ir::assign( node_index lval, ir_operand rval )
     }
 }
 
-ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
+ir_operand ir_build::call_op( node_index node, ir_opcode opcode )
 {
     unsigned ocount = 0;
     node_index arg = child_node( node );
@@ -1344,28 +1344,28 @@ ir_operand build_ir::call_op( node_index node, ir_opcode opcode )
     return call;
 }
 
-ir_operand build_ir::number_operand( node_index node )
+ir_operand ir_build::number_operand( node_index node )
 {
     unsigned index = _f->constants.size();
     _f->constants.push_back( ir_constant( node->leaf_number().n ) );
     return { IR_O_NUMBER, index };
 }
 
-ir_operand build_ir::string_operand( node_index node )
+ir_operand ir_build::string_operand( node_index node )
 {
     unsigned index = _f->constants.size();
     _f->constants.push_back( ir_constant( node->leaf_string().text, node->leaf_string().size ) );
     return { IR_O_STRING, index };
 }
 
-ir_operand build_ir::selector_operand( node_index node )
+ir_operand ir_build::selector_operand( node_index node )
 {
     unsigned index = _f->selectors.size();
     _f->selectors.push_back( { node->leaf_string().text, node->leaf_string().size } );
     return { IR_O_SELECTOR, index };
 }
 
-ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
+ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
 {
     if ( _block_index == IR_INVALID_INDEX )
     {
@@ -1396,7 +1396,7 @@ ir_operand build_ir::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     return { IR_O_OP, op_index };
 }
 
-ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
+ir_operand ir_build::pin( srcloc sloc, ir_operand operand )
 {
     /*
         On the right hand side of assignments, and for any local that is used
@@ -1430,7 +1430,7 @@ ir_operand build_ir::pin( srcloc sloc, ir_operand operand )
     return operand;
 }
 
-ir_operand build_ir::ignore_pin( ir_operand operand )
+ir_operand ir_build::ignore_pin( ir_operand operand )
 {
     while ( operand.kind == IR_O_PIN )
     {
@@ -1442,7 +1442,7 @@ ir_operand build_ir::ignore_pin( ir_operand operand )
     return operand;
 }
 
-void build_ir::fix_local_pins( unsigned local )
+void ir_build::fix_local_pins( unsigned local )
 {
     for ( size_t i = 0; i < _o.size(); ++i )
     {
@@ -1465,7 +1465,7 @@ void build_ir::fix_local_pins( unsigned local )
     }
 }
 
-void build_ir::fix_upval_pins()
+void ir_build::fix_upval_pins()
 {
     for ( size_t i = 0; i < _o.size(); ++i )
     {
@@ -1488,7 +1488,7 @@ void build_ir::fix_upval_pins()
     }
 }
 
-build_ir::goto_scope build_ir::goto_open( srcloc sloc, goto_kind kind )
+ir_build::goto_scope ir_build::goto_open( srcloc sloc, goto_kind kind )
 {
     if ( _block_index == IR_INVALID_INDEX )
     {
@@ -1499,7 +1499,7 @@ build_ir::goto_scope build_ir::goto_open( srcloc sloc, goto_kind kind )
     return { kind, index };
 }
 
-void build_ir::goto_branch( goto_scope scope )
+void ir_build::goto_branch( goto_scope scope )
 {
     unsigned label = _f->ops.size();
     goto_stack& stack = _goto_stacks[ scope.kind ];
@@ -1515,14 +1515,14 @@ void build_ir::goto_branch( goto_scope scope )
     stack.index = scope.index;
 }
 
-void build_ir::goto_block( goto_scope scope )
+void ir_build::goto_block( goto_scope scope )
 {
     assert( _block_index == IR_INVALID_INDEX );
     goto_stack& stack = _goto_stacks[ scope.kind ];
     stack.index = scope.index;
 }
 
-ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
+ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
 {
     if ( _block_index != IR_INVALID_INDEX )
     {
@@ -1570,14 +1570,14 @@ ir_block_index build_ir::new_block( srcloc sloc, ir_block_kind kind )
     return _block_index;
 }
 
-ir_block_index build_ir::new_loop( ir_block_index loop_header )
+ir_block_index ir_build::new_loop( ir_block_index loop_header )
 {
     assert( loop_header == _block_index );
     assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED );
     return loop_header;
 }
 
-void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
+void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
 {
     // Find loop header block.
     ir_block* block = &_f->blocks.at( loop_header );
@@ -1635,7 +1635,7 @@ void build_ir::end_loop( ir_block_index loop_header, goto_scope scope )
     seal_loop( loop_header );
 }
 
-ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
+ir_operand ir_build::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind )
 {
     if ( opcode == IR_JUMP && _block_index == IR_INVALID_INDEX )
     {
@@ -1671,7 +1671,7 @@ ir_operand build_ir::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, 
     return jump;
 }
 
-ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false )
+ir_operand ir_build::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false )
 {
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
@@ -1691,7 +1691,7 @@ ir_operand build_ir::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, 
     return test;
 }
 
-ir_operand build_ir::end_block( ir_operand jump )
+ir_operand ir_build::end_block( ir_operand jump )
 {
     if ( jump.kind == IR_O_NONE )
     {
@@ -1714,17 +1714,17 @@ ir_operand build_ir::end_block( ir_operand jump )
     return jump;
 }
 
-size_t build_ir::block_local_hash::operator () ( block_local bl ) const
+size_t ir_build::block_local_hash::operator () ( block_local bl ) const
 {
     return std::hash< unsigned >::operator () ( bl.block_index ) ^ std::hash< unsigned >::operator () ( bl.local );
 }
 
-bool build_ir::block_local_equal::operator () ( block_local a, block_local b ) const
+bool ir_build::block_local_equal::operator () ( block_local a, block_local b ) const
 {
     return a.block_index == b.block_index && a.local == b.local;
 }
 
-ir_operand build_ir::use( srcloc sloc, unsigned local )
+ir_operand ir_build::use( srcloc sloc, unsigned local )
 {
     if ( _block_index == IR_INVALID_INDEX )
     {
@@ -1733,7 +1733,7 @@ ir_operand build_ir::use( srcloc sloc, unsigned local )
     return search_def( _block_index, local );
 }
 
-ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
+ir_operand ir_build::search_def( ir_block_index block_index, unsigned local )
 {
     // Search for definition in this block.
     assert( block_index != IR_INVALID_INDEX );
@@ -1779,7 +1779,7 @@ ir_operand build_ir::search_def( ir_block_index block_index, unsigned local )
     return operand;
 }
 
-void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned phi_index )
+void ir_build::close_phi( ir_block_index block_index, unsigned local, unsigned phi_index )
 {
     /*
         Construct phi op by searching for definitions that reach the block.
@@ -1848,7 +1848,7 @@ void build_ir::close_phi( ir_block_index block_index, unsigned local, unsigned p
     _def_stack.resize( def_index );
 }
 
-void build_ir::seal_loop( ir_block_index loop_header )
+void ir_build::seal_loop( ir_block_index loop_header )
 {
     assert( loop_header != IR_INVALID_INDEX );
     ir_block* block = &_f->blocks.at( loop_header );
@@ -1864,7 +1864,7 @@ void build_ir::seal_loop( ir_block_index loop_header )
     block->kind = IR_BLOCK_LOOP;
 }
 
-void build_ir::def( srcloc sloc, unsigned local, ir_operand operand, bool declare )
+void ir_build::def( srcloc sloc, unsigned local, ir_operand operand, bool declare )
 {
     // Upgrade pins on the stack that refer to the same local.
     fix_local_pins( local );
@@ -1910,7 +1910,7 @@ void build_ir::def( srcloc sloc, unsigned local, ir_operand operand, bool declar
     _defs.insert_or_assign( block_local{ _block_index, local }, operand );
 }
 
-void build_ir::push_upvals( srcloc sloc, unsigned upstack_index )
+void ir_build::push_upvals( srcloc sloc, unsigned upstack_index )
 {
     /*
         Whenever we close the upstack, we need to know which locals are
@@ -1923,7 +1923,7 @@ void build_ir::push_upvals( srcloc sloc, unsigned upstack_index )
     _upscope = upscope;
 }
 
-void build_ir::declare_upval( srcloc sloc, unsigned local )
+void ir_build::declare_upval( srcloc sloc, unsigned local )
 {
     unsigned upstack_index = _f->ast->locals.at( local ).upstack_index;
     if ( upstack_index == AST_INVALID_INDEX )
@@ -1937,7 +1937,7 @@ void build_ir::declare_upval( srcloc sloc, unsigned local )
     _upstack[ upstack_index ] = local;
 }
 
-void build_ir::close_upvals( srcloc sloc, unsigned upstack_index )
+void ir_build::close_upvals( srcloc sloc, unsigned upstack_index )
 {
     if ( upstack_index == AST_INVALID_INDEX )
     {
@@ -1967,7 +1967,7 @@ void build_ir::close_upvals( srcloc sloc, unsigned upstack_index )
     }
 }
 
-void build_ir::pop_upvals( srcloc sloc, unsigned upstack_index )
+void ir_build::pop_upvals( srcloc sloc, unsigned upstack_index )
 {
     assert( upstack_index != AST_INVALID_INDEX );
     assert( _upscope != 0 );

@@ -1,5 +1,5 @@
 //
-//  alloc_ir.h
+//  ir_alloc.h
 //
 //  Created by Edmund Kapusniak on 15/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef ALLOC_IR_H
-#define ALLOC_IR_H
+#ifndef IR_ALLOC_H
+#define IR_ALLOC_H
 
 /*
     Finally, register allocation.  Registers are allocated to values in a
@@ -24,12 +24,12 @@
 namespace kf
 {
 
-class alloc_ir
+class ir_alloc
 {
 public:
 
-    alloc_ir( source* source );
-    ~alloc_ir();
+    ir_alloc( source* source );
+    ~ir_alloc();
 
     void alloc( ir_function* function );
 

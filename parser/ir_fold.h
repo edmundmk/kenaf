@@ -1,5 +1,5 @@
 //
-//  fold_ir.h
+//  ir_fold.h
 //
 //  Created by Edmund Kapusniak on 12/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef FOLD_IR_H
-#define FOLD_IR_H
+#ifndef IR_FOLD_H
+#define IR_FOLD_H
 
 /*
     The folding process performs the following transformations:
@@ -27,12 +27,12 @@
 namespace kf
 {
 
-class fold_ir
+class ir_fold
 {
 public:
 
-    explicit fold_ir( source* source );
-    ~fold_ir();
+    explicit ir_fold( source* source );
+    ~ir_fold();
 
     void fold( ir_function* function );
 

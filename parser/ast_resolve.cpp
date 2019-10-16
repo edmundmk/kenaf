@@ -1,5 +1,5 @@
 //
-//  resolve_names.cpp
+//  ast_resolve.cpp
 //
 //  Created by Edmund Kapusniak on 30/09/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,47 +8,47 @@
 //  full license information.
 //
 
-#include "resolve_names.h"
+#include "ast_resolve.h"
 
 namespace kf
 {
 
-inline bool resolve_names::scope::is_function() const
+inline bool ast_resolve::scope::is_function() const
 {
     return function->nodes.at( node_index ).kind == AST_FUNCTION;
 }
 
-inline bool resolve_names::scope::is_loop() const
+inline bool ast_resolve::scope::is_loop() const
 {
     ast_node_kind kind = function->nodes.at( node_index ).kind;
     return kind == AST_STMT_FOR_STEP || kind == AST_STMT_FOR_EACH
         || kind == AST_STMT_WHILE || kind == AST_STMT_REPEAT;
 }
 
-inline bool resolve_names::scope::is_repeat() const
+inline bool ast_resolve::scope::is_repeat() const
 {
     ast_node_kind kind = function->nodes.at( node_index ).kind;
     return kind == AST_STMT_REPEAT;
 }
 
-resolve_names::resolve_names( source* source, ast_script* ast_script )
+ast_resolve::ast_resolve( source* source, ast_script* ast_script )
     :   _source( source )
     ,   _ast_script( ast_script )
 {
 }
 
-resolve_names::~resolve_names()
+ast_resolve::~ast_resolve()
 {
 }
 
-void resolve_names::resolve()
+void ast_resolve::resolve()
 {
     ast_function* function = _ast_script->functions.at( 0 ).get();
     visit( function, function->nodes.size() - 1 );
     assert( _scopes.empty() );
 }
 
-void resolve_names::visit( ast_function* f, unsigned index )
+void ast_resolve::visit( ast_function* f, unsigned index )
 {
     ast_node* n = &f->nodes[ index ];
     unsigned until_index = AST_INVALID_INDEX;
@@ -349,7 +349,7 @@ void resolve_names::visit( ast_function* f, unsigned index )
     }
 }
 
-void resolve_names::open_scope( ast_function* f, unsigned block_index, unsigned node_index )
+void ast_resolve::open_scope( ast_function* f, unsigned block_index, unsigned node_index )
 {
     std::unique_ptr< scope > s = std::make_unique< scope >();
     s->function = f;
@@ -373,7 +373,7 @@ void resolve_names::open_scope( ast_function* f, unsigned block_index, unsigned 
     _scopes.push_back( std::move( s ) );
 }
 
-void resolve_names::declare_implicit_self( ast_function* f )
+void ast_resolve::declare_implicit_self( ast_function* f )
 {
     scope* scope = _scopes.back().get();
 
@@ -391,7 +391,7 @@ void resolve_names::declare_implicit_self( ast_function* f )
     f->parameter_count += 1;
 }
 
-void resolve_names::declare( ast_function* f, unsigned index )
+void ast_resolve::declare( ast_function* f, unsigned index )
 {
     scope* scope = _scopes.back().get();
     ast_node* n = &f->nodes[ index ];
@@ -469,7 +469,7 @@ void resolve_names::declare( ast_function* f, unsigned index )
     }
 }
 
-void resolve_names::lookup( ast_function* f, unsigned index, lookup_context context )
+void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context context )
 {
     ast_node* n = &f->nodes[ index ];
     scope* current_scope = _scopes.back().get();
@@ -605,7 +605,7 @@ void resolve_names::lookup( ast_function* f, unsigned index, lookup_context cont
     n->leaf_index().index = v->index;
 }
 
-void resolve_names::close_scope()
+void ast_resolve::close_scope()
 {
     // Pop scope.
     std::unique_ptr< scope > s = std::move( _scopes.back() );
@@ -615,7 +615,7 @@ void resolve_names::close_scope()
     close_upstack( s->upstack.get(), s->block_index, s->close_index );
 }
 
-resolve_names::loop_and_inner resolve_names::loop_scope()
+ast_resolve::loop_and_inner ast_resolve::loop_scope()
 {
     scope* inner = nullptr;
     for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
@@ -631,7 +631,7 @@ resolve_names::loop_and_inner resolve_names::loop_scope()
     return { nullptr, nullptr };
 }
 
-void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const variable* variable )
+void ast_resolve::insert_upstack( upstack* upstack, size_t scope_index, const variable* variable )
 {
     assert( upstack->function == _scopes.at( scope_index)->function );
     assert( ! variable->is_upval );
@@ -722,7 +722,7 @@ void resolve_names::insert_upstack( upstack* upstack, size_t scope_index, const 
 //  debug_print( upstack );
 }
 
-void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
+void ast_resolve::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
 {
     // Get block node to close.
     ast_node& node = upstack->function->nodes.at( block_index );
@@ -766,7 +766,7 @@ void resolve_names::close_upstack( upstack* upstack, unsigned block_index, unsig
 //  debug_print( upstack );
 }
 
-void resolve_names::break_upstack( upstack* upstack, unsigned break_index, unsigned close_index )
+void ast_resolve::break_upstack( upstack* upstack, unsigned break_index, unsigned close_index )
 {
     // Get break or continue node.
     ast_node& node = upstack->function->nodes.at( break_index );
@@ -788,7 +788,7 @@ void resolve_names::break_upstack( upstack* upstack, unsigned break_index, unsig
     upstack->upstack_close.push_back( { break_index, close_index } );
 }
 
-void resolve_names::debug_print( const upstack* upstack )
+void ast_resolve::debug_print( const upstack* upstack )
 {
     printf( "UPSTACK %s\n", upstack->function->name.c_str() );
     printf( "  SLOTS\n" );
