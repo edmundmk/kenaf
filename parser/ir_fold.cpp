@@ -255,6 +255,10 @@ void ir_fold::fold_constants( ir_block* block )
             fold_concat( op );
             break;
 
+        case IR_MOV:
+            fold_mov( op );
+            break;
+
         case IR_EQ:
         case IR_NE:
             fold_equal( op );
@@ -473,6 +477,24 @@ bool ir_fold::fold_concat( ir_op* op )
         _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
         return false;
     }
+}
+
+bool ir_fold::fold_mov( ir_op* op )
+{
+    assert( op->ocount == 1 );
+    ir_operand u = fold_operand( op->oindex );
+
+    if ( ! is_constant( u ) )
+    {
+        return false;
+    }
+
+    ir_operand* operand = &_f->operands.at( op->oindex );
+    *operand = u;
+
+    op->opcode = IR_CONST;
+    op->ocount = 1;
+    return true;
 }
 
 bool ir_fold::fold_equal( ir_op* op )

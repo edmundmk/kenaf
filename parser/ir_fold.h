@@ -60,6 +60,7 @@ private:
     bool fold_unarithmetic( ir_op* op );
     bool fold_biarithmetic( ir_op* op );
     bool fold_concat( ir_op* op );
+    bool fold_mov( ir_op* op );
     bool fold_equal( ir_op* op );
     bool fold_compare( ir_op* op );
     bool fold_not( ir_op* op );
