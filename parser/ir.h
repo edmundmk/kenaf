@@ -89,19 +89,19 @@
 
     -- SSA Form
 
-    The IR is SSA form, but with some major restrictions:
-
-        - Only explicitly declared local variables participate in SSA
-          construction.  Implicit loop variables and B_DEF/B_PHI are handled
-          outside the main SSA form, keeping the number of variables low.
-
-        - Only one definition of each local variable is live at any point.
-          This is enforced during construction using PIN and VAL ops - a VAL
-          op creates a new temporary value copied from a local.
+    The IR is a kind of SSA form, but with some major restrictions:
 
         - Each value live in a block must have a op which defines its live
-          range, whether that is a real op or a PHI in the block header.  Only
-          PHI ops reference ops in other blocks.
+          range, whether that is a real op or a PHI/REF in the block header.
+          Only PHI/REF ops reference ops in other blocks.  This simplifies
+          the data structures required for liveness analysis.
+
+        - Only explicitly declared local variables participate in SSA
+          construction (and only those which are not captured).  Implicit loop
+          variables and B_DEF/B_PHI are handled as special cases, keeping the
+          number of variables low and reducing the number of PHI/REF ops.
+
+        - Only one definition of each local variable is live at any point.
 
     These properties ensure that the register allocator has all the information
     it needs in order to allocate a single register for each local.
@@ -136,7 +136,6 @@ const unsigned IR_INVALID_LOCAL = 0xFEFF;
 const unsigned IR_UNPACK_ALL = 0xFF;
 const unsigned IR_INVALID_REGISTER = 0xFF;
 const unsigned IR_MARK_STICKY = 0xFF;
-
 
 /*
     Stores the intermediate representation for a function.

@@ -14,11 +14,11 @@
 /*
     The folding process performs the following transformations:
 
-      - Phi operands which merge the same definition are simplified.
+      - Phi functions which merge a single definition are simplified.
       - Expressions involving only constants are precomputed.
       - Conditional branches based on constant values are made unconditional.
       - Branch phi sequences based on constants are simplified.
-      - Uses of single values are updated to use the target value.
+      - Branch phi functions which merge a single value are simplified.
       - Unreachable blocks are removed.
 */
 

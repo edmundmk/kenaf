@@ -86,7 +86,6 @@ ir_build::node_index ir_build::next_node( node_index node )
     return { &_f->ast->nodes[ next_index ], next_index };
 }
 
-
 ir_operand ir_build::visit( node_index node )
 {
     switch ( node->kind )

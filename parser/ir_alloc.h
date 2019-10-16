@@ -12,11 +12,9 @@
 #define IR_ALLOC_H
 
 /*
-    Finally, register allocation.  Registers are allocated to values in a
+    Perform register allocation.  Registers are allocated to values in a
     fashion which attempts to both minimize unecessary moves and minimize the
     total number of registers used.
-
-    Constants and selectors must also be allocated indexes in the final tables.
 */
 
 #include "ir.h"

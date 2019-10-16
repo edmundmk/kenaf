@@ -16,10 +16,10 @@
 
     Resolve each name that appears in a script.  An unqualified name can:
 
-      - Refer to a global.
-      - Refer to a local.
       - Declare a local.
-      - Refer to an upval.
+      - Refer to a local (either a normal local, or one in a varenv).
+      - Refer to a value in an outenv.
+      - Refer to a global.
 
     Names not found by name lookup are global references.  Assigning to an
     unqualified global name is an error.
@@ -28,8 +28,8 @@
     only refer to variables that were declared before the first 'continue' in
     the loop.
 
-    Name resolution modifies the AST in place.  After name resolution, function
-    ASTs can be considered independently.
+    Name resolution modifies the AST in place.  After name resolution, the AST
+    of each function in the script can be considered independently.
 
 
     -- Locals
@@ -47,16 +47,14 @@
     Environment records implement closures.  All variables which are captured
     by inner functions are stored in environment records.
 
-    Each block with captured variables has an associated hidden local variable.
-    On entry to the block, an environment record is created.  Access to
-    captured variables are routed through this record.
+    Each block with captured variables has an associated hidden local variable,
+    called a 'varenv'.  On entry to the block, an environment record is
+    created.  Locals captured by inner functions are assigned slots in this
+    environment record, and accesses are routed to it.
 
     When function closures are created, the function's outenv slots are
     populated with environment records.  Accesses to variables in outer
     scopes are routed through these records.
-
-    The index of each variable in each environment record is allocated
-    statically by this name resolution pass.
 
 
     -- Super
