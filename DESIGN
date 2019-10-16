@@ -281,3 +281,18 @@ VM
     kv::selector
         kv::string* key
 
+ENVIRONMENTS AND CAPTURE
+
+All variables captured by inner functions are stored in environment records.
+
+Each block containing variables that are captured by inner functions constructs
+a new environment record.  Accesses to these variables are through the
+environment record, even in the function where they are declared.
+
+A function captures a set of environment records at the point it is declared,
+either environment records created by the current function or copied from the
+current function's capture list.
+
+Accesses to captured variables are through the function's set of captured
+environment records.
+

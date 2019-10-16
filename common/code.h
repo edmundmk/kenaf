@@ -75,7 +75,6 @@ enum opcode : uint8_t
     OP_IS,              // r = a is b               | A | r | a | b |
 
     OP_JUMP,            // jump                     | J | - |   j   |
-    OP_JCLOSE,          // close upstack, jump      | J | r |   j   |
     OP_JT,              // if r then jump           | T | r |   j   |
     OP_JF,              // if not r then jump       | T | r |   j   |
     OP_JEQ,             // if a == b then jump      | T | - | a | b || J | - |   j   |
@@ -90,8 +89,6 @@ enum opcode : uint8_t
     OP_JGEK,            // if a >= k[b] then jump   | T | - | a | b || J | - |   j   |
 
     OP_GET_GLOBAL,      // r = s[c]                 | G | r |   c   |
-    OP_GET_UPVAL,       // r = u[ a ]               | G | r | a | - |
-    OP_SET_UPVAL,       // u[ a ] = r               | G | r | a | - |
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |
     OP_SET_KEY,         // a[ s[b] ] = r            | G | r | a | b |
     OP_GET_INDEX,       // r = a[ b ]               | G | r | a | b |
@@ -101,15 +98,21 @@ enum opcode : uint8_t
     OP_SET_INDEXK,      // a[ k[b] ] = r            | G | r | a | b |
     OP_SET_INDEXI,      // a[ %b ] = r              | G | r | a | b |
 
+    OP_NEW_ENV,         // r = environment c        | N | r |   c   |
+    OP_GET_VARENV,      // r = (env)a[ %b ]         | G | r | a | b |
+    OP_SET_VARENV,      // (env)a[ %b ] = r         | G | r | a | b |
+    OP_GET_OUTENV,      // r = out[a][ %b ]         | G | r | a | b |
+    OP_SET_OUTENV,      // out[a][ %b ] = r         | G | r | a | b |
+
     OP_NEW_OBJECT,      // r = object proto         | N | r | a | - |
     OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
     OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
     OP_APPEND,          // r.append( a )            | G | r | a | - |
 
-    OP_CALL,            // b = call( r:a )          | X | r | a | b |
-    OP_CALLX,           // r:b = call( r:a )        | X | r | a | b |
-    OP_YCALL,           // b = yield call( r:a )    | X | r | a | b |
-    OP_YCALLX,          // r:b = call( r:a )        | X | r | a | b |
+    OP_CALL,            // r:b = call( r:a )        | X | r | a | b |
+    OP_CALLR,           // b = call( r:a )          | X | r | a | b |
+    OP_YCALL,           // r:b = call( r:a )        | X | r | a | b |
+    OP_YCALLR,          // b = yield call( r:a )    | X | r | a | b |
     OP_YIELD,           // r:b = yield r:a          | X | r | a | b |
     OP_EXTEND,          // b.append( r:a )          | X | r | a | b |
     OP_RETURN,          // return r:a               | X | r | a | - |
@@ -124,8 +127,8 @@ enum opcode : uint8_t
     OP_THROW,           // throw r                  | J | r | - | - |
 
     OP_FUNCTION,        // r = close function       | N | r |   c   |
-    OP_UPVAL,           // upstack r = upval a      | F | r | a | - |
-    OP_UCOPY,           // copy upval a             | F | - | a | - |
+    OP_F_VARENV,        // r.out[ %a ] = b          | G | r | a | b |
+    OP_F_OUTENV,        // r.out[ %a ] = out[b]     | G | r | a | b |
 };
 
 struct op
@@ -178,11 +181,10 @@ struct code_function
     uint32_t code_size;
     uint32_t op_count;
     uint16_t constant_count;
-    uint8_t selector_count;
-    uint8_t stack_size;
-    uint8_t upstack_size;
-    uint8_t upval_count;
+    uint16_t selector_count;
+    uint8_t outenv_count;
     uint8_t param_count;
+    uint8_t stack_size;
     uint8_t flags;
 
     const op* ops() const;
