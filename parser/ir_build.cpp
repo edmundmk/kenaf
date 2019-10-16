@@ -16,7 +16,6 @@ namespace kf
 ir_build::ir_build( source* source )
     :   _source( source )
     ,   _block_index( IR_INVALID_INDEX )
-    ,   _upscope( 0 )
 {
 }
 
@@ -53,8 +52,6 @@ std::unique_ptr< ir_function > ir_build::build( ast_function* function )
         assert( _block_index == IR_INVALID_INDEX );
         assert( _def_stack.empty() );
         _defs.clear();
-        assert( _upstack.empty() );
-        assert( _upscope == 0 );
 
         // Done.
         return std::move( _f );
@@ -70,8 +67,6 @@ std::unique_ptr< ir_function > ir_build::build( ast_function* function )
         }
         _block_index = IR_INVALID_INDEX;
         _defs.clear();
-        assert( _upstack.empty() );
-        assert( _upscope == 0 );
 
         // Report error.
         _source->error( _f->ast->sloc, "internal: %s", e.what() );
@@ -601,22 +596,20 @@ ir_operand ir_build::visit( node_index node )
 
     case AST_FUNCTION:
     {
+        node_index parameters = child_node( node );
+        node_index block = next_node( parameters );
+
+        block_varenv( block );
+
         if ( _f->ast->implicit_self )
         {
             const ast_local& self = _f->ast->locals.at( 0 );
             assert( self.is_parameter );
-            assert( self.is_implicit_self );
+            assert( self.is_self );
             _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
             def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ), true );
         }
 
-        visit_children( node );
-        end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
-        return { IR_O_NONE };
-    }
-
-    case AST_PARAMETERS:
-    {
         for ( node_index param = child_node( node ); param.index < node.index; param = next_node( param ) )
         {
             if ( param->kind == AST_VARARG_PARAM )
@@ -624,10 +617,19 @@ ir_operand ir_build::visit( node_index node )
                 continue;
             }
 
-            unsigned local = param->leaf_index().index;
-            _o.push_back( { IR_O_LOCAL_INDEX, local } );
-            def( param->sloc, local, emit( param->sloc, IR_PARAM, 1 ), true );
+            unsigned local_index = param->leaf_index().index;
+            _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
+            def( param->sloc, local_index, emit( param->sloc, IR_PARAM, 1 ), true );
         }
+
+        visit_children( block );
+        end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
+        return { IR_O_NONE };
+    }
+
+    case AST_PARAMETERS:
+    {
+        assert( ! "unexpected PARAMETERS node" );
         return { IR_O_NONE };
     }
 
@@ -639,18 +641,8 @@ ir_operand ir_build::visit( node_index node )
 
     case AST_BLOCK:
     {
-        unsigned close_index = node->leaf_index().index;
-        if ( close_index == AST_INVALID_INDEX )
-        {
-            visit_children( node );
-        }
-        else
-        {
-            push_upvals( node->sloc, close_index );
-            visit_children( node );
-            close_upvals( node->sloc, close_index );
-            pop_upvals( node->sloc, close_index );
-        }
+        block_varenv( node );
+        visit_children( node );
         return { IR_O_NONE };
     }
 
@@ -885,14 +877,12 @@ ir_operand ir_build::visit( node_index node )
 
     case AST_STMT_BREAK:
     {
-        close_upvals( node->sloc, node->leaf_index().index );
         end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_BREAK ) );
         return { IR_O_NONE };
     }
 
     case AST_STMT_CONTINUE:
     {
-        close_upvals( node->sloc, node->leaf_index().index );
         end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_CONTINUE ) );
         return { IR_O_NONE };
     }
@@ -905,7 +895,6 @@ ir_operand ir_build::visit( node_index node )
         }
         else
         {
-            close_upvals( node->sloc, 0 );
             end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
         }
         return { IR_O_NONE };
@@ -914,7 +903,6 @@ ir_operand ir_build::visit( node_index node )
     case AST_STMT_THROW:
     {
         _o.push_back( visit( child_node( node ) ) );
-        close_upvals( node->sloc, 0 );
         end_block( emit( node->sloc, IR_JUMP_THROW, 1 ) );
         return { IR_O_NONE };
     }
@@ -981,10 +969,37 @@ ir_operand ir_build::visit( node_index node )
         return { IR_O_NONE };
     }
 
+    case AST_OBJKEY_DECL:
+    {
+        assert( ! "unexpected OBJKEY_DECL node" );
+        return { IR_O_NONE };
+    }
+
     case AST_LOCAL_DECL:
     {
         assert( ! "unexpected LOCAL_DECL node" );
         return { IR_O_NONE };
+    }
+
+    case AST_LOCAL_NAME:
+    case AST_SUPER_NAME:
+    {
+        unsigned local_index = node->leaf_index().index;
+        ir_operand value = use( node->sloc, local_index );
+        if ( node->kind == AST_SUPER_NAME )
+        {
+            _o.push_back( value );
+            value = emit( node->sloc, IR_SUPER, 1 );
+        }
+        return value;
+    }
+
+    case AST_OUTENV_NAME:
+    {
+        const ast_leaf_outenv& outenv = node->leaf_outenv();
+        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
+        return emit( node->sloc, IR_GET_ENV, 2 );
     }
 
     case AST_GLOBAL_NAME:
@@ -993,54 +1008,20 @@ ir_operand ir_build::visit( node_index node )
         return emit( node->sloc, IR_GET_GLOBAL, 1 );
     }
 
-    case AST_UPVAL_NAME:
-    case AST_UPVAL_NAME_SUPER:
-    {
-        _o.push_back( { IR_O_UPVAL_INDEX, node->leaf_index().index } );
-        ir_operand value = emit( node->sloc, IR_GET_UPVAL, 1 );
-        if ( node->kind == AST_UPVAL_NAME_SUPER )
-        {
-            _o.push_back( value );
-            value = emit( node->sloc, IR_SUPER, 1 );
-        }
-        return value;
-    }
-
-    case AST_LOCAL_NAME:
-    case AST_LOCAL_NAME_SUPER:
-    {
-        unsigned local_index = node->leaf_index().index;
-        ir_operand value = use( node->sloc, local_index );
-
-        if ( node->kind == AST_UPVAL_NAME_SUPER )
-        {
-            _o.push_back( value );
-            value = emit( node->sloc, IR_SUPER, 1 );
-        }
-        else if ( _f->ast->locals.at( local_index ).upstack_index != AST_INVALID_INDEX )
-        {
-            // We have to pin all locals which escape the function, as they
-            // may be clobbered by calls.
-            value = pin( node->sloc, value );
-        }
-
-        if ( node->kind == AST_LOCAL_NAME_SUPER )
-        {
-            _o.push_back( value );
-            value = emit( node->sloc, IR_SUPER, 1 );
-        }
-
-        return value;
-    }
-
-    case AST_OBJKEY_DECL:
-    {
-        assert( ! "unexpected OBJKEY_DECL node" );
-        return { IR_O_NONE };
-    }
     }
 
     return { IR_O_NONE };
+}
+
+void ir_build::block_varenv( node_index node )
+{
+    unsigned varenv_index = node->leaf_index().index;
+    if ( varenv_index != AST_INVALID_INDEX )
+    {
+        const ast_local& varenv = _f->ast->locals.at( varenv_index );
+        _o.push_back( { IR_O_IMMEDIATE, varenv.varenv_slot } );
+        def( node->sloc, varenv_index, emit( node->sloc, IR_NEW_ENV, 1 ), true );
+    }
 }
 
 void ir_build::visit_children( node_index node )
@@ -1227,7 +1208,7 @@ ir_operand ir_build::expr_unpack( node_index node, unsigned unpack )
     // Evaluate expression we want to unpack.
     ir_operand operand = { IR_O_NONE };
     node_index u = child_node( node );
-    if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg_param )
+    if ( u->kind == AST_LOCAL_NAME && _f->ast->locals.at( u->leaf_index().index ).is_vararg )
     {
         // args ...
         operand = emit( node->sloc, IR_VARARG, 0 );
@@ -1269,13 +1250,16 @@ void ir_build::assign( node_index lval, ir_operand rval )
 {
     if ( lval->kind == AST_LOCAL_NAME )
     {
-        def( lval->sloc, lval->leaf_index().index, rval, false );
+        unsigned local_index = lval->leaf_index().index;
+        def( lval->sloc, local_index, rval, false );
     }
-    else if ( lval->kind == AST_UPVAL_NAME )
+    else if ( lval->kind == AST_OUTENV_NAME )
     {
-        _o.push_back( { IR_O_UPVAL_INDEX, lval->leaf_index().index } );
+        const ast_leaf_outenv& outenv = lval->leaf_outenv();
+        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
         _o.push_back( rval );
-        emit( lval->sloc, IR_SET_UPVAL, 2 );
+        emit( lval->sloc, IR_SET_ENV, 3 );
     }
     else if ( lval->kind == AST_EXPR_KEY )
     {
@@ -1334,13 +1318,7 @@ ir_operand ir_build::call_op( node_index node, ir_opcode opcode )
         ocount += 1;
     }
 
-    if ( opcode == IR_JUMP_RETURN )
-    {
-        close_upvals( node->sloc, 0 );
-    }
-
     ir_operand call = emit( node->sloc, opcode, ocount );
-    fix_upval_pins();
     return call;
 }
 
@@ -1442,7 +1420,7 @@ ir_operand ir_build::ignore_pin( ir_operand operand )
     return operand;
 }
 
-void ir_build::fix_local_pins( unsigned local )
+void ir_build::fix_local_pins( unsigned local_index )
 {
     for ( size_t i = 0; i < _o.size(); ++i )
     {
@@ -1454,30 +1432,7 @@ void ir_build::fix_local_pins( unsigned local )
 
         ir_op* op = &_f->ops.at( pin->index );
         assert( op->opcode == IR_PIN );
-        if ( op->local() != local )
-        {
-            continue;
-        }
-
-        pin->kind = IR_O_OP;
-        op->opcode = IR_VAL;
-        op->set_local( IR_INVALID_LOCAL );
-    }
-}
-
-void ir_build::fix_upval_pins()
-{
-    for ( size_t i = 0; i < _o.size(); ++i )
-    {
-        ir_operand* pin = &_o[ i ];
-        if ( pin->kind != IR_O_PIN )
-        {
-            continue;
-        }
-
-        ir_op* op = &_f->ops.at( pin->index );
-        assert( op->opcode == IR_PIN );
-        if ( _f->ast->locals.at( op->local() ).upstack_index == AST_INVALID_INDEX )
+        if ( op->local() != local_index )
         {
             continue;
         }
@@ -1716,28 +1671,39 @@ ir_operand ir_build::end_block( ir_operand jump )
 
 size_t ir_build::block_local_hash::operator () ( block_local bl ) const
 {
-    return std::hash< unsigned >::operator () ( bl.block_index ) ^ std::hash< unsigned >::operator () ( bl.local );
+    return std::hash< unsigned >::operator () ( bl.block_index ) ^ std::hash< unsigned >::operator () ( bl.local_index );
 }
 
 bool ir_build::block_local_equal::operator () ( block_local a, block_local b ) const
 {
-    return a.block_index == b.block_index && a.local == b.local;
+    return a.block_index == b.block_index && a.local_index == b.local_index;
 }
 
-ir_operand ir_build::use( srcloc sloc, unsigned local )
+ir_operand ir_build::use( srcloc sloc, unsigned local_index )
 {
     if ( _block_index == IR_INVALID_INDEX )
     {
         new_block( sloc, IR_BLOCK_BASIC );
     }
-    return search_def( _block_index, local );
+
+    const ast_local& local = _f->ast->locals.at( local_index );
+    if ( local.varenv_index == AST_INVALID_INDEX )
+    {
+        return search_def( _block_index, local_index );
+    }
+    else
+    {
+        _o.push_back( search_def( _block_index, local.varenv_index ) );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
+        return emit( sloc, IR_GET_ENV, 2 );
+    }
 }
 
-ir_operand ir_build::search_def( ir_block_index block_index, unsigned local )
+ir_operand ir_build::search_def( ir_block_index block_index, unsigned local_index )
 {
     // Search for definition in this block.
     assert( block_index != IR_INVALID_INDEX );
-    auto i = _defs.find( block_local{ block_index, local } );
+    auto i = _defs.find( block_local{ block_index, local_index } );
     if ( i != _defs.end() )
     {
         return i->second;
@@ -1746,7 +1712,7 @@ ir_operand ir_build::search_def( ir_block_index block_index, unsigned local )
     // Construct open phi.
     ir_op phi;
     phi.opcode = IR_PHI_OPEN;
-    phi.set_local( local );
+    phi.set_local( local_index );
     phi.phi_next = IR_INVALID_INDEX;
     unsigned phi_index = _f->ops.size();
     if ( phi_index >= IR_INVALID_INDEX )
@@ -1768,18 +1734,18 @@ ir_operand ir_build::search_def( ir_block_index block_index, unsigned local )
     // This phi acts as the def for this block, but only if the block doesn't
     // have a real definition already.
     ir_operand operand = { IR_O_OP, phi_index };
-    _defs.try_emplace( block_local{ block_index, local }, operand );
+    _defs.try_emplace( block_local{ block_index, local_index }, operand );
 
     // If block is sealed, perform recursive search for defs now.
     if ( block->kind != IR_BLOCK_UNSEALED )
     {
-        close_phi( block_index, local, phi_index );
+        close_phi( block_index, local_index, phi_index );
     }
 
     return operand;
 }
 
-void ir_build::close_phi( ir_block_index block_index, unsigned local, unsigned phi_index )
+void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsigned phi_index )
 {
     /*
         Construct phi op by searching for definitions that reach the block.
@@ -1799,7 +1765,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local, unsigned p
         ir_operand def = { IR_O_NONE };
         if ( preceding_index != IR_INVALID_INDEX )
         {
-            def = search_def( preceding_index, local );
+            def = search_def( preceding_index, local_index );
             assert( def.kind == IR_O_OP );
         }
 
@@ -1826,7 +1792,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local, unsigned p
     // Modify open phi op.
     ir_op* op = &_f->ops.at( phi_index );
     assert( op->opcode == IR_PHI_OPEN );
-    assert( op->local() == local );
+    assert( op->local() == local_index );
 
     if ( ref_count != 1 )
     {
@@ -1864,10 +1830,21 @@ void ir_build::seal_loop( ir_block_index loop_header )
     block->kind = IR_BLOCK_LOOP;
 }
 
-void ir_build::def( srcloc sloc, unsigned local, ir_operand operand, bool declare )
+void ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand, bool declare )
 {
+    // Check for definition of local which is in varenv.
+    const ast_local& local = _f->ast->locals.at( local_index );
+    if ( local.varenv_index != AST_INVALID_INDEX )
+    {
+        _o.push_back( search_def( _block_index, local.varenv_index ) );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
+        _o.push_back( operand );
+        emit( sloc, IR_SET_ENV, 3 );
+        return;
+    }
+
     // Upgrade pins on the stack that refer to the same local.
-    fix_local_pins( local );
+    fix_local_pins( local_index );
 
     // Get op which produces the value assigned to the local.
     operand = ignore_pin( operand );
@@ -1885,96 +1862,12 @@ void ir_build::def( srcloc sloc, unsigned local, ir_operand operand, bool declar
     // op is the new definition of the local
     assert( op->local() == IR_INVALID_LOCAL );
     assert( op->unpack() == 1 );
-    op->set_local( local );
-
-    // Check if it's an uplocal.
-    unsigned upstack_index = _f->ast->locals.at( local ).upstack_index;
-    if ( upstack_index != AST_INVALID_INDEX )
-    {
-        if ( declare )
-        {
-            // Add local to upstack.
-            declare_upval( sloc, local );
-        }
-        else
-        {
-            // Don't redefine uplocals, have all uses reach the original
-            // definition.  Basically we can't use SSA form for uplocals.
-            return;
-        }
-    }
+    op->set_local( local_index );
 
     // Add to def lookup.  This overrides any previous def of
     // this local in this block.
     assert( _block_index != IR_INVALID_INDEX );
-    _defs.insert_or_assign( block_local{ _block_index, local }, operand );
-}
-
-void ir_build::push_upvals( srcloc sloc, unsigned upstack_index )
-{
-    /*
-        Whenever we close the upstack, we need to know which locals are
-        upvals.  This is slightly more complicated than I would like.
-    */
-    assert( upstack_index != AST_INVALID_INDEX );
-    _upstack.push_back( _upscope );
-    size_t upscope = _upstack.size();
-    _upstack.insert( _upstack.end(), _upstack.begin() + _upscope, _upstack.begin() + _upscope + upstack_index );
-    _upscope = upscope;
-}
-
-void ir_build::declare_upval( srcloc sloc, unsigned local )
-{
-    unsigned upstack_index = _f->ast->locals.at( local ).upstack_index;
-    if ( upstack_index == AST_INVALID_INDEX )
-    {
-        return;
-    }
-
-    upstack_index = _upscope + upstack_index;
-    _upstack.resize( std::max< size_t >( _upstack.size(), upstack_index + 1 ), IR_INVALID_LOCAL );
-    assert( _upstack[ upstack_index ] == IR_INVALID_LOCAL );
-    _upstack[ upstack_index ] = local;
-}
-
-void ir_build::close_upvals( srcloc sloc, unsigned upstack_index )
-{
-    if ( upstack_index == AST_INVALID_INDEX )
-    {
-        return;
-    }
-
-    _o.push_back( { IR_O_UPSTACK_INDEX, upstack_index } );
-
-    unsigned ocount = 1;
-    upstack_index = _upscope + upstack_index;
-    for ( unsigned index = upstack_index; index < _upstack.size(); ++index )
-    {
-        unsigned local = _upstack.at( index );
-        assert( local != IR_INVALID_LOCAL );
-        _o.push_back( use( sloc, local ) );
-        ocount += 1;
-    }
-
-    assert( upstack_index == 0 || ocount > 1 );
-    if ( ocount > 1 )
-    {
-        emit( sloc, IR_CLOSE_UPSTACK, ocount );
-    }
-    else
-    {
-        _o.pop_back();
-    }
-}
-
-void ir_build::pop_upvals( srcloc sloc, unsigned upstack_index )
-{
-    assert( upstack_index != AST_INVALID_INDEX );
-    assert( _upscope != 0 );
-    assert( _upscope <= _upstack.size() );
-    _upstack.resize( _upscope );
-    _upscope = _upstack.back();
-    _upstack.pop_back();
+    _defs.insert_or_assign( block_local{ _block_index, local_index }, operand );
 }
 
 }

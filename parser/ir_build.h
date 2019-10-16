@@ -69,6 +69,7 @@ private:
 
     // Visiting AST.
     ir_operand visit( node_index node );
+    void block_varenv( node_index node );
     void visit_children( node_index node );
 
     // Rvals and unpacking
@@ -89,8 +90,7 @@ private:
     // Pins.
     ir_operand pin( srcloc sloc, ir_operand value );
     ir_operand ignore_pin( ir_operand operand );
-    void fix_local_pins( unsigned local );
-    void fix_upval_pins();
+    void fix_local_pins( unsigned local_index );
 
     // Structured gotos.
     struct goto_scope { goto_kind kind; unsigned index; };
@@ -107,17 +107,11 @@ private:
     void end_loop( ir_block_index loop_header, goto_scope scope );
 
     // Use/def for SSA construction.
-    ir_operand use( srcloc sloc, unsigned local );
-    ir_operand search_def( ir_block_index block_index, unsigned local );
-    void close_phi( ir_block_index block_index, unsigned local, unsigned phi_index );
+    ir_operand use( srcloc sloc, unsigned local_index );
+    ir_operand search_def( ir_block_index block_index, unsigned local_index );
+    void close_phi( ir_block_index block_index, unsigned local_index, unsigned phi_index );
     void seal_loop( ir_block_index loop_header );
-    void def( srcloc sloc, unsigned local, ir_operand operand, bool declare );
-
-    // Upvals must be referenced by close instructions so they stay live.
-    void push_upvals( srcloc sloc, unsigned upstack_index );
-    void declare_upval( srcloc sloc, unsigned local );
-    void close_upvals( srcloc sloc, unsigned upstack_index );
-    void pop_upvals( srcloc sloc, unsigned upstack_index );
+    void def( srcloc sloc, unsigned local_index, ir_operand operand, bool declare );
 
     // Function under construction.
     source* _source;
@@ -131,15 +125,11 @@ private:
     ir_block_index _block_index;
 
     // Definitions per block.
-    struct block_local { ir_block_index block_index; unsigned local; };
+    struct block_local { ir_block_index block_index; unsigned local_index; };
     struct block_local_hash : private std::hash< unsigned > { size_t operator () ( block_local bl ) const; };
     struct block_local_equal { bool operator () ( block_local a, block_local b ) const; };
     std::unordered_map< block_local, ir_operand, block_local_hash, block_local_equal > _defs;
     std::vector< ir_operand > _def_stack;
-
-    // Upstack tracking.
-    std::vector< unsigned > _upstack;
-    size_t _upscope;
 
 };
 

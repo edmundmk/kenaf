@@ -127,15 +127,14 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         case IR_JUMP_FOR_STEP:
         case IR_JUMP_THROW:
         case IR_JUMP_RETURN:
-        case IR_SET_UPVAL:
         case IR_SET_KEY:
         case IR_SET_INDEX:
+        case IR_SET_ENV:
         case IR_APPEND:
         case IR_CALL:
         case IR_YCALL:
         case IR_YIELD:
         case IR_EXTEND:
-        case IR_CLOSE_UPSTACK:
             // These instructions have side effects so they need to
             // stay live no matter what.
             if ( ! op->mark )
@@ -147,13 +146,6 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
 
         default:
             break;
-        }
-
-        // All defs of upvals need to remain live.
-        if ( ! op->mark && ir_is_upval( _f, op->local() ) )
-        {
-            op->mark = IR_MARK_STICKY;
-            op->r = 1;
         }
 
         // Skip ops which are not live or which have already had uses marked.
@@ -263,7 +255,7 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
     }
 }
 
-ir_operand ir_live::match_phi( ir_block* block, unsigned local )
+ir_operand ir_live::match_phi( ir_block* block, unsigned local_index )
 {
     // Search block header for a phi matching the local.
     unsigned phi_index = block->phi_head;
@@ -271,7 +263,7 @@ ir_operand ir_live::match_phi( ir_block* block, unsigned local )
     {
         ir_op* phi = &_f->ops.at( phi_index );
 
-        if ( phi->local() == local )
+        if ( phi->local() == local_index )
         {
             return { IR_O_OP, phi_index };
         }

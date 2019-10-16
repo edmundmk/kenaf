@@ -99,13 +99,12 @@ const char* const AST_NODE_NAME[] =
     [ AST_OBJECT_KEY        ] = "OBJECT_KEY",
 
     [ AST_NAME              ] = "EXPR_NAME",
-    [ AST_LOCAL_DECL        ] = "LOCAL_DECL",
-    [ AST_GLOBAL_NAME       ] = "GLOBAL_NAME",
-    [ AST_UPVAL_NAME        ] = "UPVAL_NAME",
-    [ AST_LOCAL_NAME        ] = "LOCAL_NAME",
-    [ AST_UPVAL_NAME_SUPER  ] = "UPVAL_NAME_SUPER",
-    [ AST_LOCAL_NAME_SUPER  ] = "LOCAL_NAME_SUPER",
     [ AST_OBJKEY_DECL       ] = "OBJKEY_DECL",
+    [ AST_LOCAL_DECL        ] = "LOCAL_DECL",
+    [ AST_LOCAL_NAME        ] = "LOCAL_NAME",
+    [ AST_SUPER_NAME        ] = "SUPER_NAME",
+    [ AST_OUTENV_NAME       ] = "OUTENV_NAME",
+    [ AST_GLOBAL_NAME       ] = "GLOBAL_NAME",
 };
 
 ast_script::ast_script()
@@ -122,12 +121,19 @@ ast_function* ast_script::new_function( srcloc sloc, ast_function* outer )
     return functions.back().get();
 }
 
+void ast_script::debug_print() const
+{
+    for ( const auto& function : functions )
+    {
+        function->debug_print();
+    }
+}
+
 ast_function::ast_function( srcloc sloc, ast_function* outer, unsigned index )
     :   sloc( sloc )
     ,   outer( outer )
     ,   index( index )
     ,   parameter_count( 0 )
-    ,   max_upstack_size( 0 )
     ,   implicit_self( false )
     ,   is_generator( false )
     ,   is_top_level( false )
@@ -214,6 +220,11 @@ static void debug_print_tree( const std::vector< ast_node >& nodes, unsigned ind
         else
             printf( " INVALID INDEX\n" );
     }
+    else if ( n.leaf == AST_LEAF_OUTENV )
+    {
+        const ast_leaf_outenv& l = n.leaf_outenv();
+        printf( " OUTENV %u SLOT %u\n", l.outenv_index, l.outenv_slot );
+    }
     else
     {
         printf( "\n" );
@@ -231,7 +242,6 @@ void ast_function::debug_print() const
     if ( outer )
         printf( "  OUTER %p %s\n", outer, outer->name.c_str() );
     printf( "  %u PARAMETERS\n", parameter_count );
-    printf( "  %u MAX_UPSTACK_SIZE\n", max_upstack_size );
     if ( implicit_self )
         printf( "  IMPLICIT_SELF\n" );
     if ( is_generator )
@@ -241,15 +251,15 @@ void ast_function::debug_print() const
     if ( is_varargs )
         printf( "  VARARGS\n" );
 
-    printf( "  UPVALS:\n" );
-    for ( size_t i = 0; i < upvals.size(); ++i )
+    printf( "  OUTENV:\n" );
+    for ( size_t i = 0; i < outenvs.size(); ++i )
     {
-        const ast_upval& upval = upvals[ i ];
+        const ast_outenv& outenv = outenvs[ i ];
         printf
         (
             "    %zu : %s %u\n", i,
-            upval.outer_upval ? "OUTER_UPVAL" : "OUTER_LOCAL",
-            upval.outer_index
+            outenv.outer_outenv ? "OUTENV" : "VARENV",
+            outenv.outer_index
         );
     }
 
@@ -258,14 +268,14 @@ void ast_function::debug_print() const
     {
         const ast_local& local = locals[ i ];
         printf( "    %zu : %.*s", i, (int)local.name.size(), local.name.data() );
-        if ( local.upstack_index != AST_INVALID_INDEX )
-            printf( " UPSTACK %u", local.upstack_index );
-        if ( local.is_implicit_self )
-            printf( " IMPLICIT_SELF" );
+        if ( local.varenv_index != AST_INVALID_INDEX )
+            printf( " VARENV %u[ %u ]", local.varenv_index, local.varenv_slot );
+        if ( local.is_self )
+            printf( " SELF" );
         if ( local.is_parameter )
             printf( " PARAMETER" );
-        if ( local.is_vararg_param )
-            printf( " VARARG_PARAM" );
+        if ( local.is_vararg )
+            printf( " VARARG" );
         printf( "\n" );
     }
 

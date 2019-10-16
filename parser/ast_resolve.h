@@ -42,33 +42,27 @@
     referred to by index.  The first n locals are the function's parameters.
 
 
-    -- Upvals
+    -- Environment Records
 
-    Upvals and implement closures.  A variable captured by a function closure
-    is an upval.
+    Environment records implement closures.  All variables which are captured
+    by inner functions are stored in environment records.
 
-    There is an upstack, separate from the call stack.  This stack holds upval
-    objects.  Like in Lua, an upval object either references a slot in the
-    call stack, or stores its captured value in itself.
+    Each block with captured variables has an associated hidden local variable.
+    On entry to the block, an environment record is created.  Access to
+    captured variables are routed through this record.
 
-    At the end of each block, the upstack is closed down to the same size that
-    it had on entry to the block, disconnecting upvals from the call stack.
+    When function closures are created, the function's outenv slots are
+    populated with environment records.  Accesses to variables in outer
+    scopes are routed through these records.
 
-    When each function closure is created, upval objects are created and pushed
-    onto the upstack.  If the variable was already captured by another
-    function, there will be an existing upval on the stack.  Upval references
-    from the upstack are copied into the function object's list of upvals.
-    Inside a function, its upvals are identified by an index into this list.
-
-    Upstack indexes are allocated statically in this name resolution pass.
+    The index of each variable in each environment record is allocated
+    statically by this name resolution pass.
 
 
     -- Super
 
     If a function has an implicit self parameter, then references to 'super'
-    actually mean 'superof( self )'.  This happens even when 'super' is used
-    as an upval - the actual upval is 'self' and the child function performs
-    'superof( self )'.
+    actually mean 'superof( self )'.  This magic variable cannot be captured.
 
 */
 
@@ -93,28 +87,13 @@ private:
 
     enum lookup_context { LOOKUP_NORMAL, LOOKUP_UNPACK, LOOKUP_ASSIGN };
 
-    struct upstack_block
-    {
-        unsigned block_index;       // Index of block in AST.
-        unsigned floor_index;       // Index in upstack which anchors this block.
-    };
-
-    struct upstack
-    {
-        // Function this is the upstack of.
-        ast_function* function;
-        // Stack of unclosed upstack slots, indexing function locals.
-        std::vector< unsigned > upstack_slots;
-        // List of blocks which may need their close index updated.
-        std::vector< upstack_block > upstack_close;
-    };
-
     struct variable
     {
-        unsigned index;             // Index in function's upvals or locals.
-        bool is_upval;              // Is this an upval?
-        bool implicit_super;        // Use superof when referencing.
+        unsigned index;             // Index of local or outenv.
         bool after_continue;        // Is this value declared after first continue?
+        bool implicit_super;        // Use superof when referencing.
+        bool is_outenv;             // Is this located in outenv?
+        uint8_t outenv_slot;        // Slot in outenv environment record.
     };
 
     struct scope
@@ -122,7 +101,8 @@ private:
         ast_function* function;     // Function this scope is in.
         unsigned block_index;       // Index of block in AST.
         unsigned node_index;        // Index of loop or function in AST.
-        unsigned close_index;       // Upstack index on entry to this scope.
+        unsigned varenv_index;      // Index of local environment record.
+        uint8_t varenv_slot;        // Count of allocated varenv slots.
         bool after_continue;        // Are we currently in code that can be skipped by continue?
         bool repeat_until;          // Are we currently in the until part of a loop?
 
@@ -132,8 +112,6 @@ private:
 
         // Map of names to variables.
         std::unordered_map< std::string_view, variable > variables;
-        // Reference to function upstack.
-        std::shared_ptr< struct upstack > upstack;
     };
 
     void visit( ast_function* f, unsigned index );
@@ -144,14 +122,7 @@ private:
     void lookup( ast_function* f, unsigned index, lookup_context context );
     void close_scope();
 
-    struct loop_and_inner { scope* loop; scope* inner; };
-    loop_and_inner loop_scope();
-
-    void insert_upstack( upstack* upstack, size_t scope_index, const variable* variable );
-    void close_upstack( upstack* upstack, unsigned block_index, unsigned close_index );
-    void break_upstack( upstack* upstack, unsigned break_index, unsigned close_index );
-
-    void debug_print( const upstack* upstack );
+    scope* loop_scope();
 
     source* _source;
     ast_script* _ast_script;

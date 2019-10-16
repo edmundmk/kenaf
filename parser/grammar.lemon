@@ -175,8 +175,8 @@ stmt(x) ::= REPEAT(kw) block(u) UNTIL expr .
         p->update_sloc( u, kw.sloc );
         x = p->node( AST_STMT_REPEAT, kw.sloc, u );
     }
-stmt(x) ::= BREAK(kw) .                                 { x = p->index_node( AST_STMT_BREAK, kw.sloc, AST_INVALID_INDEX ); }
-stmt(x) ::= CONTINUE(kw) .                              { x = p->index_node( AST_STMT_CONTINUE, kw.sloc, AST_INVALID_INDEX ); }
+stmt(x) ::= BREAK(kw) .                                 { x = p->node( AST_STMT_BREAK, kw.sloc, AST_INVALID_INDEX ); }
+stmt(x) ::= CONTINUE(kw) .                              { x = p->node( AST_STMT_CONTINUE, kw.sloc, AST_INVALID_INDEX ); }
 stmt(x) ::= RETURN(kw) unpack_list(u) .                 { x = p->node( AST_STMT_RETURN, kw.sloc, u.index ); }
 stmt(x) ::= THROW(kw) expr(u) .                         { x = p->node( AST_STMT_THROW, kw.sloc, u.index ); }
 

@@ -58,9 +58,10 @@ int main( int argc, char* argv[] )
     {
         kf::ast_resolve resolve( &source, ast_script.get() );
         resolve.resolve();
+        ast_script->debug_print();
     }
 
-    if ( ! source.has_error )
+    if ( 0 && ! source.has_error )
     {
         kf::ir_build ir_build( &source );
         kf::ir_fold ir_fold( &source );

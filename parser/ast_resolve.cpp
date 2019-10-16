@@ -219,13 +219,8 @@ void ast_resolve::visit( ast_function* f, unsigned index )
     case AST_STMT_BREAK:
     {
         // Handle break.
-        loop_and_inner l = loop_scope();
-        if ( l.loop )
-        {
-            // Break always breaks to the scope outside of the loop.
-            break_upstack( l.loop->upstack.get(), index, l.loop->close_index );
-        }
-        else
+        scope* loop = loop_scope();
+        if ( ! loop )
         {
             _source->error( n->sloc, "invalid 'break' outside of loop" );
         }
@@ -235,27 +230,13 @@ void ast_resolve::visit( ast_function* f, unsigned index )
     case AST_STMT_CONTINUE:
     {
         // Handle continue.
-        loop_and_inner l = loop_scope();
-        if ( l.loop )
+        scope* loop = loop_scope();
+        if ( loop )
         {
-            // Close upstack depending on which scope we are continuing into.
-            if ( l.loop->is_repeat() )
+            // Locals declared after first continue need to be marked.
+            if ( loop->is_repeat() )
             {
-                // Continue in repeat jumps to the loop condition, which is in
-                // the same scope as the loop.  Close any inner scopes.
-                if ( l.inner )
-                {
-                    break_upstack( l.loop->upstack.get(), index, l.inner->close_index );
-                }
-
-                // Locals declared after first continue need to be marked.
-                l.loop->after_continue = true;
-            }
-            else
-            {
-                // Continue in other loops jumps back to the head of the loop,
-                // closing the loop scope.
-                break_upstack( l.loop->upstack.get(), index, l.loop->close_index );
+                loop->after_continue = true;
             }
         }
         else
@@ -355,20 +336,10 @@ void ast_resolve::open_scope( ast_function* f, unsigned block_index, unsigned no
     s->function = f;
     s->block_index = block_index;
     s->node_index = node_index;
+    s->varenv_index = AST_INVALID_INDEX;
+    s->varenv_slot = -1;
     s->after_continue = false;
     s->repeat_until = false;
-
-    if ( s->is_function() )
-    {
-        s->upstack = std::make_shared< upstack >();
-        s->upstack->function = f;
-    }
-    else
-    {
-        s->upstack = _scopes.back()->upstack;
-        assert( s->upstack->function == f );
-    }
-    s->close_index = s->upstack->upstack_slots.size();
 
     _scopes.push_back( std::move( s ) );
 }
@@ -379,13 +350,12 @@ void ast_resolve::declare_implicit_self( ast_function* f )
 
     ast_local local = {};
     local.name = "self";
-    local.upstack_index = AST_INVALID_INDEX;
-    local.is_implicit_self = true;
+    local.is_self = true;
     local.is_parameter = true;
 
     unsigned local_index = f->locals.size();
-    scope->variables.emplace( local.name, variable{ local_index, false, false, scope->after_continue } );
-    scope->variables.emplace( "super", variable{ local_index, false, true, scope->after_continue } );
+    scope->variables.emplace( local.name, variable{ local_index, scope->after_continue } );
+    scope->variables.emplace( "super", variable{ local_index, scope->after_continue, true } );
     f->locals.push_back( local );
 
     f->parameter_count += 1;
@@ -421,12 +391,12 @@ void ast_resolve::declare( ast_function* f, unsigned index )
         next_index = n->next_index;
 
         // Check for varargs param.
-        bool is_vararg_param = false;
+        bool is_vararg = false;
         if ( n->kind == AST_VARARG_PARAM )
         {
             assert( is_parameter );
             n = &f->nodes[ n->child_index ];
-            is_vararg_param = true;
+            is_vararg = true;
             f->is_varargs = true;
         }
 
@@ -438,7 +408,7 @@ void ast_resolve::declare( ast_function* f, unsigned index )
         auto i = scope->variables.find( name );
         if ( i != scope->variables.end() )
         {
-            if ( i->second.is_upval )
+            if ( i->second.is_outenv )
                 _source->error( n->sloc, "redeclaration of captured variable '%.*s'", (int)name.size(), name.data() );
             else
                 _source->error( n->sloc, "redeclaration of '%.*s'", (int)name.size(), name.data() );
@@ -448,12 +418,11 @@ void ast_resolve::declare( ast_function* f, unsigned index )
         // Add local.
         ast_local local = {};
         local.name = name;
-        local.upstack_index = AST_INVALID_INDEX;
         local.is_parameter = is_parameter;
-        local.is_vararg_param = is_vararg_param;
+        local.is_vararg = is_vararg;
 
         unsigned local_index = f->locals.size();
-        scope->variables.emplace( local.name, variable{ local_index, false, false, scope->after_continue } );
+        scope->variables.emplace( local.name, variable{ local_index, scope->after_continue } );
         f->locals.push_back( local );
 
         if ( is_parameter )
@@ -527,7 +496,7 @@ void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context contex
     // Can't use a varargs param in anything other than an unpack expression,
     // and we can't capture a varargs param in a function closure.
     const ast_local& local = vscope->function->locals.at( v->index );
-    if ( local.is_vararg_param )
+    if ( local.is_vararg )
     {
         if ( context != LOOKUP_UNPACK )
         {
@@ -540,7 +509,12 @@ void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context contex
         }
     }
 
-    // Capture upvals into inner functions.
+    if ( v->implicit_super && vscope->function != current_scope->function )
+    {
+        _source->error( n->sloc, "'super' cannot be captured by a closure" );
+    }
+
+    // Capture into inner function.
     while ( vscope->function != current_scope->function )
     {
         // Find next inner function scope.
@@ -552,41 +526,75 @@ void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context contex
         }
         assert( inner->is_function() );
 
-        // Upval might already have been added to inner function's upval list,
-        // e.g. if a function captures both 'self' and 'super'.
-        unsigned upval_index = 0;
-        for ( ; upval_index < inner->function->upvals.size(); ++upval_index )
-        {
-            const ast_upval& upval = inner->function->upvals[ upval_index ];
-            if ( upval.outer_index == v->index && upval.outer_upval == v->is_upval )
-            {
-                break;
-            }
-        }
+        unsigned outenv_index = -1;
+        uint8_t outenv_slot = -1;
 
-        // If we didn't find it, we have to add it.
-        if ( upval_index >= inner->function->upvals.size() )
+        if ( v->is_outenv )
         {
-            // If the variable is a local in the outer function, it must be
-            // located on the outer function's upstack.
-            if ( ! v->is_upval )
+            // Variable is already in an outenv.  Search for the outenv in
+            // inner function's list of outenvs.
+            for ( outenv_index = 0; outenv_index < inner->function->outenvs.size(); ++outenv_index )
             {
-                ast_local* local = &outer->function->locals.at( v->index );
-                if ( local->upstack_index == AST_INVALID_INDEX )
+                const ast_outenv& outenv = inner->function->outenvs[ outenv_index ];
+                if ( outenv.outer_outenv && outenv.outer_index == v->index )
                 {
-                    insert_upstack( vscope->upstack.get(), vscope_index, v );
-                    assert( local->upstack_index != AST_INVALID_INDEX );
+                    break;
                 }
             }
 
-            // Add to inner function's upval list.
-            inner->function->upvals.push_back( { v->index, v->is_upval } );
+            if ( outenv_index >= inner->function->outenvs.size() )
+            {
+                inner->function->outenvs.push_back( { v->index, true } );
+            }
+
+            outenv_slot = v->outenv_slot;
+        }
+        else
+        {
+            // Variable is a local captured from the outer function.
+            assert( outer->function == vscope->function );
+            ast_local* local = &vscope->function->locals.at( v->index );
+
+            // Allocate slot in varenv of this local's block.
+            if ( local->varenv_index == AST_INVALID_INDEX )
+            {
+                // Create block's environment.
+                if ( vscope->varenv_index == AST_INVALID_INDEX )
+                {
+                    vscope->varenv_index = vscope->function->locals.size();
+                    vscope->varenv_slot = 0;
+                    ast_local varenv;
+                    varenv.name = "$varenv";
+                    vscope->function->locals.push_back( varenv );
+                }
+
+                assert( vscope->varenv_index != AST_INVALID_INDEX );
+                local->varenv_index = vscope->varenv_index;
+                local->varenv_slot = vscope->varenv_slot++;
+            }
+
+            // Search for resulting outenv in inner function's list of outenvs.
+            for ( outenv_index = 0; outenv_index < inner->function->outenvs.size(); ++outenv_index )
+            {
+                const ast_outenv& outenv = inner->function->outenvs[ outenv_index ];
+                if ( ! outenv.outer_outenv && outenv.outer_index == local->varenv_index )
+                {
+                    break;
+                }
+            }
+
+            if ( outenv_index >= inner->function->outenvs.size() )
+            {
+                inner->function->outenvs.push_back( { local->varenv_index, false } );
+            }
+
+            outenv_slot = local->varenv_slot;
         }
 
         // Add entry to inner function's scope to accelerate subsequent
         // searches for this same upval, and to disallow redeclaration of
         // captured variables at function scope.
-        auto inserted = inner->variables.emplace( name, variable{ upval_index, true, v->implicit_super, false } );
+        auto inserted = inner->variables.insert_or_assign( name, variable{ outenv_index, false, false, true, outenv_slot } );
         assert( inserted.second );
 
         // Variable capture continues with this new variable.
@@ -597,12 +605,18 @@ void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context contex
     // Make reference to variable.
     assert( vscope->function == current_scope->function );
     assert( n->leaf );
-    if ( v->is_upval )
-        n->kind = v->implicit_super ? AST_UPVAL_NAME_SUPER : AST_UPVAL_NAME;
+    if ( ! v->is_outenv )
+    {
+        n->kind = v->implicit_super ? AST_SUPER_NAME : AST_LOCAL_NAME;
+        n->leaf = AST_LEAF_INDEX;
+        n->leaf_index().index = v->index;
+    }
     else
-        n->kind = v->implicit_super ? AST_LOCAL_NAME_SUPER : AST_LOCAL_NAME;
-    n->leaf = AST_LEAF_INDEX;
-    n->leaf_index().index = v->index;
+    {
+        n->kind = AST_OUTENV_NAME;
+        n->leaf = AST_LEAF_OUTENV;
+        n->leaf_outenv() = { v->index, v->outenv_slot };
+    }
 }
 
 void ast_resolve::close_scope()
@@ -611,200 +625,31 @@ void ast_resolve::close_scope()
     std::unique_ptr< scope > s = std::move( _scopes.back() );
     _scopes.pop_back();
 
-    // Close upvals.
-    close_upstack( s->upstack.get(), s->block_index, s->close_index );
+    // Set varenv.
+    if ( s->varenv_index != AST_INVALID_INDEX )
+    {
+        ast_local* varenv = &s->function->locals.at( s->varenv_index );
+        varenv->varenv_slot = s->varenv_slot;
+
+        ast_node* node = &s->function->nodes.at( s->block_index );
+        node->leaf_index().index = s->varenv_index;
+    }
 }
 
-ast_resolve::loop_and_inner ast_resolve::loop_scope()
+ast_resolve::scope* ast_resolve::loop_scope()
 {
-    scope* inner = nullptr;
     for ( auto i = _scopes.rbegin(); i != _scopes.rend(); ++i )
     {
         scope* s = i->get();
         if ( s->is_loop() )
         {
-            return { s, inner };
-        }
-        inner = s;
-    }
-
-    return { nullptr, nullptr };
-}
-
-void ast_resolve::insert_upstack( upstack* upstack, size_t scope_index, const variable* variable )
-{
-    assert( upstack->function == _scopes.at( scope_index)->function );
-    assert( ! variable->is_upval );
-
-    /*
-        Variables must be inserted into the upstack before any variables in
-        child scopes.  This is because closing a child scope must close upstack
-        slots for variables declared in that scope, but leave open variables
-        declared in parent scopes.  However, upstack insertion happens when a
-        variable is first captured, not when it is declared.  Work out which
-        index this means.
-    */
-    unsigned insert_index = upstack->upstack_slots.size();
-    if ( scope_index + 1 < _scopes.size() )
-    {
-        const scope* next_scope = _scopes.at( scope_index + 1 ).get();
-        if ( next_scope->function == upstack->function )
-        {
-            insert_index = next_scope->close_index;
+            return s;
         }
     }
 
-    /*
-        Assign local to upstack slot.
-    */
-    ast_local& local = upstack->function->locals.at( variable->index );
-    assert( local.upstack_index == AST_INVALID_INDEX );
-    local.upstack_index = insert_index;
-
-    if ( insert_index >= upstack->upstack_slots.size() )
-    {
-        // Pushing a new upval onto the end of the stack is straightforward.
-        upstack->upstack_slots.push_back( variable->index );
-//      printf( "PUSH " );
-    }
-    else
-    {
-        /*
-            Otherwise, we must move upvals higher in the stack to open a slot.
-            This means updating their upval indexes, and also updating the
-            close index for blocks which close the stack above the insertion.
-        */
-        upstack->upstack_slots.insert( upstack->upstack_slots.begin() + insert_index, variable->index );
-
-        // Update upval indexes for subsequent locals.
-        for ( unsigned i = insert_index + 1; i < upstack->upstack_slots.size(); ++i )
-        {
-            unsigned local_index = upstack->upstack_slots.at( i );
-            ast_local& local = upstack->function->locals.at( local_index );
-            assert( local.upstack_index == i - 1 );
-            local.upstack_index = i;
-        }
-
-        // Update all blocks which are anchored below the inserted index, and which
-        // close to an index above it.
-        for ( upstack_block& close : upstack->upstack_close )
-        {
-            ast_node& node = upstack->function->nodes.at( close.block_index );
-            assert( node.kind == AST_BLOCK || node.kind == AST_STMT_BREAK || node.kind == AST_STMT_CONTINUE );
-            assert( node.leaf == AST_LEAF_INDEX );
-            assert( node.leaf_index().index >= close.floor_index );
-
-            if ( close.floor_index < insert_index && node.leaf_index().index > insert_index )
-            {
-                node.leaf_index().index += 1;
-            }
-        }
-
-//      printf( "INSERT " );
-    }
-
-    // Update all unclosed scopes in same function as the variable.
-    for ( size_t i = scope_index + 1; i < _scopes.size(); ++i )
-    {
-        scope* s = _scopes.at( i ).get();
-        if ( s->function != upstack->function )
-        {
-            break;
-        }
-
-        s->close_index += 1;
-    }
-
-    // Update max upstack size.
-    unsigned upstack_size = upstack->upstack_slots.size();
-    upstack->function->max_upstack_size = std::max( upstack->function->max_upstack_size, upstack_size );
-
-//  debug_print( upstack );
+    return nullptr;
 }
 
-void ast_resolve::close_upstack( upstack* upstack, unsigned block_index, unsigned close_index )
-{
-    // Get block node to close.
-    ast_node& node = upstack->function->nodes.at( block_index );
-    assert( node.kind == AST_BLOCK );
-    assert( node.leaf == AST_LEAF_INDEX );
-    assert( node.leaf_index().index == AST_INVALID_INDEX );
-
-    // If there were no new upvals in the block, then there's nothing to do.
-    assert( close_index <= upstack->upstack_slots.size() );
-    if ( close_index >= upstack->upstack_slots.size() )
-    {
-//      printf( "CLOSE NOTHING " );
-//      debug_print( upstack );
-        return;
-    }
-
-    // Close upstack.
-    upstack->upstack_slots.resize( close_index );
-    node.leaf_index().index = close_index;
-
-    // If the entire upstack has been closed, then we can throw away all our
-    // bookkeeping, its as if we start again (or its the end of the function).
-    if ( close_index == 0 )
-    {
-        assert( upstack->upstack_slots.empty() );
-        upstack->upstack_close.clear();
-        return;
-    }
-
-    // Add new block close entry in case it needs to be updated later due to
-    // an upstack slot being allocated underneath us.
-    upstack->upstack_close.push_back( { block_index, close_index } );
-
-    // Update the anchor index of all existing block close entries.
-    for ( upstack_block& close : upstack->upstack_close )
-    {
-        close.floor_index = std::min( close.floor_index, close_index );
-    }
-
-//  printf( "CLOSE BLOCK " );
-//  debug_print( upstack );
-}
-
-void ast_resolve::break_upstack( upstack* upstack, unsigned break_index, unsigned close_index )
-{
-    // Get break or continue node.
-    ast_node& node = upstack->function->nodes.at( break_index );
-    assert( node.kind == AST_STMT_BREAK || node.kind == AST_STMT_CONTINUE );
-    assert( node.leaf == AST_LEAF_INDEX );
-    assert( node.leaf_index().index == AST_INVALID_INDEX );
-
-    // If there were no new upvals, then there's nothing to do.
-    assert( close_index <= upstack->upstack_slots.size() );
-    if ( close_index >= upstack->upstack_slots.size() )
-    {
-        return;
-    }
-
-    // Set close index.
-    node.leaf_index().index = close_index;
-
-    // Add block close entry, in case slots are allocated underneath.
-    upstack->upstack_close.push_back( { break_index, close_index } );
-}
-
-void ast_resolve::debug_print( const upstack* upstack )
-{
-    printf( "UPSTACK %s\n", upstack->function->name.c_str() );
-    printf( "  SLOTS\n" );
-    for ( unsigned i = 0; i < upstack->upstack_slots.size(); ++i )
-    {
-        unsigned local_index = upstack->upstack_slots.at( i );
-        const ast_local& local = upstack->function->locals.at( local_index );
-        printf( "    %u : %u %.*s\n", i, local_index, (int)local.name.size(), local.name.data() );
-    }
-    printf( "  CLOSE\n" );
-    for ( const upstack_block& close : upstack->upstack_close )
-    {
-        ast_node& node = upstack->function->nodes.at( close.block_index );
-        printf( "    %u : FLOOR %u CLOSE %u\n", close.block_index, close.floor_index, node.leaf_index().index );
-    }
-}
 
 }
 

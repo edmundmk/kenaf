@@ -44,7 +44,7 @@ private:
     void live_blocks();
     void live_body( ir_block_index block_index, ir_block* block );
     void live_head( ir_block_index block_index, ir_block* block );
-    ir_operand match_phi( ir_block* block, unsigned local );
+    ir_operand match_phi( ir_block* block, unsigned local_index );
     bool mark_use( ir_operand def, unsigned use_index );
 
     source* _source;

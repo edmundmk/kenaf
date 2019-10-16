@@ -77,7 +77,6 @@ private:
 
 };
 
-bool ir_is_upval( ir_function* f, unsigned local );
 ir_operand ir_fold_operand( ir_function* f, ir_operand operand );
 
 }

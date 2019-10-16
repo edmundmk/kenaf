@@ -40,6 +40,7 @@ struct ast_leaf_string;
 struct ast_leaf_number;
 struct ast_leaf_function;
 struct ast_leaf_index;
+struct ast_leaf_outenv;
 
 const unsigned AST_INVALID_INDEX = ~(unsigned)0;
 
@@ -49,23 +50,34 @@ struct ast_script
     ~ast_script();
 
     ast_function* new_function( srcloc sloc, ast_function* outer );
+    void debug_print() const;
 
     std::vector< std::unique_ptr< ast_function > > functions;
 };
 
-struct ast_upval
+struct ast_outenv
 {
-    unsigned outer_index;       // Index in outer function's upvals or locals.
-    bool outer_upval;           // If true, upval was an upval for the outer function.
+    unsigned outer_index;       // Index in outer function's outenvs or locals.
+    bool outer_outenv;          // If true, outenv was an outenv for the outer function.
 };
 
 struct ast_local
 {
+    ast_local()
+        :   varenv_index( AST_INVALID_INDEX )
+        ,   varenv_slot( -1 )
+        ,   is_self( false )
+        ,   is_parameter( false )
+        ,   is_vararg( false )
+    {
+    }
+
     std::string_view name;      // Name of local or parameter.
-    unsigned upstack_index;     // Index in upval stack, or AST_INVALID_INDEX.
-    bool is_implicit_self;      // Is it implicit self?
-    bool is_parameter;          // Is it a parameter?
-    bool is_vararg_param;       // Is it the variable argument parameter?
+    unsigned varenv_index;      // Index of local environment record.
+    uint8_t varenv_slot;        // Slot in local environment record, or count of slots.
+    uint8_t is_self;            // Is it implicit self?
+    uint8_t is_parameter;       // Is it a parameter?
+    uint8_t is_vararg;          // Is it the vararg parameter?
 };
 
 struct ast_function
@@ -81,13 +93,12 @@ struct ast_function
     ast_function* outer;        // Lexically outer function.
     unsigned index;             // Index of function in the AST.
     unsigned parameter_count;   // First count locals are parameters.
-    unsigned max_upstack_size;  // Maximum size of upstack.
     bool implicit_self;         // Does the function have implicit self?
     bool is_generator;          // Is it a generator?
     bool is_top_level;          // Is it the top-level function of a script?
-    bool is_varargs;            // Does it have a varargs parameter.
+    bool is_varargs;            // Does it have a varargs parameter?
 
-    std::vector< ast_upval > upvals;
+    std::vector< ast_outenv > outenvs;
     std::vector< ast_local > locals;
     std::vector< ast_node > nodes;
 };
@@ -180,13 +191,12 @@ enum ast_node_kind : uint16_t
     AST_OBJECT_KEY,             // name expr
 
     AST_NAME,                   // leaf "name"
-    AST_LOCAL_DECL,             // Declaration of a local variable.
-    AST_GLOBAL_NAME,            // Reference to global value.
-    AST_UPVAL_NAME,             // Reference to upval.
-    AST_LOCAL_NAME,             // Reference to local variable.
-    AST_UPVAL_NAME_SUPER,       // superof( upval ).
-    AST_LOCAL_NAME_SUPER,       // superof( local variable ).
     AST_OBJKEY_DECL,            // Declares object key.
+    AST_LOCAL_DECL,             // Declaration of a local variable (may be in varenv).
+    AST_LOCAL_NAME,             // Reference to local (may be in varenv).
+    AST_SUPER_NAME,             // superof( local ).
+    AST_OUTENV_NAME,            // Name of value stored in outer environment.
+    AST_GLOBAL_NAME,            // Name of global.
 };
 
 enum ast_node_leaf : uint8_t
@@ -195,7 +205,8 @@ enum ast_node_leaf : uint8_t
     AST_LEAF_STRING,            // String literal.
     AST_LEAF_NUMBER,            // Number literal.
     AST_LEAF_FUNCTION,          // Child function.
-    AST_LEAF_INDEX,             // Index into function's upvals or locals, or block close index.
+    AST_LEAF_INDEX,             // Index into function's locals.
+    AST_LEAF_OUTENV,            // Index into function's outenvs, and outenv slot.
 };
 
 struct ast_node
@@ -211,11 +222,13 @@ struct ast_node
     const ast_leaf_number& leaf_number() const;
     const ast_leaf_function& leaf_function() const;
     const ast_leaf_index& leaf_index() const;
+    const ast_leaf_outenv& leaf_outenv() const;
 
     ast_leaf_string& leaf_string();
     ast_leaf_number& leaf_number();
     ast_leaf_function& leaf_function();
     ast_leaf_index& leaf_index();
+    ast_leaf_outenv& leaf_outenv();
 };
 
 struct ast_leaf_string
@@ -237,6 +250,12 @@ struct ast_leaf_function
 struct ast_leaf_index
 {
     unsigned index;
+};
+
+struct ast_leaf_outenv
+{
+    unsigned outenv_index;
+    unsigned outenv_slot;
 };
 
 inline const ast_leaf_string& ast_node::leaf_string() const
@@ -267,6 +286,13 @@ inline const ast_leaf_index& ast_node::leaf_index() const
     return *(const ast_leaf_index*)( this + 1 );
 }
 
+inline const ast_leaf_outenv& ast_node::leaf_outenv() const
+{
+    static_assert( sizeof( ast_leaf_outenv ) <= sizeof( ast_node ) );
+    assert( leaf == AST_LEAF_OUTENV );
+    return *(const ast_leaf_outenv*)( this + 1 );
+}
+
 inline ast_leaf_string& ast_node::leaf_string()
 {
     static_assert( sizeof( ast_leaf_string ) <= sizeof( ast_node ) );
@@ -293,6 +319,13 @@ inline ast_leaf_index& ast_node::leaf_index()
     static_assert( sizeof( ast_leaf_index ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_INDEX );
     return *(ast_leaf_index*)( this + 1 );
+}
+
+inline ast_leaf_outenv& ast_node::leaf_outenv()
+{
+    static_assert( sizeof( ast_leaf_outenv ) <= sizeof( ast_node ) );
+    assert( leaf == AST_LEAF_OUTENV );
+    return *(ast_leaf_outenv*)( this + 1 );
 }
 
 }

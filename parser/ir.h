@@ -216,18 +216,19 @@ enum ir_opcode : uint8_t
 
     // Other instructions.
     IR_GET_GLOBAL,              // Get global.
-    IR_GET_UPVAL,               // Get upval at index.
-    IR_SET_UPVAL,               // Set upval at index.
     IR_GET_KEY,                 // a.b
     IR_SET_KEY,                 // a.b = c
     IR_GET_INDEX,               // a[ b ]
     IR_SET_INDEX,               // a[ b ] = c
-    IR_SUPER,                   // super( self ), performs late binding.
-    IR_APPEND,                  // a.append( b )
+    IR_NEW_ENV,                 // count
+    IR_GET_ENV,                 // varenv/outenv_index env_index
+    IR_SET_ENV,                 // varenv/outenv_index env_index value
+    IR_NEW_OBJECT,              // def
     IR_NEW_ARRAY,               // []
     IR_NEW_TABLE,               // {}
-    IR_NEW_FUNCTION,            // def()
-    IR_NEW_OBJECT,              // def
+    IR_NEW_FUNCTION,            // function, varenv/outenv_index*
+    IR_SUPER,                   // super( self ), performs late binding.
+    IR_APPEND,                  // a.append( b )
 
     // Stack top instructions.  If rcount is >1 then results must be selected.
     IR_CALL,                    // a( b, c, d ... ) ...
@@ -239,9 +240,6 @@ enum ir_opcode : uint8_t
 
     // Select a result from a stack top instruction.
     IR_SELECT,                  // select( a ..., index )
-
-    // Upvals.
-    IR_CLOSE_UPSTACK,           // index
 
     // Shortcut branches.
     IR_B_AND,                   // test, jump
@@ -290,9 +288,9 @@ enum ir_operand_kind : uint8_t
     IR_O_IMMEDIATE,             // 8-bit signed immediate.
 
     IR_O_LOCAL_INDEX,           // Index of local.
-    IR_O_UPVAL_INDEX,           // Index of upval.
+    IR_O_OUTENV_INDEX,          // Index of outenv
+    IR_O_ENV_SLOT_INDEX,        // Index of slot in varenv or outenv.
     IR_O_FUNCTION_INDEX,        // Index of function.
-    IR_O_UPSTACK_INDEX,         // Upstack index.
 };
 
 enum ir_block_kind : uint8_t

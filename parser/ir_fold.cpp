@@ -847,11 +847,6 @@ void ir_fold::remove_unreachable_blocks()
     }
 }
 
-bool ir_is_upval( ir_function* f, unsigned local )
-{
-    return local != IR_INVALID_LOCAL && f->ast->locals.at( local ).upstack_index != AST_INVALID_INDEX;
-}
-
 ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
 {
     if ( operand.kind != IR_O_OP )
@@ -862,12 +857,6 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
     const ir_op* op = &f->ops.at( operand.index );
     while ( true )
     {
-        // Don't fold upvals.
-        if ( ir_is_upval( f, op->local() ) )
-        {
-            return operand;
-        }
-
         // Look past VAL/REF.
         if ( op->opcode == IR_VAL || op->opcode == IR_REF
             || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )

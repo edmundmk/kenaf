@@ -59,18 +59,19 @@ const char* const OPCODE_NAMES[] =
     [ IR_NOT            ] = "NOT",
 
     [ IR_GET_GLOBAL     ] = "GET_GLOBAL",
-    [ IR_GET_UPVAL      ] = "GET_UPVAL",
-    [ IR_SET_UPVAL      ] = "SET_UPVAL",
     [ IR_GET_KEY        ] = "GET_KEY",
     [ IR_SET_KEY        ] = "SET_KEY",
     [ IR_GET_INDEX      ] = "GET_INDEX",
     [ IR_SET_INDEX      ] = "SET_INDEX",
-    [ IR_SUPER          ] = "SUPER",
-    [ IR_APPEND         ] = "APPEND",
+    [ IR_NEW_ENV        ] = "NEW_ENV",
+    [ IR_GET_ENV        ] = "GET_ENV",
+    [ IR_SET_ENV        ] = "SET_ENV",
+    [ IR_NEW_OBJECT     ] = "NEW_OBJECT",
     [ IR_NEW_ARRAY      ] = "NEW_ARRAY",
     [ IR_NEW_TABLE      ] = "NEW_TABLE",
     [ IR_NEW_FUNCTION   ] = "NEW_FUNCTION",
-    [ IR_NEW_OBJECT     ] = "NEW_OBJECT",
+    [ IR_SUPER          ] = "SUPER",
+    [ IR_APPEND         ] = "APPEND",
 
     [ IR_CALL           ] = "CALL",
     [ IR_YCALL          ] = "YCALL",
@@ -80,8 +81,6 @@ const char* const OPCODE_NAMES[] =
     [ IR_EXTEND         ] = "EXTEND",
 
     [ IR_SELECT         ] = "SELECT",
-
-    [ IR_CLOSE_UPSTACK  ] = "CLOSE_UPSTACK",
 
     [ IR_B_AND          ] = "B_AND",
     [ IR_B_CUT          ] = "B_CUT",
@@ -230,21 +229,21 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
-        case IR_O_UPVAL_INDEX:
+        case IR_O_OUTENV_INDEX:
         {
-            printf( " UPVAL %u", operand.index );
+            printf( " OUTENV %u", operand.index );
+            break;
+        }
+
+        case IR_O_ENV_SLOT_INDEX:
+        {
+            printf( " ENV_SLOT %u", operand.index );
             break;
         }
 
         case IR_O_FUNCTION_INDEX:
         {
             printf( " FUNCTION %u", operand.index );
-            break;
-        }
-
-        case IR_O_UPSTACK_INDEX:
-        {
-            printf( " UPSTACK %u", operand.index );
             break;
         }
         }
