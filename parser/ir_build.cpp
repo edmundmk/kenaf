@@ -538,7 +538,7 @@ ir_operand ir_build::visit( node_index node )
             for ( ; name.index < name_done.index; name = next_node( name ), ++rv )
             {
                 assert( name->kind == AST_LOCAL_DECL );
-                def( name->sloc, name->leaf_index().index, _o.at( rv ), true );
+                def( name->sloc, name->leaf_index().index, _o.at( rv ) );
             }
 
             _o.resize( rvindex );
@@ -550,7 +550,7 @@ ir_operand ir_build::visit( node_index node )
             {
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( { IR_O_NULL } );
-                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ), true );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_CONST, 1 ) );
             }
         }
 
@@ -565,7 +565,7 @@ ir_operand ir_build::visit( node_index node )
         ir_operand object = visit( value );
         if ( qname->kind == AST_LOCAL_DECL )
         {
-            def( node->sloc, qname->leaf_index().index, object, true );
+            def( node->sloc, qname->leaf_index().index, object );
         }
         else
         {
@@ -607,7 +607,7 @@ ir_operand ir_build::visit( node_index node )
             assert( self.is_parameter );
             assert( self.is_self );
             _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
-            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ), true );
+            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
         }
 
         for ( node_index param = child_node( parameters ); param.index < parameters.index; param = next_node( param ) )
@@ -620,7 +620,7 @@ ir_operand ir_build::visit( node_index node )
             assert( param->kind == AST_LOCAL_DECL );
             unsigned local_index = param->leaf_index().index;
             _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
-            def( param->sloc, local_index, emit( param->sloc, IR_PARAM, 1 ), true );
+            def( param->sloc, local_index, emit( param->sloc, IR_PARAM, 1 ) );
         }
 
         visit_children( block );
@@ -741,7 +741,7 @@ ir_operand ir_build::visit( node_index node )
 
         // Get index at head of loop.
         assert( name->kind == AST_LOCAL_DECL );
-        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ), true );
+        def( name->sloc, name->leaf_index().index, emit( node->sloc, IR_FOR_STEP_INDEX, 0 ) );
 
         // Visit the body of the loop.
         visit( body );
@@ -792,7 +792,7 @@ ir_operand ir_build::visit( node_index node )
                 assert( name->kind == AST_LOCAL_DECL );
                 _o.push_back( items );
                 _o.push_back( { IR_O_SELECT, unpack++ } );
-                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ), true );
+                def( name->sloc, name->leaf_index().index, emit( name->sloc, IR_SELECT, 2 ) );
             }
 
             assert( op->local() == IR_INVALID_LOCAL );
@@ -802,7 +802,7 @@ ir_operand ir_build::visit( node_index node )
         {
             node_index name = names;
             assert( name->kind == AST_LOCAL_DECL );
-            def( name->sloc, name->leaf_index().index, items, true );
+            def( name->sloc, name->leaf_index().index, items );
         }
 
         // Visit the body of the loop.
@@ -1038,7 +1038,7 @@ void ir_build::block_varenv( node_index node )
     {
         const ast_local& varenv = _f->ast->locals.at( varenv_index );
         _o.push_back( { IR_O_IMMEDIATE, varenv.varenv_slot } );
-        def( node->sloc, varenv_index, emit( node->sloc, IR_NEW_ENV, 1 ), true );
+        def( node->sloc, varenv_index, emit( node->sloc, IR_NEW_ENV, 1 ) );
     }
 }
 
@@ -1083,24 +1083,19 @@ unsigned ir_build::rval_list( node_index node, unsigned unpack )
         unsigned inner_rvindex = rval_list( rvals, inner_unpack );
         assert( inner_rvindex == rvindex );
 
-        // Perform assignments.
-        unsigned rv = inner_rvindex;
-        for ( ; lval.index < lval_done.index; lval = next_node( lval ), ++rv )
+        if ( inner_unpack == 1 )
         {
-            // Assign this value.
-            assign( lval, _o.at( rv ) );
-
-            // If the rval is not going to be reused then remove it from the
-            // stack, preventing pointless upgrade of pins.
-            if ( unpack <= rv )
-            {
-                _o[ rv ] = { IR_O_NONE };
-            }
+            // Single assignment is simpler.
+            _o[ inner_rvindex ] = assign( lval, _o.at( inner_rvindex ) );
+        }
+        else
+        {
+            // List of assignments.  They can interfere with each other.
+            unsigned rv = assign_list( lval, lval_done, inner_rvindex, unpack );
+            assert( rv == inner_rvindex + inner_unpack );
         }
 
         // Leave rvals on the stack, as our contribution.
-        assert( rv == inner_rvindex + inner_unpack );
-        assert( rv == _o.size() );
         rvcount += inner_unpack;
     }
     else if ( node->kind == AST_RVAL_OP_ASSIGN )
@@ -1158,7 +1153,7 @@ unsigned ir_build::rval_list( node_index node, unsigned unpack )
         }
         else
         {
-            assign( lval, _o.back() );
+            _o.back() = assign( lval, _o.back() );
         }
     }
     else if ( node->kind == AST_RVAL_LIST )
@@ -1194,9 +1189,7 @@ unsigned ir_build::rval_list( node_index node, unsigned unpack )
     }
     else
     {
-        // References to locals on right hand side must be pinned in case an
-        // assignment clobbers it before it can be used.
-        _o.push_back( pin( node->sloc, visit( node ) ) );
+        _o.push_back( visit( node ) );
         rvcount += 1;
     }
 
@@ -1217,6 +1210,118 @@ unsigned ir_build::rval_list( node_index node, unsigned unpack )
     }
 
     return rvindex;
+}
+
+unsigned ir_build::assign_list( node_index lval_init, node_index lval_done, unsigned rvindex, unsigned unpack )
+{
+    /*
+        Assigning a list of values involves emitting explicit MOV instructions,
+        as simply defining at the op where the result is calculated might
+        cause the new definition of a local to overlap with uses of an old one.
+
+        Additionally, before a local is defined, if any uses of it remain on
+        the rval stack, then the current value must be preserved and the rvals
+        replaced.
+
+        Hopefully some or all of the MOVs can be elided by register allocation.
+    */
+    unsigned rv = rvindex;
+    for ( node_index lval = lval_init; lval.index < lval_done.index; lval = next_node( lval ) )
+    {
+        ir_operand rval = _o.at( rv );
+        if ( lval->kind == AST_LOCAL_NAME )
+        {
+            unsigned local_index = lval->leaf_index().index;
+
+            // Check rval stack for uses of lval.
+            ir_operand mov = { IR_O_NONE };
+            for ( unsigned j = 0; j < _o.size(); ++j )
+            {
+                if ( _o[ j ].kind != IR_O_OP )
+                    continue;
+                if ( _f->ops.at( _o[ j ].index ).local() != local_index )
+                    continue;
+
+                // Preserve current value of local.
+                if ( mov.kind == IR_O_NONE )
+                {
+                    _o.push_back( use( lval->sloc, local_index ) );
+                    mov = emit( lval->sloc, IR_MOV, 1 );
+                }
+
+                // Replace rval with preserved value.
+                _o[ j ] = mov;
+            }
+
+            // Define using MOV.
+            _o.push_back( rval );
+            rval = emit( lval->sloc, IR_MOV, 1 );
+        }
+
+        // Just assign.
+        _o[ rv++ ] = assign( lval, rval );
+    }
+
+    assert( rv == _o.size() );
+    if ( unpack == 0 )
+    {
+        return rv;
+    }
+
+    /*
+        If this assignment is itself an rval, we have to re-evaluate the lvals,
+        otherwise expressions like p, q = a, a = 3, 4 give a different result
+        from a, a = 3, 4; p, q = a, a.
+    */
+    _o.resize( rvindex );
+    for ( node_index lval = lval_init; lval.index < lval_done.index; lval = next_node( lval ) )
+    {
+        _o.push_back( visit( lval ) );
+    }
+
+    assert( rv == _o.size() );
+    return rv;
+}
+
+ir_operand ir_build::assign( node_index lval, ir_operand rval )
+{
+    if ( lval->kind == AST_LOCAL_NAME )
+    {
+        unsigned local_index = lval->leaf_index().index;
+        return def( lval->sloc, local_index, rval );
+    }
+    else if ( lval->kind == AST_OUTENV_NAME )
+    {
+        const ast_leaf_outenv& outenv = lval->leaf_outenv();
+        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_ENV, 3 );
+        return rval;
+    }
+    else if ( lval->kind == AST_EXPR_KEY )
+    {
+        _o.push_back( visit( child_node( lval ) ) );
+        _o.push_back( selector_operand( lval ) );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_KEY, 3 );
+        return rval;
+    }
+    else if ( lval->kind == AST_EXPR_INDEX )
+    {
+        node_index u = child_node( lval );
+        node_index v = next_node( u );
+        _o.push_back( visit( u ) );
+        _o.push_back( visit( v ) );
+        _o.push_back( rval );
+        emit( lval->sloc, IR_SET_INDEX, 3 );
+        return rval;
+    }
+    else
+    {
+        _source->error( lval->sloc, "internal: lhs is not assignable" );
+        return rval;
+    }
 }
 
 ir_operand ir_build::expr_unpack( node_index node, unsigned unpack )
@@ -1262,43 +1367,6 @@ ir_operand ir_build::expr_unpack( node_index node, unsigned unpack )
 
     // Return op that unpacks.
     return operand;
-}
-
-void ir_build::assign( node_index lval, ir_operand rval )
-{
-    if ( lval->kind == AST_LOCAL_NAME )
-    {
-        unsigned local_index = lval->leaf_index().index;
-        def( lval->sloc, local_index, rval, false );
-    }
-    else if ( lval->kind == AST_OUTENV_NAME )
-    {
-        const ast_leaf_outenv& outenv = lval->leaf_outenv();
-        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
-        _o.push_back( rval );
-        emit( lval->sloc, IR_SET_ENV, 3 );
-    }
-    else if ( lval->kind == AST_EXPR_KEY )
-    {
-        _o.push_back( visit( child_node( lval ) ) );
-        _o.push_back( selector_operand( lval ) );
-        _o.push_back( rval );
-        emit( lval->sloc, IR_SET_KEY, 3 );
-    }
-    else if ( lval->kind == AST_EXPR_INDEX )
-    {
-        node_index u = child_node( lval );
-        node_index v = next_node( u );
-        _o.push_back( visit( u ) );
-        _o.push_back( visit( v ) );
-        _o.push_back( rval );
-        emit( lval->sloc, IR_SET_INDEX, 3 );
-    }
-    else
-    {
-        _source->error( lval->sloc, "internal: lhs is not assignable" );
-    }
 }
 
 ir_operand ir_build::call_op( node_index node, ir_opcode opcode )
@@ -1385,80 +1453,11 @@ ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     {
         if ( _f->operands.size() >= IR_INVALID_INDEX )
             throw std::out_of_range( "too many operands" );
-        _f->operands.push_back( ignore_pin( _o[ oindex + i ] ) );
+        _f->operands.push_back( _o[ oindex + i ] );
     }
     _o.resize( oindex );
 
     return { IR_O_OP, op_index };
-}
-
-ir_operand ir_build::pin( srcloc sloc, ir_operand operand )
-{
-    /*
-        On the right hand side of assignments, and for any local that is used
-        as an upval, a load of the current definition of a local require a pin.
-        This pin is upgraded to a real value if the local is assigned to, or
-        if a function is called before the pin is popped from the stack.
-    */
-    operand = ignore_pin( operand );
-
-    // Ignore operands that aren't definitions of locals.
-    if ( operand.kind != IR_O_OP )
-    {
-        return operand;
-    }
-
-    ir_op* op = &_f->ops.at( operand.index );
-    if ( op->local() == IR_INVALID_LOCAL )
-    {
-        return operand;
-    }
-
-    // Emit pin.  Pins aren't definitions, but they do use the local field.
-    _o.push_back( operand );
-    operand = emit( sloc, IR_PIN, 1 );
-    operand.kind = IR_O_PIN;
-    ir_op* pin = &_f->ops.at( operand.index );
-    assert( pin->unpack() == 1 );
-    pin->set_local( op->local() );
-
-    // Done.
-    return operand;
-}
-
-ir_operand ir_build::ignore_pin( ir_operand operand )
-{
-    while ( operand.kind == IR_O_PIN )
-    {
-        ir_op* op = &_f->ops.at( operand.index );
-        assert( op->opcode == IR_PIN );
-        assert( op->ocount == 1 );
-        operand = _f->operands.at( op->oindex );
-    }
-    return operand;
-}
-
-void ir_build::fix_local_pins( unsigned local_index )
-{
-    for ( size_t i = 0; i < _o.size(); ++i )
-    {
-        ir_operand* pin = &_o[ i ];
-        if ( pin->kind != IR_O_PIN )
-        {
-            continue;
-        }
-
-        ir_op* op = &_f->ops.at( pin->index );
-        assert( op->opcode == IR_PIN );
-        if ( op->local() != local_index )
-        {
-            continue;
-        }
-
-        pin->kind = IR_O_OP;
-        op->opcode = IR_VAL;
-        op->set_local( IR_INVALID_LOCAL );
-    }
 }
 
 ir_build::goto_scope ir_build::goto_open( srcloc sloc, goto_kind kind )
@@ -1697,6 +1696,43 @@ bool ir_build::block_local_equal::operator () ( block_local a, block_local b ) c
     return a.block_index == b.block_index && a.local_index == b.local_index;
 }
 
+ir_operand ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand )
+{
+    // Check for definition of local which is in varenv.
+    const ast_local& local = _f->ast->locals.at( local_index );
+    if ( local.varenv_index != AST_INVALID_INDEX )
+    {
+        _o.push_back( search_def( _block_index, local.varenv_index ) );
+        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
+        _o.push_back( operand );
+        emit( sloc, IR_SET_ENV, 3 );
+        return operand;
+    }
+
+    // Get op which produces the value assigned to the local.
+    assert( operand.kind == IR_O_OP );
+    ir_op* op = &_f->ops.at( operand.index );
+
+    // If defining from a previous definition of a local, create new value.
+    if ( op->local() != IR_INVALID_LOCAL )
+    {
+        _o.push_back( { IR_O_OP, operand.index } );
+        operand = emit( sloc, IR_MOV, 1 );
+        op = &_f->ops.at( operand.index );
+    }
+
+    // op is the new definition of the local
+    assert( op->local() == IR_INVALID_LOCAL );
+    assert( op->unpack() == 1 );
+    op->set_local( local_index );
+
+    // Add to def lookup.  This overrides any previous def of
+    // this local in this block.
+    assert( _block_index != IR_INVALID_INDEX );
+    _defs.insert_or_assign( block_local{ _block_index, local_index }, operand );
+    return operand;
+}
+
 ir_operand ir_build::use( srcloc sloc, unsigned local_index )
 {
     if ( _block_index == IR_INVALID_INDEX )
@@ -1846,46 +1882,6 @@ void ir_build::seal_loop( ir_block_index loop_header )
 
     // Mark as sealed.
     block->kind = IR_BLOCK_LOOP;
-}
-
-void ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand, bool declare )
-{
-    // Check for definition of local which is in varenv.
-    const ast_local& local = _f->ast->locals.at( local_index );
-    if ( local.varenv_index != AST_INVALID_INDEX )
-    {
-        _o.push_back( search_def( _block_index, local.varenv_index ) );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
-        _o.push_back( operand );
-        emit( sloc, IR_SET_ENV, 3 );
-        return;
-    }
-
-    // Upgrade pins on the stack that refer to the same local.
-    fix_local_pins( local_index );
-
-    // Get op which produces the value assigned to the local.
-    operand = ignore_pin( operand );
-    assert( operand.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( operand.index );
-
-    // If defining from a previous definition of a local, create new value.
-    if ( op->local() != IR_INVALID_LOCAL )
-    {
-        _o.push_back( { IR_O_OP, operand.index } );
-        operand = emit( sloc, IR_VAL, 1 );
-        op = &_f->ops.at( operand.index );
-    }
-
-    // op is the new definition of the local
-    assert( op->local() == IR_INVALID_LOCAL );
-    assert( op->unpack() == 1 );
-    op->set_local( local_index );
-
-    // Add to def lookup.  This overrides any previous def of
-    // this local in this block.
-    assert( _block_index != IR_INVALID_INDEX );
-    _defs.insert_or_assign( block_local{ _block_index, local_index }, operand );
 }
 
 }

@@ -203,8 +203,7 @@ enum ir_opcode : uint8_t
     // Values.
     IR_PARAM,                   // Parameter placeholder.
     IR_CONST,                   // Constant.
-    IR_VAL,                     // Create a new value.
-    IR_PIN,                     // Pin load of value during evaluation.
+    IR_MOV,                     // Move between values.
 
     // Comparisons.
     IR_EQ,                      // a == b

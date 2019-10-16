@@ -857,8 +857,8 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
     const ir_op* op = &f->ops.at( operand.index );
     while ( true )
     {
-        // Look past VAL/REF.
-        if ( op->opcode == IR_VAL || op->opcode == IR_REF
+        // Look past MOV/REF.
+        if ( op->opcode == IR_MOV || op->opcode == IR_REF
             || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
         {
             assert( op->ocount == 1 );

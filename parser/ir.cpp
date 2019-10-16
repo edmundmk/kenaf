@@ -48,8 +48,7 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_PARAM          ] = "PARAM",
     [ IR_CONST          ] = "CONST",
-    [ IR_VAL            ] = "VAL",
-    [ IR_PIN            ] = "PIN",
+    [ IR_MOV            ] = "MOV",
 
     [ IR_EQ             ] = "EQ",
     [ IR_NE             ] = "NE",
@@ -117,8 +116,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 {
     const ir_op& op = f->ops.at( i );
 
-    bool grey = op.opcode == IR_NOP || op.opcode == IR_PIN
-        || ( ( op.opcode == IR_PHI || op.opcode == IR_REF ) && indent == 0 );
+    bool grey = op.opcode == IR_NOP || ( ( op.opcode == IR_PHI || op.opcode == IR_REF ) && indent == 0 );
     if ( grey )
     {
         return;
