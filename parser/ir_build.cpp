@@ -911,8 +911,25 @@ ir_operand ir_build::visit( node_index node )
     case AST_DEF_FUNCTION:
     {
         ast_function* function = node->leaf_function().function;
+
+        unsigned ocount = 1;
         _o.push_back( { IR_O_FUNCTION_INDEX, function->index } );
-        return emit( node->sloc, IR_NEW_FUNCTION, 1 );
+
+        for ( unsigned i = 0; i < function->outenvs.size(); ++i )
+        {
+            const ast_outenv& outenv = function->outenvs[ i ];
+            if ( outenv.outer_outenv )
+            {
+                _o.push_back( { IR_O_OUTENV_INDEX, outenv.outer_index } );
+            }
+            else
+            {
+                _o.push_back( use( node->sloc, outenv.outer_index ) );
+            }
+            ocount += 1;
+        }
+
+        return emit( node->sloc, IR_NEW_FUNCTION, ocount );
     }
 
     case AST_DEF_OBJECT:
