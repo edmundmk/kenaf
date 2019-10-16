@@ -1,0 +1,13 @@
+var a, b, p, q, r = f(), f(), f(), f(), f()
+
+a, a = 3, a
+g( a )
+a, b = b, a
+g( a, b )
+a, p = 3, a
+g( a, p )
+p, q, r = 3, 4, 5
+g( p, q, r )
+p, q = a, a = 3, a
+g( p, q )
+
