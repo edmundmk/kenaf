@@ -17,28 +17,25 @@ namespace kf
 /*
     The register allocation algorithm is described here.
 
-    The live ranges of normal locals and of for loop implicit variables are
-    constructed.  The live range of a normal variable is a list of ops that
-    define the variable, plus PHI/REF ops that import it into a block, in
-    order.  The live range of an implicit for loop variable is the entire
-    range of the loop.
+    The live ranges of locals are constructed.  The live range of a local is
+    a list of ops that define the variable, plus PHI/REF ops that import it
+    into a block, in order.  A local is identified with the first op that
+    declares it.
 
-    A variable is identified with the first op that declares it.  For loop
-    variables are identified with the JUMP_FOR_EACH or JUMP_FOR_STEP ops.
+    Each value (instruction result or local) has its live range examined.
+    Values which die at pinning instructions are *pinned*.  Register
+    allocation for pinned instructions is delayed until the pinning
+    instruction is allocated.
 
-    Each value (instruction result, local, implicit for) has its live range
-    examined.  Values which die at pinning instructions are *pinned*.  Register
-    allocation for pinned instructions is delayed until the pinning instruction
-    is allocated.
-
-      - A pinning instruction is one of JUMP_RETURN, CALL, YCALL, YIELD,
-        MOV, or B_PHI.  To pin a value, these instructions must use that value
-        as an operand.
+      - A pinning instruction is one of JUMP_RETURN, JUMP_FOR_SGEN, CALL,
+        YCALL, YIELD, MOV, or B_PHI.  To pin a value, these instructions must
+        use that value as an operand.
 
     Each stack top instruction is associated with the set of values which is
     live across it.
 
-      - A stack top instruction is one of CALL, YCALL, or YIELD.
+      - A stack top instruction is one of JUMP_RETURN, JUMP_FOR_SGEN, CALL,
+        YCALL, or YIELD.
 
       - Instructions VARARG, UNPACK, EXTEND, and FOR_EACH_ITEMS are also
         allocated at the stack top but they do not pin values, and so there
@@ -306,6 +303,68 @@ void ir_alloc::build_values()
         }
 
         _value_index.back().live_count = live_count;
+    }
+}
+
+void ir_alloc::mark_pinning()
+{
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        ir_op* op = &_f->ops[ op_index ];
+
+        op->mark = 0;
+        op->r = IR_INVALID_REGISTER;
+
+        if ( is_pinning( op ) )
+        {
+            /*
+                Examine operands.  If they die at this op, then mark pinned.
+            */
+        }
+
+        if ( is_stack_top( op ) )
+        {
+            /*
+                Scan block for all ops which are live across this op (i.e.
+                live at the next op).  We only need to check this op, because
+                ops that survive blocks will have a REF/PHI in the header
+                giving their live range in this block.
+            */
+        }
+    }
+}
+
+bool ir_alloc::is_pinning( const ir_op* op )
+{
+    switch ( op->opcode )
+    {
+    case IR_JUMP_RETURN:
+    case IR_JUMP_FOR_SGEN:
+    case IR_CALL:
+    case IR_YCALL:
+    case IR_YIELD:
+    case IR_MOV:
+    case IR_B_PHI:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+bool ir_alloc::is_stack_top( const ir_op* op )
+{
+    switch ( op->opcode )
+    {
+    case IR_JUMP_RETURN:
+    case IR_JUMP_FOR_SGEN:
+    case IR_CALL:
+    case IR_YCALL:
+    case IR_YIELD:
+        return true;
+
+    default:
+        return false;
     }
 }
 

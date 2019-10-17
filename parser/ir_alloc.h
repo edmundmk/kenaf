@@ -54,6 +54,10 @@ private:
     };
 
     void build_values();
+    void mark_pinning();
+
+    bool is_pinning( const ir_op* op );
+    bool is_stack_top( const ir_op* op );
 
     source* _source;
     ir_function* _f;
