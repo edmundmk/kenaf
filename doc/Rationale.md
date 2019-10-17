@@ -1,17 +1,19 @@
-# Fundamentals
+# Rationale
 
-## Why another scripting language?
+## Overview
+
+### Why another scripting language?
 
 I needed a scripting language, I like writing parsers and compilers, and I am
 seemingly cursed to build everything myself from scratch.
 
-## Why does Kenaf look so much like Lua?
+### Why does Kenaf look so much like Lua?
 
 Kenaf owes a *lot* to Lua.  Lua is a great language, with only a few rough
 edges.  Lua source code is also extremely readable, and I needed something that
 could be understood by as many readers as possible.
 
-## Why does Kenaf use an intermediate representation?
+### Why does Kenaf use an intermediate representation?
 
 Most scripting languages of this type use a single-pass compiler which emits
 bytecode directly from the AST or even during parsing.  Kenaf is little bit
@@ -24,7 +26,7 @@ a very large cost, so the fewer instructions we can emit the better.  Kenaf's
 compiler attempts to eliminate as many unused operations as possible and
 minimize redundant moves.
 
-## Why isn't Kenaf statically typed?
+### Why isn't Kenaf statically typed?
 
 Implementing a large project in a dynamic language without type checking is
 a terrible idea.
@@ -34,9 +36,9 @@ both embeddable and readable, for situations where you need relatively small
 bits of logic that can be read and updated by the widest possible audience.
 
 
-# Syntax
+## Syntax
 
-## Why pick `/* */` for block comments but `--` for inline comments?
+### Why pick `/* */` for block comments but `--` for inline comments?
 
 Several languages use `--` for comments, including SQL.
 
@@ -52,7 +54,7 @@ division.
 The current version of Kenaf doesn't have multiline strings, so the Lua or
 Python approach of using string syntax for block comments doesn't work either.
 
-## Why pick `~` for string concatentation?
+### Why pick `~` for string concatentation?
 
 Having a separate operator for string concatenation reduces the ambiguity
 of the operation performed by `+`.  I considered this to be important not only
@@ -61,7 +63,7 @@ less to deal with.
 
 Once I'd ruled out `+`, reusing `~` seemed like a good choice.
 
-## Why is `>>` logical right shift?  Why is arithmetic right shift `~>>`?
+### Why is `>>` logical right shift?  Why is arithmetic right shift `~>>`?
 
 Since bare `<<` performs *logical* left shift, I feel like the mirrored
 operator `>>` should also perform a logical shift.
@@ -81,9 +83,9 @@ The tilde also appears to be my favourite character when I need a new operator
 symbol.
 
 
-# Semantics
+## Semantics
 
-## Why isn't there an integer type?
+### Why isn't there an integer type?
 
 JavaScript has shown that we don't really need one.  53-bits is probably more
 than enough for most calculations in most situations where Kenaf will be used.
@@ -92,13 +94,13 @@ Lack of a 64-bit integer does present a problem when interacting with an API
 which returns 64-bit integers as handles or as ID values.  These kind of values
 will have to be exposed to Kenaf as some other kind of object.
 
-## Why do bitwise operations truncate to 32 bits?  Why is the result unsigned?
+### Why do bitwise operations truncate to 32 bits?  Why is the result unsigned?
 
 I looked at the way JavaScript handles the same operations.  Kenaf treats
 bitwise results as unsigned because I feel like it is more natural to deal with
 unsigned values when dealing with bitfields.
 
-## Why is there no operator overloading?
+### Why is there no operator overloading?
 
 I have no philosophical objection to operator overloading.  I find it very
 useful when the operators make sense for the type.
@@ -117,7 +119,7 @@ Lua's metatables are incredibly powerful, but the first thing everyone does
 with them is implement an object model.  Kenaf chooses to provide the object
 model directly and skip the metatables.
 
-## Why is list unpacking explicit with `...`?
+### Why is list unpacking explicit with `...`?
 
 Lua's ability to return multiple results from functions is extremely useful,
 and maps well to a calling convention that uses a stack.
@@ -130,7 +132,7 @@ expressions.  In Lua, `f( g() )` can pass an arbitrary number of arguments to
 Kenaf makes this explicit `f( g() ... )` so readers can see exactly where an
 expression might represent multiple values.
 
-## Why have unpacking and not full destructuring?
+### Why have unpacking and not full destructuring?
 
 Destructuring assignments (and keyword arguments) are extremely useful language
 features that can make code clearer and more concise.
@@ -139,7 +141,7 @@ But *implementing* destructuring of object keys or table indexes is
 significantly more complex that dealing with unpacking lists of values onto
 the call stack, so Kenaf skips it.
 
-## Why does Kenaf have generators and coroutines?
+### Why does Kenaf have generators and coroutines?
 
 This is another extremely useful feature inherited from Lua.
 
