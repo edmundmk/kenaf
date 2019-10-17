@@ -255,7 +255,7 @@ void ir_alloc::build_values()
     }
 
     /*
-        Sort live ranges and build index.
+        Sort live ranges.
     */
     std::sort
     (
@@ -271,6 +271,28 @@ void ir_alloc::build_values()
         }
     );
 
+    /*
+        Merge adjacent ranges.
+    */
+    unsigned next = 1;
+    for ( unsigned live_index = 1; live_index < _value_ranges.size(); ++live_index )
+    {
+        live_range* pr = &_value_ranges[ next - 1 ];
+        live_range* lr = &_value_ranges[ live_index ];
+
+        if ( pr->local == lr->local && pr->upper == lr->lower )
+        {
+            pr->upper = lr->upper;
+            continue;
+        }
+
+        _value_ranges[ next ] = *lr;
+    }
+    _value_ranges.resize( next );
+
+    /*
+        Build index.
+    */
     for ( unsigned live_index = 0; live_index < _value_ranges.size(); )
     {
         unsigned local = _value_ranges[ live_index ].local;
