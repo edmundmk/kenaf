@@ -36,13 +36,11 @@ public:
 
 private:
 
-    const unsigned LOCAL_VALUE = 0x1000000;
-
     struct live_r;
 
     struct live_index
     {
-        unsigned value;         // local index/instruction index.
+        unsigned local;         // local index.
         unsigned live_index;    // index in value_live_ranges.
         unsigned live_count;    // count of entries in value_live_ranges.
         unsigned pinned_by;     // index of instruction that pins this value.
@@ -50,7 +48,7 @@ private:
 
     struct live_range
     {
-        unsigned value;         // local index/instruction index.
+        unsigned local;         // local index.
         unsigned lower;         // instruction value becomes live/block start
         unsigned upper;         // instruction value dies/block end.
     };

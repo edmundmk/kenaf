@@ -38,11 +38,11 @@ namespace kf
     Each stack top instruction is associated with the set of values which is
     live across it.
 
-      - A stack top instruction is one of CALL, YCALL or YIELD.
+      - A stack top instruction is one of CALL, YCALL, or YIELD.
 
-      - Instructions VARARG, UNPACK, EXTEND, JUMP_FOR_EACH, JUMP_FOR_STEP, and
-        FOR_EACH_ITEMS are also allocated at the stack top but they do not pin
-        values, and so there is no advantage in allocating them early.
+      - Instructions VARARG, UNPACK, EXTEND, and FOR_EACH_ITEMS are also
+        allocated at the stack top but they do not pin values, and so there
+        is no advantage in allocating them early.
 
       - A stack top instruction can itself be pinned.
 
@@ -240,7 +240,7 @@ void ir_alloc::build_values()
                 const ir_op* phi = &_f->ops.at( phi_index );
                 if ( phi->local() != IR_INVALID_LOCAL && phi->live_range != IR_INVALID_INDEX )
                 {
-                    _value_ranges.push_back( { LOCAL_VALUE + phi->local(), op_index, phi->live_range } );
+                    _value_ranges.push_back( { phi->local(), op_index, phi->live_range } );
                 }
                 phi_index = phi->phi_next;
             }
@@ -250,7 +250,7 @@ void ir_alloc::build_values()
 
         if ( op->local() != IR_INVALID_LOCAL && op->live_range != IR_INVALID_INDEX )
         {
-            _value_ranges.push_back( { LOCAL_VALUE + op->local(), op_index, op->live_range } );
+            _value_ranges.push_back( { op->local(), op_index, op->live_range } );
         }
     }
 
@@ -263,9 +263,9 @@ void ir_alloc::build_values()
         _value_ranges.end(),
         []( const live_range& a, const live_range& b )
         {
-            if ( a.value < b.value )
+            if ( a.local < b.local )
                 return true;
-            if ( a.value == b.value && a.lower < b.lower )
+            if ( a.local == b.local && a.lower < b.lower )
                 return true;
             return false;
         }
@@ -273,11 +273,11 @@ void ir_alloc::build_values()
 
     for ( unsigned live_index = 0; live_index < _value_ranges.size(); )
     {
-        unsigned value = _value_ranges[ live_index ].value;
-        _value_index.push_back( { value, live_index, 0, IR_INVALID_INDEX } );
+        unsigned local = _value_ranges[ live_index ].local;
+        _value_index.push_back( { local, live_index, 0, IR_INVALID_INDEX } );
 
         unsigned live_count = 0;
-        while ( live_index < _value_ranges.size() && _value_ranges[ live_index ].value == value )
+        while ( live_index < _value_ranges.size() && _value_ranges[ live_index ].local == local )
         {
             ++live_index;
             ++live_count;
