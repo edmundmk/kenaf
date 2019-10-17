@@ -36,28 +36,32 @@ public:
 
 private:
 
+    const unsigned LOCAL_VALUE = 0x1000000;
+
     struct live_r;
 
     struct live_index
     {
-        unsigned value;         // index of declaring instruction.
-        unsigned local;         // local number (IR_INVALID_LOCAL for for)
+        unsigned value;         // local index/instruction index.
         unsigned live_index;    // index in value_live_ranges.
         unsigned live_count;    // count of entries in value_live_ranges.
+        unsigned pinned_by;     // index of instruction that pins this value.
     };
 
     struct live_range
     {
+        unsigned value;         // local index/instruction index.
         unsigned lower;         // instruction value becomes live/block start
         unsigned upper;         // instruction value dies/block end.
     };
 
+    void build_values();
+
     source* _source;
     ir_function* _f;
 
-    std::vector< unsigned > _local_value_index;     // local index -> value_live_index entry
-    std::vector< live_index > _value_live_index;    // instruction index -> value_live_ranges range
-    std::vector< live_range > _value_live_ranges;   // individual live range.
+    std::vector< live_index > _value_index;    // instruction index -> value_live_ranges range
+    std::vector< live_range > _value_ranges;   // individual live range.
 
     // instruction index -> call instruction index[]
     std::unordered_multimap< unsigned, unsigned > _live_across;

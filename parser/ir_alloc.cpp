@@ -215,6 +215,75 @@ ir_alloc::~ir_alloc()
 void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
+    build_values();
+}
+
+void ir_alloc::build_values()
+{
+    /*
+        Build live ranges for each local by collecting each definition of it.
+    */
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        const ir_op* op = &_f->ops[ op_index ];
+        if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->local() == IR_INVALID_INDEX )
+        {
+            continue;
+        }
+
+        if ( op->opcode == IR_BLOCK )
+        {
+            const ir_block* block = &_f->blocks.at( _f->operands.at( op->oindex ).index );
+            for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; )
+            {
+                const ir_op* phi = &_f->ops.at( phi_index );
+                if ( phi->local() != IR_INVALID_LOCAL && phi->live_range != IR_INVALID_INDEX )
+                {
+                    _value_ranges.push_back( { LOCAL_VALUE + phi->local(), op_index, phi->live_range } );
+                }
+                phi_index = phi->phi_next;
+            }
+
+            continue;
+        }
+
+        if ( op->local() != IR_INVALID_LOCAL && op->live_range != IR_INVALID_INDEX )
+        {
+            _value_ranges.push_back( { LOCAL_VALUE + op->local(), op_index, op->live_range } );
+        }
+    }
+
+    /*
+        Sort live ranges and build index.
+    */
+    std::sort
+    (
+        _value_ranges.begin(),
+        _value_ranges.end(),
+        []( const live_range& a, const live_range& b )
+        {
+            if ( a.value < b.value )
+                return true;
+            if ( a.value == b.value && a.lower < b.lower )
+                return true;
+            return false;
+        }
+    );
+
+    for ( unsigned live_index = 0; live_index < _value_ranges.size(); )
+    {
+        unsigned value = _value_ranges[ live_index ].value;
+        _value_index.push_back( { value, live_index, 0, IR_INVALID_INDEX } );
+
+        unsigned live_count = 0;
+        while ( live_index < _value_ranges.size() && _value_ranges[ live_index ].value == value )
+        {
+            ++live_index;
+            ++live_count;
+        }
+
+        _value_index.back().live_count = live_count;
+    }
 }
 
 }
