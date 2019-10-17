@@ -9,6 +9,7 @@
 //
 
 #include "ir_alloc.h"
+#include <algorithm>
 
 namespace kf
 {
