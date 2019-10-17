@@ -1,5 +1,4 @@
-
-# Rationale
+# Fundamentals
 
 ## Why another scripting language?
 
@@ -11,6 +10,31 @@ seemingly cursed to build everything myself from scratch.
 Kenaf owes a *lot* to Lua.  Lua is a great language, with only a few rough
 edges.  Lua source code is also extremely readable, and I needed something that
 could be understood by as many readers as possible.
+
+## Why does Kenaf use an intermediate representation?
+
+Most scripting languages of this type use a single-pass compiler which emits
+bytecode directly from the AST or even during parsing.  Kenaf is little bit
+more like a compiler for a real machine - it uses an SSA-like intermediate
+representation and performs several optimization passes.
+
+I took this approach because I was trying to make Kenaf as fast as possible
+even though it is interpreted.  When using an interpreter, each instruction has
+a very large cost, so the fewer instructions we can emit the better.  Kenaf's
+compiler attempts to eliminate as many unused operations as possible and
+minimize redundant moves.
+
+## Why isn't Kenaf statically typed?
+
+Implementing a large project in a dynamic language without type checking is
+a terrible idea.
+
+But Kenaf is not designed for writing large projects.  It is designed to be
+both embeddable and readable, for situations where you need relatively small
+bits of logic that can be read and updated by the widest possible audience.
+
+
+# Syntax
 
 ## Why pick `/* */` for block comments but `--` for inline comments?
 
@@ -37,22 +61,6 @@ less to deal with.
 
 Once I'd ruled out `+`, reusing `~` seemed like a good choice.
 
-## Why isn't there an integer type?
-
-JavaScript seems to have proven that we don't need one.  53-bits is probably
-more than enough for most calculations in most situations where Kenaf will be
-used.
-
-Lack of a 64-bit integer does present a problem when interacting with an API
-which returns 64-bit integers as handles or as ID values.  These kind of values
-will have to be exposed to Kenaf as some other kind of object.
-
-## Why do bitwise operations truncate to 32 bits?  Why is the result unsigned?
-
-I looked at the way JavaScript handles the same operations.  Kenaf treats
-bitwise results as unsigned because I feel like it is more natural to deal with
-unsigned values when dealing with bitfields.
-
 ## Why is `>>` logical right shift?  Why is arithmetic right shift `~>>`?
 
 Since bare `<<` performs *logical* left shift, I feel like the mirrored
@@ -71,6 +79,24 @@ sign bit being shifted in on the left.
 
 The tilde also appears to be my favourite character when I need a new operator
 symbol.
+
+
+# Semantics
+
+## Why isn't there an integer type?
+
+JavaScript has shown that we don't really need one.  53-bits is probably more
+than enough for most calculations in most situations where Kenaf will be used.
+
+Lack of a 64-bit integer does present a problem when interacting with an API
+which returns 64-bit integers as handles or as ID values.  These kind of values
+will have to be exposed to Kenaf as some other kind of object.
+
+## Why do bitwise operations truncate to 32 bits?  Why is the result unsigned?
+
+I looked at the way JavaScript handles the same operations.  Kenaf treats
+bitwise results as unsigned because I feel like it is more natural to deal with
+unsigned values when dealing with bitfields.
 
 ## Why is there no operator overloading?
 
@@ -120,13 +146,4 @@ This is another extremely useful feature inherited from Lua.
 I needed Kenaf to be 'stackless' by default, allowing calls to be be suspended
 by native code until an answer is available.  Given that native code can do
 this, why not allow scripts to use the same machinery?
-
-## Why isn't Kenaf statically typed?
-
-Implementing a large project in a dynamic language without type checking is
-a terrible idea.
-
-But Kenaf is not designed for writing large projects.  It is designed to be
-both embeddable and readable, for situations where you need relatively small
-bits of logic that can be read and updated by the widest possible audience.
 
