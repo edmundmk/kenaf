@@ -36,6 +36,8 @@ public:
 
 private:
 
+    struct live_r;
+
     struct live_index
     {
         unsigned value;         // index of declaring instruction.
@@ -63,6 +65,8 @@ private:
     // unpinned values in order of instruction index.
     std::priority_queue< unsigned, std::vector< unsigned >, std::greater< unsigned > > _unpinned;
 
+    // stores where registers have been allocated.
+    std::unique_ptr< live_r > _live_r;
 };
 
 }
