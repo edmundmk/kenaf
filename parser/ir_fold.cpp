@@ -195,7 +195,7 @@ void ir_fold::fold_constants()
             assert( jump.ocount == 1 );
             _stack.push_back( jump_block_operand( jump.oindex ) );
         }
-        else if ( jump.opcode == IR_JUMP_TEST )
+        else if ( jump.opcode == IR_JUMP_TEST || jump.opcode == IR_JUMP_FOR_EACH || jump.opcode == IR_JUMP_FOR_STEP )
         {
             assert( jump.ocount == 3 );
             _stack.push_back( jump_block_operand( jump.oindex + 1 ) );
@@ -204,12 +204,6 @@ void ir_fold::fold_constants()
         else if ( jump.opcode == IR_JUMP_FOR_EGEN || jump.opcode == IR_JUMP_FOR_SGEN )
         {
             _stack.push_back( jump_block_operand( jump.oindex + jump.ocount - 1 ) );
-        }
-        else if ( jump.opcode == IR_JUMP_FOR_EACH || jump.opcode == IR_JUMP_FOR_STEP )
-        {
-            assert( jump.ocount == 2 );
-            _stack.push_back( jump_block_operand( jump.oindex + 0 ) );
-            _stack.push_back( jump_block_operand( jump.oindex + 1 ) );
         }
         else
         {

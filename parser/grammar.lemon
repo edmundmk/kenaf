@@ -156,13 +156,13 @@ stmt(x) ::= FOR(kw) r_name_list(u) ASSIGN expr COLON expr step_opt DO(bdo) block
             p->error( p->node_sloc( u.index ), "for step must declare a single variable, not a list" );
         }
         p->update_sloc( block, bdo.sloc );
-        unsigned z = p->node( AST_STMT_FOR_STEP, kw.sloc, u.index );
+        unsigned z = p->index_node( AST_STMT_FOR_STEP, kw.sloc, u.index );
         x = p->index_node( AST_BLOCK, kw.sloc, z );
     }
 stmt(x) ::= FOR(kw) r_name_list(u) COLON expr DO(bdo) block(block) END .
     {
         p->update_sloc( block, bdo.sloc );
-        unsigned z = p->node( AST_STMT_FOR_EACH, kw.sloc, u.index );
+        unsigned z = p->index_node( AST_STMT_FOR_EACH, kw.sloc, u.index );
         x = p->index_node( AST_BLOCK, kw.sloc, z );
     }
 stmt(x) ::= WHILE(kw) expr(u) DO(bdo) block(block) END .

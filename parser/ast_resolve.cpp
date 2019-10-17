@@ -154,6 +154,13 @@ void ast_resolve::visit( ast_function* f, unsigned index )
         unsigned step_index = f->nodes[ stop_index ].next_index;
         unsigned block_index = f->nodes[ step_index ].next_index;
 
+        // Create hidden for step variable.
+        ast_local local = {};
+        local.name = "$for_step";
+        assert( n->leaf == AST_LEAF_INDEX );
+        n->leaf_index().index = f->locals.size();
+        f->locals.push_back( local );
+
         // Declare names and visit expressions.
         visit( f, start_index );
         visit( f, stop_index );
@@ -175,6 +182,13 @@ void ast_resolve::visit( ast_function* f, unsigned index )
         unsigned name_list_index = n->child_index;
         unsigned expr_index = f->nodes[ name_list_index ].next_index;
         unsigned block_index = f->nodes[ expr_index ].next_index;
+
+        // Create hidden for each variable.
+        ast_local local = {};
+        local.name = "$for_each";
+        assert( n->leaf == AST_LEAF_INDEX );
+        n->leaf_index().index = f->locals.size();
+        f->locals.push_back( local );
 
         // Declare names and visit expression.
         visit( f, expr_index );

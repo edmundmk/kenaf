@@ -734,12 +734,16 @@ ir_operand ir_build::visit( node_index node )
         node_index step = next_node( limit );
         node_index body = next_node( step );
 
+        unsigned local_index = node->leaf_index().index;
+
         // Evaluate start : limit : step
         _o.push_back( visit( start ) );
         _o.push_back( visit( limit ) );
         _o.push_back( visit( step ) );
         goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
-        end_block( emit_jump( node->sloc, IR_JUMP_FOR_SGEN, 3, GOTO_ELSE ) );
+        ir_operand sgen = emit_jump( node->sloc, IR_JUMP_FOR_SGEN, 3, GOTO_ELSE );
+        def( node->sloc, local_index, sgen );
+        end_block( sgen );
         goto_block( goto_else );
 
         // Start of loop.
@@ -751,7 +755,10 @@ ir_operand ir_build::visit( node_index node )
 
         // For loop.
         goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
-        end_block( emit_test( node->sloc, IR_JUMP_FOR_STEP, 0, GOTO_ENDIF, GOTO_BREAK ) );
+        _o.push_back( use( node->sloc, local_index ) );
+        ir_operand test = emit_test( node->sloc, IR_JUMP_FOR_STEP, 1, GOTO_ENDIF, GOTO_BREAK );
+        def( node->sloc, local_index, test );
+        end_block( test );
         goto_block( goto_next );
 
         // Get index at head of loop.
@@ -774,10 +781,14 @@ ir_operand ir_build::visit( node_index node )
         node_index expr = next_node( names );
         node_index body = next_node( expr );
 
+        unsigned local_index = node->leaf_index().index;
+
         // Evaluate generator expression.
         _o.push_back( visit( expr ) );
         goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
-        end_block( emit_jump( node->sloc, IR_JUMP_FOR_EGEN, 1, GOTO_ELSE ) );
+        ir_operand egen = emit_jump( node->sloc, IR_JUMP_FOR_EGEN, 1, GOTO_ELSE );
+        def( node->sloc, local_index, egen );
+        end_block( egen );
         goto_block( goto_else );
 
         // Start of loop.
@@ -789,7 +800,10 @@ ir_operand ir_build::visit( node_index node )
 
         // For loop.
         goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
-        end_block( emit_test( node->sloc, IR_JUMP_FOR_EACH, 0, GOTO_ENDIF, GOTO_BREAK ) );
+        _o.push_back( use( node->sloc, local_index ) );
+        ir_operand test = emit_test( node->sloc, IR_JUMP_FOR_EACH, 1, GOTO_ENDIF, GOTO_BREAK );
+        def( node->sloc, local_index, test );
+        end_block( test );
         goto_block( goto_next );
 
         // Assign generated items.

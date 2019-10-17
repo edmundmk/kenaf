@@ -50,9 +50,9 @@
 
     -- Loop variables.
 
-    Loop variables are the hidden variables used by the for each and for step
-    loops.  They are live through the entire loop.  They are not represented
-    explicitly in the IR.  Instead the special FOR instructions are used.
+    The hidden variables (g/i for FOR_EACH, i/l/s for FOR_STEP) of a for loop
+    are represented in the IR as a single variable.  Liveness information is
+    generated as for any other variable.
 
 
     -- Shortcut Branches
@@ -97,9 +97,9 @@
           the data structures required for liveness analysis.
 
         - Only explicitly declared local variables participate in SSA
-          construction (and only those which are not captured).  Implicit loop
-          variables and B_DEF/B_PHI are handled as special cases, keeping the
-          number of variables low and reducing the number of PHI/REF ops.
+          construction (and only those which are not captured).  Shortcut
+          B_DEF/B_PHI are handled as special cases, keeping the number of
+          variables low and reducing the number of PHI/REF ops.
 
         - Only one definition of each local variable is live at any point.
 
@@ -219,8 +219,8 @@ enum ir_opcode : uint8_t
     IR_GET_INDEX,               // a[ b ]
     IR_SET_INDEX,               // a[ b ] = c
     IR_NEW_ENV,                 // count
-    IR_GET_ENV,                 // varenv/outenv_index env_index
-    IR_SET_ENV,                 // varenv/outenv_index env_index value
+    IR_GET_ENV,                 // $varenv/outenv_index env_index
+    IR_SET_ENV,                 // $varenv/outenv_index env_index value
     IR_NEW_OBJECT,              // def
     IR_NEW_ARRAY,               // []
     IR_NEW_TABLE,               // {}
@@ -251,14 +251,14 @@ enum ir_opcode : uint8_t
     IR_JUMP_TEST,               // test, iftrue, iffalse
     IR_JUMP_THROW,              // value
     IR_JUMP_RETURN,             // value*
-    IR_JUMP_FOR_EGEN,           // g, jump
-    IR_JUMP_FOR_EACH,           // loop, break
-    IR_JUMP_FOR_SGEN,           // start, limit, step, jump
-    IR_JUMP_FOR_STEP,           // loop, break
+    IR_JUMP_FOR_EGEN,           // g, jump /* $for_each */
+    IR_JUMP_FOR_EACH,           // $for_each, loop, break
+    IR_JUMP_FOR_SGEN,           // start, limit, step, jump /* $for_step */
+    IR_JUMP_FOR_STEP,           // $for_step, loop, break
 
     // For loop variables.
-    IR_FOR_EACH_ITEMS,          // results are generated items
-    IR_FOR_STEP_INDEX,          // result is for step index
+    IR_FOR_EACH_ITEMS,          // $for_each, results are generated items
+    IR_FOR_STEP_INDEX,          // $for_step, result is for step index
 
     // Phi instructions.
     IR_PHI,                     // Phi function.
