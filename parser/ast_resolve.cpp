@@ -566,6 +566,7 @@ void ast_resolve::lookup( ast_function* f, unsigned index, lookup_context contex
                     ast_local varenv;
                     varenv.name = "$varenv";
                     vscope->function->locals.push_back( varenv );
+                    local = &vscope->function->locals.at( v->index );
                 }
 
                 assert( vscope->varenv_index != AST_INVALID_INDEX );

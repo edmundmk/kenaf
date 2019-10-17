@@ -1,0 +1,10 @@
+def something.method()
+
+    def f()
+        return self
+    end
+
+    return f()
+
+end
+

@@ -598,7 +598,7 @@ ir_operand ir_build::visit( node_index node )
         node_index parameters = child_node( node );
         node_index block = next_node( parameters );
 
-        block_varenv( block );
+        unsigned pindex = _o.size();
 
         if ( _f->ast->implicit_self )
         {
@@ -606,7 +606,7 @@ ir_operand ir_build::visit( node_index node )
             assert( self.is_parameter );
             assert( self.is_self );
             _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
-            def( node->sloc, 0, emit( node->sloc, IR_PARAM, 1 ) );
+            _o.push_back( emit( node->sloc, IR_PARAM, 1 ) );
         }
 
         for ( node_index param = child_node( parameters ); param.index < parameters.index; param = next_node( param ) )
@@ -619,8 +619,24 @@ ir_operand ir_build::visit( node_index node )
             assert( param->kind == AST_LOCAL_DECL );
             unsigned local_index = param->leaf_index().index;
             _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
-            def( param->sloc, local_index, emit( param->sloc, IR_PARAM, 1 ) );
+            _o.push_back( emit( param->sloc, IR_PARAM, 1 ) );
         }
+
+        block_varenv( block );
+
+        for ( unsigned local_index = 0; local_index < _f->ast->parameter_count; ++local_index )
+        {
+            if ( _f->ast->locals.at( local_index ).is_vararg )
+            {
+                continue;
+            }
+
+            ir_operand param = _o.at( pindex + local_index );
+            srcloc sloc = _f->ops.at( param.index ).sloc;
+            def( sloc, local_index, param );
+        }
+
+        _o.resize( pindex );
 
         visit_children( block );
         end_block( emit( node->sloc, IR_JUMP_RETURN, 0 ) );
