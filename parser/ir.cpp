@@ -126,10 +126,21 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
     printf( "%*s:%04X", indent, "", i );
     if ( op.live_range != IR_INVALID_INDEX )
         printf( " ↓%04X", op.live_range );
-    else if ( op.mark )
-        printf( " ↓====" );
     else
         printf( "      " );
+
+    if ( op.r != IR_INVALID_REGISTER )
+        printf( " r%02u", op.r );
+    else
+        printf( "    " );
+
+    if ( op.mark == IR_MARK_STICKY )
+        printf( "@!" );
+    else if ( op.mark )
+        printf( "@%u", op.mark );
+    else
+        printf( "  " );
+
     printf( " %s", OPCODE_NAMES[ op.opcode ] );
 
     for ( unsigned o = 0; o < op.ocount; ++o )

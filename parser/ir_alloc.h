@@ -44,6 +44,7 @@ private:
         unsigned live_index;    // index in value_ranges.
         unsigned live_count;    // count of entries in value_ranges.
         unsigned live_range;    // end of entire live range.
+        uint8_t r;              // r
         uint8_t mark;           // mark.
     };
 
@@ -66,6 +67,8 @@ private:
     bool is_pinning( const ir_op* op );
     bool is_floated( const ir_op* op );
     live_local* local_value( unsigned local_index );
+
+    void debug_print_values();
 
     source* _source;
     ir_function* _f;

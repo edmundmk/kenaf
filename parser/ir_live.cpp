@@ -141,6 +141,7 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
             {
                 op->mark = IR_MARK_STICKY;
                 op->r = 1;
+                op->live_range = op_index;
             }
             break;
 

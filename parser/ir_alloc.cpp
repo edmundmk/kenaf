@@ -10,6 +10,7 @@
 
 #include "ir_alloc.h"
 #include <algorithm>
+#include "ast.h"
 
 namespace kf
 {
@@ -212,7 +213,17 @@ ir_alloc::~ir_alloc()
 void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
+
     build_values();
+    debug_print_values();
+//    mark_pinning();
+
+    _value_locals.clear();
+    _value_ranges.clear();
+    _floated_ops.clear();
+    _floated_across.clear();
+    assert( _unpinned.empty() );
+    _live_r.reset();
 }
 
 void ir_alloc::build_values()
@@ -276,6 +287,11 @@ void ir_alloc::build_values()
         live_range* pr = &_value_ranges[ next - 1 ];
         live_range* lr = &_value_ranges[ live_index ];
 
+        if ( lr->lower >= lr->upper )
+        {
+            continue;
+        }
+
         if ( pr->local == lr->local && pr->upper == lr->lower )
         {
             pr->upper = lr->upper;
@@ -283,6 +299,7 @@ void ir_alloc::build_values()
         }
 
         _value_ranges[ next ] = *lr;
+        next += 1;
     }
     _value_ranges.resize( next );
 
@@ -292,7 +309,7 @@ void ir_alloc::build_values()
     for ( unsigned live_index = 0; live_index < _value_ranges.size(); )
     {
         unsigned local = _value_ranges[ live_index ].local;
-        live_local value = { local, live_index, 0, IR_INVALID_INDEX, 0 };
+        live_local value = { local, live_index, 0, IR_INVALID_INDEX, IR_INVALID_REGISTER, 0 };
 
         while ( live_index < _value_ranges.size() && _value_ranges[ live_index ].local == local )
         {
@@ -418,6 +435,7 @@ ir_alloc::live_local* ir_alloc::local_value( unsigned local_index )
 
     if ( i == _value_locals.end() || i->local_index != local_index )
     {
+        assert( ! "missing local value" );
         return nullptr;
     }
 
@@ -455,6 +473,36 @@ bool ir_alloc::is_floated( const ir_op* op )
 
     default:
         return false;
+    }
+}
+
+void ir_alloc::debug_print_values()
+{
+    for ( unsigned i = 0; i < _value_locals.size(); ++i )
+    {
+        const live_local* local_value = &_value_locals[ i ];
+        std::string_view name = _f->ast->locals.at( local_value->local_index ).name;
+        printf( "VALUE %u %.*s ↓%04X",  local_value->local_index, (int)name.size(), name.data(), local_value->live_range );
+
+        if ( local_value->r != IR_INVALID_REGISTER )
+            printf( " r%02u", local_value->r );
+        else
+            printf( "    " );
+
+        if ( local_value->mark == IR_MARK_STICKY )
+            printf( "@!" );
+        else if ( local_value->mark )
+            printf( "@%u", local_value->mark );
+        else
+            printf( "  " );
+
+        printf( "\n" );
+
+        for ( unsigned j = 0; j < local_value->live_count; ++j )
+        {
+            const live_range* local_range = &_value_ranges[ local_value->live_index + j ];
+            printf( "  :%04X ↓%04X\n", local_range->lower, local_range->upper );
+        }
     }
 }
 

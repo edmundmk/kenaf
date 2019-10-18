@@ -133,9 +133,9 @@ typedef unsigned ir_block_index;
 
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
 const unsigned IR_INVALID_LOCAL = 0xFEFF;
-const unsigned IR_UNPACK_ALL = 0xFF;
 const unsigned IR_INVALID_REGISTER = 0xFF;
 const unsigned IR_MARK_STICKY = 0xFF;
+const unsigned IR_UNPACK_ALL = 0xFF;
 
 /*
     Stores the intermediate representation for a function.
