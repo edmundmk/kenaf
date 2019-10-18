@@ -38,35 +38,45 @@ private:
 
     struct live_r;
 
-    struct live_index
+    struct live_local
     {
-        unsigned local;         // local index.
-        unsigned live_index;    // index in value_live_ranges.
-        unsigned live_count;    // count of entries in value_live_ranges.
-        unsigned pinned_by;     // index of instruction that pins this value.
+        unsigned local_index;   // local index.
+        unsigned live_index;    // index in value_ranges.
+        unsigned live_count;    // count of entries in value_ranges.
+        unsigned live_range;    // end of entire live range.
+        uint8_t mark;           // mark.
     };
 
     struct live_range
     {
         unsigned local;         // local index.
-        unsigned lower;         // instruction value becomes live/block start
+        unsigned lower;         // instruction value becomes live/block start.
         unsigned upper;         // instruction value dies/block end.
+    };
+
+    struct floated_op
+    {
+        unsigned index;         // index of op.
+        unsigned across_count;  // number of values live across this op.
     };
 
     void build_values();
     void mark_pinning();
 
     bool is_pinning( const ir_op* op );
-    bool is_stack_top( const ir_op* op );
+    bool is_floated( const ir_op* op );
+    live_local* local_value( unsigned local_index );
 
     source* _source;
     ir_function* _f;
 
-    std::vector< live_index > _value_index;    // instruction index -> value_live_ranges range
-    std::vector< live_range > _value_ranges;   // individual live range.
+    // live ranges for local values, which have holes.
+    std::vector< live_local > _value_locals;
+    std::vector< live_range > _value_ranges;
 
-    // instruction index -> call instruction index[]
-    std::unordered_multimap< unsigned, unsigned > _live_across;
+    // floated instructions and the values that are live across them.
+    std::vector< floated_op > _floated_ops;
+    std::unordered_multimap< unsigned, unsigned > _floated_across;
 
     // unpinned values in order of instruction index.
     std::priority_queue< unsigned, std::vector< unsigned >, std::greater< unsigned > > _unpinned;
