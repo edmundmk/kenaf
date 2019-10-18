@@ -119,9 +119,9 @@ enum opcode : uint8_t
     OP_VARARG,          // r:b = args ...           | X | r | - | b |
     OP_UNPACK,          // r:b = a ...              | X | r | a | b |
 
-    OP_GENERATE,        // r,b = generate a         | F | r | a | b |
-    OP_FOR_EACH,        // r:b = generate a,r'      | F | r | a | b || J | r'|   j   |
-    OP_FOR_STEP,        // r = for step a,b,r'      | F | r | a | b || J | r'|   j   |
+    OP_GENERATE,        // r:2 = generate a         | F | r | a | b |
+    OP_FOR_EACH,        // r:b = generate a:2       | F | r | a | - || J | - |   j   |
+    OP_FOR_STEP,        // r = for step a:3         | F | r | a | - || J | - |   j   |
 
     OP_SUPER,           // r = super a              | G | r | a | - |
     OP_THROW,           // throw r                  | J | r | - | - |

@@ -40,7 +40,6 @@ private:
 
     struct live_local
     {
-        unsigned local_index;   // local index.
         unsigned live_index;    // index in value_ranges.
         unsigned live_count;    // count of entries in value_ranges.
         unsigned live_range;    // end of entire live range.
@@ -50,14 +49,14 @@ private:
 
     struct live_range
     {
-        unsigned local;         // local index.
+        unsigned local_index;   // local index.
         unsigned lower;         // instruction value becomes live/block start.
         unsigned upper;         // instruction value dies/block end.
     };
 
-    struct floated_op
+    struct stacked
     {
-        unsigned index;         // index of op.
+        unsigned index;         // index of instruction.
         unsigned across_count;  // number of values live across this op.
     };
 
@@ -65,27 +64,28 @@ private:
     void mark_pinning();
     void allocate();
 
-    live_local* local_value( unsigned local_index );
-    bool is_pinning( const ir_op* op );
-    bool is_floated( const ir_op* op );
+    void anchor_stacked( unsigned stacked_index, unsigned op_index );
 
-    void debug_print_values();
+    bool is_stacked( const ir_op* op );
+    bool is_pinning( const ir_op* op );
+
+    void debug_print();
 
     source* _source;
     ir_function* _f;
 
-    // live ranges for local values, which have holes.
-    std::vector< live_local > _value_locals;
-    std::vector< live_range > _value_ranges;
+    // Live ranges for local values, which have holes.
+    std::vector< live_local > _local_values;
+    std::vector< live_range > _local_ranges;
 
-    // floated instructions and the values that are live across them.
-    std::vector< floated_op > _floated_ops;
-    std::unordered_multimap< unsigned, unsigned > _floated_across;
+    // Stacked instructions and the values that are live across them.
+    std::vector< stacked > _stacked;
+    std::unordered_multimap< unsigned, unsigned > _stacked_across;
 
-    // unpinned values in order of instruction index.
+    // Unpinned values in order of instruction index.
     std::priority_queue< unsigned, std::vector< unsigned >, std::greater< unsigned > > _unpinned;
 
-    // stores where registers have been allocated.
+    // Stores ranges where registers have been allocated.
     std::unique_ptr< live_r > _live_r;
 };
 

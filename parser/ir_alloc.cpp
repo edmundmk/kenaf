@@ -16,50 +16,62 @@ namespace kf
 {
 
 /*
-    The register allocation algorithm is described here.
+    An instruction has two register numbers that we need to determine.
 
-    The live ranges of locals are constructed.  The live range of a local is
-    a list of ops that define the variable, plus PHI/REF ops that import it
-    into a block, in order.
+    The result register, r, contains the result of the operation.  All
+    instructions produce a result except:
 
-    Each value (op result or local) which dies at a pinning instruction is
-    *pinned*.  Register allocation for pinned instructions is delayed until
-    the pinning instruction is allocated.
+      - SET_KEY, SET_INDEX, SET_ENV, APPEND, EXTEND, AND, CUT, BLOCK, and all
+        JUMP instructions.
+      - CALL, YCALL, YIELD, VARARG, UNPACK, and FOR_EACH_ITEMS with an unpack
+        count greater than one, in which case either:
+          - Results are assigned to registers by following SELECT instructions.
+          - The entire result list is the last argument to a following CALL,
+            YCALL, YIELD, EXTEND, or JUMP_RETURN instruction.
 
-      - A pinning instruction is one of JUMP_RETURN, JUMP_FOR_SGEN, CALL,
-        YCALL, YIELD, MOV, B_DEF, or B_PHI.  These instructions pin operands
-        which have a live range that ends at the instruction.
+    The stack top register, s, is required by instructions which consume or
+    produce more than one value in adjacent registers.  This is:
 
-    Values which are live *across* floated instructions are identified, and
-    the number of live values across each floated instruction is counted.
+      - Call/return instructions CALL, YCALL, and YIELD.
+      - VARARG.
+      - Array UNPACK and EXTEND.
+      - JUMP_RETURN
+      - JUMP_FOR_EGEN and JUMP_FOR_SGEN produce adjacent for hidden variables.
+      - FOR_EACH_ITEMS generates a list of items.
 
-      - A floated instruction is one of JUMP_RETURN, JUMP_FOR_SGEN, CALL,
-        YCALL, or YIELD.  Floated instructions take multiple potentially
-        pinned operands.
+    The two registers are not necessarily related.  We can always shuffle
+    single argument and result values into the required registers using moves,
+    and stack top of instructions producing result lists can always be slid
+    rightwards to a higher register number.
 
-      - Floated instructions can themselves be pinned.
+    But our register allocation algorithm attempts to minimize the number of
+    move instructions.  We do this by identifying *pinned* values.
 
-    Register allocation proceeds linearly.  Pinned instructions are skipped.
-    The across count for each floated instruction is decremented each time an
-    instruction is allocated.  Once it reaches zero, the pinned instruction
-    is allocated, and the values it was pinning are unpinned and revisited to
-    allocate them.
+    A pinned value is a value which dies at its use as an operand of a
+    *pinning* instruction.  A pinning instruction is either:
 
-    A value is preferentially allocated to the following registers:
+      - An instruction which requires a stack top register, and which consumes
+        more than one value.  This is CALL, YCALL, YIELD, EXTEND, JUMP_RETURN,
+        and JUMP_FOR_EGEN.
+      - An instruction which passes through its operand unchanged, i.e. MOV,
+        B_DEF, or B_PHI.
 
-      - If it's a PARAM, register 1 + parameter index.
+    Our register allocator is greedy.  Once a register has been allocated to a
+    value, we never backtrack.
 
-      - If it's a SELECT, the register it was generated from.
+    We allocate the r register of values in program order, based on the index
+    of their first definition.  Pinned values are skipped.
 
-      - The register its pinning instruction would move it into.
+    As soon as all values live across a stacked instruction are allocated,
+    the stack top register s for that instruction can be determined.  We do
+    this immediately, no matter where we are in program order.  This is called
+    anchoring.  All operands to the anchored instruction are unpinned.
 
-      - If it needs to be at the stack top (e.g. calls), the lowest register
-        which has no registers allocated after it.
+    When a MOV, B_DEF, or B_PHI instruction is allocated, its operand value is
+    unpinned.
 
-      - The lowest numbered free register.
-
-    Ranges where registers are allocated are tracked in a data structure which
-    stores allocated live ranges for each register.
+    Unpinned values are allocated intermixed with other values, in program
+    order.
 */
 
 /*
@@ -148,7 +160,7 @@ unsigned ir_alloc::live_r::lowest_register( const live_range* ranges, size_t rco
 
 unsigned ir_alloc::live_r::stack_top( unsigned index ) const
 {
-    live_range range = { index, index + 1 };
+    live_range range = { IR_INVALID_LOCAL, index, index + 1 };
     unsigned r = _r.size();
     while ( r && check_register( r - 1, &range, 1 ) )
     {
@@ -213,16 +225,17 @@ ir_alloc::~ir_alloc()
 void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
+    _live_r = std::make_unique< live_r >();
 
     build_values();
     mark_pinning();
     allocate();
-    debug_print_values();
+    debug_print();
 
-    _value_locals.clear();
-    _value_ranges.clear();
-    _floated_ops.clear();
-    _floated_across.clear();
+    _local_values.clear();
+    _local_ranges.clear();
+    _stacked.clear();
+    _stacked_across.clear();
     assert( _unpinned.empty() );
     _live_r.reset();
 }
@@ -248,7 +261,7 @@ void ir_alloc::build_values()
                 const ir_op* phi = &_f->ops.at( phi_index );
                 if ( phi->local() != IR_INVALID_LOCAL && phi->live_range != IR_INVALID_INDEX )
                 {
-                    _value_ranges.push_back( { phi->local(), op_index, phi->live_range } );
+                    _local_ranges.push_back( { phi->local(), op_index, phi->live_range } );
                 }
                 phi_index = phi->phi_next;
             }
@@ -258,7 +271,7 @@ void ir_alloc::build_values()
 
         if ( op->local() != IR_INVALID_LOCAL && op->live_range != IR_INVALID_INDEX )
         {
-            _value_ranges.push_back( { op->local(), op_index, op->live_range } );
+            _local_ranges.push_back( { op->local(), op_index, op->live_range } );
         }
     }
 
@@ -267,13 +280,13 @@ void ir_alloc::build_values()
     */
     std::sort
     (
-        _value_ranges.begin(),
-        _value_ranges.end(),
+        _local_ranges.begin(),
+        _local_ranges.end(),
         []( const live_range& a, const live_range& b )
         {
-            if ( a.local < b.local )
+            if ( a.local_index < b.local_index )
                 return true;
-            if ( a.local == b.local && a.lower < b.lower )
+            if ( a.local_index == b.local_index && a.lower < b.lower )
                 return true;
             return false;
         }
@@ -282,44 +295,49 @@ void ir_alloc::build_values()
     /*
         Merge adjacent ranges.
     */
-    unsigned next = _value_ranges.size() ? 1 : 0;
-    for ( unsigned live_index = 1; live_index < _value_ranges.size(); ++live_index )
+    unsigned next = _local_ranges.size() ? 1 : 0;
+    for ( unsigned live_index = 1; live_index < _local_ranges.size(); ++live_index )
     {
-        live_range* pr = &_value_ranges[ next - 1 ];
-        live_range* lr = &_value_ranges[ live_index ];
+        live_range* pr = &_local_ranges[ next - 1 ];
+        live_range* lr = &_local_ranges[ live_index ];
 
         if ( lr->lower >= lr->upper )
         {
             continue;
         }
 
-        if ( pr->local == lr->local && pr->upper == lr->lower )
+        if ( pr->local_index == lr->local_index && pr->upper == lr->lower )
         {
             pr->upper = lr->upper;
             continue;
         }
 
-        _value_ranges[ next ] = *lr;
+        _local_ranges[ next ] = *lr;
         next += 1;
     }
-    _value_ranges.resize( next );
+    _local_ranges.resize( next );
 
     /*
         Build index.
     */
-    for ( unsigned live_index = 0; live_index < _value_ranges.size(); )
+    _local_values.resize( _f->ast->locals.size() );
+    for ( unsigned live_index = 0; live_index < _local_ranges.size(); )
     {
-        unsigned local = _value_ranges[ live_index ].local;
-        live_local value = { local, live_index, 0, IR_INVALID_INDEX, IR_INVALID_REGISTER, 0 };
+        unsigned local_index = _local_ranges[ live_index ].local_index;
 
-        while ( live_index < _value_ranges.size() && _value_ranges[ live_index ].local == local )
+        live_local* value = &_local_values[ local_index ];
+        value->live_index = live_index;
+        value->live_count = 0;
+        value->live_range = IR_INVALID_REGISTER;
+        value->r = IR_INVALID_REGISTER;
+        value->mark = false;
+
+        while ( live_index < _local_ranges.size() && _local_ranges[ live_index ].local_index == local_index )
         {
-            value.live_count += 1;
-            value.live_range = _value_ranges[ live_index ].upper;
+            value->live_count += 1;
+            value->live_range = _local_ranges[ live_index ].upper;
             ++live_index;
         }
-
-        _value_locals.push_back( value );
     }
 }
 
@@ -338,51 +356,17 @@ void ir_alloc::mark_pinning()
             continue;
         }
 
-        if ( is_pinning( op ) )
+        if ( is_stacked( op ) )
         {
             /*
-                Examine operands.  If they die at this op, then mark pinned.
-            */
-            for ( unsigned j = 0; j < op->ocount; ++j )
-            {
-                ir_operand operand = _f->operands.at( op->oindex + j );
-
-                if ( operand.kind != IR_O_OP )
-                    continue;
-
-                if ( op->opcode == IR_B_DEF && j == 0 )
-                    continue;
-
-                ir_op* pinned_op = &_f->ops.at( operand.index );
-                if ( pinned_op->local() == IR_INVALID_LOCAL )
-                {
-                    if ( pinned_op->live_range == op_index )
-                    {
-                        pinned_op->mark = true;
-                    }
-                }
-                else
-                {
-                    live_local* value = local_value( pinned_op->local() );
-                    if ( value->live_range == op_index )
-                    {
-                        value->mark = true;
-                    }
-                }
-            }
-        }
-
-        if ( is_floated( op ) )
-        {
-            /*
-                Scan block for all ops which are live across this op (i.e.
-                live at the next op).  We only need to check this block,
-                because ops that survive blocks will have a REF/PHI in the
-                header giving their live range in this block.
+                Scan block for all ops which are live across this op (i.e. live
+                at the next op).  We only need to check this block, because ops
+                that survive blocks will have a REF/PHI in the header giving
+                their live range in this block.
             */
 
-            unsigned floated_index = _floated_ops.size();
-            floated_op floated = { op_index, 0 };
+            unsigned stacked_index = _stacked.size();
+            stacked instruction = { op_index, 0 };
 
             unsigned check_index = op_index;
             while ( check_index-- )
@@ -397,8 +381,8 @@ void ir_alloc::mark_pinning()
 
                 if ( check_op->live_range != IR_INVALID_INDEX && check_op->live_range > op_index )
                 {
-                    _floated_across.emplace( check_index, floated_index );
-                    floated.across_count += 1;
+                    _stacked_across.emplace( check_index, stacked_index );
+                    instruction.across_count += 1;
                 }
             }
 
@@ -413,14 +397,48 @@ void ir_alloc::mark_pinning()
 
                 if ( phi->live_range != IR_INVALID_INDEX && phi->live_range > op_index )
                 {
-                    _floated_across.emplace( check_index, floated_index );
-                    floated.across_count += 1;
+                    _stacked_across.emplace( check_index, stacked_index );
+                    instruction.across_count += 1;
                 }
 
                 phi_index = phi->phi_next;
             }
 
-            _floated_ops.push_back( floated );
+            _stacked.push_back( instruction );
+        }
+
+        if ( is_pinning( op ) )
+        {
+            /*
+                Examine operands.  If they die at this op, then mark pinned.
+            */
+            for ( unsigned j = 0; j < op->ocount; ++j )
+            {
+                ir_operand operand = _f->operands.at( op->oindex + j );
+
+                if ( operand.kind != IR_O_OP )
+                    continue;
+
+                if ( j == 0 && ( op->opcode == IR_EXTEND || op->opcode == IR_B_DEF ) )
+                    continue;
+
+                ir_op* pinned_op = &_f->ops.at( operand.index );
+                if ( pinned_op->local() == IR_INVALID_LOCAL )
+                {
+                    if ( pinned_op->live_range == op_index )
+                    {
+                        pinned_op->mark = true;
+                    }
+                }
+                else
+                {
+                    live_local* value = &_local_values.at( pinned_op->local() );
+                    if ( value->live_range == op_index )
+                    {
+                        value->mark = true;
+                    }
+                }
+            }
         }
     }
 }
@@ -429,69 +447,53 @@ void ir_alloc::allocate()
 {
 }
 
-ir_alloc::live_local* ir_alloc::local_value( unsigned local_index )
+bool ir_alloc::is_stacked( const ir_op* op )
 {
-    auto i = std::lower_bound
-    (
-        _value_locals.begin(),
-        _value_locals.end(),
-        local_index,
-        []( const live_local& local_value, unsigned local_index )
-        {
-            return local_value.local_index < local_index;
-        }
-    );
-
-    if ( i == _value_locals.end() || i->local_index != local_index )
+    switch ( op->opcode )
     {
-        assert( ! "missing local value" );
-        return nullptr;
-    }
+    case IR_CALL:
+    case IR_YCALL:
+    case IR_YIELD:
+    case IR_VARARG:
+    case IR_UNPACK:
+    case IR_JUMP_RETURN:
+    case IR_FOR_EACH_ITEMS:
+        return op->ocount > 1 || op->unpack() > 1;
 
-    return &*i;
+    case IR_EXTEND:
+    case IR_JUMP_FOR_SGEN:
+        return true;
+
+    default:
+        return false;
+    }
 }
 
 bool ir_alloc::is_pinning( const ir_op* op )
 {
     switch ( op->opcode )
     {
-    case IR_JUMP_RETURN:
-    case IR_JUMP_FOR_SGEN:
-    case IR_CALL:
-    case IR_YCALL:
-    case IR_YIELD:
     case IR_MOV:
     case IR_B_DEF:
     case IR_B_PHI:
         return true;
 
     default:
-        return false;
+        return is_stacked( op ) && op->ocount > 1;
     }
 }
 
-bool ir_alloc::is_floated( const ir_op* op )
+void ir_alloc::debug_print()
 {
-    switch ( op->opcode )
+    for ( unsigned i = 0; i < _local_values.size(); ++i )
     {
-    case IR_JUMP_RETURN:
-    case IR_JUMP_FOR_SGEN:
-    case IR_CALL:
-    case IR_YCALL:
-    case IR_YIELD:
-        return true;
+        const live_local* local_value = &_local_values[ i ];
+        if ( ! local_value->live_count )
+        {
+            continue;
+        }
 
-    default:
-        return false;
-    }
-}
-
-void ir_alloc::debug_print_values()
-{
-    for ( unsigned i = 0; i < _value_locals.size(); ++i )
-    {
-        const live_local* local_value = &_value_locals[ i ];
-        std::string_view name = _f->ast->locals.at( local_value->local_index ).name;
+        std::string_view name = _f->ast->locals.at( i ).name;
         printf( "VALUE ↓%04X",  local_value->live_range );
 
         if ( local_value->mark )
@@ -506,14 +508,15 @@ void ir_alloc::debug_print_values()
         else
             printf( "  " );
 
-        printf( " %u %.*s\n", local_value->local_index, (int)name.size(), name.data() );
+        printf( " %u %.*s\n", i, (int)name.size(), name.data() );
 
         for ( unsigned j = 0; j < local_value->live_count; ++j )
         {
-            const live_range* local_range = &_value_ranges[ local_value->live_index + j ];
+            const live_range* local_range = &_local_ranges[ local_value->live_index + j ];
             printf( "  :%04X ↓%04X\n", local_range->lower, local_range->upper );
         }
     }
+
 }
 
 }

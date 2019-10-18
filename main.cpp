@@ -82,7 +82,7 @@ int main( int argc, char* argv[] )
             ir_live.live( ir.get() );
             ir_foldk.foldk( ir.get() );
             ir_live.live( ir.get() );
-//            ir_alloc.alloc( ir.get() );
+            ir_alloc.alloc( ir.get() );
 
             ir->debug_print();
         }
