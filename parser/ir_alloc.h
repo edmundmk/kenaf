@@ -62,9 +62,12 @@ private:
 
     void build_values();
     void mark_pinning();
-    void allocate();
 
-    void anchor_stacked( unsigned stacked_index, unsigned op_index );
+    void allocate();
+    void allocate_result( unsigned op_index, unsigned sweep_index );
+
+    void anchor_stacked( unsigned stacked_index, unsigned sweep_index );
+    void unpin_operands( unsigned op_index, unsigned sweep_index );
 
     bool is_stacked( const ir_op* op );
     bool is_pinning( const ir_op* op );

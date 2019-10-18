@@ -445,6 +445,114 @@ void ir_alloc::mark_pinning()
 
 void ir_alloc::allocate()
 {
+    unsigned sweep_index = 0;
+
+    // Anchor all stacked instructions which have no values live across them.
+    for ( unsigned stacked_index = 0; stacked_index < _stacked.size(); ++stacked_index )
+    {
+        stacked* instruction = &_stacked.at( stacked_index );
+        if ( instruction->across_count == 0 )
+        {
+            anchor_stacked( stacked_index, sweep_index );
+        }
+    }
+
+    // Allocate result registers in program order.
+    while ( ! _unpinned.empty() && sweep_index < _f->ops.size() )
+    {
+        while ( ! _unpinned.empty() )
+        {
+            unsigned op_index = _unpinned.top();
+            _unpinned.pop();
+            allocate_result( op_index, sweep_index );
+        }
+
+        allocate_result( sweep_index, sweep_index );
+        sweep_index += 1;
+    }
+}
+
+void ir_alloc::allocate_result( unsigned op_index, unsigned sweep_index )
+{
+    ir_op* op = &_f->ops.at( op_index );
+
+    if ( op->opcode == IR_REF || op->opcode == IR_PHI )
+    {
+        return;
+    }
+
+    if ( op->local() != IR_INVALID_LOCAL )
+    {
+
+
+    }
+    else
+    {
+
+
+    }
+}
+
+void ir_alloc::anchor_stacked( unsigned stacked_index, unsigned sweep_index )
+{
+    stacked* instruction = &_stacked.at( stacked_index );
+    assert( instruction->across_count == 0 );
+    ir_op* op = &_f->ops.at( instruction->index );
+
+    // Determine stack top register.
+    assert( op->s == IR_INVALID_REGISTER );
+    op->s = _live_r->stack_top( instruction->index );
+
+    // Unpin all values pinned by this op.
+    unpin_operands( instruction->index, sweep_index );
+}
+
+void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
+{
+    ir_op* op = &_f->ops.at( op_index );
+
+    for ( unsigned j = 0; j < op->ocount; ++j )
+    {
+        ir_operand operand = _f->operands.at( op->oindex + j );
+
+        if ( operand.kind != IR_O_OP )
+            continue;
+
+        unsigned def_index = IR_INVALID_INDEX;
+        ir_op* pinned_op = &_f->ops.at( operand.index );
+        if ( pinned_op->local() == IR_INVALID_LOCAL )
+        {
+            if ( pinned_op->mark && pinned_op->live_range == op_index )
+            {
+                pinned_op->mark = false;
+                def_index = operand.index;
+            }
+            else
+            {
+                continue;
+            }
+        }
+        else
+        {
+            live_local* value = &_local_values.at( pinned_op->local() );
+            if ( value->mark && value->live_range == op_index )
+            {
+                value->mark = false;
+                def_index = _local_ranges.at( value->live_index ).lower;
+                assert( _f->ops.at( def_index ).local() == pinned_op->local() );
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        assert( def_index != IR_INVALID_INDEX );
+        if ( def_index <= sweep_index )
+        {
+            _unpinned.push( def_index );
+        }
+    }
 }
 
 bool ir_alloc::is_stacked( const ir_op* op )
@@ -458,7 +566,23 @@ bool ir_alloc::is_stacked( const ir_op* op )
     case IR_UNPACK:
     case IR_JUMP_RETURN:
     case IR_FOR_EACH_ITEMS:
-        return op->ocount > 1 || op->unpack() > 1;
+        if ( op->unpack() > 1 )
+        {
+            return true;
+        }
+        if ( op->ocount > 1 )
+        {
+            return true;
+        }
+        if ( op->ocount == 1 )
+        {
+            ir_operand operand = _f->operands.at( op->oindex );
+            if ( operand.kind == IR_O_OP && _f->ops.at( operand.index ).unpack() > 1 )
+            {
+                return true;
+            }
+        }
+        return false;
 
     case IR_EXTEND:
     case IR_JUMP_FOR_SGEN:
