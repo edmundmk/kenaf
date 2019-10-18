@@ -48,7 +48,6 @@ void ir_live::reset()
         ir_op* op = &_f->ops[ op_index ];
         op->mark = false;
         op->s = 0;
-        op->r = IR_INVALID_REGISTER;
         op->live_range = IR_INVALID_INDEX;
     }
 }
@@ -198,7 +197,7 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
         ir_op* phi = &_f->ops.at( phi_index );
 
         // Skip ops which are not live or which have already had uses marked.
-        if ( phi->r != 1 )
+        if ( ! phi->mark )
         {
             phi_index = phi->phi_next;
             continue;
@@ -255,7 +254,7 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
         }
 
         // Marked all uses.
-        phi->r = IR_INVALID_REGISTER;
+        phi->mark = false;
     }
 }
 
