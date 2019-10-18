@@ -45,7 +45,7 @@ private:
         unsigned live_count;    // count of entries in value_ranges.
         unsigned live_range;    // end of entire live range.
         uint8_t r;              // r
-        uint8_t mark;           // mark.
+        bool mark;              // mark.
     };
 
     struct live_range

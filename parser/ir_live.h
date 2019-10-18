@@ -35,17 +35,20 @@ public:
     ~ir_live();
 
     void live( ir_function* function );
-    void reset( ir_function* function );
 
 private:
 
     enum { LIVE_BODY = 1 << 0, LIVE_HEAD = 1 << 1 };
+
+    void reset();
 
     void live_blocks();
     void live_body( ir_block_index block_index, ir_block* block );
     void live_head( ir_block_index block_index, ir_block* block );
     ir_operand match_phi( ir_block* block, unsigned local_index );
     bool mark_use( ir_operand def, unsigned use_index );
+
+    void erase_dead();
 
     source* _source;
     ir_function* _f;

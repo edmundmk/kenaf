@@ -134,7 +134,7 @@ typedef unsigned ir_block_index;
 const unsigned IR_INVALID_INDEX = 0xFFFFFF;
 const unsigned IR_INVALID_LOCAL = 0xFEFF;
 const unsigned IR_INVALID_REGISTER = 0xFF;
-const unsigned IR_MARK_STICKY = 0xFF;
+const unsigned IR_LIVE_STICKY = 0xFF;
 const unsigned IR_UNPACK_ALL = 0xFF;
 
 /*
@@ -313,7 +313,8 @@ struct ir_op
 {
     ir_op()
         :   opcode( IR_NOP )
-        ,   mark( 0 )
+        ,   mark( false )
+        ,   s( IR_INVALID_REGISTER )
         ,   localu( IR_INVALID_LOCAL )
         ,   ocount( 0 )
         ,   oindex( IR_INVALID_INDEX )
@@ -323,9 +324,10 @@ struct ir_op
     {
     }
 
-    ir_opcode opcode;           // Opcode.
-    uint8_t mark;               // Liveness count.
-    uint16_t localu : 16;       // Local variable index or unpack count.
+    unsigned opcode : 7;        // Opcode.
+    unsigned mark : 1;          // Mark bit.
+    unsigned s : 8;             // Stack top or liveness count.
+    unsigned localu : 16;       // Local variable index or unpack count.
 
     unsigned ocount : 8;        // Number of operands.
     unsigned oindex : 24;       // Index into operand list.

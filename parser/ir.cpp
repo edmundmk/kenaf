@@ -129,17 +129,22 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
     else
         printf( "      " );
 
-    if ( op.r != IR_INVALID_REGISTER )
-        printf( " r%02u", op.r );
-    else
-        printf( "    " );
-
-    if ( op.mark == IR_MARK_STICKY )
-        printf( "@!" );
-    else if ( op.mark )
-        printf( "@%u", op.mark );
+    if ( op.mark )
+        printf( " !" );
+    else if ( op.r != IR_INVALID_REGISTER )
+        printf( " r" );
     else
         printf( "  " );
+
+    if ( op.r != IR_INVALID_REGISTER )
+        printf( "%02u", op.r );
+    else
+        printf( "  " );
+
+    if ( op.s != IR_INVALID_REGISTER )
+        printf( "@%02u", op.s );
+    else
+        printf( "   " );
 
     printf( " %s", OPCODE_NAMES[ op.opcode ] );
 

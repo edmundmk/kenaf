@@ -36,15 +36,18 @@ void ir_live::live( ir_function* function )
         that the op has been made live, but its uses have not yet been marked.
     */
     _f = function;
+    reset();
     live_blocks();
+    erase_dead();
 }
 
-void ir_live::reset( ir_function* function )
+void ir_live::reset()
 {
-    for ( unsigned op_index = 0; op_index < function->ops.size(); ++op_index )
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
-        ir_op* op = &function->ops[ op_index ];
-        op->mark = 0;
+        ir_op* op = &_f->ops[ op_index ];
+        op->mark = false;
+        op->s = 0;
         op->r = IR_INVALID_REGISTER;
         op->live_range = IR_INVALID_INDEX;
     }
@@ -102,8 +105,8 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
 {
     /*
         References from successor blocks should have made some of our ops live.
-        Visit each op, and if the r flag is set, mark its uses, potentially
-        setting the r flag of other values in the block.  Also, some ops need
+        Visit each op, and if the mark flag is set, mark its uses, potentially
+        setting the mark flag of other values in the block.  Also, some ops need
         to be live no matter what (e.g. return, call).
     */
 
@@ -116,9 +119,9 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         {
         case IR_PHI:
         case IR_REF:
-        case IR_BLOCK:
             continue;
 
+        case IR_BLOCK:
         case IR_JUMP:
         case IR_JUMP_FOR_EGEN:
         case IR_JUMP_FOR_SGEN:
@@ -137,10 +140,10 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         case IR_EXTEND:
             // These instructions have side effects so they need to
             // stay live no matter what.
-            if ( ! op->mark )
+            if ( ! op->s )
             {
-                op->mark = IR_MARK_STICKY;
-                op->r = 1;
+                op->mark = true;
+                op->s = IR_LIVE_STICKY;
                 op->live_range = op_index;
             }
             break;
@@ -150,7 +153,7 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         }
 
         // Skip ops which are not live or which have already had uses marked.
-        if ( op->r != 1 )
+        if ( ! op->mark )
         {
             continue;
         }
@@ -168,7 +171,7 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         }
 
         // Marked all uses.
-        op->r = IR_INVALID_REGISTER;
+        op->mark = false;
     }
 }
 
@@ -281,24 +284,39 @@ bool ir_live::mark_use( ir_operand def, unsigned use_index )
     assert( def.kind == IR_O_OP );
     ir_op* op = &_f->ops.at( def.index );
 
-    // Increment mark.
-    uint8_t old_mark = op->mark;
-    uint8_t new_mark = op->mark + 1;
-    op->mark = new_mark >= old_mark ? new_mark : IR_MARK_STICKY;
+    // Increment s.
+    uint8_t old_s = op->s;
+    uint8_t new_s = op->s + 1;
+    op->s = new_s >= old_s ? new_s : IR_LIVE_STICKY;
 
     // Update live_range.
     unsigned live_range = op->live_range != IR_INVALID_INDEX ? op->live_range : 0;
     op->live_range = std::max( live_range, use_index );
 
-    // Set r flag if marking it made this op live.
-    if ( old_mark == 0 )
+    // Set mark flag if marking it made this op live.
+    if ( old_s == 0 )
     {
-        op->r = 1;
+        op->mark = true;
         return true;
     }
     else
     {
         return false;
+    }
+}
+
+void ir_live::erase_dead()
+{
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        ir_op* op = &_f->ops[ op_index ];
+        if ( op->live_range == IR_INVALID_INDEX )
+        {
+            op->opcode = IR_NOP;
+            op->ocount = 0;
+            op->oindex = IR_INVALID_INDEX;
+            op->set_local( IR_INVALID_LOCAL );
+        }
     }
 }
 

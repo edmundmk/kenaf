@@ -662,6 +662,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
                     nop->opcode = IR_NOP;
                     nop->ocount = 0;
                     nop->oindex = IR_INVALID_INDEX;
+                    nop->set_local( IR_INVALID_LOCAL );
                 }
             }
         }
@@ -674,6 +675,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
             op->opcode = IR_NOP;
             op->ocount = 0;
             op->oindex = IR_INVALID_INDEX;
+            op->set_local( IR_INVALID_LOCAL );
 
             // Delete from DEF to PHI.
             for ( unsigned i = def_index; i < phi_index; ++i )
@@ -684,6 +686,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
                     nop->opcode = IR_NOP;
                     nop->ocount = 0;
                     nop->oindex = IR_INVALID_INDEX;
+                    nop->set_local( IR_INVALID_LOCAL );
                 }
             }
 
@@ -821,6 +824,7 @@ void ir_fold::fold_uses()
         op->opcode = IR_NOP;
         op->ocount = 0;
         op->oindex = IR_INVALID_INDEX;
+        op->set_local( IR_INVALID_LOCAL );
     }
 
     _stack.clear();
@@ -847,6 +851,7 @@ void ir_fold::remove_unreachable_blocks()
             phi->opcode = IR_NOP;
             phi->ocount = 0;
             phi->oindex = IR_INVALID_INDEX;
+            phi->set_local( IR_INVALID_LOCAL );
         }
         block->phi_head = block->phi_tail = IR_INVALID_INDEX;
 
@@ -859,6 +864,7 @@ void ir_fold::remove_unreachable_blocks()
             op->opcode = IR_NOP;
             op->ocount = 0;
             op->oindex = IR_INVALID_INDEX;
+            op->set_local( IR_INVALID_LOCAL );
         }
     }
 }

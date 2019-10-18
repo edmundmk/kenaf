@@ -80,12 +80,9 @@ int main( int argc, char* argv[] )
 
             ir_fold.fold( ir.get() );
             ir_live.live( ir.get() );
-            if ( ir_foldk.foldk( ir.get() ) )
-            {
-                ir_live.reset( ir.get() );
-                ir_live.live( ir.get() );
-                ir_alloc.alloc( ir.get() );
-            }
+            ir_foldk.foldk( ir.get() );
+            ir_live.live( ir.get() );
+//            ir_alloc.alloc( ir.get() );
 
             ir->debug_print();
         }

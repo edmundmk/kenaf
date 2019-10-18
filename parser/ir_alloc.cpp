@@ -51,10 +51,10 @@ namespace kf
 
       - If it's a SELECT, the register it was generated from.
 
+      - The register its pinning instruction would move it into.
+
       - If it needs to be at the stack top (e.g. calls), the lowest register
         which has no registers allocated after it.
-
-      - The register its pinning instruction would move it into.
 
       - The lowest numbered free register.
 
@@ -282,7 +282,7 @@ void ir_alloc::build_values()
     /*
         Merge adjacent ranges.
     */
-    unsigned next = 1;
+    unsigned next = _value_ranges.size() ? 1 : 0;
     for ( unsigned live_index = 1; live_index < _value_ranges.size(); ++live_index )
     {
         live_range* pr = &_value_ranges[ next - 1 ];
@@ -329,7 +329,8 @@ void ir_alloc::mark_pinning()
     {
         ir_op* op = &_f->ops[ op_index ];
 
-        op->mark = 0;
+        op->mark = false;
+        op->s = IR_INVALID_REGISTER;
         op->r = IR_INVALID_REGISTER;
 
         if ( op->live_range == IR_INVALID_INDEX )
@@ -357,7 +358,7 @@ void ir_alloc::mark_pinning()
                 {
                     if ( pinned_op->live_range == op_index )
                     {
-                        pinned_op->mark = 1;
+                        pinned_op->mark = true;
                     }
                 }
                 else
@@ -365,7 +366,7 @@ void ir_alloc::mark_pinning()
                     live_local* value = local_value( pinned_op->local() );
                     if ( value->live_range == op_index )
                     {
-                        value->mark = 1;
+                        value->mark = true;
                     }
                 }
             }
@@ -491,21 +492,21 @@ void ir_alloc::debug_print_values()
     {
         const live_local* local_value = &_value_locals[ i ];
         std::string_view name = _f->ast->locals.at( local_value->local_index ).name;
-        printf( "VALUE %u ↓%04X",  local_value->local_index, local_value->live_range );
+        printf( "VALUE ↓%04X",  local_value->live_range );
 
-        if ( local_value->r != IR_INVALID_REGISTER )
-            printf( " r%02u", local_value->r );
-        else
-            printf( "    " );
-
-        if ( local_value->mark == IR_MARK_STICKY )
-            printf( "@!" );
-        else if ( local_value->mark )
-            printf( "@%u", local_value->mark );
+        if ( local_value->mark )
+            printf( " !" );
+        else if ( local_value->r != IR_INVALID_REGISTER )
+            printf( " r" );
         else
             printf( "  " );
 
-        printf( " %.*s\n", (int)name.size(), name.data() );
+        if ( local_value->r != IR_INVALID_REGISTER )
+            printf( "%02u", local_value->r );
+        else
+            printf( "  " );
+
+        printf( " %u %.*s\n", local_value->local_index, (int)name.size(), name.data() );
 
         for ( unsigned j = 0; j < local_value->live_count; ++j )
         {
