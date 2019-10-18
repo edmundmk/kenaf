@@ -36,8 +36,8 @@ namespace kf
       - VARARG.
       - Array UNPACK and EXTEND.
       - JUMP_RETURN
-      - JUMP_FOR_EGEN and JUMP_FOR_SGEN produce adjacent for hidden variables.
-      - FOR_EACH_ITEMS generates a list of items.
+      - JUMP_FOR_SGEN consumes three values.
+      - FOR_EACH_ITEMS generates a value list.
 
     The two registers are not necessarily related.  We can always shuffle
     single argument and result values into the required registers using moves,
@@ -52,7 +52,7 @@ namespace kf
 
       - An instruction which requires a stack top register, and which consumes
         more than one value.  This is CALL, YCALL, YIELD, EXTEND, JUMP_RETURN,
-        and JUMP_FOR_EGEN.
+        and JUMP_FOR_SGEN.
       - An instruction which passes through its operand unchanged, i.e. MOV,
         B_DEF, or B_PHI.
 
@@ -120,10 +120,9 @@ bool ir_alloc::live_r::check_register( unsigned r, const live_range* ranges, siz
     for ( size_t irange = 0; irange < rcount; ++irange )
     {
         // Search for allocation range containing the incoming range.
-        // Should always find a valid range.
         const live_range& lr = ranges[ irange ];
-        auto i = std::lower_bound( rlist.begin(), rlist.end(), lr.lower,
-            []( const r_range& rr, unsigned lr_lower ) { return rr.index < lr_lower; } );
+        auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
+            []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
 
         // If this range is allocated, the incoming range interferes.
         if ( i->alloc )
@@ -183,8 +182,8 @@ void ir_alloc::live_r::allocate_register( unsigned r, const live_range* ranges, 
     {
         // Find range containing incoming range.
         const live_range& lr = ranges[ irange ];
-        auto i = std::lower_bound( rlist.begin(), rlist.end(), lr.lower,
-            []( const r_range& rr, unsigned lr_lower ) { return rr.index < lr_lower; } );
+        auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
+            []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
 
         assert( ! i->alloc );
         if ( i->index != lr.lower )
@@ -203,7 +202,7 @@ void ir_alloc::live_r::allocate_register( unsigned r, const live_range* ranges, 
         if ( next->index > lr.upper )
         {
             // Split range again, marking inserted range as free.
-            i = rlist.insert( i + 1, { lr.upper, true } );
+            i = rlist.insert( i + 1, { lr.upper, false } );
         }
         else
         {
@@ -248,7 +247,7 @@ void ir_alloc::build_values()
     for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
         const ir_op* op = &_f->ops[ op_index ];
-        if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->local() == IR_INVALID_INDEX )
+        if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->local() == IR_INVALID_LOCAL )
         {
             continue;
         }
@@ -293,31 +292,6 @@ void ir_alloc::build_values()
     );
 
     /*
-        Merge adjacent ranges.
-    */
-    unsigned next = _local_ranges.size() ? 1 : 0;
-    for ( unsigned live_index = 1; live_index < _local_ranges.size(); ++live_index )
-    {
-        live_range* pr = &_local_ranges[ next - 1 ];
-        live_range* lr = &_local_ranges[ live_index ];
-
-        if ( lr->lower >= lr->upper )
-        {
-            continue;
-        }
-
-        if ( pr->local_index == lr->local_index && pr->upper == lr->lower )
-        {
-            pr->upper = lr->upper;
-            continue;
-        }
-
-        _local_ranges[ next ] = *lr;
-        next += 1;
-    }
-    _local_ranges.resize( next );
-
-    /*
         Build index.
     */
     _local_values.resize( _f->ast->locals.size() );
@@ -326,9 +300,10 @@ void ir_alloc::build_values()
         unsigned local_index = _local_ranges[ live_index ].local_index;
 
         live_local* value = &_local_values[ local_index ];
+        value->def_index = _local_ranges[ live_index ].lower;
+        value->live_range = IR_INVALID_REGISTER;
         value->live_index = live_index;
         value->live_count = 0;
-        value->live_range = IR_INVALID_REGISTER;
         value->r = IR_INVALID_REGISTER;
         value->mark = false;
 
@@ -381,7 +356,8 @@ void ir_alloc::mark_pinning()
 
                 if ( check_op->live_range != IR_INVALID_INDEX && check_op->live_range > op_index )
                 {
-                    _stacked_across.emplace( check_index, stacked_index );
+                    unsigned op_index = check_op->local() == IR_INVALID_LOCAL ? check_index : _local_values.at( check_op->local() ).def_index;
+                    _stacked_across.emplace( op_index, stacked_index );
                     instruction.across_count += 1;
                 }
             }
@@ -397,7 +373,8 @@ void ir_alloc::mark_pinning()
 
                 if ( phi->live_range != IR_INVALID_INDEX && phi->live_range > op_index )
                 {
-                    _stacked_across.emplace( check_index, stacked_index );
+                    unsigned op_index = _local_values.at( phi->local() ).def_index;
+                    _stacked_across.emplace( op_index, stacked_index );
                     instruction.across_count += 1;
                 }
 
@@ -453,49 +430,109 @@ void ir_alloc::allocate()
         stacked* instruction = &_stacked.at( stacked_index );
         if ( instruction->across_count == 0 )
         {
-            anchor_stacked( stacked_index, sweep_index );
+            anchor_stacked( instruction, sweep_index );
         }
     }
 
     // Allocate result registers in program order.
-    while ( ! _unpinned.empty() && sweep_index < _f->ops.size() )
+    while ( ! _unpinned.empty() || sweep_index < _f->ops.size() )
     {
         while ( ! _unpinned.empty() )
         {
-            unsigned op_index = _unpinned.top();
+            unpinned_value unpinned = _unpinned.top();
             _unpinned.pop();
-            allocate_result( op_index, sweep_index );
+            allocate( unpinned.op_index, unpinned.prefer, sweep_index );
         }
 
-        allocate_result( sweep_index, sweep_index );
+        allocate( sweep_index, IR_INVALID_REGISTER, sweep_index );
         sweep_index += 1;
     }
 }
 
-void ir_alloc::allocate_result( unsigned op_index, unsigned sweep_index )
+void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_index )
 {
     ir_op* op = &_f->ops.at( op_index );
-
-    if ( op->opcode == IR_REF || op->opcode == IR_PHI )
+    if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->opcode == IR_NOP )
     {
         return;
     }
 
-    if ( op->local() != IR_INVALID_LOCAL )
+    if ( op->local() == IR_INVALID_LOCAL )
     {
+        if ( op->mark || ! has_result( op ) )
+        {
+            return;
+        }
 
-
+        assert( op->r == IR_INVALID_REGISTER );
+        live_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
+        op->r = allocate_register( op_index, prefer, &value_range, 1, sweep_index );
+        unpin_operands( op_index, sweep_index );
     }
     else
     {
+        live_local* value = &_local_values.at( op->local() );
+        if ( value->mark || value->def_index != op_index )
+        {
+            return;
+        }
 
+        assert( value->r == IR_INVALID_REGISTER );
+        live_range* ranges = &_local_ranges.at( value->live_index );
+        value->r = allocate_register( value->def_index, prefer, ranges, value->live_count, sweep_index );
 
+        for ( unsigned j = 0; j < value->live_count; ++j )
+        {
+            unsigned def_index = ranges[ j ].lower;
+            ir_op* def = &_f->ops.at( def_index );
+            assert( def->local() == op->local() );
+            def->r = value->r;
+            unpin_operands( def_index, sweep_index );
+        }
     }
 }
 
-void ir_alloc::anchor_stacked( unsigned stacked_index, unsigned sweep_index )
+unsigned ir_alloc::allocate_register( unsigned def_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index )
 {
-    stacked* instruction = &_stacked.at( stacked_index );
+    // Pick register and allocate it.
+    unsigned r = prefer;
+
+    ir_op* def = &_f->ops.at( def_index );
+    if ( def->opcode == IR_PARAM )
+    {
+        ir_operand operand = _f->operands.at( def->oindex );
+        assert( operand.kind == IR_O_LOCAL_INDEX );
+        r = 1 + operand.index;
+    }
+
+    if ( r == IR_INVALID_REGISTER || ! _live_r->check_register( r, ranges, rcount ) )
+    {
+        r = _live_r->lowest_register( ranges, rcount );
+    }
+
+    _live_r->allocate_register( r, ranges, rcount );
+
+    // Anchor stacked instructions.
+    const auto irange = _stacked_across.equal_range( def_index );
+    for ( auto i = irange.first; i != irange.second; ++i )
+    {
+        assert( i->first == def_index );
+
+        stacked* instruction = &_stacked.at( i->second );
+        assert( instruction->across_count );
+
+        instruction->across_count -= 1;
+        if ( ! instruction->across_count )
+        {
+            anchor_stacked( instruction, sweep_index );
+        }
+    }
+
+    return r;
+}
+
+void ir_alloc::anchor_stacked( stacked* instruction, unsigned sweep_index )
+{
     assert( instruction->across_count == 0 );
     ir_op* op = &_f->ops.at( instruction->index );
 
@@ -524,6 +561,7 @@ void ir_alloc::anchor_stacked( unsigned stacked_index, unsigned sweep_index )
             return;
 
         unpack->s = op->s + op->ocount - 1;
+        unpin_operands( operand.index, sweep_index );
         op = unpack;
     }
 }
@@ -531,6 +569,10 @@ void ir_alloc::anchor_stacked( unsigned stacked_index, unsigned sweep_index )
 void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
 {
     ir_op* op = &_f->ops.at( op_index );
+    if ( ! is_pinning( op ) )
+    {
+        return;
+    }
 
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
@@ -559,7 +601,7 @@ void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
             if ( value->mark && value->live_range == op_index )
             {
                 value->mark = false;
-                def_index = _local_ranges.at( value->live_index ).lower;
+                def_index = value->def_index;
                 assert( _f->ops.at( def_index ).local() == pinned_op->local() );
             }
             else
@@ -571,7 +613,7 @@ void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
         assert( def_index != IR_INVALID_INDEX );
         if ( def_index <= sweep_index )
         {
-            _unpinned.push( def_index );
+            _unpinned.push( { def_index, op->s + j } );
         }
     }
 }
@@ -619,6 +661,38 @@ bool ir_alloc::is_pinning( const ir_op* op )
 
     default:
         return is_stacked( op ) && op->ocount > 1;
+    }
+}
+
+bool ir_alloc::has_result( const ir_op* op )
+{
+    switch ( op->opcode )
+    {
+    case IR_SET_KEY:
+    case IR_SET_INDEX:
+    case IR_SET_ENV:
+    case IR_APPEND:
+    case IR_EXTEND:
+    case IR_B_AND:
+    case IR_B_CUT:
+    case IR_BLOCK:
+    case IR_JUMP:
+    case IR_JUMP_TEST:
+    case IR_JUMP_THROW:
+    case IR_JUMP_RETURN:
+    case IR_JUMP_FOR_EACH:
+    case IR_JUMP_FOR_STEP:
+        return false;
+
+    case IR_CALL:
+    case IR_YCALL:
+    case IR_YIELD:
+    case IR_VARARG:
+    case IR_UNPACK:
+        return op->unpack() == 1;
+
+    default:
+        return true;
     }
 }
 

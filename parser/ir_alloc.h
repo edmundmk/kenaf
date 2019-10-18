@@ -40,9 +40,10 @@ private:
 
     struct live_local
     {
+        unsigned def_index;     // first definition of this local.
+        unsigned live_range;    // end of entire live range.
         unsigned live_index;    // index in value_ranges.
         unsigned live_count;    // count of entries in value_ranges.
-        unsigned live_range;    // end of entire live range.
         uint8_t r;              // r
         bool mark;              // mark.
     };
@@ -64,13 +65,15 @@ private:
     void mark_pinning();
 
     void allocate();
-    void allocate_result( unsigned op_index, unsigned sweep_index );
+    void allocate( unsigned op_index, unsigned prefer, unsigned sweep_index );
+    unsigned allocate_register( unsigned def_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index );
 
-    void anchor_stacked( unsigned stacked_index, unsigned sweep_index );
+    void anchor_stacked( stacked* instruction, unsigned sweep_index );
     void unpin_operands( unsigned op_index, unsigned sweep_index );
 
     bool is_stacked( const ir_op* op );
     bool is_pinning( const ir_op* op );
+    bool has_result( const ir_op* op );
 
     void debug_print();
 
@@ -86,7 +89,9 @@ private:
     std::unordered_multimap< unsigned, unsigned > _stacked_across;
 
     // Unpinned values in order of instruction index.
-    std::priority_queue< unsigned, std::vector< unsigned >, std::greater< unsigned > > _unpinned;
+    struct unpinned_value { unsigned op_index; unsigned prefer; };
+    struct unpinned_order { bool operator () ( const unpinned_value& a, const unpinned_value& b ) const { return a.op_index > b.op_index; } };
+    std::priority_queue< unpinned_value, std::vector< unpinned_value >, unpinned_order > _unpinned;
 
     // Stores ranges where registers have been allocated.
     std::unique_ptr< live_r > _live_r;
