@@ -500,11 +500,32 @@ void ir_alloc::anchor_stacked( unsigned stacked_index, unsigned sweep_index )
     ir_op* op = &_f->ops.at( instruction->index );
 
     // Determine stack top register.
-    assert( op->s == IR_INVALID_REGISTER );
-    op->s = _live_r->stack_top( instruction->index );
+    if ( op->unpack() != IR_UNPACK_ALL )
+    {
+        assert( op->s == IR_INVALID_REGISTER );
+        op->s = _live_r->stack_top( instruction->index );
+    }
 
     // Unpin all values pinned by this op.
     unpin_operands( instruction->index, sweep_index );
+
+    // Recursively set stack top register for unpack arguments.
+    while ( true )
+    {
+        if ( op->ocount < 1 )
+            return;
+
+        ir_operand operand = _f->operands.at( op->oindex + op->ocount - 1 );
+        if ( operand.kind != IR_O_OP )
+            return;
+
+        ir_op* unpack = &_f->ops.at( operand.index );
+        if ( unpack->unpack() != IR_UNPACK_ALL )
+            return;
+
+        unpack->s = op->s + op->ocount - 1;
+        op = unpack;
+    }
 }
 
 void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
@@ -567,20 +588,14 @@ bool ir_alloc::is_stacked( const ir_op* op )
     case IR_JUMP_RETURN:
     case IR_FOR_EACH_ITEMS:
         if ( op->unpack() > 1 )
-        {
             return true;
-        }
         if ( op->ocount > 1 )
-        {
             return true;
-        }
         if ( op->ocount == 1 )
         {
             ir_operand operand = _f->operands.at( op->oindex );
             if ( operand.kind == IR_O_OP && _f->ops.at( operand.index ).unpack() > 1 )
-            {
                 return true;
-            }
         }
         return false;
 
