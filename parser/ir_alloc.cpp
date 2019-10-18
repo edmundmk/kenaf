@@ -119,8 +119,11 @@ bool ir_alloc::live_r::check_register( unsigned r, const live_range* ranges, siz
     const r_range_list& rlist = _r.at( r );
     for ( size_t irange = 0; irange < rcount; ++irange )
     {
-        // Search for allocation range containing the incoming range.
         const live_range& lr = ranges[ irange ];
+        if ( lr.lower >= lr.upper )
+            continue;
+
+        // Search for allocation range containing the incoming range.
         auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
             []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
 
@@ -180,8 +183,11 @@ void ir_alloc::live_r::allocate_register( unsigned r, const live_range* ranges, 
     r_range_list& rlist = _r.at( r );
     for ( size_t irange = 0; irange < rcount; ++irange )
     {
-        // Find range containing incoming range.
         const live_range& lr = ranges[ irange ];
+        if ( lr.lower >= lr.upper )
+            continue;
+
+        // Find range containing incoming range.
         auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
             []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
 
@@ -233,6 +239,7 @@ void ir_alloc::alloc( ir_function* function )
 
     _local_values.clear();
     _local_ranges.clear();
+    _local_defs.clear();
     _stacked.clear();
     _stacked_across.clear();
     assert( _unpinned.empty() );
@@ -247,10 +254,6 @@ void ir_alloc::build_values()
     for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
         const ir_op* op = &_f->ops[ op_index ];
-        if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->local() == IR_INVALID_LOCAL )
-        {
-            continue;
-        }
 
         if ( op->opcode == IR_BLOCK )
         {
@@ -268,9 +271,15 @@ void ir_alloc::build_values()
             continue;
         }
 
+        if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->local() == IR_INVALID_LOCAL )
+        {
+            continue;
+        }
+
         if ( op->local() != IR_INVALID_LOCAL && op->live_range != IR_INVALID_INDEX )
         {
             _local_ranges.push_back( { op->local(), op_index, op->live_range } );
+            _local_defs.push_back( op_index );
         }
     }
 
@@ -291,6 +300,41 @@ void ir_alloc::build_values()
         }
     );
 
+    std::sort
+    (
+        _local_defs.begin(),
+        _local_defs.end(),
+        [this]( unsigned a, unsigned b )
+        {
+            return _f->ops.at( a ).local() < _f->ops.at( b ).local();
+        }
+    );
+
+    /*
+         Merge adjacent ranges.
+    */
+    unsigned next = _local_ranges.size() ? 1 : 0;
+    for ( unsigned live_index = 1; live_index < _local_ranges.size(); ++live_index )
+    {
+        live_range* pr = &_local_ranges[ next - 1 ];
+        live_range* lr = &_local_ranges[ live_index ];
+
+        if ( lr->lower >= lr->upper )
+        {
+            continue;
+        }
+
+        if ( pr->local_index == lr->local_index && pr->upper == lr->lower )
+        {
+            pr->upper = lr->upper;
+            continue;
+        }
+
+        _local_ranges[ next ] = *lr;
+        next += 1;
+    }
+    _local_ranges.resize( next );
+
     /*
         Build index.
     */
@@ -300,7 +344,7 @@ void ir_alloc::build_values()
         unsigned local_index = _local_ranges[ live_index ].local_index;
 
         live_local* value = &_local_values[ local_index ];
-        value->def_index = _local_ranges[ live_index ].lower;
+        value->op_index = _local_ranges[ live_index ].lower;
         value->live_range = IR_INVALID_REGISTER;
         value->live_index = live_index;
         value->live_count = 0;
@@ -314,6 +358,22 @@ void ir_alloc::build_values()
             ++live_index;
         }
     }
+    for ( unsigned defs_index = 0; defs_index < _local_defs.size(); )
+    {
+        unsigned local_index = _f->ops.at( _local_defs[ defs_index ] ).local();
+
+        live_local* value = &_local_values[ local_index ];
+        value->defs_index = defs_index;
+        value->defs_count = 0;
+
+        while ( defs_index < _local_defs.size() && _f->ops.at( _local_defs[ defs_index ] ).local() == local_index )
+        {
+            value->defs_count += 1;
+            ++defs_index;
+        }
+    }
+
+    debug_print();
 }
 
 void ir_alloc::mark_pinning()
@@ -356,7 +416,7 @@ void ir_alloc::mark_pinning()
 
                 if ( check_op->live_range != IR_INVALID_INDEX && check_op->live_range > op_index )
                 {
-                    unsigned op_index = check_op->local() == IR_INVALID_LOCAL ? check_index : _local_values.at( check_op->local() ).def_index;
+                    unsigned op_index = check_op->local() == IR_INVALID_LOCAL ? check_index : _local_values.at( check_op->local() ).op_index;
                     _stacked_across.emplace( op_index, stacked_index );
                     instruction.across_count += 1;
                 }
@@ -373,7 +433,7 @@ void ir_alloc::mark_pinning()
 
                 if ( phi->live_range != IR_INVALID_INDEX && phi->live_range > op_index )
                 {
-                    unsigned op_index = _local_values.at( phi->local() ).def_index;
+                    unsigned op_index = _local_values.at( phi->local() ).op_index;
                     _stacked_across.emplace( op_index, stacked_index );
                     instruction.across_count += 1;
                 }
@@ -472,18 +532,18 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_inde
     else
     {
         live_local* value = &_local_values.at( op->local() );
-        if ( value->mark || value->def_index != op_index )
+        if ( value->mark || value->op_index != op_index )
         {
             return;
         }
 
         assert( value->r == IR_INVALID_REGISTER );
         live_range* ranges = &_local_ranges.at( value->live_index );
-        value->r = allocate_register( value->def_index, prefer, ranges, value->live_count, sweep_index );
+        value->r = allocate_register( value->op_index, prefer, ranges, value->live_count, sweep_index );
 
-        for ( unsigned j = 0; j < value->live_count; ++j )
+        for ( unsigned j = 0; j < value->defs_count; ++j )
         {
-            unsigned def_index = ranges[ j ].lower;
+            unsigned def_index = _local_defs.at( value->defs_index + j );
             ir_op* def = &_f->ops.at( def_index );
             assert( def->local() == op->local() );
             def->r = value->r;
@@ -492,12 +552,12 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_inde
     }
 }
 
-unsigned ir_alloc::allocate_register( unsigned def_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index )
+unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index )
 {
     // Pick register and allocate it.
     unsigned r = prefer;
 
-    ir_op* def = &_f->ops.at( def_index );
+    ir_op* def = &_f->ops.at( op_index );
     if ( def->opcode == IR_PARAM )
     {
         ir_operand operand = _f->operands.at( def->oindex );
@@ -513,10 +573,10 @@ unsigned ir_alloc::allocate_register( unsigned def_index, unsigned prefer, live_
     _live_r->allocate_register( r, ranges, rcount );
 
     // Anchor stacked instructions.
-    const auto irange = _stacked_across.equal_range( def_index );
+    const auto irange = _stacked_across.equal_range( op_index );
     for ( auto i = irange.first; i != irange.second; ++i )
     {
-        assert( i->first == def_index );
+        assert( i->first == op_index );
 
         stacked* instruction = &_stacked.at( i->second );
         assert( instruction->across_count );
@@ -601,7 +661,7 @@ void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
             if ( value->mark && value->live_range == op_index )
             {
                 value->mark = false;
-                def_index = value->def_index;
+                def_index = value->op_index;
                 assert( _f->ops.at( def_index ).local() == pinned_op->local() );
             }
             else

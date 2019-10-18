@@ -40,10 +40,12 @@ private:
 
     struct live_local
     {
-        unsigned def_index;     // first definition of this local.
+        unsigned op_index;      // first definition of this local.
         unsigned live_range;    // end of entire live range.
-        unsigned live_index;    // index in value_ranges.
-        unsigned live_count;    // count of entries in value_ranges.
+        unsigned live_index;    // index in local_ranges.
+        unsigned live_count;    // count of entries in local_ranges.
+        unsigned defs_index;    // index in local_defs.
+        unsigned defs_count;    // count of entries in local_defs.
         uint8_t r;              // r
         bool mark;              // mark.
     };
@@ -66,7 +68,7 @@ private:
 
     void allocate();
     void allocate( unsigned op_index, unsigned prefer, unsigned sweep_index );
-    unsigned allocate_register( unsigned def_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index );
+    unsigned allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index );
 
     void anchor_stacked( stacked* instruction, unsigned sweep_index );
     void unpin_operands( unsigned op_index, unsigned sweep_index );
@@ -83,6 +85,7 @@ private:
     // Live ranges for local values, which have holes.
     std::vector< live_local > _local_values;
     std::vector< live_range > _local_ranges;
+    std::vector< unsigned > _local_defs;
 
     // Stacked instructions and the values that are live across them.
     std::vector< stacked > _stacked;
