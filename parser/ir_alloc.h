@@ -63,10 +63,11 @@ private:
 
     void build_values();
     void mark_pinning();
+    void allocate();
 
+    live_local* local_value( unsigned local_index );
     bool is_pinning( const ir_op* op );
     bool is_floated( const ir_op* op );
-    live_local* local_value( unsigned local_index );
 
     void debug_print_values();
 

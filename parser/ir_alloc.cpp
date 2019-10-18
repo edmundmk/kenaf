@@ -27,8 +27,8 @@ namespace kf
     the pinning instruction is allocated.
 
       - A pinning instruction is one of JUMP_RETURN, JUMP_FOR_SGEN, CALL,
-        YCALL, YIELD, MOV, or B_PHI.  These instructions pin operands which
-        have a live range that ends at the instruction.
+        YCALL, YIELD, MOV, B_DEF, or B_PHI.  These instructions pin operands
+        which have a live range that ends at the instruction.
 
     Values which are live *across* floated instructions are identified, and
     the number of live values across each floated instruction is counted.
@@ -215,8 +215,9 @@ void ir_alloc::alloc( ir_function* function )
     _f = function;
 
     build_values();
+    mark_pinning();
+    allocate();
     debug_print_values();
-//    mark_pinning();
 
     _value_locals.clear();
     _value_ranges.clear();
@@ -348,6 +349,9 @@ void ir_alloc::mark_pinning()
                 if ( operand.kind != IR_O_OP )
                     continue;
 
+                if ( op->opcode == IR_B_DEF && j == 0 )
+                    continue;
+
                 ir_op* pinned_op = &_f->ops.at( operand.index );
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
@@ -420,6 +424,10 @@ void ir_alloc::mark_pinning()
     }
 }
 
+void ir_alloc::allocate()
+{
+}
+
 ir_alloc::live_local* ir_alloc::local_value( unsigned local_index )
 {
     auto i = std::lower_bound
@@ -452,6 +460,7 @@ bool ir_alloc::is_pinning( const ir_op* op )
     case IR_YCALL:
     case IR_YIELD:
     case IR_MOV:
+    case IR_B_DEF:
     case IR_B_PHI:
         return true;
 
@@ -482,7 +491,7 @@ void ir_alloc::debug_print_values()
     {
         const live_local* local_value = &_value_locals[ i ];
         std::string_view name = _f->ast->locals.at( local_value->local_index ).name;
-        printf( "VALUE %u %.*s ↓%04X",  local_value->local_index, (int)name.size(), name.data(), local_value->live_range );
+        printf( "VALUE %u ↓%04X",  local_value->local_index, local_value->live_range );
 
         if ( local_value->r != IR_INVALID_REGISTER )
             printf( " r%02u", local_value->r );
@@ -496,7 +505,7 @@ void ir_alloc::debug_print_values()
         else
             printf( "  " );
 
-        printf( "\n" );
+        printf( " %.*s\n", (int)name.size(), name.data() );
 
         for ( unsigned j = 0; j < local_value->live_count; ++j )
         {
