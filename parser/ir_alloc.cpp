@@ -80,6 +80,7 @@ namespace kf
 ir_alloc::ir_alloc( source* source )
     :   _source( source )
 {
+    (void)_source;
 }
 
 ir_alloc::~ir_alloc()
