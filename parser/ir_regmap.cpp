@@ -9,6 +9,7 @@
 //
 
 #include "ir_regmap.h"
+#include <algorithm>
 #include "ir.h"
 
 namespace kf

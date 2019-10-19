@@ -318,7 +318,7 @@ void ir_alloc::mark_pinning()
                     continue;
 
                 ir_op* pinned_op = &_f->ops.at( operand.index );
-                bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1;
+                bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
                     if ( pinned_op->live_range == op_index || is_phi_def )
@@ -577,7 +577,7 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
 
         unsigned def_index = IR_INVALID_INDEX;
         ir_op* pinned_op = &_f->ops.at( operand.index );
-        bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1;
+        bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
         if ( pinned_op->local() == IR_INVALID_LOCAL )
         {
             if ( pinned_op->mark && ( pinned_op->live_range == op_index || is_phi_def ) )
