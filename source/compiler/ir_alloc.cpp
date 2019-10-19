@@ -79,6 +79,7 @@ namespace kf
 
 ir_alloc::ir_alloc( source* source )
     :   _source( source )
+    ,   _f( nullptr )
 {
     (void)_source;
 }
@@ -94,7 +95,6 @@ void ir_alloc::alloc( ir_function* function )
     build_values();
     mark_pinning();
     allocate();
-    debug_print();
 
     _local_values.clear();
     _local_ranges.clear();
@@ -231,8 +231,6 @@ void ir_alloc::build_values()
             ++defs_index;
         }
     }
-
-    debug_print();
 }
 
 void ir_alloc::mark_pinning()
@@ -484,9 +482,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_val
         r = _regmap.lowest( ranges, rcount );
     }
 
-    printf( "ALLOCATE: %04X %u %u\n", op_index, prefer, r );
     _regmap.allocate( r, ranges, rcount );
-    _regmap.debug_print();
 
     return r;
 }

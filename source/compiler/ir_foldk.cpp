@@ -18,6 +18,7 @@ namespace kf
 
 ir_foldk::ir_foldk( source* source )
     :   _source( source )
+    ,   _f( nullptr )
 {
 }
 

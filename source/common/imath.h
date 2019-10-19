@@ -27,9 +27,6 @@ double ibitand( double u, double v );
 double ibitxor( double u, double v );
 double ibitor( double u, double v );
 
-/*
-*/
-
 inline double ifloordiv( double u, double v )
 {
     return std::floor( u / v );

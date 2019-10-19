@@ -1,5 +1,5 @@
 //
-//  ir_emit.cpp
+//  compiler.cpp
 //
 //  Created by Edmund Kapusniak on 19/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,11 +8,15 @@
 //  full license information.
 //
 
-#include "ir_emit.h"
+#include "kenaf/compiler.h"
 
 namespace kf
 {
 
+bool compile( std::string_view source )
+{
+    return false;
+}
 
 }
 

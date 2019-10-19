@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef CODE_H
-#define CODE_H
+#ifndef KENAF_CODE_H
+#define KENAF_CODE_H
 
 /*
     This describes our bytecode, and a serialization of it.

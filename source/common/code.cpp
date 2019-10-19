@@ -8,7 +8,7 @@
 //  full license information.
 //
 
-#include "code.h"
+#include "kenaf/code.h"
 #include <stdio.h>
 
 namespace kf

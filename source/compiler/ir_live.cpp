@@ -16,6 +16,7 @@ namespace kf
 
 ir_live::ir_live( source* source )
     :   _source( source )
+    ,   _f( nullptr )
 {
     (void)_source;
 }

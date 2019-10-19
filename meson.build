@@ -15,28 +15,28 @@ lemon_buildsh = find_program( 'lemon.sh' )
 lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ lemon_program.path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
 
 sources = [
-    'common/code.cpp',
-    'parser/ast.cpp',
-    'parser/ast_resolve.cpp',
-    'parser/ir.cpp',
-    'parser/ir_alloc.cpp',
-    'parser/ir_build.cpp',
-    'parser/ir_emit.cpp',
-    'parser/ir_fold.cpp',
-    'parser/ir_foldk.cpp',
-    'parser/ir_live.cpp',
-    'parser/ir_regmap.cpp',
-    'parser/lexer.cpp',
-    'parser/source.cpp',
-    'parser/parser.cpp',
-    'runtime/heap.cpp',
+    'source/common/code.cpp',
+    'source/compiler/ast.cpp',
+    'source/compiler/ast_resolve.cpp',
+    'source/compiler/ir.cpp',
+    'source/compiler/ir_alloc.cpp',
+    'source/compiler/ir_build.cpp',
+    'source/compiler/ir_emit.cpp',
+    'source/compiler/ir_fold.cpp',
+    'source/compiler/ir_foldk.cpp',
+    'source/compiler/ir_live.cpp',
+    'source/compiler/ir_regmap.cpp',
+    'source/compiler/lexer.cpp',
+    'source/compiler/source.cpp',
+    'source/compiler/parser.cpp',
+    'source/runtime/heap.cpp',
 ]
 
-sources += lemon.process( 'parser/grammar.lemon' )
+sources += lemon.process( 'source/compiler/grammar.lemon' )
 
 libkenaf = library(
     'kenaf',
-    include_directories : include_directories( 'parser' ),
+    include_directories : include_directories( 'include', 'source/compiler' ),
     sources : sources,
     install : true
 )
@@ -48,7 +48,7 @@ sources = [
 kenaf = executable(
     'kenaf',
     sources : sources,
-    include_directories : libkenaf.private_dir_include(),
+    include_directories : include_directories( 'include' ),
     link_with : [ libkenaf ],
     install : true
 )

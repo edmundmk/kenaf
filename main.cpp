@@ -9,6 +9,8 @@
 //
 
 #include <stdlib.h>
+#include <kenaf/compiler.h>
+/*
 #include "parser/source.h"
 #include "parser/lexer.h"
 #include "parser/parser.h"
@@ -18,9 +20,12 @@
 #include "parser/ir_live.h"
 #include "parser/ir_foldk.h"
 #include "parser/ir_alloc.h"
+*/
 
 int main( int argc, char* argv[] )
 {
+    return EXIT_SUCCESS;
+/*
     kf::source source;
     source.filename = "[stdin]";
     FILE* f = stdin;
@@ -103,5 +108,6 @@ int main( int argc, char* argv[] )
     }
 
     return EXIT_SUCCESS;
+*/
 }
 

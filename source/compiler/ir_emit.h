@@ -16,7 +16,7 @@
 */
 
 #include "ir.h"
-#include "../common/code.h"
+#include "kenaf/code.h"
 
 namespace kf
 {
@@ -25,13 +25,15 @@ class ir_emit
 {
 public:
 
-    ir_emit();
+    ir_emit( source* source );
     ~ir_emit();
 
     void emit( ir_function* function );
 
 private:
 
+    source* _source;
+    ir_function* _f;
     std::vector< op > _i;
 
 };
