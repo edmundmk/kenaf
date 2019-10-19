@@ -20,6 +20,12 @@ int main( int argc, char* argv[] )
     }
 
     FILE* file = fopen( argv[ 1 ], "rb" );
+    if ( ! file )
+    {
+        fprintf( stderr, "cannot open script file '%s'\n", argv[ 1 ] );
+        return EXIT_FAILURE;
+    }
+
     fseek( file, 0, SEEK_END );
     std::vector< char > text( (size_t)ftell( file ) );
     fseek( file, 0, SEEK_SET );
