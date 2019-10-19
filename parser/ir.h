@@ -122,8 +122,6 @@ struct ir_operand;
 struct ir_block;
 struct ir_constant;
 struct ir_selector;
-struct ir_live_value;
-struct ir_live_range;
 
 typedef unsigned ir_block_index;
 
@@ -160,10 +158,6 @@ struct ir_function
     // Constant numbers and strings.
     std::vector< ir_constant > constants;
     std::vector< ir_selector > selectors;
-
-    // Live ranges of local and for loop variables.
-    std::vector< ir_live_value > live_values;
-    std::vector< ir_live_range > live_ranges;
 };
 
 /*
@@ -392,19 +386,6 @@ struct ir_selector
 {
     const char* text;
     size_t size;
-};
-
-struct ir_live_value
-{
-    ir_live_value_kind kind;    // Kind.
-    unsigned index;             // Local or block index.
-};
-
-struct ir_live_range
-{
-    unsigned index;             // Index of op that defines range.
-    unsigned lower;             // Lower index of live range.
-    unsigned upper;             // Upper index of live range.
 };
 
 }

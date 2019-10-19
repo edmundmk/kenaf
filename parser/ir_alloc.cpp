@@ -77,169 +77,6 @@ namespace kf
     order.
 */
 
-/*
-    This data structure holds the ranges at which each register is allocated.
-    Currently this is very simple - an array of lists of allocated ranges.
-    A more advanced data structure could potentially be more efficient.
-*/
-
-struct ir_alloc::live_r
-{
-    struct r_range
-    {
-        unsigned index : 31;
-        unsigned alloc : 1;
-    };
-
-    typedef std::vector< r_range > r_range_list;
-    std::vector< r_range_list > _r;
-
-    live_r();
-    ~live_r();
-
-    bool check_register( unsigned r, const live_range* ranges, size_t rcount ) const;
-    unsigned lowest_register( const live_range* ranges, size_t rcount ) const;
-    unsigned stack_top( unsigned index ) const;
-    void allocate_register( unsigned r, const live_range* ranges, size_t rcount );
-
-    void debug_print() const;
-
-};
-
-ir_alloc::live_r::live_r()
-{
-}
-
-ir_alloc::live_r::~live_r()
-{
-}
-
-bool ir_alloc::live_r::check_register( unsigned r, const live_range* ranges, size_t rcount ) const
-{
-    if ( r >= _r.size() )
-    {
-        return true;
-    }
-
-    const r_range_list& rlist = _r.at( r );
-    for ( size_t irange = 0; irange < rcount; ++irange )
-    {
-        const live_range& lr = ranges[ irange ];
-        if ( lr.lower >= lr.upper )
-            continue;
-
-        // Search for allocation range containing the incoming range.
-        auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
-            []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
-
-        // If this range is allocated, the incoming range interferes.
-        if ( i->alloc )
-        {
-            return false;
-        }
-
-        // If this range is not allocated, the next range must be.
-        ++i;
-        assert( i->alloc );
-
-        // If the next (allocated) range begins before the end of the incoming
-        // range, then the incoming range interferes.
-        if ( i->index < lr.upper )
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-unsigned ir_alloc::live_r::lowest_register( const live_range* ranges, size_t rcount ) const
-{
-    for ( unsigned r = 0; r < _r.size(); ++r )
-    {
-        if ( check_register( r, ranges, rcount ) )
-        {
-            return r;
-        }
-    }
-    return _r.size();
-}
-
-unsigned ir_alloc::live_r::stack_top( unsigned index ) const
-{
-    live_range range = { IR_INVALID_LOCAL, index, index + 1 };
-    unsigned r = _r.size();
-    while ( r && check_register( r - 1, &range, 1 ) )
-    {
-        r -= 1;
-    }
-    return r;
-}
-
-void ir_alloc::live_r::allocate_register( unsigned r, const live_range* ranges, size_t rcount )
-{
-    // Add ranges for registers if they don't exist.
-    while ( r >= _r.size() )
-    {
-        _r.push_back( { { 0, false }, { 0x7FFFFFFF, true } } );
-    }
-
-    // Insert each live range one by one.
-    r_range_list& rlist = _r.at( r );
-    for ( size_t irange = 0; irange < rcount; ++irange )
-    {
-        const live_range& lr = ranges[ irange ];
-        if ( lr.lower >= lr.upper )
-            continue;
-
-        // Find range containing incoming range.
-        auto i = --std::upper_bound( rlist.begin(), rlist.end(), lr.lower,
-            []( unsigned lr_lower, const r_range& rr ) { return lr_lower < rr.index; } );
-
-        assert( ! i->alloc );
-        if ( i->index != lr.lower )
-        {
-            // Split range, marking inserted range as allocated.
-            i = rlist.insert( i + 1, { lr.lower, true } );
-        }
-        else
-        {
-            // Mark this range as allocated.
-            i->alloc = true;
-        }
-
-        auto next = i; ++next;
-        assert( next->alloc );
-        if ( next->index > lr.upper )
-        {
-            // Split range again, marking inserted range as free.
-            i = rlist.insert( i + 1, { lr.upper, false } );
-        }
-        else
-        {
-            // Merge i and next.  Do this by simply erasing next.
-            rlist.erase( next );
-        }
-    }
-}
-
-void ir_alloc::live_r::debug_print() const
-{
-    for ( unsigned r = 0; r < _r.size(); ++r )
-    {
-        printf( "  r%u :: ", r );
-
-        const r_range_list& rlist = _r.at( r );
-        for ( size_t i = 0; i < rlist.size(); ++i )
-        {
-            const r_range& rr = rlist[ i ];
-            printf( "%s%04X", rr.alloc ? "," : ":", rr.index );
-        }
-
-        printf( "\n" );
-    }
-}
-
 ir_alloc::ir_alloc( source* source )
     :   _source( source )
 {
@@ -252,7 +89,6 @@ ir_alloc::~ir_alloc()
 void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
-    _live_r = std::make_unique< live_r >();
 
     build_values();
     mark_pinning();
@@ -265,7 +101,7 @@ void ir_alloc::alloc( ir_function* function )
     _stacked.clear();
     _stacked_across.clear();
     assert( _unpinned.empty() );
-    _live_r.reset();
+    _regmap.clear();
 }
 
 void ir_alloc::build_values()
@@ -312,7 +148,7 @@ void ir_alloc::build_values()
     (
         _local_ranges.begin(),
         _local_ranges.end(),
-        []( const live_range& a, const live_range& b )
+        []( const ir_value_range& a, const ir_value_range& b )
         {
             if ( a.local_index < b.local_index )
                 return true;
@@ -338,8 +174,8 @@ void ir_alloc::build_values()
     unsigned next = _local_ranges.size() ? 1 : 0;
     for ( unsigned live_index = 1; live_index < _local_ranges.size(); ++live_index )
     {
-        live_range* pr = &_local_ranges[ next - 1 ];
-        live_range* lr = &_local_ranges[ live_index ];
+        ir_value_range* pr = &_local_ranges[ next - 1 ];
+        ir_value_range* lr = &_local_ranges[ live_index ];
 
         if ( lr->lower >= lr->upper )
         {
@@ -365,7 +201,7 @@ void ir_alloc::build_values()
     {
         unsigned local_index = _local_ranges[ live_index ].local_index;
 
-        live_local* value = &_local_values[ local_index ];
+        local_value* value = &_local_values[ local_index ];
         value->op_index = _local_ranges[ live_index ].lower;
         value->live_range = IR_INVALID_REGISTER;
         value->live_index = live_index;
@@ -384,7 +220,7 @@ void ir_alloc::build_values()
     {
         unsigned local_index = _f->ops.at( _local_defs[ defs_index ] ).local();
 
-        live_local* value = &_local_values[ local_index ];
+        local_value* value = &_local_values[ local_index ];
         value->defs_index = defs_index;
         value->defs_count = 0;
 
@@ -492,7 +328,7 @@ void ir_alloc::mark_pinning()
                 }
                 else
                 {
-                    live_local* value = &_local_values.at( pinned_op->local() );
+                    local_value* value = &_local_values.at( pinned_op->local() );
                     if ( value->live_range == op_index || is_phi_def )
                     {
                         value->mark = true;
@@ -507,7 +343,7 @@ void ir_alloc::mark_pinning()
                 JUMP_FOR_SGEN/JUMP_FOR_EGEN local is pinned to the def.
             */
             assert( op->local() != IR_INVALID_LOCAL );
-            live_local* value = &_local_values.at( op->local() );
+            local_value* value = &_local_values.at( op->local() );
             assert( value->op_index == op_index );
             value->mark = true;
         }
@@ -567,7 +403,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
         assert( op->r == IR_INVALID_REGISTER );
         if ( has_result( op ) )
         {
-            live_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
+            ir_value_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
             op->r = allocate_register( op_index, prefer, &value_range, 1 );
         }
         across_stacked( op_index );
@@ -575,14 +411,14 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
     }
     else
     {
-        live_local* value = &_local_values.at( op->local() );
+        local_value* value = &_local_values.at( op->local() );
         if ( value->mark || value->op_index != op_index )
         {
             return;
         }
 
         assert( value->r == IR_INVALID_REGISTER );
-        live_range* ranges = &_local_ranges.at( value->live_index );
+        ir_value_range* ranges = &_local_ranges.at( value->live_index );
         value->r = allocate_register( value->op_index, prefer, ranges, value->live_count );
         across_stacked( op_index );
 
@@ -597,7 +433,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
     }
 }
 
-unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount )
+unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_value_range* ranges, size_t rcount )
 {
     assert( prefer <= IR_INVALID_REGISTER );
     ir_op* def = &_f->ops.at( op_index );
@@ -616,7 +452,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
             ok = true;
             for ( unsigned j = 0; j < hidden_count; ++j )
             {
-                if ( ! _live_r->check_register( r + j, ranges, rcount ) )
+                if ( ! _regmap.check( r + j, ranges, rcount ) )
                 {
                     r = r + j + 1;
                     ok = false;
@@ -627,7 +463,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
 
         for ( unsigned j = 0; j < hidden_count; ++j )
         {
-            _live_r->allocate_register( r + j, ranges, rcount );
+            _regmap.check( r + j, ranges, rcount );
         }
 
         return r;
@@ -642,14 +478,14 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
         r = 1 + operand.index;
     }
 
-    if ( r == IR_INVALID_REGISTER || ! _live_r->check_register( r, ranges, rcount ) )
+    if ( r == IR_INVALID_REGISTER || ! _regmap.check( r, ranges, rcount ) )
     {
-        r = _live_r->lowest_register( ranges, rcount );
+        r = _regmap.lowest( ranges, rcount );
     }
 
     printf( "ALLOCATE: %04X %u %u\n", op_index, prefer, r );
-    _live_r->allocate_register( r, ranges, rcount );
-    _live_r->debug_print();
+    _regmap.allocate( r, ranges, rcount );
+    _regmap.debug_print();
 
     return r;
 }
@@ -681,7 +517,7 @@ void ir_alloc::anchor_stacked( stacked* instruction )
     if ( op->unpack() != IR_UNPACK_ALL )
     {
         assert( op->s == IR_INVALID_REGISTER );
-        op->s = _live_r->stack_top( instruction->index );
+        op->s = _regmap.top( instruction->index );
         unpin_stacked( op, instruction->index );
     }
 
@@ -713,7 +549,7 @@ void ir_alloc::unpin_stacked( const ir_op* op, unsigned op_index )
     if ( op->opcode == IR_JUMP_FOR_SGEN || op->opcode == IR_JUMP_FOR_EGEN )
     {
         assert( op->local() != IR_INVALID_LOCAL );
-        live_local* value = &_local_values.at( op->local() );
+        local_value* value = &_local_values.at( op->local() );
         assert( value->op_index == op_index );
         assert( value->mark );
         value->mark = false;
@@ -756,7 +592,7 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
         }
         else
         {
-            live_local* value = &_local_values.at( pinned_op->local() );
+            local_value* value = &_local_values.at( pinned_op->local() );
             if ( value->mark && ( value->live_range == op_index || is_phi_def ) )
             {
                 value->mark = false;
@@ -780,7 +616,6 @@ bool ir_alloc::is_stacked( const ir_op* op )
     {
     case IR_CALL:
     case IR_YCALL:
-    case IR_YIELD:
     case IR_VARARG:
     case IR_UNPACK:
     case IR_JUMP_RETURN:
@@ -797,6 +632,7 @@ bool ir_alloc::is_stacked( const ir_op* op )
         }
         return false;
 
+    case IR_YIELD:
     case IR_EXTEND:
     case IR_JUMP_FOR_SGEN:
     case IR_JUMP_FOR_EGEN:
@@ -857,32 +693,32 @@ void ir_alloc::debug_print() const
 {
     for ( unsigned i = 0; i < _local_values.size(); ++i )
     {
-        const live_local* local_value = &_local_values[ i ];
-        if ( ! local_value->live_count )
+        const local_value* value = &_local_values[ i ];
+        if ( ! value->live_count )
         {
             continue;
         }
 
         std::string_view name = _f->ast->locals.at( i ).name;
-        printf( "VALUE ↓%04X",  local_value->live_range );
+        printf( "VALUE ↓%04X",  value->live_range );
 
-        if ( local_value->mark )
+        if ( value->mark )
             printf( " !" );
-        else if ( local_value->r != IR_INVALID_REGISTER )
+        else if ( value->r != IR_INVALID_REGISTER )
             printf( " r" );
         else
             printf( "  " );
 
-        if ( local_value->r != IR_INVALID_REGISTER )
-            printf( "%02u", local_value->r );
+        if ( value->r != IR_INVALID_REGISTER )
+            printf( "%02u", value->r );
         else
             printf( "  " );
 
         printf( " %u %.*s\n", i, (int)name.size(), name.data() );
 
-        for ( unsigned j = 0; j < local_value->live_count; ++j )
+        for ( unsigned j = 0; j < value->live_count; ++j )
         {
-            const live_range* local_range = &_local_ranges[ local_value->live_index + j ];
+            const ir_value_range* local_range = &_local_ranges[ value->live_index + j ];
             printf( "  :%04X ↓%04X\n", local_range->lower, local_range->upper );
         }
     }

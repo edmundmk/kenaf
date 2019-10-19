@@ -21,6 +21,7 @@
 #include <vector>
 #include <unordered_map>
 #include <queue>
+#include "ir_regmap.h"
 
 namespace kf
 {
@@ -38,9 +39,7 @@ private:
 
     enum unpin_rs { UNPIN_R, UNPIN_S };
 
-    struct live_r;
-
-    struct live_local
+    struct local_value
     {
         unsigned op_index;      // first definition of this local.
         unsigned live_range;    // end of entire live range.
@@ -50,13 +49,6 @@ private:
         unsigned defs_count;    // count of entries in local_defs.
         uint8_t r;              // r
         bool mark;              // mark.
-    };
-
-    struct live_range
-    {
-        unsigned local_index;   // local index.
-        unsigned lower;         // instruction value becomes live/block start.
-        unsigned upper;         // instruction value dies/block end.
     };
 
     struct stacked
@@ -70,7 +62,7 @@ private:
 
     void allocate();
     void allocate( unsigned op_index, unsigned prefer );
-    unsigned allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount );
+    unsigned allocate_register( unsigned op_index, unsigned prefer, ir_value_range* ranges, size_t rcount );
 
     void across_stacked( unsigned op_index );
     void anchor_stacked( stacked* instruction );
@@ -89,8 +81,8 @@ private:
     ir_function* _f;
 
     // Live ranges for local values, which have holes.
-    std::vector< live_local > _local_values;
-    std::vector< live_range > _local_ranges;
+    std::vector< local_value > _local_values;
+    std::vector< ir_value_range > _local_ranges;
     std::vector< unsigned > _local_defs;
 
     // Stacked instructions and the values that are live across them.
@@ -103,7 +95,7 @@ private:
     std::priority_queue< unpinned_value, std::vector< unpinned_value >, unpinned_order > _unpinned;
 
     // Stores ranges where registers have been allocated.
-    std::unique_ptr< live_r > _live_r;
+    ir_regmap _regmap;
 };
 
 }

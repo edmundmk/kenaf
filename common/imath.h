@@ -8,11 +8,27 @@
 //  full license information.
 //
 
-#ifndef IMATH_H
-#define IMATH_H
+#ifndef KF_IMATH_H
+#define KF_IMATH_H
 
 #include <stdint.h>
 #include <cmath>
+
+namespace kf
+{
+
+double ifloordiv( double u, double v );
+double ifloormod( double u, double v );
+double ibitnot( double u );
+double ilshift( double u, double v );
+double irshift( double u, double v );
+double iashift( double u, double v );
+double ibitand( double u, double v );
+double ibitxor( double u, double v );
+double ibitor( double u, double v );
+
+/*
+*/
 
 inline double ifloordiv( double u, double v )
 {
@@ -66,6 +82,8 @@ inline double ibitxor( double u, double v )
 inline double ibitor( double u, double v )
 {
     return ibitint( u ) | ibitint( v );
+}
+
 }
 
 #endif

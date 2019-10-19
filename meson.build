@@ -24,6 +24,7 @@ sources = [
     'parser/ir_fold.cpp',
     'parser/ir_foldk.cpp',
     'parser/ir_live.cpp',
+    'parser/ir_regmap.cpp',
     'parser/lexer.cpp',
     'parser/source.cpp',
     'parser/parser.cpp',
