@@ -90,6 +90,7 @@ enum opcode : uint8_t
 
     OP_GET_GLOBAL,      // r = s[c]                 | G | r |   c   |
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |
+    OP_GET_METHOD,      // r = a[ s[b] ], r+1 = a   | G | r | a | b |
     OP_SET_KEY,         // a[ s[b] ] = r            | G | r | a | b |
     OP_GET_INDEX,       // r = a[ b ]               | G | r | a | b |
     OP_GET_INDEXK,      // r = a[ k[b] ]            | G | r | a | b |
