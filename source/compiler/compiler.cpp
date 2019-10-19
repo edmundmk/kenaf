@@ -101,10 +101,7 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
 
     // Construct code unit.
     code_unit unit;
-    unit.script.magic = CODE_MAGIC;
-    unit.script.function_count = script->functions.size();
     unit.script.debug_script_name = unit.debug_heap.size();
-    unit.script.debug_newline_count = source.newlines.size();
     unit.debug_newlines = source.newlines;
     unit.debug_heap.insert( unit.debug_heap.end(), source.filename.begin(), source.filename.end() );
     unit.debug_heap.push_back( '\0' );

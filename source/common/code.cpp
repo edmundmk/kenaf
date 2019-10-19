@@ -167,8 +167,8 @@ const char* const OPCODE_PRINT[] =
 
 void code_script::debug_print() const
 {
-    const char* heap = this->debug_heap();
-    printf( "SCRIPT %s\n", heap + debug_script_name );
+    const char* debug_heap = this->debug_heap();
+    printf( "SCRIPT %s\n", debug_heap + debug_script_name );
     for ( const code_function* function = functions(); function; function = function->next() )
     {
         function->debug_print( this );
@@ -287,7 +287,7 @@ void code_function::debug_print( const code_script* script ) const
 
 void code_debug_function::debug_print( const code_script* script ) const
 {
-    const char* heap = script->heap();
+    const char* debug_heap = script->debug_heap();
     const code_debug_variable* variables = this->variables();
     const code_debug_var_span* var_spans = this->var_spans();
 
@@ -295,7 +295,7 @@ void code_debug_function::debug_print( const code_script* script ) const
     for ( unsigned i = 0; i < variable_count; ++i )
     {
         const code_debug_variable& v = variables[ i ];
-        printf( "    %u : [%u] %s\n", i, v.r, heap + v.variable_name );
+        printf( "    %u : [%u] %s\n", i, v.r, debug_heap + v.variable_name );
     }
 
     printf( "  VAR SPANS:\n" );

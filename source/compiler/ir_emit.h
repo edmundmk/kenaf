@@ -32,9 +32,12 @@ public:
 
 private:
 
+    void emit_constants();
+
     source* _source;
     code_unit* _unit;
     ir_function* _f;
+    std::unique_ptr< code_function_unit > _u;
     std::vector< op > _i;
 
 };
