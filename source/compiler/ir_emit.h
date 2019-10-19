@@ -16,7 +16,7 @@
 */
 
 #include "ir.h"
-#include "kenaf/code.h"
+#include "code_unit.h"
 
 namespace kf
 {

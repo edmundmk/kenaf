@@ -35,13 +35,13 @@ struct code_unit
 struct code_function_unit
 {
     code_function function;
-    std::vector< ops > ops;
+    std::vector< op > ops;
     std::vector< code_constant > constants;
     std::vector< code_selector > selectors;
     code_debug_function debug;
     std::vector< uint32_t > debug_slocs;
     std::vector< code_debug_variable > debug_variables;
-    std::vector< code_debug_var_spen > debug_var_spans;
+    std::vector< code_debug_var_span > debug_var_spans;
 };
 
 }
