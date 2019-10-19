@@ -32,7 +32,7 @@ source::~source()
     }
 }
 
-void source::append( void* data, size_t size )
+void source::append( const void* data, size_t size )
 {
     text.insert( text.end() - SOURCE_LOOKAHEAD, (char*)data, (char*)data + size );
 }
@@ -99,7 +99,7 @@ void source::warning( srcloc sloc, const char* message, va_list ap )
     diagnostic( WARNING, sloc, message, ap );
 }
 
-void source::diagnostic( source_diagnostic_kind kind, srcloc sloc, const char* message, va_list ap )
+void source::diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap )
 {
     va_list aq;
 
@@ -114,7 +114,8 @@ void source::diagnostic( source_diagnostic_kind kind, srcloc sloc, const char* m
     va_end( aq );
 
     text.pop_back();
-    diagnostics.push_back( { kind, location( sloc ), std::move( text ) } );
+    source_location l = location( sloc );
+    diagnostics.push_back( { kind, l.line, l.column, std::move( text ) } );
     has_error = has_error || kind == ERROR;
 }
 

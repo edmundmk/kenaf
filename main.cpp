@@ -10,104 +10,40 @@
 
 #include <stdlib.h>
 #include <kenaf/compiler.h>
-/*
-#include "parser/source.h"
-#include "parser/lexer.h"
-#include "parser/parser.h"
-#include "parser/ast_resolve.h"
-#include "parser/ir_build.h"
-#include "parser/ir_fold.h"
-#include "parser/ir_live.h"
-#include "parser/ir_foldk.h"
-#include "parser/ir_alloc.h"
-*/
 
 int main( int argc, char* argv[] )
 {
-    return EXIT_SUCCESS;
-/*
-    kf::source source;
-    source.filename = "[stdin]";
-    FILE* f = stdin;
-
-    if ( argc > 1 )
+    if ( argc < 2 )
     {
-        source.filename = argv[ 1 ];
-        f = fopen( argv[ 1 ], "rb" );
-        if ( ! f )
-        {
-            fprintf( stderr, "unable to open script: %s\n", argv[ 1 ] );
-            return EXIT_FAILURE;
-        }
+        fprintf( stderr, "usage: kenaf script\n" );
+        return EXIT_FAILURE;
     }
 
-    std::unique_ptr< char[] > buffer( new char[ 1024 ] );
-    while ( true )
+    FILE* file = fopen( argv[ 1 ], "rb" );
+    fseek( file, 0, SEEK_END );
+    std::vector< char > text( (size_t)ftell( file ) );
+    fseek( file, 0, SEEK_SET );
+    fread( text.data(), 1, text.size(), file );
+    fclose( file );
+
+    unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC;
+    kf::compile_result result = kf::compile( argv[ 1 ], std::string_view( text.data(), text.size() ), debug_print );
+
+    for ( size_t i = 0; i < result.diagnostic_count(); ++i )
     {
-        size_t read = fread( buffer.get(), 1, 1024, f );
-        source.append( buffer.get(), read );
-        if ( read < 1024 )
-            break;
-    }
-    buffer.reset();
-
-    if ( f != stdin )
-    {
-        fclose( f );
-    }
-
-    kf::lexer lexer( &source );
-    kf::parser parser( &source, &lexer );
-    std::unique_ptr< kf::ast_script > ast_script = parser.parse();
-
-    if ( ! source.has_error )
-    {
-        kf::ast_resolve resolve( &source, ast_script.get() );
-        resolve.resolve();
-//        ast_script->debug_print();
-    }
-
-    if ( ! source.has_error )
-    {
-        kf::ir_build ir_build( &source );
-        kf::ir_fold ir_fold( &source );
-        kf::ir_live ir_live( &source );
-        kf::ir_foldk ir_foldk( &source );
-        kf::ir_alloc ir_alloc( &source );
-
-        for ( const auto& function : ast_script->functions )
-        {
-            std::unique_ptr< kf::ir_function > ir = ir_build.build( function.get() );
-            if ( ! ir )
-            {
-                continue;
-            }
-
-            ir_fold.fold( ir.get() );
-            ir_live.live( ir.get() );
-            ir_foldk.foldk( ir.get() );
-            ir_live.live( ir.get() );
-            ir_alloc.alloc( ir.get() );
-
-            ir->debug_print();
-        }
-    }
-
-    for ( const kf::source_diagnostic& diagnostic : source.diagnostics )
-    {
+        const kf::diagnostic& d = result.diagnostic( i );
         fprintf
         (
             stderr,
             "%s:%u:%u: %s: %s\n",
-            source.filename.c_str(),
-            diagnostic.line_info.line,
-            diagnostic.line_info.column,
-            diagnostic.kind == kf::ERROR ? "error" : "warning",
-            diagnostic.message.c_str()
+            argv[ 1 ],
+            d.line,
+            d.column,
+            d.kind == kf::ERROR ? "error" : "warning",
+            d.message.c_str()
         );
     }
 
-    return EXIT_SUCCESS;
-*/
+    return result ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 

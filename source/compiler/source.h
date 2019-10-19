@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include "kenaf/compiler.h"
 
 #if defined( __GNUC__ )
 #define PRINTF_FORMAT( x, y ) __attribute__(( format( printf, x, y ) ))
@@ -47,23 +48,6 @@ struct source_string
 };
 
 /*
-    Diagnostic messages are stored along with the text.
-*/
-
-enum source_diagnostic_kind
-{
-    ERROR,
-    WARNING,
-};
-
-struct source_diagnostic
-{
-    source_diagnostic_kind kind;
-    source_location line_info;
-    std::string message;
-};
-
-/*
     Computers are not hurting for memory.  A source object holds:
 
       - The entire source text of a script.
@@ -82,7 +66,7 @@ struct source
     source();
     ~source();
 
-    void append( void* data, size_t size );
+    void append( const void* data, size_t size );
     size_t size() const;
 
     void newline( srcloc sloc );
@@ -95,13 +79,13 @@ struct source
     void error( srcloc sloc, const char* message, va_list ap );
     void warning( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
     void warning( srcloc sloc, const char* message, va_list ap );
-    void diagnostic( source_diagnostic_kind kind, srcloc sloc, const char* message, va_list ap );
+    void diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap );
 
     std::string filename;
     std::vector< char > text;
     std::vector< srcloc > newlines;
     std::vector< source_string* > strings;
-    std::vector< source_diagnostic > diagnostics;
+    std::vector< struct diagnostic > diagnostics;
     bool has_error;
 
 };
