@@ -450,7 +450,10 @@ ir_operand ir_build::visit( node_index node )
 
     case AST_EXPR_ARRAY:
     {
-        ir_operand array = emit( node->sloc, IR_NEW_ARRAY, 0 );
+        _o.push_back( { IR_O_IMMEDIATE, 0 } );
+        ir_operand array = emit( node->sloc, IR_NEW_ARRAY, 1 );
+
+        unsigned elcount = 0;
         for ( node_index el = child_node( node ); el.index < node.index; el = next_node( el ) )
         {
             _o.push_back( array );
@@ -458,19 +461,28 @@ ir_operand ir_build::visit( node_index node )
             {
                 _o.push_back( visit( el ) );
                 emit( node->sloc, IR_APPEND, 2 );
+                elcount += 1;
             }
             else
             {
                 _o.push_back( expr_unpack( el, IR_UNPACK_ALL ) );
                 emit( node->sloc, IR_EXTEND, 2 );
+                elcount = ( elcount + 31 ) & ~(unsigned)31;
             }
         }
+
+        ir_operand* operand = &_f->operands.at( _f->ops.at( array.index ).oindex );
+        operand->index = elcount;
+
         return array;
     }
 
     case AST_EXPR_TABLE:
     {
+        _o.push_back( { IR_O_IMMEDIATE, 0 } );
         ir_operand table = emit( node->sloc, IR_NEW_TABLE, 0 );
+
+        unsigned kvcount = 0;
         for ( node_index kv = child_node( node ); kv.index < node.index; kv = next_node( kv ) )
         {
             assert( kv->kind == AST_TABLE_KEY );
@@ -480,7 +492,12 @@ ir_operand ir_build::visit( node_index node )
             _o.push_back( visit( k ) );
             _o.push_back( visit( v ) );
             emit( node->sloc, IR_SET_INDEX, 3 );
+            kvcount += 1;
         }
+
+        ir_operand* operand = &_f->operands.at( _f->ops.at( table.index ).oindex );
+        operand->index = kvcount;
+
         return table;
     }
 
