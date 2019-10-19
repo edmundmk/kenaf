@@ -99,6 +99,8 @@ struct ir_alloc::live_r
     unsigned stack_top( unsigned index ) const;
     void allocate_register( unsigned r, const live_range* ranges, size_t rcount );
 
+    void debug_print() const;
+
 };
 
 ir_alloc::live_r::live_r()
@@ -215,6 +217,23 @@ void ir_alloc::live_r::allocate_register( unsigned r, const live_range* ranges, 
             // Merge i and next.  Do this by simply erasing next.
             rlist.erase( next );
         }
+    }
+}
+
+void ir_alloc::live_r::debug_print() const
+{
+    for ( unsigned r = 0; r < _r.size(); ++r )
+    {
+        printf( "  r%u :: ", r );
+
+        const r_range_list& rlist = _r.at( r );
+        for ( size_t i = 0; i < rlist.size(); ++i )
+        {
+            const r_range& rr = rlist[ i ];
+            printf( "%s%04X", rr.alloc ? "," : ":", rr.index );
+        }
+
+        printf( "\n" );
     }
 }
 
@@ -490,26 +509,32 @@ void ir_alloc::allocate()
         stacked* instruction = &_stacked.at( stacked_index );
         if ( instruction->across_count == 0 )
         {
-            anchor_stacked( instruction, sweep_index );
+            anchor_stacked( instruction );
         }
     }
 
     // Allocate result registers in program order.
     while ( ! _unpinned.empty() || sweep_index < _f->ops.size() )
     {
-        while ( ! _unpinned.empty() )
+        if ( _unpinned.empty() || _unpinned.top().op_index > sweep_index )
+        {
+            allocate( sweep_index, IR_INVALID_REGISTER );
+            sweep_index += 1;
+        }
+        else
         {
             unpinned_value unpinned = _unpinned.top();
             _unpinned.pop();
-            allocate( unpinned.op_index, unpinned.prefer, sweep_index );
+            allocate( unpinned.op_index, unpinned.prefer );
+            if ( unpinned.op_index == sweep_index )
+            {
+                sweep_index += 1;
+            }
         }
-
-        allocate( sweep_index, IR_INVALID_REGISTER, sweep_index );
-        sweep_index += 1;
     }
 }
 
-void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_index )
+void ir_alloc::allocate( unsigned op_index, unsigned prefer )
 {
     ir_op* op = &_f->ops.at( op_index );
     if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->opcode == IR_NOP )
@@ -526,8 +551,8 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_inde
 
         assert( op->r == IR_INVALID_REGISTER );
         live_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
-        op->r = allocate_register( op_index, prefer, &value_range, 1, sweep_index );
-        unpin_operands( op_index, sweep_index );
+        op->r = allocate_register( op_index, prefer, &value_range, 1 );
+        unpin_move( op, op_index );
     }
     else
     {
@@ -539,7 +564,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_inde
 
         assert( value->r == IR_INVALID_REGISTER );
         live_range* ranges = &_local_ranges.at( value->live_index );
-        value->r = allocate_register( value->op_index, prefer, ranges, value->live_count, sweep_index );
+        value->r = allocate_register( value->op_index, prefer, ranges, value->live_count );
 
         for ( unsigned j = 0; j < value->defs_count; ++j )
         {
@@ -547,13 +572,15 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer, unsigned sweep_inde
             ir_op* def = &_f->ops.at( def_index );
             assert( def->local() == op->local() );
             def->r = value->r;
-            unpin_operands( def_index, sweep_index );
+            unpin_move( def, def_index );
         }
     }
 }
 
-unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index )
+unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount )
 {
+    assert( prefer <= IR_INVALID_REGISTER );
+
     // Pick register and allocate it.
     unsigned r = prefer;
 
@@ -570,7 +597,9 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
         r = _live_r->lowest_register( ranges, rcount );
     }
 
+    printf( "ALLOCATE: %04X %u %u\n", op_index, prefer, r );
     _live_r->allocate_register( r, ranges, rcount );
+    _live_r->debug_print();
 
     // Anchor stacked instructions.
     const auto irange = _stacked_across.equal_range( op_index );
@@ -584,14 +613,14 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
         instruction->across_count -= 1;
         if ( ! instruction->across_count )
         {
-            anchor_stacked( instruction, sweep_index );
+            anchor_stacked( instruction );
         }
     }
 
     return r;
 }
 
-void ir_alloc::anchor_stacked( stacked* instruction, unsigned sweep_index )
+void ir_alloc::anchor_stacked( stacked* instruction )
 {
     assert( instruction->across_count == 0 );
     ir_op* op = &_f->ops.at( instruction->index );
@@ -601,10 +630,8 @@ void ir_alloc::anchor_stacked( stacked* instruction, unsigned sweep_index )
     {
         assert( op->s == IR_INVALID_REGISTER );
         op->s = _live_r->stack_top( instruction->index );
+        unpin_stacked( op, instruction->index );
     }
-
-    // Unpin all values pinned by this op.
-    unpin_operands( instruction->index, sweep_index );
 
     // Recursively set stack top register for unpack arguments.
     while ( true )
@@ -621,19 +648,28 @@ void ir_alloc::anchor_stacked( stacked* instruction, unsigned sweep_index )
             return;
 
         unpack->s = op->s + op->ocount - 1;
-        unpin_operands( operand.index, sweep_index );
+        unpin_stacked( unpack, operand.index );
         op = unpack;
     }
 }
 
-void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
+void ir_alloc::unpin_stacked( const ir_op* op, unsigned op_index )
 {
-    ir_op* op = &_f->ops.at( op_index );
-    if ( ! is_pinning( op ) )
-    {
-        return;
-    }
+    assert( op->s != IR_INVALID_REGISTER );
+    unpin_operands( op, op_index, UNPIN_S );
+}
 
+void ir_alloc::unpin_move( const ir_op* op, unsigned op_index )
+{
+    if ( op->opcode == IR_MOV || op->opcode == IR_B_DEF || op->opcode == IR_B_PHI )
+    {
+        assert( op->r != IR_INVALID_REGISTER );
+        unpin_operands( op, op_index, UNPIN_R );
+    }
+}
+
+void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
+{
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
         ir_operand operand = _f->operands.at( op->oindex + j );
@@ -671,10 +707,7 @@ void ir_alloc::unpin_operands( unsigned op_index, unsigned sweep_index )
         }
 
         assert( def_index != IR_INVALID_INDEX );
-        if ( def_index <= sweep_index )
-        {
-            _unpinned.push( { def_index, op->s + j } );
-        }
+        _unpinned.push( { def_index, rs == UNPIN_R ? op->r : op->s + j } );
     }
 }
 
@@ -756,7 +789,7 @@ bool ir_alloc::has_result( const ir_op* op )
     }
 }
 
-void ir_alloc::debug_print()
+void ir_alloc::debug_print() const
 {
     for ( unsigned i = 0; i < _local_values.size(); ++i )
     {

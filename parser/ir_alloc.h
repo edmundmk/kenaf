@@ -36,6 +36,8 @@ public:
 
 private:
 
+    enum unpin_rs { UNPIN_R, UNPIN_S };
+
     struct live_r;
 
     struct live_local
@@ -67,17 +69,19 @@ private:
     void mark_pinning();
 
     void allocate();
-    void allocate( unsigned op_index, unsigned prefer, unsigned sweep_index );
-    unsigned allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount, unsigned sweep_index );
+    void allocate( unsigned op_index, unsigned prefer );
+    unsigned allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount );
 
-    void anchor_stacked( stacked* instruction, unsigned sweep_index );
-    void unpin_operands( unsigned op_index, unsigned sweep_index );
+    void anchor_stacked( stacked* instruction );
+    void unpin_stacked( const ir_op* op, unsigned op_index );
+    void unpin_move( const ir_op* op, unsigned op_index );
+    void unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs );
 
     bool is_stacked( const ir_op* op );
     bool is_pinning( const ir_op* op );
     bool has_result( const ir_op* op );
 
-    void debug_print();
+    void debug_print() const;
 
     source* _source;
     ir_function* _f;

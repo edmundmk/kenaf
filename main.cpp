@@ -59,7 +59,7 @@ int main( int argc, char* argv[] )
     {
         kf::ast_resolve resolve( &source, ast_script.get() );
         resolve.resolve();
-        ast_script->debug_print();
+//        ast_script->debug_print();
     }
 
     if ( ! source.has_error )
