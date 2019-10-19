@@ -21,6 +21,7 @@ sources = [
     'parser/ir.cpp',
     'parser/ir_alloc.cpp',
     'parser/ir_build.cpp',
+    'parser/ir_emit.cpp',
     'parser/ir_fold.cpp',
     'parser/ir_foldk.cpp',
     'parser/ir_live.cpp',
