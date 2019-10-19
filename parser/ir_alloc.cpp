@@ -33,10 +33,10 @@ namespace kf
     produce more than one value in adjacent registers.  This is:
 
       - Call/return instructions CALL, YCALL, and YIELD.
-      - VARARG.
+      - VARARG generates a value list.
       - Array UNPACK and EXTEND.
-      - JUMP_RETURN
-      - JUMP_FOR_SGEN consumes three values.
+      - JUMP_RETURN consumes a value list.
+      - JUMP_FOR_SGEN and JUMP_FOR_EGEN, as hidden variables are adjacent.
       - FOR_EACH_ITEMS generates a value list.
 
     The two registers are not necessarily related.  We can always shuffle
@@ -55,6 +55,9 @@ namespace kf
         and JUMP_FOR_SGEN.
       - An instruction which passes through its operand unchanged, i.e. MOV,
         B_DEF, or B_PHI.
+
+    As a special case, the hidden loop variable is pinned to JUMP_FOR_SGEN or
+    JUMP_FOR_EGEN.
 
     Our register allocator is greedy.  Once a register has been allocated to a
     value, we never backtrack.
@@ -497,6 +500,17 @@ void ir_alloc::mark_pinning()
                 }
             }
         }
+
+        if ( op->opcode == IR_JUMP_FOR_SGEN || op->opcode == IR_JUMP_FOR_EGEN )
+        {
+            /*
+                JUMP_FOR_SGEN/JUMP_FOR_EGEN local is pinned to the def.
+            */
+            assert( op->local() != IR_INVALID_LOCAL );
+            live_local* value = &_local_values.at( op->local() );
+            assert( value->op_index == op_index );
+            value->mark = true;
+        }
     }
 }
 
@@ -586,11 +600,41 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
 unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount )
 {
     assert( prefer <= IR_INVALID_REGISTER );
-
-    // Pick register and allocate it.
-    unsigned r = prefer;
-
     ir_op* def = &_f->ops.at( op_index );
+
+    // Special case for IR_JUMP_FOR_SGEN and IR_JUMP_FOR_EGEN hidden locals.
+    if ( def->opcode == IR_JUMP_FOR_SGEN || def->opcode == IR_JUMP_FOR_EGEN )
+    {
+        assert( prefer == def->s );
+        assert( def->s != IR_INVALID_LOCAL );
+
+        unsigned r = def->s;
+        unsigned hidden_count = def->opcode == IR_JUMP_FOR_SGEN ? 3 : 2;
+        bool ok = false;
+        while ( ! ok )
+        {
+            ok = true;
+            for ( unsigned j = 0; j < hidden_count; ++j )
+            {
+                if ( ! _live_r->check_register( r + j, ranges, rcount ) )
+                {
+                    r = r + j + 1;
+                    ok = false;
+                    break;
+                }
+            }
+        }
+
+        for ( unsigned j = 0; j < hidden_count; ++j )
+        {
+            _live_r->allocate_register( r + j, ranges, rcount );
+        }
+
+        return r;
+    }
+
+    // Otherwise, pick register and allocate it.
+    unsigned r = prefer;
     if ( def->opcode == IR_PARAM )
     {
         ir_operand operand = _f->operands.at( def->oindex );
@@ -665,6 +709,16 @@ void ir_alloc::unpin_stacked( const ir_op* op, unsigned op_index )
 {
     assert( op->s != IR_INVALID_REGISTER );
     unpin_operands( op, op_index, UNPIN_S );
+
+    if ( op->opcode == IR_JUMP_FOR_SGEN || op->opcode == IR_JUMP_FOR_EGEN )
+    {
+        assert( op->local() != IR_INVALID_LOCAL );
+        live_local* value = &_local_values.at( op->local() );
+        assert( value->op_index == op_index );
+        assert( value->mark );
+        value->mark = false;
+        _unpinned.push( { op_index, op->s } );
+    }
 }
 
 void ir_alloc::unpin_move( const ir_op* op, unsigned op_index )
@@ -745,6 +799,7 @@ bool ir_alloc::is_stacked( const ir_op* op )
 
     case IR_EXTEND:
     case IR_JUMP_FOR_SGEN:
+    case IR_JUMP_FOR_EGEN:
         return true;
 
     default:
