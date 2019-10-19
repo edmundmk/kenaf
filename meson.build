@@ -18,6 +18,7 @@ sources = [
     'source/common/code.cpp',
     'source/compiler/ast.cpp',
     'source/compiler/ast_resolve.cpp',
+    'source/compiler/code_unit.cpp',
     'source/compiler/compiler.cpp',
     'source/compiler/ir.cpp',
     'source/compiler/ir_alloc.cpp',

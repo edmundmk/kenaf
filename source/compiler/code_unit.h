@@ -15,6 +15,7 @@
     How we build the code description.
 */
 
+#include <vector>
 #include "kenaf/code.h"
 
 namespace kf
@@ -25,15 +26,23 @@ struct code_function_unit;
 
 struct code_unit
 {
+    code_unit();
+    ~code_unit();
+
     code_script script;
     std::vector< code_function_unit > functions;
     std::vector< char > heap;
     std::vector< uint32_t > debug_newlines;
     std::vector< char > debug_heap;
+
+    const code_script* pack() const;
 };
 
 struct code_function_unit
 {
+    code_function_unit();
+    ~code_function_unit();
+
     code_function function;
     std::vector< op > ops;
     std::vector< code_constant > constants;

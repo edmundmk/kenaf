@@ -16,12 +16,13 @@ namespace kf
 
 const code_function* code_script::functions() const
 {
-    return (const code_function*)( this + 1 );
+    const code_function* f = (const code_function*)( this + 1 );
+    return f->code_size ? f : nullptr;
 }
 
 const char* code_script::heap() const
 {
-    return (const char*)functions() + function_size;
+    return (const char*)( this + 1 ) + function_size;
 }
 
 const uint32_t* code_script::debug_newlines() const
@@ -51,7 +52,8 @@ const code_selector* code_function::selectors() const
 
 const code_debug_function* code_function::debug_function() const
 {
-    return (const code_debug_function*)( selectors() + selector_count );
+    const code_debug_function* d = (const code_debug_function*)( selectors() + selector_count );
+    return d->code_size ? d : nullptr;
 }
 
 const code_function* code_function::next() const

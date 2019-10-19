@@ -29,6 +29,11 @@ int main( int argc, char* argv[] )
     unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC;
     kf::compile_result result = kf::compile( argv[ 1 ], std::string_view( text.data(), text.size() ), debug_print );
 
+    if ( result )
+    {
+        result.code()->debug_print();
+    }
+
     for ( size_t i = 0; i < result.diagnostic_count(); ++i )
     {
         const kf::diagnostic& d = result.diagnostic( i );

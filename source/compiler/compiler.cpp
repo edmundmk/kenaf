@@ -29,6 +29,12 @@ compile_result::compile_result()
 {
 }
 
+compile_result::compile_result( const code_script* code, std::vector< struct diagnostic >&& diagnostics )
+    :   _code( code )
+    ,   _diagnostics( std::move( diagnostics ) )
+{
+}
+
 compile_result::compile_result( std::vector< struct diagnostic >&& diagnostics )
     :   _code( nullptr )
     ,   _diagnostics( std::move( diagnostics ) )
@@ -162,7 +168,7 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
             return compile_result( std::move( source.diagnostics ) );
     }
 
-    return compile_result();
+    return compile_result( unit.pack(), std::move( source.diagnostics ) );
 }
 
 }

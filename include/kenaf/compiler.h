@@ -73,7 +73,8 @@ private:
 
     friend compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print );
 
-    compile_result( std::vector< struct diagnostic >&& diagnostics );
+    explicit compile_result( const code_script* code, std::vector< struct diagnostic >&& diagnostics );
+    explicit compile_result( std::vector< struct diagnostic >&& diagnostics );
     compile_result( const compile_result& ) = delete;
     compile_result& operator = ( const compile_result& ) = delete;
 

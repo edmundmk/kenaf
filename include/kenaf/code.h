@@ -155,7 +155,7 @@ inline op::op( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) : opcode( op
 inline op::op( enum opcode opcode, uint8_t r, uint16_t c ) : opcode( opcode ), r( r ), c( c ) {}
 inline op::op( enum opcode opcode, uint8_t r, int16_t j ) : opcode( opcode ), r( r ), j( j ) {}
 
-const uint32_t CODE_MAGIC = 0x5B2A2A5D; // '[**]'
+const uint32_t CODE_MAGIC = 0x5D2A2A5B; // '[**]'
 
 struct code_script
 {
