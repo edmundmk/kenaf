@@ -59,6 +59,7 @@ private:
 
     struct goto_stack
     {
+        goto_stack() : index( 0 ) {}
         std::vector< goto_fixup > fixups;
         unsigned index;
     };

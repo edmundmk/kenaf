@@ -1513,6 +1513,7 @@ ir_build::goto_scope ir_build::goto_open( srcloc sloc, goto_kind kind )
         new_block( sloc, IR_BLOCK_BASIC );
     }
 
+    assert( kind < GOTO_MAX );
     unsigned index = _goto_stacks[ kind ].fixups.size();
     return { kind, index };
 }
@@ -1520,7 +1521,9 @@ ir_build::goto_scope ir_build::goto_open( srcloc sloc, goto_kind kind )
 void ir_build::goto_branch( goto_scope scope )
 {
     unsigned label = _f->ops.size();
+    assert( scope.kind < GOTO_MAX );
     goto_stack& stack = _goto_stacks[ scope.kind ];
+
     for ( unsigned i = scope.index; i < stack.fixups.size(); ++i )
     {
         goto_fixup fixup = stack.fixups[ i ];
@@ -1529,6 +1532,8 @@ void ir_build::goto_branch( goto_scope scope )
         assert( operand->kind == IR_O_JUMP );
         operand->index = label;
     }
+
+    assert( scope.index <= stack.fixups.size() );
     stack.fixups.resize( scope.index );
     stack.index = scope.index;
 }
@@ -1536,7 +1541,9 @@ void ir_build::goto_branch( goto_scope scope )
 void ir_build::goto_block( goto_scope scope )
 {
     assert( _block_index == IR_INVALID_INDEX );
+    assert( scope.kind < GOTO_MAX );
     goto_stack& stack = _goto_stacks[ scope.kind ];
+    assert( scope.index <= stack.fixups.size() );
     stack.index = scope.index;
 }
 
@@ -1566,6 +1573,8 @@ ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
             assert( operand->kind == IR_O_JUMP );
             operand->index = label;
         }
+
+        assert( stack.index <= stack.fixups.size() );
         stack.fixups.resize( stack.index );
     }
 
@@ -1602,6 +1611,7 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
     assert( block->kind == IR_BLOCK_UNSEALED );
 
     // Add predecessor blocks to the block's predecessor list.
+    assert( scope.kind < GOTO_MAX );
     goto_stack& stack = _goto_stacks[ scope.kind ];
     assert( stack.index == stack.fixups.size() );
     assert( scope.index <= stack.fixups.size() );
@@ -1639,6 +1649,8 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
 
     // Fixup back edges.
     unsigned label = block->lower;
+
+    assert( scope.index <= stack.fixups.size() );
     for ( unsigned i = scope.index; i < stack.fixups.size(); ++i )
     {
         goto_fixup fixup = stack.fixups[ i ];
@@ -1646,6 +1658,7 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
         assert( operand->kind == IR_O_JUMP );
         operand->index = label;
     }
+
     stack.fixups.resize( scope.index );
     stack.index = scope.index;
 
@@ -1673,6 +1686,7 @@ ir_operand ir_build::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, 
             stack.fixups.insert( stack.fixups.end(), other_stack.fixups.begin() + other_stack.index, other_stack.fixups.end() );
             other_stack.fixups.resize( other_stack.index );
         }
+
         stack.index = stack.fixups.size();
         return { IR_O_NONE };
     }
