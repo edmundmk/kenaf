@@ -166,7 +166,18 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
                 continue;
             }
 
-            mark_use( operand, op_index );
+            unsigned use_index = op_index;
+
+            // Special case for B_DEF/B_PHI.  Keep operands alive but don't
+            // extend live range across opcodes that will be branched over.
+            if ( ( op->opcode == IR_B_PHI && j < op->ocount - 1 )
+                || ( op->opcode == IR_B_DEF && j == 0 ) )
+            {
+                assert( operand.kind == IR_O_OP );
+                use_index = operand.index;
+            }
+
+            mark_use( operand, use_index );
         }
 
         // Marked all uses.

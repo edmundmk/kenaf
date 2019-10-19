@@ -475,13 +475,14 @@ void ir_alloc::mark_pinning()
                 if ( operand.kind != IR_O_OP )
                     continue;
 
-                if ( j == 0 && ( op->opcode == IR_EXTEND || op->opcode == IR_B_DEF ) )
+                if ( j == 0 && op->opcode == IR_EXTEND )
                     continue;
 
                 ir_op* pinned_op = &_f->ops.at( operand.index );
+                bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1;
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
-                    if ( pinned_op->live_range == op_index )
+                    if ( pinned_op->live_range == op_index || is_phi_def )
                     {
                         pinned_op->mark = true;
                     }
@@ -489,7 +490,7 @@ void ir_alloc::mark_pinning()
                 else
                 {
                     live_local* value = &_local_values.at( pinned_op->local() );
-                    if ( value->live_range == op_index )
+                    if ( value->live_range == op_index || is_phi_def )
                     {
                         value->mark = true;
                     }
@@ -544,14 +545,18 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
 
     if ( op->local() == IR_INVALID_LOCAL )
     {
-        if ( op->mark || ! has_result( op ) )
+        if ( op->mark )
         {
             return;
         }
 
         assert( op->r == IR_INVALID_REGISTER );
-        live_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
-        op->r = allocate_register( op_index, prefer, &value_range, 1 );
+        if ( has_result( op ) )
+        {
+            live_range value_range = { IR_INVALID_LOCAL, op_index, op->live_range };
+            op->r = allocate_register( op_index, prefer, &value_range, 1 );
+        }
+        across_stacked( op_index );
         unpin_move( op, op_index );
     }
     else
@@ -565,6 +570,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
         assert( value->r == IR_INVALID_REGISTER );
         live_range* ranges = &_local_ranges.at( value->live_index );
         value->r = allocate_register( value->op_index, prefer, ranges, value->live_count );
+        across_stacked( op_index );
 
         for ( unsigned j = 0; j < value->defs_count; ++j )
         {
@@ -601,7 +607,11 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
     _live_r->allocate_register( r, ranges, rcount );
     _live_r->debug_print();
 
-    // Anchor stacked instructions.
+    return r;
+}
+
+void ir_alloc::across_stacked( unsigned op_index )
+{
     const auto irange = _stacked_across.equal_range( op_index );
     for ( auto i = irange.first; i != irange.second; ++i )
     {
@@ -616,8 +626,6 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, live_r
             anchor_stacked( instruction );
         }
     }
-
-    return r;
 }
 
 void ir_alloc::anchor_stacked( stacked* instruction )
@@ -679,9 +687,10 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
 
         unsigned def_index = IR_INVALID_INDEX;
         ir_op* pinned_op = &_f->ops.at( operand.index );
+        bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1;
         if ( pinned_op->local() == IR_INVALID_LOCAL )
         {
-            if ( pinned_op->mark && pinned_op->live_range == op_index )
+            if ( pinned_op->mark && ( pinned_op->live_range == op_index || is_phi_def ) )
             {
                 pinned_op->mark = false;
                 def_index = operand.index;
@@ -694,7 +703,7 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
         else
         {
             live_local* value = &_local_values.at( pinned_op->local() );
-            if ( value->mark && value->live_range == op_index )
+            if ( value->mark && ( value->live_range == op_index || is_phi_def ) )
             {
                 value->mark = false;
                 def_index = value->op_index;

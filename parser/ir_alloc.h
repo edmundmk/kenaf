@@ -72,7 +72,9 @@ private:
     void allocate( unsigned op_index, unsigned prefer );
     unsigned allocate_register( unsigned op_index, unsigned prefer, live_range* ranges, size_t rcount );
 
+    void across_stacked( unsigned op_index );
     void anchor_stacked( stacked* instruction );
+
     void unpin_stacked( const ir_op* op, unsigned op_index );
     void unpin_move( const ir_op* op, unsigned op_index );
     void unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs );
