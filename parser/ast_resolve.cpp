@@ -64,6 +64,7 @@ void ast_resolve::visit( ast_function* f, unsigned index )
             lookup( f, value_index, LOOKUP_UNPACK );
             return;
         }
+        break;
     }
 
     case AST_DECL_VAR:
