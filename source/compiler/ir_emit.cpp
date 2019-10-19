@@ -13,8 +13,9 @@
 namespace kf
 {
 
-ir_emit::ir_emit( source* source )
+ir_emit::ir_emit( source* source, code_unit* unit )
     :   _source( source )
+    ,   _unit( unit )
     ,   _f( nullptr )
 {
 }

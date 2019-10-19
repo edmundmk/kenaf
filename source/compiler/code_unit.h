@@ -1,0 +1,50 @@
+//
+//  code_unit.h
+//
+//  Created by Edmund Kapusniak on 19/10/2019.
+//  Copyright © 2019 Edmund Kapusniak.
+//
+//  Licensed under the MIT License. See LICENSE file in the project root for
+//  full license information.
+//
+
+#ifndef CODE_UNIT_H
+#define CODE_UNIT_H
+
+/*
+    How we build the code description.
+*/
+
+#include "kenaf/code.h"
+
+namespace kf
+{
+
+struct code_unit;
+struct code_function_unit;
+
+struct code_unit
+{
+    code_script script;
+    std::vector< code_function_unit > functions;
+    std::vector< char > heap;
+    std::vector< uint32_t > debug_newlines;
+    std::vector< char > debug_heap;
+};
+
+struct code_function_unit
+{
+    code_function function;
+    std::vector< ops > ops;
+    std::vector< code_constant > constants;
+    std::vector< code_selector > selectors;
+    code_debug_function debug;
+    std::vector< uint32_t > debug_slocs;
+    std::vector< code_debug_variable > debug_variables;
+    std::vector< code_debug_var_spen > debug_var_spans;
+};
+
+}
+
+#endif
+

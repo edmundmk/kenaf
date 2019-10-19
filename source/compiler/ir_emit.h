@@ -25,7 +25,7 @@ class ir_emit
 {
 public:
 
-    ir_emit( source* source );
+    ir_emit( source* source, code_unit* unit );
     ~ir_emit();
 
     void emit( ir_function* function );
@@ -33,6 +33,7 @@ public:
 private:
 
     source* _source;
+    code_unit* _unit;
     ir_function* _f;
     std::vector< op > _i;
 

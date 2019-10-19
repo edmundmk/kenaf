@@ -18,6 +18,7 @@
 #include "ir_fold.h"
 #include "ir_foldk.h"
 #include "ir_alloc.h"
+#include "code_unit.h"
 
 namespace kf
 {
@@ -78,21 +79,30 @@ const diagnostic& compile_result::diagnostic( size_t index ) const
 compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print )
 {
     // Load source text.
-    kf::source source;
+    source source;
     source.filename = filename;
     source.append( text.data(), text.size() );
 
     // Parse AST.
-    kf::lexer lexer( &source );
-    kf::parser parser( &source, &lexer );
-    std::unique_ptr< kf::ast_script > script = parser.parse();
+    lexer lexer( &source );
+    parser parser( &source, &lexer );
+    std::unique_ptr< ast_script > script = parser.parse();
     if ( debug_print & PRINT_AST_PARSED )
         script->debug_print();
     if ( source.has_error )
         return compile_result( std::move( source.diagnostics ) );
 
+    // Construct code unit.
+    code_unit unit;
+    unit.script.magic = CODE_MAGIC;
+    unit.function_count = script->functions.size();
+    unit.debug_script_name = unit.debug_heap.size();
+    unit.debug_newline_count = source.newlines.size();
+    unit.debug_heap.insert( unit.debug_heap.end(), source.filename.begin(), source.filename.end() );
+    unit.debug_heap.push_back( '\0' );
+
     // Resolve names.
-    kf::ast_resolve resolve( &source, script.get() );
+    ast_resolve resolve( &source, script.get() );
     resolve.resolve();
     if ( debug_print & PRINT_AST_RESOLVED )
         script->debug_print();
@@ -100,15 +110,16 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
         return compile_result( std::move( source.diagnostics ) );
 
     // Perform IR passes.
-    kf::ir_build build( &source );
-    kf::ir_fold fold( &source );
-    kf::ir_live live( &source );
-    kf::ir_foldk foldk( &source );
-    kf::ir_alloc alloc( &source );
+    ir_build build( &source );
+    ir_fold fold( &source );
+    ir_live live( &source );
+    ir_foldk foldk( &source );
+    ir_alloc alloc( &source );
+    ir_emit emit( &source, &code_unit );
 
     for ( const auto& function : script->functions )
     {
-        std::unique_ptr< kf::ir_function > ir = build.build( function.get() );
+        std::unique_ptr< ir_function > ir = build.build( function.get() );
         if ( ir && ( debug_print & PRINT_IR_BUILD ) )
             ir->debug_print();
         if ( ! ir || source.has_error )
@@ -141,6 +152,10 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
         alloc.alloc( ir.get() );
         if ( debug_print & PRINT_IR_ALLOC )
             ir->debug_print();
+        if ( source.has_error )
+            return compile_result( std::move( source.diagnostics ) );
+
+        emit.emit( ir.get() );
         if ( source.has_error )
             return compile_result( std::move( source.diagnostics ) );
     }

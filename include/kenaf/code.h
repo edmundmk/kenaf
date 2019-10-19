@@ -161,12 +161,19 @@ struct code_script
 {
     uint32_t magic;
     uint32_t code_size;
-    uint32_t script_name;
-    uint32_t heap_size;
+    uint32_t function_size;
     uint32_t function_count;
+    uint32_t heap_size;
+    uint32_t debug_script_name;
+    uint32_t debug_newline_count;
+    uint32_t debug_heap_size;
 
-    const char* heap() const;
     const code_function* functions() const;
+    const char* heap() const;
+    const uint32_t* debug_newlines() const;
+    const char* debug_heap() const;
+
+    void debug_print() const;
 };
 
 enum
@@ -226,16 +233,12 @@ struct code_debug_function
     uint32_t code_size;
     uint32_t function_name;
     uint32_t sloc_count;
-    uint32_t newline_count;
     uint32_t variable_count;
     uint32_t var_span_count;
-    uint32_t heap_size;
 
     const uint32_t* slocs() const;
-    const uint32_t* newlines() const;
     const code_debug_variable* variables() const;
     const code_debug_var_span* var_spans() const;
-    const char* heap() const;
 
     void debug_print( const code_script* script ) const;
 };
