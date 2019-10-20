@@ -109,6 +109,7 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include "index_vector.h"
 #include "source.h"
 
 namespace kf
@@ -150,14 +151,14 @@ struct ir_function
     ast_function* ast;
 
     // Main IR structures.
-    std::vector< ir_op > ops;
-    std::vector< ir_operand > operands;
-    std::vector< ir_block > blocks;
-    std::vector< ir_block_index > preceding_blocks;
+    index_vector< ir_op, 0xFFFFFF > ops;
+    index_vector< ir_operand, 0xFFFFFF > operands;
+    index_vector< ir_block, 0xFFFFFF > blocks;
+    index_vector< ir_block_index, 0xFFFFFF > preceding_blocks;
 
     // Constant numbers and strings.
-    std::vector< ir_constant > constants;
-    std::vector< ir_selector > selectors;
+    index_vector< ir_constant, 0xFFFFFF > constants;
+    index_vector< ir_selector, 0xFFFFFF > selectors;
 };
 
 /*

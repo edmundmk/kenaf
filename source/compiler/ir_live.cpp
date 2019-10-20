@@ -83,7 +83,7 @@ void ir_live::live_blocks()
         ir_block_index block_index = _work_stack.back();
         _work_stack.pop_back();
 
-        ir_block* block = &_f->blocks.at( block_index );
+        ir_block* block = &_f->blocks[ block_index ];
         unsigned block_mark = block->mark;
         block->mark = 0;
 
@@ -161,7 +161,7 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
         // Mark all ops used by this op.
         for ( unsigned j = 0; j < op->ocount; ++j )
         {
-            ir_operand operand = _f->operands.at( op->oindex + j );
+            ir_operand operand = _f->operands[ op->oindex + j ];
             if ( operand.kind != IR_O_OP )
             {
                 continue;
@@ -198,7 +198,7 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
     unsigned prcount = 0;
     if ( block->preceding_lower < block->preceding_upper )
     {
-        prblock_indexes = &_f->preceding_blocks.at( block->preceding_lower );
+        prblock_indexes = &_f->preceding_blocks[ block->preceding_lower ];
         prcount = block->preceding_upper - block->preceding_lower;
     }
 
@@ -206,7 +206,7 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
     unsigned phi_index = block->phi_head;
     while ( phi_index != IR_INVALID_INDEX )
     {
-        ir_op* phi = &_f->ops.at( phi_index );
+        ir_op* phi = &_f->ops[ phi_index ];
 
         // Skip ops which are not live or which have already had uses marked.
         if ( ! phi->mark )
@@ -219,23 +219,23 @@ void ir_live::live_head( ir_block_index block_index, ir_block* block )
         for ( unsigned pr = 0; pr < prcount; ++pr )
         {
             ir_block_index prblock_index = prblock_indexes[ pr ];
-            ir_block* prblock = &_f->blocks.at( prblock_index );
+            ir_block* prblock = &_f->blocks[ prblock_index ];
 
             // Find def incoming from this preceding block.
             ir_operand def;
             if ( phi->opcode == IR_REF )
             {
                 assert( phi->ocount == 1 );
-                def = _f->operands.at( phi->oindex );
+                def = _f->operands[ phi->oindex ];
             }
             else
             {
                 assert( phi->ocount == prcount );
-                def = _f->operands.at( phi->oindex + pr );
+                def = _f->operands[ phi->oindex + pr ];
             }
 
             assert( def.kind == IR_O_OP );
-            ir_op* op = &_f->ops.at( def.index );
+            ir_op* op = &_f->ops[ def.index ];
             unsigned block_mark = 0;
 
             if ( op->opcode != IR_PHI && op->opcode != IR_REF &&
@@ -276,7 +276,7 @@ ir_operand ir_live::match_phi( ir_block* block, unsigned local_index )
     unsigned phi_index = block->phi_head;
     while ( phi_index != IR_INVALID_INDEX )
     {
-        ir_op* phi = &_f->ops.at( phi_index );
+        ir_op* phi = &_f->ops[ phi_index ];
 
         if ( phi->local() == local_index )
         {
@@ -293,7 +293,7 @@ ir_operand ir_live::match_phi( ir_block* block, unsigned local_index )
 bool ir_live::mark_use( ir_operand def, unsigned use_index )
 {
     assert( def.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( def.index );
+    ir_op* op = &_f->ops[ def.index ];
 
     // Increment s.
     uint8_t old_s = op->s;

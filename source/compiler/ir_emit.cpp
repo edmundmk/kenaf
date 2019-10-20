@@ -128,13 +128,13 @@ void ir_emit::assemble()
 void ir_emit::op_unary( const ir_op* rop, opcode o )
 {
     assert( rop->ocount == 1 );
-    ir_operand u = _f->operands.at( rop->oindex );
+    ir_operand u = _f->operands[ rop->oindex ];
     if ( u.kind != IR_O_OP )
     {
         _source->error( rop->sloc, "internal: invalid operand to unary instruction" );
         return;
     }
-    const ir_op* uop = &_f->ops.at( u.index );
+    const ir_op* uop = &_f->ops[ u.index ];
 
     if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
     {
@@ -149,15 +149,15 @@ void ir_emit::op_unary( const ir_op* rop, opcode o )
 void ir_emit::op_binary( const ir_op* rop, opcode o )
 {
     assert( rop->ocount == 2 );
-    ir_operand u = _f->operands.at( rop->oindex + 0 );
-    ir_operand v = _f->operands.at( rop->oindex + 1 );
+    ir_operand u = _f->operands[ rop->oindex + 0 ];
+    ir_operand v = _f->operands[ rop->oindex + 1 ];
     if ( u.kind != IR_O_OP || v.kind != IR_O_OP )
     {
         _source->error( rop->sloc, "internal: invalid operand to binary instruction" );
         return;
     }
-    const ir_op* uop = &_f->ops.at( u.index );
-    const ir_op* vop = &_f->ops.at( v.index );
+    const ir_op* uop = &_f->ops[ u.index ];
+    const ir_op* vop = &_f->ops[ v.index ];
 
     if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER || vop->r == IR_INVALID_REGISTER )
     {
@@ -172,8 +172,8 @@ void ir_emit::op_binary( const ir_op* rop, opcode o )
 void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
 {
     assert( rop->ocount == 2 );
-    ir_operand u = _f->operands.at( rop->oindex + 0 );
-    ir_operand v = _f->operands.at( rop->oindex + 1 );
+    ir_operand u = _f->operands[ rop->oindex + 0 ];
+    ir_operand v = _f->operands[ rop->oindex + 1 ];
 
     // Operands to SUB instruction are reversed, to put constant in b slot.
     if ( rop->opcode == IR_SUB )
@@ -187,7 +187,7 @@ void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
         _source->error( rop->sloc, "internal: invalid operand to addmul instruction" );
         return;
     }
-    const ir_op* uop = &_f->ops.at( u.index );
+    const ir_op* uop = &_f->ops[ u.index ];
     if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
     {
         _source->error( rop->sloc, "internal: invalid register allocation" );
@@ -199,7 +199,7 @@ void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
     // Select instruction variant.
     if ( v.kind == IR_O_OP )
     {
-        const ir_op* vop = &_f->ops.at( v.index );
+        const ir_op* vop = &_f->ops[ v.index ];
         if ( vop->r == IR_INVALID_REGISTER )
         {
             _source->error( rop->sloc, "internal: invalid register allocation" );
@@ -232,8 +232,8 @@ void ir_emit::op_concat( const ir_op* rop )
 {
     opcode ok = OP_CONCATK;
     assert( rop->ocount == 2 );
-    ir_operand u = _f->operands.at( rop->oindex + 0 );
-    ir_operand v = _f->operands.at( rop->oindex + 1 );
+    ir_operand u = _f->operands[ rop->oindex + 0 ];
+    ir_operand v = _f->operands[ rop->oindex + 1 ];
 
     if ( u.kind == IR_O_STRING )
     {
@@ -246,7 +246,7 @@ void ir_emit::op_concat( const ir_op* rop )
         _source->error( rop->sloc, "internal: invalid operand to concat instruction" );
         return;
     }
-    const ir_op* uop = &_f->ops.at( u.index );
+    const ir_op* uop = &_f->ops[ u.index ];
     if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
     {
         _source->error( rop->sloc, "internal: invalid register allocation" );
@@ -257,7 +257,7 @@ void ir_emit::op_concat( const ir_op* rop )
 
     if ( v.kind == IR_O_OP )
     {
-        const ir_op* vop = &_f->ops.at( v.index );
+        const ir_op* vop = &_f->ops[ v.index ];
         if ( vop->r == IR_INVALID_REGISTER )
         {
             _source->error( rop->sloc, "internal: invalid register allocation" );
@@ -285,7 +285,7 @@ void ir_emit::op_concat( const ir_op* rop )
 void ir_emit::op_const( const ir_op* rop )
 {
     assert( rop->ocount == 1 );
-    ir_operand k = _f->operands.at( rop->oindex );
+    ir_operand k = _f->operands[ rop->oindex ];
 
     if ( rop->r == IR_INVALID_REGISTER )
     {
@@ -320,7 +320,7 @@ void ir_emit::op_const( const ir_op* rop )
 void ir_emit::op_genc( const ir_op* rop, opcode o, ir_operand_kind okind )
 {
     assert( rop->ocount == 1 );
-    ir_operand k = _f->operands.at( rop->oindex );
+    ir_operand k = _f->operands[ rop->oindex ];
     if ( k.kind != okind )
     {
         _source->error( rop->sloc, "internal: invalid c operand" );

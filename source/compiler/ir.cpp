@@ -114,7 +114,7 @@ const char* const BLOCK_KIND_NAMES[] =
 
 static void debug_print_op( const ir_function* f, unsigned i, int indent )
 {
-    const ir_op& op = f->ops.at( i );
+    const ir_op& op = f->ops[ i ];
 
     bool grey = op.opcode == IR_NOP || ( ( op.opcode == IR_PHI || op.opcode == IR_REF ) && indent == 0 );
     if ( grey )
@@ -210,21 +210,21 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
         case IR_O_NUMBER:
         {
-            const ir_constant& n = f->constants.at( operand.index );
+            const ir_constant& n = f->constants[ operand.index ];
             printf( " %f", n.n );
             break;
         }
 
         case IR_O_STRING:
         {
-            const ir_constant& s = f->constants.at( operand.index );
+            const ir_constant& s = f->constants[ operand.index ];
             printf( " \"%.*s\"", (int)s.size, s.text );
             break;
         }
 
         case IR_O_SELECTOR:
         {
-            const ir_selector& s = f->selectors.at( operand.index );
+            const ir_selector& s = f->selectors[ operand.index ];
             printf( " \'%.*s\'", (int)s.size, s.text );
             break;
         }
@@ -277,16 +277,16 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
     if ( op.opcode == IR_BLOCK )
     {
-        const ir_block& block = f->blocks[ f->operands.at( op.oindex ).index ];
+        const ir_block& block = f->blocks[ f->operands[ op.oindex ].index ];
         printf( "  %s :%04X:%04X", BLOCK_KIND_NAMES[ block.kind ], block.lower, block.upper );
         for ( unsigned preceding = block.preceding_lower; preceding < block.preceding_upper; ++preceding )
         {
-            ir_block_index index = f->preceding_blocks.at( preceding );
+            ir_block_index index = f->preceding_blocks[ preceding ];
             if ( index != IR_INVALID_INDEX )
                 printf( " @%u", index );
         }
         printf( "\n" );
-        for( unsigned phi = block.phi_head; phi != IR_INVALID_INDEX; phi = f->ops.at( phi ).phi_next )
+        for( unsigned phi = block.phi_head; phi != IR_INVALID_INDEX; phi = f->ops[ phi ].phi_next )
         {
             debug_print_op( f, phi, 2 );
         }
@@ -309,9 +309,9 @@ void ir_function::debug_print_phi_graph() const
     {
         const ir_block& block = blocks[ block_index ];
 
-        for ( unsigned phi_index = block.phi_head; phi_index != IR_INVALID_INDEX; phi_index = ops.at( phi_index ).phi_next )
+        for ( unsigned phi_index = block.phi_head; phi_index != IR_INVALID_INDEX; phi_index = ops[ phi_index ].phi_next )
         {
-            const ir_op& phi = ops.at( phi_index );
+            const ir_op& phi = ops[ phi_index ];
             assert( phi.opcode == IR_PHI || phi.opcode == IR_REF );
 
             const ast_local& local = ast->locals[ phi.local() ];
@@ -329,10 +329,10 @@ void ir_function::debug_print_phi_graph() const
 
             for ( unsigned j = 0; j < phi.ocount; ++j )
             {
-                const ir_operand& operand = operands.at( phi.oindex + j );
+                const ir_operand& operand = operands[ phi.oindex + j ];
                 assert( operand.kind == IR_O_OP );
 
-                const ir_op& to_op = ops.at( operand.index );
+                const ir_op& to_op = ops[ operand.index ];
                 const ast_local& to_local = ast->locals[ to_op.local() ];
 
                 printf

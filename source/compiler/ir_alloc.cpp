@@ -117,10 +117,10 @@ void ir_alloc::build_values()
 
         if ( op->opcode == IR_BLOCK )
         {
-            const ir_block* block = &_f->blocks.at( _f->operands.at( op->oindex ).index );
+            const ir_block* block = &_f->blocks[ _f->operands[ op->oindex ].index ];
             for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; )
             {
-                const ir_op* phi = &_f->ops.at( phi_index );
+                const ir_op* phi = &_f->ops[ phi_index ];
                 if ( phi->local() != IR_INVALID_LOCAL && phi->live_range != IR_INVALID_INDEX )
                 {
                     _local_ranges.push_back( { phi->local(), op_index, phi->live_range } );
@@ -166,7 +166,7 @@ void ir_alloc::build_values()
         _local_defs.end(),
         [this]( unsigned a, unsigned b )
         {
-            return _f->ops.at( a ).local() < _f->ops.at( b ).local();
+            return _f->ops[ a ].local() < _f->ops[ b ].local();
         }
     );
 
@@ -220,13 +220,13 @@ void ir_alloc::build_values()
     }
     for ( unsigned defs_index = 0; defs_index < _local_defs.size(); )
     {
-        unsigned local_index = _f->ops.at( _local_defs[ defs_index ] ).local();
+        unsigned local_index = _f->ops[ _local_defs[ defs_index ] ].local();
 
         local_value* value = &_local_values[ local_index ];
         value->defs_index = defs_index;
         value->defs_count = 0;
 
-        while ( defs_index < _local_defs.size() && _f->ops.at( _local_defs[ defs_index ] ).local() == local_index )
+        while ( defs_index < _local_defs.size() && _f->ops[ _local_defs[ defs_index ] ].local() == local_index )
         {
             value->defs_count += 1;
             ++defs_index;
@@ -280,14 +280,14 @@ void ir_alloc::mark_pinning()
                 }
             }
 
-            const ir_op* block_op = &_f->ops.at( check_index );
+            const ir_op* block_op = &_f->ops[ check_index ];
             assert( block_op->opcode == IR_BLOCK );
-            const ir_block* block = &_f->blocks.at( _f->operands.at( block_op->oindex ).index );
+            const ir_block* block = &_f->blocks[ _f->operands[ block_op->oindex ].index ];
 
             unsigned phi_index = block->phi_head;
             while ( phi_index != IR_INVALID_INDEX )
             {
-                ir_op* phi = &_f->ops.at( phi_index );
+                ir_op* phi = &_f->ops[ phi_index ];
 
                 if ( phi->live_range != IR_INVALID_INDEX && phi->live_range > op_index )
                 {
@@ -309,7 +309,7 @@ void ir_alloc::mark_pinning()
             */
             for ( unsigned j = 0; j < op->ocount; ++j )
             {
-                ir_operand operand = _f->operands.at( op->oindex + j );
+                ir_operand operand = _f->operands[ op->oindex + j ];
 
                 if ( operand.kind != IR_O_OP )
                     continue;
@@ -317,7 +317,7 @@ void ir_alloc::mark_pinning()
                 if ( j == 0 && op->opcode == IR_EXTEND )
                     continue;
 
-                ir_op* pinned_op = &_f->ops.at( operand.index );
+                ir_op* pinned_op = &_f->ops[ operand.index ];
                 bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
@@ -387,7 +387,7 @@ void ir_alloc::allocate()
 
 void ir_alloc::allocate( unsigned op_index, unsigned prefer )
 {
-    ir_op* op = &_f->ops.at( op_index );
+    ir_op* op = &_f->ops[ op_index ];
     if ( op->opcode == IR_REF || op->opcode == IR_PHI || op->opcode == IR_NOP )
     {
         return;
@@ -425,7 +425,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
         for ( unsigned j = 0; j < value->defs_count; ++j )
         {
             unsigned def_index = _local_defs.at( value->defs_index + j );
-            ir_op* def = &_f->ops.at( def_index );
+            ir_op* def = &_f->ops[ def_index ];
             assert( def->local() == op->local() );
             def->r = value->r;
             unpin_move( def, def_index );
@@ -436,7 +436,7 @@ void ir_alloc::allocate( unsigned op_index, unsigned prefer )
 unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_value_range* ranges, size_t rcount )
 {
     assert( prefer <= IR_INVALID_REGISTER );
-    ir_op* def = &_f->ops.at( op_index );
+    ir_op* def = &_f->ops[ op_index ];
 
     // Special case for IR_JUMP_FOR_SGEN and IR_JUMP_FOR_EGEN hidden locals.
     if ( def->opcode == IR_JUMP_FOR_SGEN || def->opcode == IR_JUMP_FOR_EGEN )
@@ -473,7 +473,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_val
     unsigned r = prefer;
     if ( def->opcode == IR_PARAM )
     {
-        ir_operand operand = _f->operands.at( def->oindex );
+        ir_operand operand = _f->operands[ def->oindex ];
         assert( operand.kind == IR_O_LOCAL_INDEX );
         r = 1 + operand.index;
     }
@@ -509,7 +509,7 @@ void ir_alloc::across_stacked( unsigned op_index )
 void ir_alloc::anchor_stacked( stacked* instruction )
 {
     assert( instruction->across_count == 0 );
-    ir_op* op = &_f->ops.at( instruction->index );
+    ir_op* op = &_f->ops[ instruction->index ];
 
     // Determine stack top register.
     if ( op->unpack() != IR_UNPACK_ALL )
@@ -525,11 +525,11 @@ void ir_alloc::anchor_stacked( stacked* instruction )
         if ( op->ocount < 1 )
             return;
 
-        ir_operand operand = _f->operands.at( op->oindex + op->ocount - 1 );
+        ir_operand operand = _f->operands[ op->oindex + op->ocount - 1 ];
         if ( operand.kind != IR_O_OP )
             return;
 
-        ir_op* unpack = &_f->ops.at( operand.index );
+        ir_op* unpack = &_f->ops[ operand.index ];
         if ( unpack->unpack() != IR_UNPACK_ALL )
             return;
 
@@ -568,13 +568,13 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
 {
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
-        ir_operand operand = _f->operands.at( op->oindex + j );
+        ir_operand operand = _f->operands[ op->oindex + j ];
 
         if ( operand.kind != IR_O_OP )
             continue;
 
         unsigned def_index = IR_INVALID_INDEX;
-        ir_op* pinned_op = &_f->ops.at( operand.index );
+        ir_op* pinned_op = &_f->ops[ operand.index ];
         bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
         if ( pinned_op->local() == IR_INVALID_LOCAL )
         {
@@ -595,7 +595,7 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
             {
                 value->mark = false;
                 def_index = value->op_index;
-                assert( _f->ops.at( def_index ).local() == pinned_op->local() );
+                assert( _f->ops[ def_index ].local() == pinned_op->local() );
             }
             else
             {
@@ -624,8 +624,8 @@ bool ir_alloc::is_stacked( const ir_op* op )
             return true;
         if ( op->ocount == 1 )
         {
-            ir_operand operand = _f->operands.at( op->oindex );
-            if ( operand.kind == IR_O_OP && _f->ops.at( operand.index ).unpack() > 1 )
+            ir_operand operand = _f->operands[ op->oindex ];
+            if ( operand.kind == IR_O_OP && _f->ops[ operand.index ].unpack() > 1 )
                 return true;
         }
         return false;

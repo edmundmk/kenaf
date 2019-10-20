@@ -60,9 +60,9 @@ void ir_fold::fold_phi_loop()
             continue;
         }
 
-        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops[ phi_index ].phi_next )
         {
-            ir_op* phi = &_f->ops.at( phi_index );
+            ir_op* phi = &_f->ops[ phi_index ];
             if ( phi->opcode == IR_REF )
             {
                 continue;
@@ -70,7 +70,7 @@ void ir_fold::fold_phi_loop()
 
             for ( unsigned j = 0; j < phi->ocount; ++j )
             {
-                ir_operand* operand = &_f->operands.at( phi->oindex + j );
+                ir_operand* operand = &_f->operands[ phi->oindex + j ];
                 assert( operand->kind == IR_O_OP );
 
                 if ( phi_loop_search( { IR_O_OP, phi_index }, *operand ) )
@@ -88,7 +88,7 @@ bool ir_fold::phi_loop_search( ir_operand loop_phi, ir_operand operand )
         Return true if all reachable ops from operand terminate at loop_phi.
     */
     assert( operand.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( operand.index );
+    ir_op* op = &_f->ops[ operand.index ];
     if ( op->opcode != IR_PHI && op->opcode != IR_REF )
     {
         return false;
@@ -102,7 +102,7 @@ bool ir_fold::phi_loop_search( ir_operand loop_phi, ir_operand operand )
 
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
-        ir_operand operand = _f->operands.at( op->oindex + j );
+        ir_operand operand = _f->operands[ op->oindex + j ];
         assert( operand.kind == IR_O_OP );
 
         if ( operand.index == loop_phi.index )
@@ -132,24 +132,24 @@ void ir_fold::fold_phi_step()
     {
         ir_block* block = &_f->blocks[ block_index ];
 
-        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops[ phi_index ].phi_next )
         {
-            ir_op* phi = &_f->ops.at( phi_index );
+            ir_op* phi = &_f->ops[ phi_index ];
             assert( phi->opcode == IR_PHI || phi->opcode == IR_REF );
 
             size_t ref_count = 0;
             ir_operand ref = { IR_O_NONE };
             for ( unsigned j = 0; j < phi->ocount; ++j )
             {
-                ir_operand def = _f->operands.at( phi->oindex + j );
+                ir_operand def = _f->operands[ phi->oindex + j ];
                 assert( def.kind == IR_O_OP );
 
                 // Look through refs.
-                ir_op* op = &_f->ops.at( def.index );
+                ir_op* op = &_f->ops[ def.index ];
                 if ( op->opcode == IR_REF )
                 {
                     assert( op->ocount == 1 );
-                    def = _f->operands.at( op->oindex );
+                    def = _f->operands[ op->oindex ];
                     assert( def.kind == IR_O_OP );
                 }
 
@@ -167,7 +167,7 @@ void ir_fold::fold_phi_step()
                 assert( phi->ocount >= 1 );
                 phi->opcode = IR_REF;
                 phi->ocount = 1;
-                _f->operands.at( phi->oindex ) = ref;
+                _f->operands[ phi->oindex ] = ref;
             }
         }
     }
@@ -186,7 +186,7 @@ void ir_fold::fold_constants()
         _stack.pop_back();
 
         assert( block_operand.kind == IR_O_BLOCK );
-        ir_block* block = &_f->blocks.at( block_operand.index );
+        ir_block* block = &_f->blocks[ block_operand.index ];
 
         // If we've already visited, continue.
         if ( block->reachable )
@@ -197,7 +197,7 @@ void ir_fold::fold_constants()
         fold_constants( block );
 
         // Find blocks reachable from this block.
-        ir_op& jump = _f->ops.at( block->upper - 1 );
+        ir_op& jump = _f->ops[ block->upper - 1 ];
         if ( jump.opcode == IR_JUMP )
         {
             assert( jump.ocount == 1 );
@@ -224,7 +224,7 @@ void ir_fold::fold_constants( ir_block* block )
 {
     for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
     {
-        ir_op* op = &_f->ops.at( op_index );
+        ir_op* op = &_f->ops[ op_index ];
         if ( op->opcode == IR_PHI || op->opcode == IR_REF )
         {
             continue;
@@ -295,19 +295,19 @@ void ir_fold::fold_constants( ir_block* block )
 
 ir_operand ir_fold::jump_block_operand( unsigned operand_index )
 {
-    ir_operand o = _f->operands.at( operand_index );
+    ir_operand o = _f->operands[ operand_index ];
     assert( o.kind == IR_O_JUMP );
-    ir_op& block = _f->ops.at( o.index );
+    ir_op& block = _f->ops[ o.index ];
     assert( block.opcode == IR_BLOCK );
     assert( block.ocount == 1 );
-    o = _f->operands.at( block.oindex );
+    o = _f->operands[ block.oindex ];
     assert( o.kind == IR_O_BLOCK );
     return o;
 }
 
 ir_operand ir_fold::fold_operand( unsigned operand_index )
 {
-    return ir_fold_operand( _f, _f->operands.at( operand_index ) );
+    return ir_fold_operand( _f, _f->operands[ operand_index ] );
 }
 
 bool ir_fold::is_constant( ir_operand operand )
@@ -320,13 +320,13 @@ bool ir_fold::is_constant( ir_operand operand )
 double ir_fold::to_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
-    return _f->constants.at( operand.index ).n;
+    return _f->constants[ operand.index ].n;
 }
 
 std::string_view ir_fold::to_string( ir_operand operand )
 {
     assert( operand.kind == IR_O_STRING );
-    const ir_constant& s = _f->constants.at( operand.index );
+    const ir_constant& s = _f->constants[ operand.index ];
     return std::string_view( s.text, s.size );
 }
 
@@ -344,9 +344,9 @@ std::pair< ir_operand, size_t > ir_fold::count_nots( ir_operand operand )
 {
     const ir_op* not_op;
     size_t not_count = 0;
-    while ( operand.kind == IR_O_OP && ( not_op = &_f->ops.at( operand.index ) )->opcode == IR_NOT )
+    while ( operand.kind == IR_O_OP && ( not_op = &_f->ops[ operand.index ] )->opcode == IR_NOT )
     {
-        operand = _f->operands.at( not_op->oindex );
+        operand = _f->operands[ not_op->oindex ];
         not_count += 1;
     }
     return std::make_pair( operand, not_count );
@@ -377,10 +377,9 @@ bool ir_fold::fold_unarithmetic( ir_op* op )
         }
 
         // Update operand.
-        ir_operand* operand = &_f->operands.at( op->oindex );
+        ir_operand* operand = &_f->operands[ op->oindex ];
         operand->kind = IR_O_NUMBER;
-        operand->index = _f->constants.size();
-        _f->constants.push_back( ir_constant( result ) );
+        operand->index = _f->constants.append( ir_constant( result ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;
@@ -429,10 +428,9 @@ bool ir_fold::fold_biarithmetic( ir_op* op )
         }
 
         // Update operand.
-        ir_operand* operand = &_f->operands.at( op->oindex );
+        ir_operand* operand = &_f->operands[ op->oindex ];
         operand->kind = IR_O_NUMBER;
-        operand->index = _f->constants.size();
-        _f->constants.push_back( ir_constant( result ) );
+        operand->index = _f->constants.append( ir_constant( result ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;
@@ -463,11 +461,10 @@ bool ir_fold::fold_concat( ir_op* op )
         std::string_view vstring = to_string( v );
 
         // Concatenate string.
-        ir_operand* operand = &_f->operands.at( op->oindex );
-        operand->kind = IR_O_STRING;
-        operand->index = _f->constants.size();
         const source_string* result = _source->new_string( ustring.data(), ustring.size(), vstring.data(), vstring.size() );
-        _f->constants.push_back( ir_constant( result->text, result->size ) );
+        ir_operand* operand = &_f->operands[ op->oindex ];
+        operand->kind = IR_O_STRING;
+        operand->index = _f->constants.append( ir_constant( result->text, result->size ) );
 
         // Change op to constant.
         op->opcode = IR_CONST;
@@ -491,7 +488,7 @@ bool ir_fold::fold_mov( ir_op* op )
         return false;
     }
 
-    ir_operand* operand = &_f->operands.at( op->oindex );
+    ir_operand* operand = &_f->operands[ op->oindex ];
     *operand = u;
 
     op->opcode = IR_CONST;
@@ -529,7 +526,7 @@ bool ir_fold::fold_equal( ir_op* op )
     }
 
     // Update operand.
-    ir_operand* operand = &_f->operands.at( op->oindex );
+    ir_operand* operand = &_f->operands[ op->oindex ];
     operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
 
     // Change op to constant.
@@ -569,7 +566,7 @@ bool ir_fold::fold_compare( ir_op* op )
     }
 
     // Update operand.
-    ir_operand* operand = &_f->operands.at( op->oindex );
+    ir_operand* operand = &_f->operands[ op->oindex ];
     operand->kind = result ? IR_O_TRUE : IR_O_FALSE;
 
     // Change op to constant.
@@ -592,7 +589,7 @@ bool ir_fold::fold_not( ir_op* op )
     bool test = test_constant( u );
 
     // Update operand.
-    ir_operand* operand = &_f->operands.at( op->oindex );
+    ir_operand* operand = &_f->operands[ op->oindex ];
     operand->kind = test ? IR_O_FALSE : IR_O_TRUE;
 
     // Change op to constant.
@@ -640,20 +637,20 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
     if ( is_constant( u ) )
     {
         // Next is where this instruction jumps to.
-        ir_operand next_jump = _f->operands.at( op->oindex + 1 );
+        ir_operand next_jump = _f->operands[ op->oindex + 1 ];
         assert( next_jump.kind == IR_O_JUMP );
         unsigned next_index = next_jump.index;
 
         // Locate DEF, which must be instruction before next.
         unsigned def_index = next_index - 1;
-        ir_op* def = &_f->ops.at( def_index );
+        ir_op* def = &_f->ops[ def_index ];
         assert( def->opcode == IR_B_DEF );
 
         // Locate PHI, which is referenced from DEF.
-        ir_operand phi_jump = _f->operands.at( def->oindex + 2 );
+        ir_operand phi_jump = _f->operands[ def->oindex + 2 ];
         assert( phi_jump.kind == IR_O_JUMP );
         unsigned phi_index = phi_jump.index;
-        ir_op* phi = &_f->ops.at( phi_index );
+        ir_op* phi = &_f->ops[ phi_index ];
         assert( phi->opcode == IR_B_PHI );
 
         // Check if branch taken.
@@ -664,7 +661,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
             // Delete from CUT to next.
             for ( unsigned i = op_index; i < next_index; ++i )
             {
-                ir_op* nop = &_f->ops.at( i );
+                ir_op* nop = &_f->ops[ i ];
                 if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
                 {
                     nop->opcode = IR_NOP;
@@ -677,7 +674,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
         else
         {
             // Find expr which is passed to PHI.
-            ir_operand expr_operand = _f->operands.at( def->oindex + 1 );
+            ir_operand expr_operand = _f->operands[ def->oindex + 1 ];
 
             // Delete CUT.
             op->opcode = IR_NOP;
@@ -688,7 +685,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
             // Delete from DEF to PHI.
             for ( unsigned i = def_index; i < phi_index; ++i )
             {
-                ir_op* nop = &_f->ops.at( i );
+                ir_op* nop = &_f->ops[ i ];
                 if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
                 {
                     nop->opcode = IR_NOP;
@@ -700,7 +697,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
 
             // Update PHI's final operand.
             assert( phi->ocount > 0 );
-            ir_operand* operand = &_f->operands.at( phi->oindex + phi->ocount - 1 );
+            ir_operand* operand = &_f->operands[ phi->oindex + phi->ocount - 1 ];
             *operand = expr_operand;
         }
 
@@ -709,7 +706,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
     else
     {
         // Check for first form.
-        if ( _f->ops.at( op_index + 1 ).opcode == IR_B_DEF )
+        if ( _f->ops[ op_index + 1 ].opcode == IR_B_DEF )
         {
             return false;
         }
@@ -719,7 +716,7 @@ bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
         if ( not_count.second )
         {
             // Skip past nots.
-            ir_operand* operand = &_f->operands.at( op->oindex );
+            ir_operand* operand = &_f->operands[ op->oindex ];
             *operand = not_count.first;
 
             // Swap B_AND and B_CUT if not_count is odd.
@@ -745,11 +742,11 @@ bool ir_fold::fold_phi( ir_op* op )
     unsigned ovalid = 0;
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
-        ir_operand operand = _f->operands.at( op->oindex + j );
+        ir_operand operand = _f->operands[ op->oindex + j ];
         assert( operand.kind == IR_O_OP );
-        if ( _f->ops.at( operand.index ).opcode != IR_NOP )
+        if ( _f->ops[ operand.index ].opcode != IR_NOP )
         {
-            _f->operands.at( op->oindex + ovalid ) = operand;
+            _f->operands[ op->oindex + ovalid ] = operand;
             ovalid += 1;
         }
     }
@@ -769,8 +766,8 @@ bool ir_fold::fold_test( ir_op* op )
     {
         // Change test to unconditional jump.
         bool test = test_constant( u );
-        ir_operand* operand = &_f->operands.at( op->oindex );
-        ir_operand* jump = &_f->operands.at( op->oindex + ( test ? 1 : 2 ) );
+        ir_operand* operand = &_f->operands[ op->oindex ];
+        ir_operand* jump = &_f->operands[ op->oindex + ( test ? 1 : 2 ) ];
         *operand = *jump;
         op->opcode = IR_JUMP;
         op->ocount = 1;
@@ -782,14 +779,14 @@ bool ir_fold::fold_test( ir_op* op )
     if ( not_count.second )
     {
         // Skip past nots.
-        ir_operand* operand = &_f->operands.at( op->oindex );
+        ir_operand* operand = &_f->operands[ op->oindex ];
         *operand = not_count.first;
 
         // Swap true/false if not_count is odd.
         if ( not_count.second % 2 )
         {
-            ir_operand* jt = &_f->operands.at( op->oindex + 1 );
-            ir_operand* jf = &_f->operands.at( op->oindex + 2 );
+            ir_operand* jt = &_f->operands[ op->oindex + 1 ];
+            ir_operand* jf = &_f->operands[ op->oindex + 2 ];
             std::swap( *jt, *jf );
         }
     }
@@ -812,17 +809,17 @@ void ir_fold::fold_uses()
             continue;
         }
 
-        const ir_op* op = &_f->ops.at( operand->index );
+        const ir_op* op = &_f->ops[ operand->index ];
         if ( op->opcode == IR_B_PHI && op->ocount == 1 )
         {
             _stack.push_back( *operand );
-            *operand = _f->operands.at( op->oindex );
+            *operand = _f->operands[ op->oindex ];
         }
     }
 
     for ( ir_operand operand : _stack )
     {
-        ir_op* op = &_f->ops.at( operand.index );
+        ir_op* op = &_f->ops[ operand.index ];
         if ( op->opcode == IR_NOP )
         {
             continue;
@@ -853,9 +850,9 @@ void ir_fold::remove_unreachable_blocks()
         block->preceding_lower = block->preceding_upper = IR_INVALID_INDEX;
 
         // Remove phi ops.
-        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+        for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops[ phi_index ].phi_next )
         {
-            ir_op* phi = &_f->ops.at( phi_index );
+            ir_op* phi = &_f->ops[ phi_index ];
             phi->opcode = IR_NOP;
             phi->ocount = 0;
             phi->oindex = IR_INVALID_INDEX;
@@ -866,7 +863,7 @@ void ir_fold::remove_unreachable_blocks()
         // Remove instructions.
         for ( unsigned op_index = block->lower; op_index < block->upper; ++op_index )
         {
-            ir_op* op = &_f->ops.at( op_index );
+            ir_op* op = &_f->ops[ op_index ];
             if ( op->opcode == IR_PHI || op->opcode == IR_REF )
                 continue;
             op->opcode = IR_NOP;
@@ -884,7 +881,7 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
         return operand;
     }
 
-    const ir_op* op = &f->ops.at( operand.index );
+    const ir_op* op = &f->ops[ operand.index ];
     while ( true )
     {
         // Look past MOV/REF.
@@ -892,9 +889,9 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
             || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
         {
             assert( op->ocount == 1 );
-            ir_operand oval = f->operands.at( op->oindex );
+            ir_operand oval = f->operands[ op->oindex ];
             assert( oval.kind == IR_O_OP );
-            op = &f->ops.at( oval.index );
+            op = &f->ops[ oval.index ];
         }
         else
         {
@@ -905,7 +902,7 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
     if ( op->opcode == IR_CONST )
     {
         assert( op->ocount == 1 );
-        return f->operands.at( op->oindex );
+        return f->operands[ op->oindex ];
     }
 
     return operand;

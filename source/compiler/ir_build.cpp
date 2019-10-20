@@ -459,7 +459,7 @@ ir_operand ir_build::visit( ast_node_index node )
             }
         }
 
-        ir_operand* operand = &_f->operands.at( _f->ops.at( array.index ).oindex );
+        ir_operand* operand = &_f->operands[ _f->ops[ array.index ].oindex ];
         operand->index = elcount;
 
         return array;
@@ -483,7 +483,7 @@ ir_operand ir_build::visit( ast_node_index node )
             kvcount += 1;
         }
 
-        ir_operand* operand = &_f->operands.at( _f->ops.at( table.index ).oindex );
+        ir_operand* operand = &_f->operands[ _f->ops[ table.index ].oindex ];
         operand->index = kvcount;
 
         return table;
@@ -637,7 +637,7 @@ ir_operand ir_build::visit( ast_node_index node )
             }
 
             ir_operand param = _o.at( pindex + local_index );
-            srcloc sloc = _f->ops.at( param.index ).sloc;
+            srcloc sloc = _f->ops[ param.index ].sloc;
             def( sloc, local_index, param );
         }
 
@@ -818,7 +818,7 @@ ir_operand ir_build::visit( ast_node_index node )
             ast_node_index name = ast_child_node( _f->ast, names );
             ast_node_index name_done = names;
 
-            ir_op* op = &_f->ops.at( items.index );
+            ir_op* op = &_f->ops[ items.index ];
             unsigned unpack = 0;
 
             for ( ; name.index < name_done.index; name = ast_next_node( _f->ast, name ) )
@@ -1273,7 +1273,7 @@ unsigned ir_build::assign_list( ast_node_index lval_init, ast_node_index lval_do
             {
                 if ( _o[ j ].kind != IR_O_OP )
                     continue;
-                if ( _f->ops.at( _o[ j ].index ).local() != local_index )
+                if ( _f->ops[ _o[ j ].index ].local() != local_index )
                     continue;
 
                 // Preserve current value of local.
@@ -1394,7 +1394,7 @@ ir_operand ir_build::expr_unpack( ast_node_index node, unsigned unpack )
 
     // Actually ask it to unpack.
     assert( operand.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( operand.index );
+    ir_op* op = &_f->ops[ operand.index ];
     assert( op->opcode == IR_VARARG || op->opcode == IR_CALL || op->opcode == IR_YCALL || op->opcode == IR_YIELD || op->opcode == IR_UNPACK );
     assert( op->local() == IR_INVALID_LOCAL );
     op->set_unpack( unpack );
@@ -1444,23 +1444,17 @@ ir_operand ir_build::call_op( ast_node_index node, ir_opcode opcode )
 
 ir_operand ir_build::number_operand( ast_node_index node )
 {
-    unsigned index = _f->constants.size();
-    _f->constants.push_back( ir_constant( node->leaf_number().n ) );
-    return { IR_O_NUMBER, index };
+    return { IR_O_NUMBER, _f->constants.append( ir_constant( node->leaf_number().n ) ) };
 }
 
 ir_operand ir_build::string_operand( ast_node_index node )
 {
-    unsigned index = _f->constants.size();
-    _f->constants.push_back( ir_constant( node->leaf_string().text, node->leaf_string().size ) );
-    return { IR_O_STRING, index };
+    return { IR_O_STRING, _f->constants.append( ir_constant( node->leaf_string().text, node->leaf_string().size ) ) };
 }
 
 ir_operand ir_build::selector_operand( ast_node_index node )
 {
-    unsigned index = _f->selectors.size();
-    _f->selectors.push_back( { node->leaf_string().text, node->leaf_string().size } );
-    return { IR_O_SELECTOR, index };
+    return { IR_O_SELECTOR, _f->selectors.append( { node->leaf_string().text, node->leaf_string().size } ) };
 }
 
 ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
@@ -1476,10 +1470,7 @@ ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     op.oindex = ocount ? _f->operands.size() : IR_INVALID_INDEX;
     op.sloc = sloc;
 
-    unsigned op_index = _f->ops.size();
-    if ( op_index >= IR_INVALID_INDEX )
-        throw std::out_of_range( "too many instructions" );
-    _f->ops.push_back( op );
+    unsigned op_index = _f->ops.append( op );
 
     assert( ocount <= _o.size() );
     unsigned oindex = _o.size() - ocount;
@@ -1487,7 +1478,7 @@ ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     {
         if ( _f->operands.size() >= IR_INVALID_INDEX )
             throw std::out_of_range( "too many operands" );
-        _f->operands.push_back( _o[ oindex + i ] );
+        _f->operands.append( _o[ oindex + i ] );
     }
     _o.resize( oindex );
 
@@ -1516,7 +1507,7 @@ void ir_build::goto_branch( goto_scope scope )
     {
         goto_fixup fixup = stack.fixups[ i ];
         assert( fixup.block_index == _block_index );
-        ir_operand* operand = &_f->operands.at( fixup.operand_index );
+        ir_operand* operand = &_f->operands[ fixup.operand_index ];
         assert( operand->kind == IR_O_JUMP );
         operand->index = label;
     }
@@ -1556,8 +1547,8 @@ ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
         for ( unsigned i = stack.index; i < stack.fixups.size(); ++i )
         {
             goto_fixup fixup = stack.fixups[ i ];
-            _f->preceding_blocks.push_back( fixup.block_index );
-            ir_operand* operand = &_f->operands.at( fixup.operand_index );
+            _f->preceding_blocks.append( fixup.block_index );
+            ir_operand* operand = &_f->operands[ fixup.operand_index ];
             assert( operand->kind == IR_O_JUMP );
             operand->index = label;
         }
@@ -1568,16 +1559,13 @@ ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
 
     if ( kind == IR_BLOCK_UNSEALED )
     {
-        _f->preceding_blocks.push_back( IR_INVALID_INDEX );
+        _f->preceding_blocks.append( IR_INVALID_INDEX );
     }
 
     block.preceding_upper = _f->preceding_blocks.size();
 
     assert( _block_index == IR_INVALID_INDEX );
-    _block_index = _f->blocks.size();
-    if ( _block_index >= IR_INVALID_INDEX )
-        throw std::out_of_range( "too many blocks" );
-    _f->blocks.push_back( block );
+    _block_index = _f->blocks.append( block );
 
     _o.push_back( { IR_O_BLOCK, _block_index } );
     emit( sloc, IR_BLOCK, 1 );
@@ -1588,14 +1576,14 @@ ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
 ir_block_index ir_build::new_loop( ir_block_index loop_header )
 {
     assert( loop_header == _block_index );
-    assert( _f->blocks.at( loop_header ).kind == IR_BLOCK_UNSEALED );
+    assert( _f->blocks[ loop_header ].kind == IR_BLOCK_UNSEALED );
     return loop_header;
 }
 
 void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
 {
     // Find loop header block.
-    ir_block* block = &_f->blocks.at( loop_header );
+    ir_block* block = &_f->blocks[ loop_header ];
     assert( block->kind == IR_BLOCK_UNSEALED );
 
     // Add predecessor blocks to the block's predecessor list.
@@ -1609,7 +1597,7 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
     if ( back_index < stack.fixups.size() )
     {
         assert( block->preceding_lower < block->preceding_upper );
-        ir_block_index* preceding = &_f->preceding_blocks.at( block->preceding_upper - 1 );
+        ir_block_index* preceding = &_f->preceding_blocks[ block->preceding_upper - 1 ];
         assert( *preceding == IR_INVALID_INDEX );
         *preceding = stack.fixups.at( back_index ).block_index;
         back_index += 1;
@@ -1629,7 +1617,7 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
 
         for ( unsigned block_index = loop_header + 1; block_index < _f->blocks.size(); ++block_index )
         {
-            ir_block* next_block = &_f->blocks.at( block_index );
+            ir_block* next_block = &_f->blocks[ block_index ];
             next_block->preceding_lower += count;
             next_block->preceding_upper += count;
         }
@@ -1642,7 +1630,7 @@ void ir_build::end_loop( ir_block_index loop_header, goto_scope scope )
     for ( unsigned i = scope.index; i < stack.fixups.size(); ++i )
     {
         goto_fixup fixup = stack.fixups[ i ];
-        ir_operand* operand = &_f->operands.at( fixup.operand_index );
+        ir_operand* operand = &_f->operands[ fixup.operand_index ];
         assert( operand->kind == IR_O_JUMP );
         operand->index = label;
     }
@@ -1681,7 +1669,7 @@ ir_operand ir_build::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, 
 
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand jump = emit( sloc, opcode, ocount + 1 );
-    const ir_op& op = _f->ops.at( jump.index );
+    const ir_op& op = _f->ops[ jump.index ];
 
     goto_stack& stack = _goto_stacks[ goto_kind ];
     assert( stack.index == stack.fixups.size() );
@@ -1696,7 +1684,7 @@ ir_operand ir_build::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, 
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand test = emit( sloc, opcode, ocount + 2 );
-    const ir_op& op = _f->ops.at( test.index );
+    const ir_op& op = _f->ops[ test.index ];
 
     goto_stack& stack_true = _goto_stacks[ goto_true ];
     assert( stack_true.index == stack_true.fixups.size() );
@@ -1720,14 +1708,14 @@ ir_operand ir_build::end_block( ir_operand jump )
     }
 
     assert( jump.kind == IR_O_OP );
-    const ir_op& op = _f->ops.at( jump.index );
+    const ir_op& op = _f->ops[ jump.index ];
     assert( op.opcode == IR_JUMP || op.opcode == IR_JUMP_TEST
         || op.opcode == IR_JUMP_FOR_EGEN || op.opcode == IR_JUMP_FOR_SGEN
         || op.opcode == IR_JUMP_FOR_EACH || op.opcode == IR_JUMP_FOR_STEP
         || op.opcode == IR_JUMP_THROW || op.opcode == IR_JUMP_RETURN );
 
     assert( _block_index != IR_INVALID_INDEX );
-    ir_block* block = &_f->blocks.at( _block_index );
+    ir_block* block = &_f->blocks[ _block_index ];
     block->upper = _f->ops.size();
     _block_index = IR_INVALID_INDEX;
 
@@ -1759,14 +1747,14 @@ ir_operand ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand 
 
     // Get op which produces the value assigned to the local.
     assert( operand.kind == IR_O_OP );
-    ir_op* op = &_f->ops.at( operand.index );
+    ir_op* op = &_f->ops[ operand.index ];
 
     // If defining from a previous definition of a local, create new value.
     if ( op->local() != IR_INVALID_LOCAL )
     {
         _o.push_back( { IR_O_OP, operand.index } );
         operand = emit( sloc, IR_MOV, 1 );
-        op = &_f->ops.at( operand.index );
+        op = &_f->ops[ operand.index ];
     }
 
     // op is the new definition of the local
@@ -1816,16 +1804,13 @@ ir_operand ir_build::search_def( ir_block_index block_index, unsigned local_inde
     phi.opcode = IR_PHI_OPEN;
     phi.set_local( local_index );
     phi.phi_next = IR_INVALID_INDEX;
-    unsigned phi_index = _f->ops.size();
-    if ( phi_index >= IR_INVALID_INDEX )
-        throw std::out_of_range( "too many instructions" );
-    _f->ops.push_back( phi );
+    unsigned phi_index = _f->ops.append( phi );
 
     // Link into block's list of phi ops.
-    ir_block* block = &_f->blocks.at( block_index );
+    ir_block* block = &_f->blocks[ block_index ];
     if ( block->phi_head != IR_INVALID_INDEX )
     {
-        _f->ops.at( block->phi_tail ).phi_next = phi_index;
+        _f->ops[ block->phi_tail ].phi_next = phi_index;
         block->phi_tail = phi_index;
     }
     else
@@ -1853,7 +1838,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
         Construct phi op by searching for definitions that reach the block.
     */
     assert( block_index != IR_INVALID_INDEX );
-    ir_block* block = &_f->blocks.at( block_index );
+    ir_block* block = &_f->blocks[ block_index ];
     size_t def_index = _def_stack.size();
 
     // Recursively search for definitions in predecessor blocks.
@@ -1861,7 +1846,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
     ir_operand ref = { IR_O_NONE };
     for ( unsigned index = block->preceding_lower; index < block->preceding_upper; ++index )
     {
-        ir_block_index preceding_index = _f->preceding_blocks.at( index );
+        ir_block_index preceding_index = _f->preceding_blocks[ index ];
 
         // Find definition coming from this op.
         ir_operand def = { IR_O_NONE };
@@ -1872,11 +1857,11 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
         }
 
         // Look through refs.
-        ir_op* op = &_f->ops.at( def.index );
+        ir_op* op = &_f->ops[ def.index ];
         if ( op->opcode == IR_REF )
         {
             assert( op->ocount == 1 );
-            def = _f->operands.at( op->oindex );
+            def = _f->operands[ op->oindex ];
             assert( def.kind == IR_O_OP );
         }
 
@@ -1892,7 +1877,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
     }
 
     // Modify open phi op.
-    ir_op* op = &_f->ops.at( phi_index );
+    ir_op* op = &_f->ops[ phi_index ];
     assert( op->opcode == IR_PHI_OPEN );
     assert( op->local() == local_index );
 
@@ -1908,8 +1893,7 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
     {
         // Add ref.
         op->opcode = IR_REF;
-        op->oindex = _f->operands.size();
-        _f->operands.push_back( ref );
+        op->oindex = _f->operands.append( ref );
         op->ocount = 1;
     }
 
@@ -1919,13 +1903,13 @@ void ir_build::close_phi( ir_block_index block_index, unsigned local_index, unsi
 void ir_build::seal_loop( ir_block_index loop_header )
 {
     assert( loop_header != IR_INVALID_INDEX );
-    ir_block* block = &_f->blocks.at( loop_header );
+    ir_block* block = &_f->blocks[ loop_header ];
     assert( block->kind == IR_BLOCK_UNSEALED );
 
     // Go through all phis and resolve them.
-    for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops.at( phi_index ).phi_next )
+    for ( unsigned phi_index = block->phi_head; phi_index != IR_INVALID_INDEX; phi_index = _f->ops[ phi_index ].phi_next )
     {
-        close_phi( loop_header, _f->ops.at( phi_index ).local(), phi_index );
+        close_phi( loop_header, _f->ops[ phi_index ].local(), phi_index );
     }
 
     // Mark as sealed.

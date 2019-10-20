@@ -94,8 +94,8 @@ void ir_foldk::inline_operands()
         case IR_ADD:
         case IR_MUL:
         {
-            ir_operand* u = &_f->operands.at( op->oindex + 0 );
-            ir_operand* v = &_f->operands.at( op->oindex + 1 );
+            ir_operand* u = &_f->operands[ op->oindex + 0 ];
+            ir_operand* v = &_f->operands[ op->oindex + 1 ];
             ir_operand fold_u = ir_fold_operand( _f, *u );
             ir_operand fold_v = ir_fold_operand( _f, *v );
 
@@ -116,17 +116,16 @@ void ir_foldk::inline_operands()
 
         case IR_SUB:
         {
-            ir_operand* u = &_f->operands.at( op->oindex + 0 );
-            ir_operand* v = &_f->operands.at( op->oindex + 1 );
+            ir_operand* u = &_f->operands[ op->oindex + 0 ];
+            ir_operand* v = &_f->operands[ op->oindex + 1 ];
             ir_operand fold_u = ir_fold_operand( _f, *u );
             ir_operand fold_v = ir_fold_operand( _f, *v );
 
             if ( fold_v.kind == IR_O_NUMBER )
             {
                 // Convert to ADD with negated operand.
-                double constant = _f->constants.at( fold_v.index ).n;
-                fold_v.index = _f->constants.size();
-                _f->constants.push_back( ir_constant( -constant ) );
+                double constant = _f->constants[ fold_v.index ].n;
+                fold_v.index = _f->constants.append( ir_constant( -constant ) );
                 op->opcode = IR_ADD;
                 *v = inline_number( fold_v );
             }
@@ -141,8 +140,8 @@ void ir_foldk::inline_operands()
 
         case IR_CONCAT:
         {
-            ir_operand* u = &_f->operands.at( op->oindex + 0 );
-            ir_operand* v = &_f->operands.at( op->oindex + 1 );
+            ir_operand* u = &_f->operands[ op->oindex + 0 ];
+            ir_operand* v = &_f->operands[ op->oindex + 1 ];
             ir_operand fold_u = ir_fold_operand( _f, *u );
             ir_operand fold_v = ir_fold_operand( _f, *v );
 
@@ -164,20 +163,20 @@ void ir_foldk::inline_operands()
         case IR_LE:
         {
             // Can only inline when directly followed by a jump that uses op.
-            ir_op* jump = &_f->ops.at( op_index + 1 );
+            ir_op* jump = &_f->ops[ op_index + 1 ];
             if ( jump->opcode != IR_JUMP_TEST )
             {
                 break;
             }
-            ir_operand test = _f->operands.at( jump->oindex );
+            ir_operand test = _f->operands[ jump->oindex ];
             if ( test.kind != IR_O_OP || test.index != op_index )
             {
                 break;
             }
 
             // Can inline.
-            ir_operand* u = &_f->operands.at( op->oindex + 0 );
-            ir_operand* v = &_f->operands.at( op->oindex + 1 );
+            ir_operand* u = &_f->operands[ op->oindex + 0 ];
+            ir_operand* v = &_f->operands[ op->oindex + 1 ];
             ir_operand fold_u = ir_fold_operand( _f, *u );
             ir_operand fold_v = ir_fold_operand( _f, *v );
 
@@ -213,7 +212,7 @@ void ir_foldk::inline_operands()
         case IR_SET_KEY:
         {
             // Do key selectors in first pass.
-            ir_operand* s = &_f->operands.at( op->oindex + 1 );
+            ir_operand* s = &_f->operands[ op->oindex + 1 ];
             *s = insert_selector( *s );
             if ( s->index > 0xFF )
             {
@@ -225,7 +224,7 @@ void ir_foldk::inline_operands()
         case IR_GET_INDEX:
         case IR_SET_INDEX:
         {
-            ir_operand* i = &_f->operands.at( op->oindex + 1 );
+            ir_operand* i = &_f->operands[ op->oindex + 1 ];
             ir_operand fold_i = ir_fold_operand( _f, *i );
 
             if ( fold_i.kind == IR_O_NUMBER )
@@ -265,7 +264,7 @@ void ir_foldk::alloc_constants()
         {
         case IR_CONST:
         {
-            ir_operand* u = &_f->operands.at( op->oindex );
+            ir_operand* u = &_f->operands[ op->oindex ];
             if ( u->kind == IR_O_NUMBER )
             {
                 *u = insert_number( *u );
@@ -279,7 +278,7 @@ void ir_foldk::alloc_constants()
 
         case IR_GET_GLOBAL:
         {
-            ir_operand* s = &_f->operands.at( op->oindex );
+            ir_operand* s = &_f->operands[ op->oindex ];
             *s = insert_selector( *s );
             break;
         }
@@ -293,7 +292,7 @@ void ir_foldk::alloc_constants()
 ir_operand ir_foldk::inline_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
-    double number = _f->constants.at( operand.index ).n;
+    double number = _f->constants[ operand.index ].n;
     int8_t imm8 = (int8_t)number;
     if ( (double)imm8 == number )
     {
@@ -308,7 +307,7 @@ ir_operand ir_foldk::inline_number( ir_operand operand )
 ir_operand ir_foldk::insert_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
-    double number = _f->constants.at( operand.index ).n;
+    double number = _f->constants[ operand.index ].n;
 
     // Use bit pattern so exact double is preserved.
     uint64_t double_key = 0;
@@ -337,7 +336,7 @@ ir_operand ir_foldk::insert_number( ir_operand operand )
 ir_operand ir_foldk::insert_string( ir_operand operand )
 {
     assert( operand.kind == IR_O_STRING );
-    ir_constant sc = _f->constants.at( operand.index );
+    ir_constant sc = _f->constants[ operand.index ];
     std::string_view sv( sc.text, sc.size );
 
     auto i = _string_map.find( sv );
@@ -361,7 +360,7 @@ ir_operand ir_foldk::insert_string( ir_operand operand )
 ir_operand ir_foldk::insert_selector( ir_operand operand )
 {
     assert( operand.kind == IR_O_SELECTOR );
-    ir_selector sc = _f->selectors.at( operand.index );
+    ir_selector sc = _f->selectors[ operand.index ];
     std::string_view sv( sc.text, sc.size );
 
     auto i = _selector_map.find( sv );
