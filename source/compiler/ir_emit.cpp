@@ -132,7 +132,7 @@ void ir_emit::op_unary( const ir_op* rop, opcode o )
     }
 
     _max_r = std::max( _max_r, rop->r );
-    _u->ops.push_back( op::op_ab( o, rop->r, uop->r, 0 ) );
+    emit( rop->sloc, op::op_ab( o, rop->r, uop->r, 0 ) );
 }
 
 void ir_emit::op_binary( const ir_op* rop, opcode o )
@@ -155,7 +155,7 @@ void ir_emit::op_binary( const ir_op* rop, opcode o )
     }
 
     _max_r = std::max( _max_r, rop->r );
-    _u->ops.push_back( op::op_ab( o, rop->r, uop->r, vop->r ) );
+    emit( rop->sloc, op::op_ab( o, rop->r, uop->r, vop->r ) );
 }
 
 void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
@@ -195,7 +195,7 @@ void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
             return;
         }
 
-        _u->ops.push_back( op::op_ab( o, rop->r, uop->r, vop->r ) );
+        emit( rop->sloc, op::op_ab( o, rop->r, uop->r, vop->r ) );
     }
     else if ( v.kind == IR_O_NUMBER )
     {
@@ -205,11 +205,11 @@ void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
             return;
         }
 
-        _u->ops.push_back( op::op_ab( ok, rop->r, uop->r, v.index ) );
+        emit( rop->sloc, op::op_ab( ok, rop->r, uop->r, v.index ) );
     }
     else if ( v.kind == IR_O_IMMEDIATE )
     {
-        _u->ops.push_back( op::op_ai( oi, rop->r, uop->r, (int8_t)v.index ) );
+        emit( rop->sloc, op::op_ai( oi, rop->r, uop->r, (int8_t)v.index ) );
     }
     else
     {
@@ -253,7 +253,7 @@ void ir_emit::op_concat( const ir_op* rop )
             return;
         }
 
-        _u->ops.push_back( op::op_ab( OP_CONCAT, rop->r, uop->r, vop->r ) );
+        emit( rop->sloc, op::op_ab( OP_CONCAT, rop->r, uop->r, vop->r ) );
     }
     else if ( v.kind == IR_O_STRING )
     {
@@ -263,12 +263,18 @@ void ir_emit::op_concat( const ir_op* rop )
             return;
         }
 
-        _u->ops.push_back( op::op_ab( ok, rop->r, uop->r, v.index ) );
+        emit( rop->sloc, op::op_ab( ok, rop->r, uop->r, v.index ) );
     }
     else
     {
         _source->error( rop->sloc, "internal: invalid second operand to concat instruction" );
     }
+}
+
+void ir_emit::emit( srcloc sloc, op op )
+{
+    _u->ops.push_back( op );
+    _u->debug_slocs.push_back( sloc );
 }
 
 
