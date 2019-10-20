@@ -109,6 +109,8 @@ void ir_emit::assemble()
         case IR_MUL:        op_addmul( op, OP_MUL, OP_MULK, OP_MULI );  break;
         case IR_CONCAT:     op_concat( op );                            break;
 
+        case IR_CONST:      op_const( op );                             break;
+
         default: break;
         }
     }
@@ -268,6 +270,41 @@ void ir_emit::op_concat( const ir_op* rop )
     else
     {
         _source->error( rop->sloc, "internal: invalid second operand to concat instruction" );
+    }
+}
+
+void ir_emit::op_const( const ir_op* rop )
+{
+    assert( rop->ocount == 1 );
+    ir_operand k = _f->operands.at( rop->oindex );
+
+    if ( rop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+
+    if ( k.kind == IR_O_NUMBER || k.kind == IR_O_STRING )
+    {
+        emit( rop->sloc, op::op_c( OP_LDK, rop->r, k.index ) );
+    }
+    else if ( k.kind == IR_O_NULL )
+    {
+        emit( rop->sloc, op::op_c( OP_NULL, rop->r, 0 ) );
+    }
+    else if ( k.kind == IR_O_TRUE )
+    {
+        emit( rop->sloc, op::op_c( OP_BOOL, rop->r, 1 ) );
+    }
+    else if ( k.kind == IR_O_FALSE )
+    {
+        emit( rop->sloc, op::op_c( OP_BOOL, rop->r, 0 ) );
+    }
+    else
+    {
+        _source->error( rop->sloc, "internal: invalid constant operand" );
     }
 }
 

@@ -36,7 +36,7 @@ enum opcode : uint8_t
     OP_MOV,             // r = a                    | M | r | a | - |
     OP_SWP,             // r <-> a                  | M | r | a | - |
 
-    OP_NULL,            // r = null                 | K | r | - | - |
+    OP_NULL,            // r = null                 | K | r |   -   |
     OP_BOOL,            // r = c ? true : false     | K | r |   c   |
     OP_LDK,             // r = k[c]                 | K | r |   c   |
 

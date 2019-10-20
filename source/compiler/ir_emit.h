@@ -39,6 +39,7 @@ private:
     void op_binary( const ir_op* rop, opcode o );
     void op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi );
     void op_concat( const ir_op* rop );
+    void op_const( const ir_op* rop );
     void emit( srcloc sloc, op op );
 
     source* _source;
