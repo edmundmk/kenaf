@@ -88,11 +88,17 @@ bool ir_fold::phi_loop_search( ir_operand loop_phi, ir_operand operand )
         Return true if all reachable ops from operand terminate at loop_phi.
     */
     assert( operand.kind == IR_O_OP );
-    const ir_op* op = &_f->ops.at( operand.index );
+    ir_op* op = &_f->ops.at( operand.index );
     if ( op->opcode != IR_PHI && op->opcode != IR_REF )
     {
         return false;
     }
+
+    if ( op->mark )
+    {
+        return true;
+    }
+    op->mark = true;
 
     for ( unsigned j = 0; j < op->ocount; ++j )
     {
@@ -106,10 +112,12 @@ bool ir_fold::phi_loop_search( ir_operand loop_phi, ir_operand operand )
 
         if ( ! phi_loop_search( loop_phi, operand ) )
         {
+            op->mark = false;
             return false;
         }
     }
 
+    op->mark = false;
     return true;
 }
 
