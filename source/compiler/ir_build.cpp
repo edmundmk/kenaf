@@ -29,13 +29,6 @@ std::unique_ptr< ir_function > ir_build::build( ast_function* function )
     _f = std::make_unique< ir_function >();
     _f->ast = function;
 
-    // Check limits.
-    if ( _f->ast->locals.size() >= IR_INVALID_LOCAL )
-    {
-        _source->error( _f->ast->sloc, "internal: too many local variables" );
-        return nullptr;
-    }
-
     // Visit AST.
     ast_node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
     visit( node );
