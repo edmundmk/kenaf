@@ -40,6 +40,7 @@ private:
     void op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi );
     void op_concat( const ir_op* rop );
     void op_const( const ir_op* rop );
+    void op_genc( const ir_op* rop, opcode o, ir_operand_kind okind );
     void emit( srcloc sloc, op op );
 
     source* _source;

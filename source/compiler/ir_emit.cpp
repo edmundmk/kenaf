@@ -88,28 +88,37 @@ void ir_emit::assemble()
 
         switch ( op->opcode )
         {
-        case IR_LENGTH:     op_unary( op, OP_LEN );                     break;
-        case IR_NEG:        op_unary( op, OP_NEG );                     break;
-        case IR_POS:        op_unary( op, OP_POS );                     break;
-        case IR_BITNOT:     op_unary( op, OP_BITNOT );                  break;
-        case IR_NOT:        op_unary( op, OP_NOT );                     break;
+        case IR_LENGTH:         op_unary( op, OP_LEN );                         break;
+        case IR_NEG:            op_unary( op, OP_NEG );                         break;
+        case IR_POS:            op_unary( op, OP_POS );                         break;
+        case IR_BITNOT:         op_unary( op, OP_BITNOT );                      break;
+        case IR_NOT:            op_unary( op, OP_NOT );                         break;
+        case IR_SUPER:          op_unary( op, OP_SUPER );                       break;
+        case IR_JUMP_THROW:     op_unary( op, OP_THROW );                       break;
 
-        case IR_DIV:        op_binary( op, OP_DIV );                    break;
-        case IR_INTDIV:     op_binary( op, OP_INTDIV );                 break;
-        case IR_MOD:        op_binary( op, OP_MOD );                    break;
-        case IR_LSHIFT:     op_binary( op, OP_LSHIFT );                 break;
-        case IR_RSHIFT:     op_binary( op, OP_RSHIFT );                 break;
-        case IR_ASHIFT:     op_binary( op, OP_ASHIFT );                 break;
-        case IR_BITAND:     op_binary( op, OP_BITAND );                 break;
-        case IR_BITXOR:     op_binary( op, OP_BITXOR );                 break;
-        case IR_BITOR:      op_binary( op, OP_BITOR );                  break;
+        case IR_DIV:            op_binary( op, OP_DIV );                        break;
+        case IR_INTDIV:         op_binary( op, OP_INTDIV );                     break;
+        case IR_MOD:            op_binary( op, OP_MOD );                        break;
+        case IR_LSHIFT:         op_binary( op, OP_LSHIFT );                     break;
+        case IR_RSHIFT:         op_binary( op, OP_RSHIFT );                     break;
+        case IR_ASHIFT:         op_binary( op, OP_ASHIFT );                     break;
+        case IR_BITAND:         op_binary( op, OP_BITAND );                     break;
+        case IR_BITXOR:         op_binary( op, OP_BITXOR );                     break;
+        case IR_BITOR:          op_binary( op, OP_BITOR );                      break;
+        case IR_IS:             op_binary( op, OP_IS );                         break;
 
-        case IR_ADD:        op_addmul( op, OP_ADD, OP_ADDK, OP_ADDI );  break;
-        case IR_SUB:        op_addmul( op, OP_SUB, OP_SUBK, OP_SUBI );  break;
-        case IR_MUL:        op_addmul( op, OP_MUL, OP_MULK, OP_MULI );  break;
-        case IR_CONCAT:     op_concat( op );                            break;
+        case IR_ADD:            op_addmul( op, OP_ADD, OP_ADDK, OP_ADDI );      break;
+        case IR_SUB:            op_addmul( op, OP_SUB, OP_SUBK, OP_SUBI );      break;
+        case IR_MUL:            op_addmul( op, OP_MUL, OP_MULK, OP_MULI );      break;
+        case IR_CONCAT:         op_concat( op );                                break;
 
-        case IR_CONST:      op_const( op );                             break;
+        case IR_CONST:          op_const( op );                                 break;
+
+        case IR_GET_GLOBAL:     op_genc( op, OP_GET_GLOBAL, IR_O_SELECTOR );    break;
+        case IR_NEW_ENV:        op_genc( op, OP_NEW_ENV, IR_O_IMMEDIATE );      break;
+        case IR_NEW_ARRAY:      op_genc( op, OP_NEW_ARRAY, IR_O_IMMEDIATE );    break;
+        case IR_NEW_TABLE:      op_genc( op, OP_NEW_TABLE, IR_O_IMMEDIATE );    break;
+
 
         default: break;
         }
@@ -306,6 +315,26 @@ void ir_emit::op_const( const ir_op* rop )
     {
         _source->error( rop->sloc, "internal: invalid constant operand" );
     }
+}
+
+void ir_emit::op_genc( const ir_op* rop, opcode o, ir_operand_kind okind )
+{
+    assert( rop->ocount == 1 );
+    ir_operand k = _f->operands.at( rop->oindex );
+    if ( k.kind != okind )
+    {
+        _source->error( rop->sloc, "internal: invalid c operand" );
+        return;
+    }
+
+    if ( rop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+    emit( rop->sloc, op::op_c( o, rop->r, k.index ) );
 }
 
 void ir_emit::emit( srcloc sloc, op op )
