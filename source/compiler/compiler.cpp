@@ -85,8 +85,12 @@ const diagnostic& compile_result::diagnostic( size_t index ) const
 
 compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print )
 {
-    // Load source text.
     source source;
+
+    try
+    {
+
+    // Load source text.
     source.filename = filename;
     source.append( text.data(), text.size() );
 
@@ -166,6 +170,15 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
     }
 
     return compile_result( unit.pack(), std::move( source.diagnostics ) );
+
+    }
+    catch ( std::exception& e )
+    {
+
+    source.error( 0, "internal: %s", e.what() );
+    return compile_result( std::move( source.diagnostics ) );
+
+    }
 }
 
 }

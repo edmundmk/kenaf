@@ -36,42 +36,23 @@ std::unique_ptr< ir_function > ir_build::build( ast_function* function )
         return nullptr;
     }
 
-    try
+    // Visit AST.
+    ast_node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
+    visit( node );
+
+    // Clean up.
+    assert( _o.empty() );
+    for ( size_t i = 0; i < GOTO_MAX; ++i )
     {
-        // Visit AST.
-        ast_node_index node = { &_f->ast->nodes.back(), (unsigned)_f->ast->nodes.size() - 1 };
-        visit( node );
-
-        // Clean up.
-        assert( _o.empty() );
-        for ( size_t i = 0; i < GOTO_MAX; ++i )
-        {
-            assert( _goto_stacks[ i ].fixups.empty() );
-            assert( _goto_stacks[ i ].index == 0 );
-        }
-        assert( _block_index == IR_INVALID_INDEX );
-        assert( _def_stack.empty() );
-        _defs.clear();
-
-        // Done.
-        return std::move( _f );
+        assert( _goto_stacks[ i ].fixups.empty() );
+        assert( _goto_stacks[ i ].index == 0 );
     }
-    catch ( std::exception& e )
-    {
-        // Clean up.
-        _o.clear();
-        for ( size_t i = 0; i < GOTO_MAX; ++i )
-        {
-            _goto_stacks[ i ].fixups.clear();
-            _goto_stacks[ i ].index = 0;
-        }
-        _block_index = IR_INVALID_INDEX;
-        _defs.clear();
+    assert( _block_index == IR_INVALID_INDEX );
+    assert( _def_stack.empty() );
+    _defs.clear();
 
-        // Report error.
-        _source->error( _f->ast->sloc, "internal: %s", e.what() );
-        return nullptr;
-    }
+    // Done.
+    return std::move( _f );
 }
 
 ir_operand ir_build::visit( ast_node_index node )

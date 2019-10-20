@@ -26,11 +26,6 @@ namespace kf
 template < typename T, size_t limit >
 struct index_vector : public std::vector< T >
 {
-    typename std::vector< T >::const_reference at( typename std::vector< T >::size_type pos ) const = delete;
-    typename std::vector< T >::reference at( typename std::vector< T >::size_type pos ) = delete;
-    void push_back( T&& value ) = delete;
-    void push_back( const T& value ) = delete;
-
     unsigned append( T&& value )
     {
         unsigned index = this->size();

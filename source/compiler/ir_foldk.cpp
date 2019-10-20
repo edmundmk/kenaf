@@ -20,6 +20,7 @@ ir_foldk::ir_foldk( source* source )
     :   _source( source )
     ,   _f( nullptr )
 {
+    (void)_source;
 }
 
 ir_foldk::~ir_foldk()
@@ -31,21 +32,8 @@ bool ir_foldk::foldk( ir_function* function )
     _f = function;
 
     // Build lists of constants/selectors.
-    try
-    {
-        inline_operands();
-        alloc_constants();
-    }
-    catch ( std::exception& e )
-    {
-        _source->error(  _f->ast->sloc, "internal: %s", e.what() );
-        _constants.clear();
-        _selectors.clear();
-        _number_map.clear();
-        _string_map.clear();
-        _selector_map.clear();
-        return false;
-    }
+    inline_operands();
+    alloc_constants();
 
     // Update lists in function IR.
     _constants.shrink_to_fit();
