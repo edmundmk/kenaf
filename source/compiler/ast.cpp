@@ -270,12 +270,18 @@ void ast_function::debug_print() const
         printf( "    %zu : %.*s", i, (int)local.name.size(), local.name.data() );
         if ( local.varenv_index != AST_INVALID_INDEX )
             printf( " VARENV %u[ %u ]", local.varenv_index, local.varenv_slot );
-        if ( local.is_self )
-            printf( " SELF" );
-        if ( local.is_parameter )
-            printf( " PARAMETER" );
-        if ( local.is_vararg )
-            printf( " VARARG" );
+        if ( local.kind == LOCAL_PARAM )
+            printf( " PARAM" );
+        if ( local.kind == LOCAL_PARAM_SELF )
+            printf( " PARAM_SELF" );
+        if ( local.kind == LOCAL_PARAM_VARARG )
+            printf( " PARAM_VARARG" );
+        if ( local.kind == LOCAL_FOR_EACH )
+            printf( " FOR_EACH" );
+        if ( local.kind == LOCAL_FOR_STEP )
+            printf( " FOR_STEP" );
+        if ( local.kind == LOCAL_TEMPORARY )
+            printf( " TEMPORARY" );
         printf( "\n" );
     }
 

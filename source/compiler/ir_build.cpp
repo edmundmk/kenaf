@@ -582,8 +582,7 @@ ir_operand ir_build::visit( ast_node_index node )
         if ( _f->ast->implicit_self )
         {
             const ast_local& self = _f->ast->locals[ 0 ];
-            assert( self.is_parameter );
-            assert( self.is_self );
+            assert( self.kind == LOCAL_PARAM_SELF );
             _o.push_back( { IR_O_LOCAL, 0 } );
             _o.push_back( emit( node->sloc, IR_PARAM, 1 ) );
         }
@@ -605,7 +604,7 @@ ir_operand ir_build::visit( ast_node_index node )
 
         for ( unsigned local_index = 0; local_index < _f->ast->parameter_count; ++local_index )
         {
-            if ( _f->ast->locals[ local_index ].is_vararg )
+            if ( _f->ast->locals[ local_index ].kind == LOCAL_PARAM_VARARG )
             {
                 continue;
             }
@@ -1339,7 +1338,7 @@ ir_operand ir_build::expr_unpack( ast_node_index node, unsigned unpack )
     // Evaluate expression we want to unpack.
     ir_operand operand = { IR_O_NONE };
     ast_node_index u = ast_child_node( _f->ast, node );
-    if ( u->kind == AST_LOCAL_NAME && _f->ast->locals[ u->leaf_index().index ].is_vararg )
+    if ( u->kind == AST_LOCAL_NAME && _f->ast->locals[ u->leaf_index().index ].kind == LOCAL_PARAM_VARARG )
     {
         // args ...
         operand = emit( node->sloc, IR_VARARG, 0 );
@@ -1704,6 +1703,14 @@ size_t ir_build::block_local_hash::operator () ( block_local bl ) const
 bool ir_build::block_local_equal::operator () ( block_local a, block_local b ) const
 {
     return a.block_index == b.block_index && a.local_index == b.local_index;
+}
+
+unsigned ir_build::temporary()
+{
+    ast_local local = {};
+    local.name = "$";
+    local.kind = LOCAL_TEMPORARY;
+    return _f->ast->locals.append( local );
 }
 
 ir_operand ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand )

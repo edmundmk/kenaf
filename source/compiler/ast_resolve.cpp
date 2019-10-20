@@ -156,6 +156,7 @@ void ast_resolve::visit( ast_function* f, ast_node_index node )
         // Create hidden for step variable.
         ast_local local = {};
         local.name = "$for_step";
+        local.kind = LOCAL_FOR_STEP;
         assert( node->leaf == AST_LEAF_INDEX );
         node->leaf_index().index = f->locals.append( local );
 
@@ -183,6 +184,7 @@ void ast_resolve::visit( ast_function* f, ast_node_index node )
         // Create hidden for each variable.
         ast_local local = {};
         local.name = "$for_each";
+        local.kind = LOCAL_FOR_EACH;
         assert( node->leaf == AST_LEAF_INDEX );
         node->leaf_index().index = f->locals.append( local );
 
@@ -361,8 +363,7 @@ void ast_resolve::declare_implicit_self( ast_function* f )
 
     ast_local local = {};
     local.name = "self";
-    local.is_self = true;
-    local.is_parameter = true;
+    local.kind = LOCAL_PARAM_SELF;
 
     unsigned local_index = f->locals.append( local );
     scope->variables.emplace( local.name, variable{ local_index, scope->after_continue } );
@@ -426,8 +427,12 @@ void ast_resolve::declare( ast_function* f, ast_node_index name_list )
         // Add local.
         ast_local local = {};
         local.name = text;
-        local.is_parameter = is_parameter;
-        local.is_vararg = is_vararg;
+        if ( is_vararg )
+            local.kind = LOCAL_PARAM_VARARG;
+        else if ( is_parameter )
+            local.kind = LOCAL_PARAM;
+        else
+            local.kind = LOCAL_VAR;
 
         unsigned local_index = f->locals.append( local );
         scope->variables.emplace( local.name, variable{ local_index, scope->after_continue } );
@@ -502,7 +507,7 @@ void ast_resolve::lookup( ast_function* f, ast_node_index name, lookup_context c
     // Can't use a varargs param in anything other than an unpack expression,
     // and we can't capture a varargs param in a function closure.
     const ast_local& local = vscope->function->locals[ v->index ];
-    if ( local.is_vararg )
+    if ( local.kind == LOCAL_PARAM_VARARG )
     {
         if ( context != LOOKUP_UNPACK )
         {

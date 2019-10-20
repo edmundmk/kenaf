@@ -93,6 +93,7 @@ private:
     void end_loop( ir_block_index loop_header, goto_scope scope );
 
     // Use/def for SSA construction.
+    unsigned temporary();
     ir_operand def( srcloc sloc, unsigned local_index, ir_operand operand );
     ir_operand use( srcloc sloc, unsigned local_index );
     ir_operand search_def( ir_block_index block_index, unsigned local_index );

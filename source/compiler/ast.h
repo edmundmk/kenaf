@@ -63,23 +63,30 @@ struct ast_outenv
     bool outer_outenv;          // If true, outenv was an outenv for the outer function.
 };
 
+enum ast_local_kind : uint8_t
+{
+    LOCAL_VAR,
+    LOCAL_PARAM,
+    LOCAL_PARAM_SELF,
+    LOCAL_PARAM_VARARG,
+    LOCAL_FOR_EACH,
+    LOCAL_FOR_STEP,
+    LOCAL_TEMPORARY,
+};
+
 struct ast_local
 {
     ast_local()
         :   varenv_index( AST_INVALID_INDEX )
         ,   varenv_slot( -1 )
-        ,   is_self( false )
-        ,   is_parameter( false )
-        ,   is_vararg( false )
+        ,   kind( LOCAL_VAR )
     {
     }
 
     std::string_view name;      // Name of local or parameter.
     unsigned varenv_index;      // Index of local environment record.
     uint8_t varenv_slot;        // Slot in local environment record, or count of slots.
-    uint8_t is_self;            // Is it implicit self?
-    uint8_t is_parameter;       // Is it a parameter?
-    uint8_t is_vararg;          // Is it the vararg parameter?
+    ast_local_kind kind;        // Local kind.
 };
 
 struct ast_function
