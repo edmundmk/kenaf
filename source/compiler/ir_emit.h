@@ -32,7 +32,7 @@ public:
 
 private:
 
-    enum emit_kind { AB, AI, AB_SWAP, AI_SWAP, AB_NO_R, C };
+    enum emit_kind { AB, AI, AB_SWAP, AI_SWAP, AB_NO_R, C, NO_JUMP, JUMP, J_SWAP };
 
     struct emit_shape
     {
