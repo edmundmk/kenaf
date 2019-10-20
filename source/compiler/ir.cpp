@@ -222,13 +222,6 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
-        case IR_O_SELECTOR:
-        {
-            const ir_selector& s = f->selectors[ operand.index ];
-            printf( " \'%.*s\'", (int)s.size, s.text );
-            break;
-        }
-
         case IR_O_IMMEDIATE:
         {
             int i = (int8_t)operand.index;
@@ -236,26 +229,33 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
-        case IR_O_LOCAL_INDEX:
+        case IR_O_SELECTOR:
+        {
+            const ir_selector& s = f->selectors[ operand.index ];
+            printf( " \'%.*s\'", (int)s.size, s.text );
+            break;
+        }
+
+        case IR_O_LOCAL:
         {
             const ast_local& local = f->ast->locals[ operand.index ];
             printf( " LOCAL %.*s", (int)local.name.size(), local.name.data() );
             break;
         }
 
-        case IR_O_OUTENV_INDEX:
+        case IR_O_OUTENV:
         {
             printf( " OUTENV %u", operand.index );
             break;
         }
 
-        case IR_O_ENV_SLOT_INDEX:
+        case IR_O_ENVSLOT:
         {
             printf( " ENV_SLOT %u", operand.index );
             break;
         }
 
-        case IR_O_FUNCTION_INDEX:
+        case IR_O_FUNCTION:
         {
             printf( " FUNCTION %u", operand.index );
             break;

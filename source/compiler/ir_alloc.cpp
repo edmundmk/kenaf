@@ -474,7 +474,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_val
     if ( def->opcode == IR_PARAM )
     {
         ir_operand operand = _f->operands[ def->oindex ];
-        assert( operand.kind == IR_O_LOCAL_INDEX );
+        assert( operand.kind == IR_O_LOCAL );
         r = 1 + operand.index;
     }
 

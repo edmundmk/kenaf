@@ -14,6 +14,70 @@
 namespace kf
 {
 
+const ir_emit::emit_shape ir_emit::SHAPES[] =
+{
+    { IR_LENGTH,        1, { IR_O_OP                            },  OP_LEN,         AB      },
+    { IR_NEG,           1, { IR_O_OP                            },  OP_NEG,         AB      },
+    { IR_POS,           1, { IR_O_OP                            },  OP_POS,         AB      },
+    { IR_BITNOT,        1, { IR_O_OP                            },  OP_BITNOT,      AB      },
+    { IR_MUL,           2, { IR_O_OP, IR_O_OP                   },  OP_MUL,         AB      },
+    { IR_MUL,           2, { IR_O_OP, IR_O_NUMBER               },  OP_MULK,        AB      },
+    { IR_MUL,           2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_MULI,        AI      },
+    { IR_DIV,           2, { IR_O_OP, IR_O_OP                   },  OP_DIV,         AB      },
+    { IR_INTDIV,        2, { IR_O_OP, IR_O_OP                   },  OP_INTDIV,      AB      },
+    { IR_MOD,           2, { IR_O_OP, IR_O_OP                   },  OP_MOD,         AB      },
+    { IR_ADD,           2, { IR_O_OP, IR_O_OP                   },  OP_ADD,         AB      },
+    { IR_ADD,           2, { IR_O_OP, IR_O_NUMBER               },  OP_ADDK,        AB      },
+    { IR_ADD,           2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_ADDI,        AI      },
+    { IR_SUB,           2, { IR_O_OP, IR_O_OP                   },  OP_SUB,         AB_SWAP },
+    { IR_SUB,           2, { IR_O_NUMBER, IR_O_OP               },  OP_SUBK,        AB_SWAP },
+    { IR_SUB,           2, { IR_O_IMMEDIATE, IR_O_OP            },  OP_SUBI,        AI_SWAP },
+    { IR_CONCAT,        2, { IR_O_OP, IR_O_OP                   },  OP_CONCAT,      AB      },
+    { IR_CONCAT,        2, { IR_O_OP, IR_O_STRING               },  OP_CONCATK,     AB      },
+    { IR_CONCAT,        2, { IR_O_STRING, IR_O_OP               },  OP_RCONCATK,    AB_SWAP },
+    { IR_LSHIFT,        2, { IR_O_OP, IR_O_OP                   },  OP_LSHIFT,      AB      },
+    { IR_RSHIFT,        2, { IR_O_OP, IR_O_OP                   },  OP_RSHIFT,      AB      },
+    { IR_ASHIFT,        2, { IR_O_OP, IR_O_OP                   },  OP_ASHIFT,      AB      },
+    { IR_BITAND,        2, { IR_O_OP, IR_O_OP                   },  OP_BITAND,      AB      },
+    { IR_BITXOR,        2, { IR_O_OP, IR_O_OP                   },  OP_BITXOR,      AB      },
+    { IR_BITOR,         2, { IR_O_OP, IR_O_OP                   },  OP_BITOR,       AB      },
+
+    { IR_CONST,         1, { IR_O_NULL                          },  OP_NULL,        C       },
+    { IR_CONST,         1, { IR_O_TRUE                          },  OP_BOOL,        C       },
+    { IR_CONST,         1, { IR_O_FALSE                         },  OP_BOOL,        C       },
+    { IR_CONST,         1, { IR_O_NUMBER                        },  OP_LDK,         C       },
+    { IR_CONST,         1, { IR_O_STRING                        },  OP_LDK,         C       },
+
+    { IR_IS,            2, { IR_O_OP, IR_O_OP                   },  OP_IS,          AB      },
+    { IR_NOT,           1, { IR_O_OP                            },  OP_NOT,         AB      },
+
+    { IR_GET_GLOBAL,    1, { IR_O_SELECTOR                      },  OP_GET_GLOBAL,  C       },
+    { IR_GET_KEY,       2, { IR_O_OP, IR_O_SELECTOR             },  OP_GET_KEY,     AB      },
+    { IR_SET_KEY,       3, { IR_O_OP, IR_O_SELECTOR, IR_O_OP    },  OP_SET_KEY,     AB      },
+    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_OP                   },  OP_SET_INDEX,   AB      },
+    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_NUMBER               },  OP_SET_INDEXK,  AB      },
+    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_STRING               },  OP_SET_INDEXK,  AB      },
+    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_SET_INDEXI,  AI      },
+    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_OP, IR_O_OP          },  OP_SET_INDEX,   AB      },
+    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_NUMBER, IR_O_OP      },  OP_SET_INDEXK,  AB      },
+    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_STRING, IR_O_OP      },  OP_SET_INDEXK,  AB      },
+    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_IMMEDIATE, IR_O_OP   },  OP_SET_INDEXI,  AI      },
+
+    { IR_NEW_ENV,       1, { IR_O_IMMEDIATE                     },  OP_NEW_ENV,     C       },
+    { IR_GET_ENV,       2, { IR_O_OP, IR_O_ENVSLOT              },  OP_GET_VARENV,  AB      },
+    { IR_GET_ENV,       2, { IR_O_OUTENV, IR_O_ENVSLOT          },  OP_GET_OUTENV,  AB      },
+    { IR_SET_ENV,       3, { IR_O_OP, IR_O_ENVSLOT, IR_O_OP     },  OP_SET_VARENV,  AB      },
+    { IR_SET_ENV,       3, { IR_O_OUTENV, IR_O_ENVSLOT, IR_O_OP },  OP_SET_OUTENV,  AB      },
+
+    { IR_NEW_OBJECT,    1, { IR_O_OP                            },  OP_NEW_OBJECT,  AB      },
+    { IR_NEW_ARRAY,     1, { IR_O_IMMEDIATE                     },  OP_NEW_ARRAY,   C       },
+    { IR_NEW_TABLE,     1, { IR_O_IMMEDIATE                     },  OP_NEW_TABLE,   C       },
+    { IR_SUPER,         1, { IR_O_OP                            },  OP_SUPER,       AB      },
+    { IR_APPEND,        1, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
+
+    { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB      },
+};
+
 ir_emit::ir_emit( source* source, code_unit* unit )
     :   _source( source )
     ,   _unit( unit )
@@ -342,7 +406,6 @@ void ir_emit::emit( srcloc sloc, op op )
     _u->ops.push_back( op );
     _u->debug_slocs.push_back( sloc );
 }
-
 
 }
 

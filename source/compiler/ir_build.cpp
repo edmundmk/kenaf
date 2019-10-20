@@ -584,7 +584,7 @@ ir_operand ir_build::visit( ast_node_index node )
             const ast_local& self = _f->ast->locals[ 0 ];
             assert( self.is_parameter );
             assert( self.is_self );
-            _o.push_back( { IR_O_LOCAL_INDEX, 0 } );
+            _o.push_back( { IR_O_LOCAL, 0 } );
             _o.push_back( emit( node->sloc, IR_PARAM, 1 ) );
         }
 
@@ -597,7 +597,7 @@ ir_operand ir_build::visit( ast_node_index node )
 
             assert( param->kind == AST_LOCAL_DECL );
             unsigned local_index = param->leaf_index().index;
-            _o.push_back( { IR_O_LOCAL_INDEX, local_index } );
+            _o.push_back( { IR_O_LOCAL, local_index } );
             _o.push_back( emit( param->sloc, IR_PARAM, 1 ) );
         }
 
@@ -921,14 +921,14 @@ ir_operand ir_build::visit( ast_node_index node )
         ast_function* function = node->leaf_function().function;
 
         unsigned ocount = 1;
-        _o.push_back( { IR_O_FUNCTION_INDEX, function->index } );
+        _o.push_back( { IR_O_FUNCTION, function->index } );
 
         for ( unsigned i = 0; i < function->outenvs.size(); ++i )
         {
             const ast_outenv& outenv = function->outenvs[ i ];
             if ( outenv.outer_outenv )
             {
-                _o.push_back( { IR_O_OUTENV_INDEX, outenv.outer_index } );
+                _o.push_back( { IR_O_OUTENV, outenv.outer_index } );
             }
             else
             {
@@ -1023,8 +1023,8 @@ ir_operand ir_build::visit( ast_node_index node )
     case AST_OUTENV_NAME:
     {
         const ast_leaf_outenv& outenv = node->leaf_outenv();
-        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
+        _o.push_back( { IR_O_OUTENV, outenv.outenv_index } );
+        _o.push_back( { IR_O_ENVSLOT, outenv.outenv_slot } );
         return emit( node->sloc, IR_GET_ENV, 2 );
     }
 
@@ -1301,8 +1301,8 @@ ir_operand ir_build::assign( ast_node_index lval, ir_operand rval )
     else if ( lval->kind == AST_OUTENV_NAME )
     {
         const ast_leaf_outenv& outenv = lval->leaf_outenv();
-        _o.push_back( { IR_O_OUTENV_INDEX, outenv.outenv_index } );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, outenv.outenv_slot } );
+        _o.push_back( { IR_O_OUTENV, outenv.outenv_index } );
+        _o.push_back( { IR_O_ENVSLOT, outenv.outenv_slot } );
         _o.push_back( rval );
         emit( lval->sloc, IR_SET_ENV, 3 );
         return rval;
@@ -1713,7 +1713,7 @@ ir_operand ir_build::def( srcloc sloc, unsigned local_index, ir_operand operand 
     if ( local.varenv_index != AST_INVALID_INDEX )
     {
         _o.push_back( search_def( _block_index, local.varenv_index ) );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
+        _o.push_back( { IR_O_ENVSLOT, local.varenv_slot } );
         _o.push_back( operand );
         emit( sloc, IR_SET_ENV, 3 );
         return operand;
@@ -1758,7 +1758,7 @@ ir_operand ir_build::use( srcloc sloc, unsigned local_index )
     else
     {
         _o.push_back( search_def( _block_index, local.varenv_index ) );
-        _o.push_back( { IR_O_ENV_SLOT_INDEX, local.varenv_slot } );
+        _o.push_back( { IR_O_ENVSLOT, local.varenv_slot } );
         return emit( sloc, IR_GET_ENV, 2 );
     }
 }

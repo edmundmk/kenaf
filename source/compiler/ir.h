@@ -263,27 +263,27 @@ enum ir_opcode : uint8_t
 
 enum ir_operand_kind : uint8_t
 {
-    IR_O_NONE,                  // No operand.
+    IR_O_NONE,          // No operand.
 
-    IR_O_OP,                    // Index of op.
-    IR_O_PIN,                   // Index of pin op.
-    IR_O_SELECT,                // Index of selected result.
+    IR_O_OP,            // Index of op.
+    IR_O_PIN,           // Index of pin op.
+    IR_O_SELECT,        // Index of selected result.
 
-    IR_O_BLOCK,                 // Index of block in function's blocks array.
-    IR_O_JUMP,                  // Index of op to jump to.
+    IR_O_BLOCK,         // Index of block in function's blocks array.
+    IR_O_JUMP,          // Index of op to jump to.
 
-    IR_O_NULL,                  // null
-    IR_O_TRUE,                  // true
-    IR_O_FALSE,                 // false
-    IR_O_NUMBER,                // Constant number.
-    IR_O_STRING,                // Constant string.
-    IR_O_SELECTOR,              // Constant selector.
-    IR_O_IMMEDIATE,             // 8-bit signed immediate.
+    IR_O_NULL,          // null
+    IR_O_TRUE,          // true
+    IR_O_FALSE,         // false
+    IR_O_NUMBER,        // Constant number.
+    IR_O_STRING,        // Constant string.
+    IR_O_IMMEDIATE,     // 8-bit signed immediate.
+    IR_O_SELECTOR,      // Constant selector.
 
-    IR_O_LOCAL_INDEX,           // Index of local.
-    IR_O_OUTENV_INDEX,          // Index of outenv
-    IR_O_ENV_SLOT_INDEX,        // Index of slot in varenv or outenv.
-    IR_O_FUNCTION_INDEX,        // Index of function.
+    IR_O_LOCAL,         // Index of local.
+    IR_O_OUTENV,        // Index of outenv
+    IR_O_ENVSLOT,       // Index of slot in varenv or outenv.
+    IR_O_FUNCTION,      // Index of function.
 };
 
 enum ir_block_kind : uint8_t

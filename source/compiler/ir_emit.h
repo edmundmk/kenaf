@@ -32,6 +32,19 @@ public:
 
 private:
 
+    enum emit_kind { AB, AI, AB_SWAP, AI_SWAP, AB_NO_R, C };
+
+    struct emit_shape
+    {
+        ir_opcode iopcode;
+        unsigned ocount;
+        ir_operand_kind okind[ 3 ];
+        opcode copcode;
+        emit_kind kind;
+    };
+
+    static const emit_shape SHAPES[];
+
     void emit_constants();
 
     void assemble();
