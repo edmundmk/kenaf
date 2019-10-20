@@ -18,6 +18,7 @@ ir_emit::ir_emit( source* source, code_unit* unit )
     :   _source( source )
     ,   _unit( unit )
     ,   _f( nullptr )
+    ,   _max_r( 0 )
 {
 }
 
@@ -43,6 +44,10 @@ void ir_emit::emit( ir_function* function )
     _unit->debug_heap.push_back( '\0' );
 
     emit_constants();
+    assemble();
+
+    _u->function.stack_size = _max_r + 1;
+    _max_r = 0;
 
     _unit->functions.push_back( std::move( _u ) );
 }
@@ -74,6 +79,198 @@ void ir_emit::emit_constants()
         _unit->heap.push_back( '\0' );
     }
 }
+
+void ir_emit::assemble()
+{
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        const ir_op* op = &_f->ops[ op_index ];
+
+        switch ( op->opcode )
+        {
+        case IR_LENGTH:     op_unary( op, OP_LEN );                     break;
+        case IR_NEG:        op_unary( op, OP_NEG );                     break;
+        case IR_POS:        op_unary( op, OP_POS );                     break;
+        case IR_BITNOT:     op_unary( op, OP_BITNOT );                  break;
+        case IR_NOT:        op_unary( op, OP_NOT );                     break;
+
+        case IR_DIV:        op_binary( op, OP_DIV );                    break;
+        case IR_INTDIV:     op_binary( op, OP_INTDIV );                 break;
+        case IR_MOD:        op_binary( op, OP_MOD );                    break;
+        case IR_LSHIFT:     op_binary( op, OP_LSHIFT );                 break;
+        case IR_RSHIFT:     op_binary( op, OP_RSHIFT );                 break;
+        case IR_ASHIFT:     op_binary( op, OP_ASHIFT );                 break;
+        case IR_BITAND:     op_binary( op, OP_BITAND );                 break;
+        case IR_BITXOR:     op_binary( op, OP_BITXOR );                 break;
+        case IR_BITOR:      op_binary( op, OP_BITOR );                  break;
+
+        case IR_ADD:        op_addmul( op, OP_ADD, OP_ADDK, OP_ADDI );  break;
+        case IR_SUB:        op_addmul( op, OP_SUB, OP_SUBK, OP_SUBI );  break;
+        case IR_MUL:        op_addmul( op, OP_MUL, OP_MULK, OP_MULI );  break;
+        case IR_CONCAT:     op_concat( op );                            break;
+
+        default: break;
+        }
+    }
+}
+
+void ir_emit::op_unary( const ir_op* rop, opcode o )
+{
+    assert( rop->ocount == 1 );
+    ir_operand u = _f->operands.at( rop->oindex );
+    if ( u.kind != IR_O_OP )
+    {
+        _source->error( rop->sloc, "internal: invalid operand to unary instruction" );
+        return;
+    }
+    const ir_op* uop = &_f->ops.at( u.index );
+
+    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+    _u->ops.push_back( op::op_ab( o, rop->r, uop->r, 0 ) );
+}
+
+void ir_emit::op_binary( const ir_op* rop, opcode o )
+{
+    assert( rop->ocount == 2 );
+    ir_operand u = _f->operands.at( rop->oindex + 0 );
+    ir_operand v = _f->operands.at( rop->oindex + 1 );
+    if ( u.kind != IR_O_OP || v.kind != IR_O_OP )
+    {
+        _source->error( rop->sloc, "internal: invalid operand to binary instruction" );
+        return;
+    }
+    const ir_op* uop = &_f->ops.at( u.index );
+    const ir_op* vop = &_f->ops.at( v.index );
+
+    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER || vop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+    _u->ops.push_back( op::op_ab( o, rop->r, uop->r, vop->r ) );
+}
+
+void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
+{
+    assert( rop->ocount == 2 );
+    ir_operand u = _f->operands.at( rop->oindex + 0 );
+    ir_operand v = _f->operands.at( rop->oindex + 1 );
+
+    // Operands to SUB instruction are reversed, to put constant in b slot.
+    if ( rop->opcode == IR_SUB )
+    {
+        std::swap( u, v );
+    }
+
+    // Check registers.
+    if ( u.kind != IR_O_OP )
+    {
+        _source->error( rop->sloc, "internal: invalid operand to addmul instruction" );
+        return;
+    }
+    const ir_op* uop = &_f->ops.at( u.index );
+    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+
+    // Select instruction variant.
+    if ( v.kind == IR_O_OP )
+    {
+        const ir_op* vop = &_f->ops.at( v.index );
+        if ( vop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( rop->sloc, "internal: invalid register allocation" );
+            return;
+        }
+
+        _u->ops.push_back( op::op_ab( o, rop->r, uop->r, vop->r ) );
+    }
+    else if ( v.kind == IR_O_NUMBER )
+    {
+        if ( v.index > 0xFF )
+        {
+            _source->error( rop->sloc, "internal: invalid constant index" );
+            return;
+        }
+
+        _u->ops.push_back( op::op_ab( ok, rop->r, uop->r, v.index ) );
+    }
+    else if ( v.kind == IR_O_IMMEDIATE )
+    {
+        _u->ops.push_back( op::op_ai( oi, rop->r, uop->r, (int8_t)v.index ) );
+    }
+    else
+    {
+        _source->error( rop->sloc, "internal: invalid second operand to addmul instruction" );
+    }
+}
+
+void ir_emit::op_concat( const ir_op* rop )
+{
+    opcode ok = OP_CONCATK;
+    assert( rop->ocount == 2 );
+    ir_operand u = _f->operands.at( rop->oindex + 0 );
+    ir_operand v = _f->operands.at( rop->oindex + 1 );
+
+    if ( u.kind == IR_O_STRING )
+    {
+        ok = OP_RCONCATK;
+        std::swap( u, v );
+    }
+
+    if ( u.kind != IR_O_OP )
+    {
+        _source->error( rop->sloc, "internal: invalid operand to concat instruction" );
+        return;
+    }
+    const ir_op* uop = &_f->ops.at( u.index );
+    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( rop->sloc, "internal: invalid register allocation" );
+        return;
+    }
+
+    _max_r = std::max( _max_r, rop->r );
+
+    if ( v.kind == IR_O_OP )
+    {
+        const ir_op* vop = &_f->ops.at( v.index );
+        if ( vop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( rop->sloc, "internal: invalid register allocation" );
+            return;
+        }
+
+        _u->ops.push_back( op::op_ab( OP_CONCAT, rop->r, uop->r, vop->r ) );
+    }
+    else if ( v.kind == IR_O_STRING )
+    {
+        if ( v.index > 0xFF )
+        {
+            _source->error( rop->sloc, "internal: invalid constant index" );
+            return;
+        }
+
+        _u->ops.push_back( op::op_ab( ok, rop->r, uop->r, v.index ) );
+    }
+    else
+    {
+        _source->error( rop->sloc, "internal: invalid second operand to concat instruction" );
+    }
+}
+
 
 }
 

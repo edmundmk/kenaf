@@ -74,7 +74,7 @@ enum opcode : uint8_t
     OP_LE,              // r = a <= b               | A | r | a | b |
     OP_IS,              // r = a is b               | A | r | a | b |
 
-    OP_JUMP,            // jump                     | J | - |   j   |
+    OP_JMP,             // jump                     | J | - |   j   |
     OP_JT,              // if r then jump           | T | r |   j   |
     OP_JF,              // if not r then jump       | T | r |   j   |
     OP_JEQ,             // if a == b then jump      | T | - | a | b || J | - |   j   |
@@ -133,11 +133,10 @@ enum opcode : uint8_t
 
 struct op
 {
-    op();
-    op( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b );
-    op( enum opcode opcode, uint8_t r, uint8_t a, int8_t i );
-    op( enum opcode opcode, uint8_t r, uint16_t c );
-    op( enum opcode opcode, uint8_t r, int16_t j );
+    static op op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b );
+    static op op_ai( enum opcode opcode, uint8_t r, uint8_t a, int8_t i );
+    static op op_c( enum opcode opcode, uint8_t r, uint16_t c );
+    static op op_j( enum opcode opcode, uint8_t r, int16_t j );
 
     enum opcode opcode;
     uint8_t r;
@@ -149,11 +148,10 @@ struct op
     };
 };
 
-inline op::op() : opcode( OP_MOV ), r( 0 ), a( 0 ), b( 0 ) {}
-inline op::op( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b ) : opcode( opcode ), r( r ), a( a ), b( b ) {}
-inline op::op( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) : opcode( opcode ), r( r ), a( a ), i( i ) {}
-inline op::op( enum opcode opcode, uint8_t r, uint16_t c ) : opcode( opcode ), r( r ), c( c ) {}
-inline op::op( enum opcode opcode, uint8_t r, int16_t j ) : opcode( opcode ), r( r ), j( j ) {}
+inline op op::op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b ) { op o; o.opcode = opcode; o.r = r; o.a = a; o.b = b; return o; }
+inline op op::op_ai( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) { op o; o.opcode = opcode; o.r = r; o.a = a; o.i = i; return o; }
+inline op op::op_c( enum opcode opcode, uint8_t r, uint16_t c ) { op o; o.opcode = opcode; o.r = r; o.c = c; return o; }
+inline op op::op_j( enum opcode opcode, uint8_t r, int16_t j ) { op o; o.opcode = opcode; o.r = r; o.j = j; return o; }
 
 const uint32_t CODE_MAGIC = 0x5D2A2A5B; // '[**]'
 

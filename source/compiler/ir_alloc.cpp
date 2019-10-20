@@ -95,6 +95,7 @@ void ir_alloc::alloc( ir_function* function )
     build_values();
     mark_pinning();
     allocate();
+    assign_locals();
 
     _local_values.clear();
     _local_ranges.clear();
@@ -683,6 +684,21 @@ bool ir_alloc::has_result( const ir_op* op )
 
     default:
         return true;
+    }
+}
+
+void ir_alloc::assign_locals()
+{
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        ir_op* op = &_f->ops[ op_index ];
+
+        if ( op->local() == IR_INVALID_LOCAL )
+            continue;
+
+        const local_value* value = &_local_values.at( op->local() );
+        assert( op->r == IR_INVALID_REGISTER || op->r == value->r );
+        op->r = value->r;
     }
 }
 

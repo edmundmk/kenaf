@@ -34,11 +34,18 @@ private:
 
     void emit_constants();
 
+    void assemble();
+    void op_unary( const ir_op* rop, opcode o );
+    void op_binary( const ir_op* rop, opcode o );
+    void op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi );
+    void op_concat( const ir_op* rop );
+
     source* _source;
     code_unit* _unit;
     ir_function* _f;
     std::unique_ptr< code_function_unit > _u;
     std::vector< op > _i;
+    unsigned _max_r;
 
 };
 

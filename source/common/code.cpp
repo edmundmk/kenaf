@@ -115,7 +115,7 @@ const char* const OPCODE_PRINT[] =
     [ OP_LT         ] = "LT %$r, %$a, %$b",
     [ OP_LE         ] = "LE %$r, %$a, %$b",
     [ OP_IS         ] = "IS %$s, %$a, %$b",
-    [ OP_JUMP       ] = "JUMP %$Jj",
+    [ OP_JMP        ] = "JMP %$Jj",
     [ OP_JT         ] = "JT %$r, %$Jj",
     [ OP_JF         ] = "JF %$r, %$Jj",
     [ OP_JEQ        ] = "JEQ %$a, %$b",
@@ -232,6 +232,11 @@ void code_function::debug_print( const code_script* script ) const
                 {
                     okind = field;
                     field = p[ 2 ];
+                    p += 2;
+                }
+                else
+                {
+                    p += 1;
                 }
 
                 int v = 0;
@@ -282,6 +287,7 @@ void code_function::debug_print( const code_script* script ) const
                 putchar( p[ 0 ] );
             }
         }
+        printf( "\n" );
     }
 }
 

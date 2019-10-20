@@ -75,6 +75,8 @@ private:
     bool is_pinning( const ir_op* op );
     bool has_result( const ir_op* op );
 
+    void assign_locals();
+
     void debug_print() const;
 
     source* _source;
