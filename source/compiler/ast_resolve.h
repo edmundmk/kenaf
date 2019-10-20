@@ -112,12 +112,12 @@ private:
         std::unordered_map< std::string_view, variable > variables;
     };
 
-    void visit( ast_function* f, unsigned index );
+    void visit( ast_function* f, ast_node_index node );
 
-    void open_scope( ast_function* f, unsigned block_index, unsigned node_index );
+    void open_scope( ast_function* f, ast_node_index block, ast_node_index node );
     void declare_implicit_self( ast_function* f );
-    void declare( ast_function* f, unsigned index );
-    void lookup( ast_function* f, unsigned index, lookup_context context );
+    void declare( ast_function* f, ast_node_index name_list );
+    void lookup( ast_function* f, ast_node_index name, lookup_context context );
     void close_scope();
 
     scope* loop_scope();

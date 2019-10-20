@@ -110,7 +110,7 @@ srcloc parser::current_sloc()
 srcloc parser::node_sloc( unsigned index )
 {
     if ( index != AST_INVALID_INDEX )
-        return _fstack.back()->nodes.at( index ).sloc;
+        return _fstack.back()->nodes[ index ].sloc;
     else
         return 0;
 }
@@ -118,14 +118,14 @@ srcloc parser::node_sloc( unsigned index )
 ast_node_kind parser::node_kind( unsigned index )
 {
     if ( index != AST_INVALID_INDEX )
-        return _fstack.back()->nodes.at( index ).kind;
+        return _fstack.back()->nodes[ index ].kind;
     else
         return AST_NONE;
 }
 
 void parser::update_sloc( unsigned index, srcloc sloc )
 {
-    _fstack.back()->nodes.at( index ).sloc = sloc;
+    _fstack.back()->nodes[ index ].sloc = sloc;
 }
 
 unsigned parser::node( ast_node_kind kind, srcloc sloc, unsigned child )

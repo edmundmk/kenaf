@@ -712,7 +712,7 @@ void ir_alloc::debug_print() const
             continue;
         }
 
-        std::string_view name = _f->ast->locals.at( i ).name;
+        std::string_view name = _f->ast->locals[ i ].name;
         printf( "VALUE ↓%04X",  value->live_range );
 
         if ( value->mark )

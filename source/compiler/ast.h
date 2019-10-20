@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <vector>
+#include "index_vector.h"
 #include "source.h"
 
 namespace kf
@@ -41,6 +42,7 @@ struct ast_leaf_number;
 struct ast_leaf_function;
 struct ast_leaf_index;
 struct ast_leaf_outenv;
+struct ast_node_index;
 
 const unsigned AST_INVALID_INDEX = ~(unsigned)0;
 
@@ -52,7 +54,7 @@ struct ast_script
     ast_function* new_function( srcloc sloc, ast_function* outer );
     void debug_print() const;
 
-    std::vector< std::unique_ptr< ast_function > > functions;
+    index_vector< std::unique_ptr< ast_function >, 0xFFFF > functions;
 };
 
 struct ast_outenv
@@ -98,9 +100,9 @@ struct ast_function
     bool is_top_level;          // Is it the top-level function of a script?
     bool is_varargs;            // Does it have a varargs parameter?
 
-    std::vector< ast_outenv > outenvs;
-    std::vector< ast_local > locals;
-    std::vector< ast_node > nodes;
+    index_vector< ast_outenv, 0xFF > outenvs;
+    index_vector< ast_local, 0xFFEF > locals;
+    index_vector< ast_node, 0xFFFFFFFF > nodes;
 };
 
 enum ast_node_kind : uint16_t
@@ -326,6 +328,25 @@ inline ast_leaf_outenv& ast_node::leaf_outenv()
     static_assert( sizeof( ast_leaf_outenv ) <= sizeof( ast_node ) );
     assert( leaf == AST_LEAF_OUTENV );
     return *(ast_leaf_outenv*)( this + 1 );
+}
+
+struct ast_node_index
+{
+    inline ast_node* operator -> () const { return node; }
+    ast_node* node;
+    unsigned index;
+};
+
+inline ast_node_index ast_child_node( ast_function* function, ast_node_index index )
+{
+    unsigned child_index = index.node->child_index;
+    return { &function->nodes[ child_index ], child_index };
+}
+
+inline ast_node_index ast_next_node( ast_function* function, ast_node_index index )
+{
+    unsigned next_index = index.node->next_index;
+    return { &function->nodes[ next_index ], next_index };
 }
 
 }
