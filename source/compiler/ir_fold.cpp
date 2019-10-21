@@ -30,7 +30,6 @@ void ir_fold::fold( ir_function* function )
     _f = function;
     fold_phi();
     fold_constants();
-    fold_uses();
     remove_unreachable_blocks();
 }
 
@@ -273,15 +272,6 @@ void ir_fold::fold_constants( ir_block* block )
 
         case IR_NOT:
             fold_not( op );
-            break;
-
-        case IR_B_AND:
-        case IR_B_CUT:
-            fold_cut( op_index, op );
-            break;
-
-        case IR_B_PHI:
-            fold_phi( op );
             break;
 
         case IR_JUMP_TEST:
@@ -598,164 +588,6 @@ bool ir_fold::fold_not( ir_op* op )
     return true;
 }
 
-bool ir_fold::fold_cut( unsigned op_index, ir_op* op )
-{
-    /*
-        B_AND/B_CUT has one of the following forms:
-
-                    expr
-                    B_CUT expr, next
-             def:   B_DEF cut, expr, phi
-            next:   ...
-                    B_PHI def, def, final
-
-                    test
-                    B_CUT test, next
-                    expr
-             def:   B_DEF cut, expr, phi
-            next:   ...
-                    B_PHI def, def, final
-
-        If the branch is provably taken (test/expr is true for B_AND, or false
-        for B_CUT), then the instructions between CUT and DEF inclusive are
-        turned into NOPs.
-
-        If the branch is not taken, the CUT becomes a NOP, all instructions
-        between DEF and PHI become NOPs, and the PHI's final operand is updated
-        to point to expr.
-
-        In addition, for the second form only, a sequence of NOT instructions
-        before the CUT cause CUT<->AND swaps.  There's no point in this
-        for the first form, as we need the result of the entire expression, and
-        skipping a step would just increase register pressure.
-    */
-
-    assert( op->opcode == IR_B_AND || op->opcode == IR_B_CUT );
-    assert( op->ocount == 2 );
-    ir_operand u = fold_operand( op->oindex );
-
-    if ( is_constant( u ) )
-    {
-        // Next is where this instruction jumps to.
-        ir_operand next_jump = _f->operands[ op->oindex + 1 ];
-        assert( next_jump.kind == IR_O_JUMP );
-        unsigned next_index = next_jump.index;
-
-        // Locate DEF, which must be instruction before next.
-        unsigned def_index = next_index - 1;
-        ir_op* def = &_f->ops[ def_index ];
-        assert( def->opcode == IR_B_DEF );
-
-        // Locate PHI, which is referenced from DEF.
-        ir_operand phi_jump = _f->operands[ def->oindex + 2 ];
-        assert( phi_jump.kind == IR_O_JUMP );
-        unsigned phi_index = phi_jump.index;
-        ir_op* phi = &_f->ops[ phi_index ];
-        assert( phi->opcode == IR_B_PHI );
-
-        // Check if branch taken.
-        bool test = test_constant( u );
-        bool branch_taken = op->opcode == IR_B_AND ? test : ! test;
-        if ( branch_taken )
-        {
-            // Delete from CUT to next.
-            for ( unsigned i = op_index; i < next_index; ++i )
-            {
-                ir_op* nop = &_f->ops[ i ];
-                if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
-                {
-                    nop->opcode = IR_NOP;
-                    nop->ocount = 0;
-                    nop->oindex = IR_INVALID_INDEX;
-                    nop->set_local( IR_INVALID_LOCAL );
-                }
-            }
-        }
-        else
-        {
-            // Find expr which is passed to PHI.
-            ir_operand expr_operand = _f->operands[ def->oindex + 1 ];
-
-            // Delete CUT.
-            op->opcode = IR_NOP;
-            op->ocount = 0;
-            op->oindex = IR_INVALID_INDEX;
-            op->set_local( IR_INVALID_LOCAL );
-
-            // Delete from DEF to PHI.
-            for ( unsigned i = def_index; i < phi_index; ++i )
-            {
-                ir_op* nop = &_f->ops[ i ];
-                if ( nop->opcode != IR_PHI && nop->opcode != IR_REF )
-                {
-                    nop->opcode = IR_NOP;
-                    nop->ocount = 0;
-                    nop->oindex = IR_INVALID_INDEX;
-                    nop->set_local( IR_INVALID_LOCAL );
-                }
-            }
-
-            // Update PHI's final operand.
-            assert( phi->ocount > 0 );
-            ir_operand* operand = &_f->operands[ phi->oindex + phi->ocount - 1 ];
-            *operand = expr_operand;
-        }
-
-        return true;
-    }
-    else
-    {
-        // Check for first form.
-        if ( _f->ops[ op_index + 1 ].opcode == IR_B_DEF )
-        {
-            return false;
-        }
-
-        // Count nots in test expression.
-        std::pair< ir_operand, size_t > not_count = count_nots( u );
-        if ( not_count.second )
-        {
-            // Skip past nots.
-            ir_operand* operand = &_f->operands[ op->oindex ];
-            *operand = not_count.first;
-
-            // Swap B_AND and B_CUT if not_count is odd.
-            if ( not_count.second % 2 )
-            {
-                op->opcode = op->opcode == IR_B_AND ? IR_B_CUT : IR_B_AND;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool ir_fold::fold_phi( ir_op* op )
-{
-    /*
-        After the above transformations of CUT/DEF, some of the operands to
-        PHI might be pointing to NOPs.  Remove them.
-    */
-
-    assert( op->opcode == IR_B_PHI );
-
-    unsigned ovalid = 0;
-    for ( unsigned j = 0; j < op->ocount; ++j )
-    {
-        ir_operand operand = _f->operands[ op->oindex + j ];
-        assert( operand.kind == IR_O_OP );
-        if ( _f->ops[ operand.index ].opcode != IR_NOP )
-        {
-            _f->operands[ op->oindex + ovalid ] = operand;
-            ovalid += 1;
-        }
-    }
-
-    op->ocount = ovalid;
-
-    return false;
-}
-
 bool ir_fold::fold_test( ir_op* op )
 {
     assert( op->opcode == IR_JUMP_TEST );
@@ -792,47 +624,6 @@ bool ir_fold::fold_test( ir_op* op )
     }
 
     return false;
-}
-
-void ir_fold::fold_uses()
-{
-    /*
-        Replace any uses of instructions which just pass through their operand
-        with that operand.  Currently this is only B_PHI.
-    */
-    for ( unsigned i = 0; i < _f->operands.size(); ++i )
-    {
-        ir_operand* operand = &_f->operands[ i ];
-
-        if ( operand->kind != IR_O_OP )
-        {
-            continue;
-        }
-
-        const ir_op* op = &_f->ops[ operand->index ];
-        if ( op->opcode == IR_B_PHI && op->ocount == 1 )
-        {
-            _stack.push_back( *operand );
-            *operand = _f->operands[ op->oindex ];
-        }
-    }
-
-    for ( ir_operand operand : _stack )
-    {
-        ir_op* op = &_f->ops[ operand.index ];
-        if ( op->opcode == IR_NOP )
-        {
-            continue;
-        }
-
-        assert( op->opcode == IR_B_PHI && op->ocount == 1 );
-        op->opcode = IR_NOP;
-        op->ocount = 0;
-        op->oindex = IR_INVALID_INDEX;
-        op->set_local( IR_INVALID_LOCAL );
-    }
-
-    _stack.clear();
 }
 
 void ir_fold::remove_unreachable_blocks()
@@ -885,8 +676,7 @@ ir_operand ir_fold_operand( ir_function* f, ir_operand operand )
     while ( true )
     {
         // Look past MOV/REF.
-        if ( op->opcode == IR_MOV || op->opcode == IR_REF
-            || ( op->opcode == IR_B_PHI && op->ocount == 1 ) )
+        if ( op->opcode == IR_MOV || op->opcode == IR_REF )
         {
             assert( op->ocount == 1 );
             ir_operand oval = f->operands[ op->oindex ];

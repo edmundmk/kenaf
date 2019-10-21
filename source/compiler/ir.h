@@ -55,38 +55,6 @@
     generated as for any other variable.
 
 
-    -- Shortcut Branches
-
-    Chained comparisons, logical operators, and conditional expressions can
-    skip evaluation of some of their operands.
-
-    These operators are not represented in the main control flow graph.  As
-    all the operands are expressions, and assignments are restricted, new
-    definitions of variables cannot be created inside these expressions.  The
-    definition of a variable reaching the start of the shortcut expression is
-    the definition that will survive the expression.
-
-    So instead of doing CFG and SSA construction for these structures - which
-    would involve defining temporary variables - we represent them as internal
-    branches inside a block.  Branches can only branch forward.
-
-        B_AND test, jump
-        B_CUT test, jump
-            If test is true (B_AND) or false (B_CUT), branch to jump address,
-            which must be later in the same block.  Does not produce a value.
-
-        B_DEF link_cut, value, jump_phi
-            The link_cut operand points to the B_CUT that skips this value.
-            These links keep tests alive.  Branches to a B_PHI op with a value.
-
-        B_PHI def, def, def, ..., value
-            Each def is a B_DEF op providing an alternative value.  The last
-            operand is the value to use if we didn't branch from a B_DEF.
-
-    It's a bit complicated, but it reduces the complexity of the CFG and the
-    amount of SSA variables we need to consider.
-
-
     -- SSA Form
 
     The IR is a kind of SSA form, but with some major restrictions:
@@ -233,12 +201,6 @@ enum ir_opcode : uint8_t
 
     // Select a result from a stack top instruction.
     IR_SELECT,                  // select( a ..., index )
-
-    // Shortcut branches.
-    IR_B_AND,                   // test, jump
-    IR_B_CUT,                   // test, jump
-    IR_B_DEF,                   // link_cut, value, jump_phi
-    IR_B_PHI,                   // def, def, def, ..., value
 
     // Block and jump instructions.
     IR_BLOCK,                   // Block header.

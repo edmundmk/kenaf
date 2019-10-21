@@ -318,10 +318,9 @@ void ir_alloc::mark_pinning()
                     continue;
 
                 ir_op* pinned_op = &_f->ops[ operand.index ];
-                bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
-                    if ( pinned_op->live_range == op_index || is_phi_def )
+                    if ( pinned_op->live_range == op_index )
                     {
                         pinned_op->mark = true;
                     }
@@ -329,7 +328,7 @@ void ir_alloc::mark_pinning()
                 else
                 {
                     local_value* value = &_local_values.at( pinned_op->local() );
-                    if ( value->live_range == op_index || is_phi_def )
+                    if ( value->live_range == op_index )
                     {
                         value->mark = true;
                     }
@@ -557,7 +556,7 @@ void ir_alloc::unpin_stacked( const ir_op* op, unsigned op_index )
 
 void ir_alloc::unpin_move( const ir_op* op, unsigned op_index )
 {
-    if ( op->opcode == IR_MOV || op->opcode == IR_B_DEF || op->opcode == IR_B_PHI )
+    if ( op->opcode == IR_MOV )
     {
         assert( op->r != IR_INVALID_REGISTER );
         unpin_operands( op, op_index, UNPIN_R );
@@ -575,10 +574,9 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
 
         unsigned def_index = IR_INVALID_INDEX;
         ir_op* pinned_op = &_f->ops[ operand.index ];
-        bool is_phi_def = op->opcode == IR_B_PHI && j < op->ocount - 1u;
         if ( pinned_op->local() == IR_INVALID_LOCAL )
         {
-            if ( pinned_op->mark && ( pinned_op->live_range == op_index || is_phi_def ) )
+            if ( pinned_op->mark && ( pinned_op->live_range == op_index ) )
             {
                 pinned_op->mark = false;
                 def_index = operand.index;
@@ -591,7 +589,7 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
         else
         {
             local_value* value = &_local_values.at( pinned_op->local() );
-            if ( value->mark && ( value->live_range == op_index || is_phi_def ) )
+            if ( value->mark && ( value->live_range == op_index ) )
             {
                 value->mark = false;
                 def_index = value->op_index;
@@ -646,8 +644,6 @@ bool ir_alloc::is_pinning( const ir_op* op )
     switch ( op->opcode )
     {
     case IR_MOV:
-    case IR_B_DEF:
-    case IR_B_PHI:
         return true;
 
     default:
@@ -664,8 +660,6 @@ bool ir_alloc::has_result( const ir_op* op )
     case IR_SET_ENV:
     case IR_APPEND:
     case IR_EXTEND:
-    case IR_B_AND:
-    case IR_B_CUT:
     case IR_BLOCK:
     case IR_JUMP:
     case IR_JUMP_TEST:

@@ -81,11 +81,6 @@ const char* const OPCODE_NAMES[] =
 
     [ IR_SELECT         ] = "SELECT",
 
-    [ IR_B_AND          ] = "B_AND",
-    [ IR_B_CUT          ] = "B_CUT",
-    [ IR_B_DEF          ] = "B_DEF",
-    [ IR_B_PHI          ] = "B_PHI",
-
     [ IR_BLOCK          ] = "BLOCK",
     [ IR_JUMP           ] = "JUMP",
     [ IR_JUMP_TEST      ] = "JUMP_TEST",

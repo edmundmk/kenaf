@@ -64,11 +64,7 @@ private:
     bool fold_equal( ir_op* op );
     bool fold_compare( ir_op* op );
     bool fold_not( ir_op* op );
-    bool fold_cut( unsigned op_index, ir_op* op );
-    bool fold_phi( ir_op* op );
     bool fold_test( ir_op* op );
-
-    void fold_uses();
 
     void remove_unreachable_blocks();
 
