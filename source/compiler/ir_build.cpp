@@ -341,37 +341,49 @@ ir_operand ir_build::visit( ast_node_index node )
         ast_node_index expr = ast_next_node( _f->ast, test );
         ast_node_index next = ast_next_node( _f->ast, expr );
 
-        size_t ocount = 0;
+        unsigned local_index = temporary();
+
         _o.push_back( visit( test ) );
         goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
         goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
+
         while ( true )
         {
-            ir_operand op_cut = emit_jump( kw->sloc, IR_B_CUT, 1, GOTO_ELSE );
+            // Check if condition.
+            goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
+            end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, GOTO_ENDIF, GOTO_ELSE ) );
+            goto_block( goto_next );
 
-            _o.push_back( op_cut );
-            _o.push_back( visit( expr ) );
-            _o.push_back( emit_jump( kw->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
-            ocount += 1;
+            // Visit expr.
+            ir_operand result = visit( expr );
+            def( expr->sloc, local_index, result );
+            end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_ENDIF ) );
 
-            goto_branch( goto_else );
+            if ( next.index < node.index && next->kind == AST_EXPR_ELIF )
+            {
+                ast_node_index elif = next;
+                test = ast_child_node( _f->ast, elif );
+                expr = ast_next_node( _f->ast, test );
+                next = ast_next_node( _f->ast, elif );
 
-            if ( next->kind != AST_EXPR_ELIF )
+                goto_block( goto_else );
+                _o.push_back( visit( test ) );
+                continue;
+            }
+            else
             {
                 break;
             }
-
-            kw = next;
-            test = ast_child_node( _f->ast, kw );
-            expr = ast_next_node( _f->ast, test );
-            next = ast_next_node( _f->ast, kw );
-
-            _o.push_back( visit( test ) );
         }
 
-        _o.push_back( visit( next ) );
-        goto_branch( goto_endif );
-        return emit( node->sloc, IR_B_PHI, ocount + 1 );
+        goto_block( goto_else );
+        assert( next.index < node.index );
+        ir_operand result = visit( expr );
+        def( expr->sloc, local_index, result );
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_ENDIF ) );
+
+        goto_block( goto_endif );
+        return use( node->sloc, local_index );
     }
 
     case AST_EXPR_ELIF:
@@ -644,11 +656,11 @@ ir_operand ir_build::visit( ast_node_index node )
 
     case AST_STMT_IF:
     {
-        ast_node_index expr = ast_child_node( _f->ast, node );
-        ast_node_index body = ast_next_node( _f->ast, expr );
+        ast_node_index test = ast_child_node( _f->ast, node );
+        ast_node_index body = ast_next_node( _f->ast, test );
         ast_node_index next = ast_next_node( _f->ast, body );
 
-        _o.push_back( visit( expr ) );
+        _o.push_back( visit( test ) );
         goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
         goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
 
@@ -668,12 +680,12 @@ ir_operand ir_build::visit( ast_node_index node )
 
             if ( next.index < node.index && next->kind == AST_STMT_ELIF )
             {
-                expr = ast_child_node( _f->ast, next );
-                body = ast_next_node( _f->ast, expr );
+                test = ast_child_node( _f->ast, next );
+                body = ast_next_node( _f->ast, test );
                 next = ast_next_node( _f->ast, next );
 
                 goto_block( goto_else );
-                _o.push_back( visit( expr ) );
+                _o.push_back( visit( test ) );
                 continue;
             }
             else
