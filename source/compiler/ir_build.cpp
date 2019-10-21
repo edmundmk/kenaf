@@ -795,9 +795,9 @@ ir_operand ir_build::visit( ast_node_index node )
         goto_scope goto_break = goto_open( node->sloc, GOTO_BREAK );
 
         // For loop.
-        goto_scope goto_next = goto_open( node->sloc, GOTO_ENDIF );
+        goto_scope goto_next = goto_open( node->sloc, GOTO_NEXT );
         _o.push_back( use( node->sloc, local_index ) );
-        ir_operand test = emit_test( node->sloc, IR_JUMP_FOR_EACH, 1, GOTO_ENDIF, GOTO_BREAK );
+        ir_operand test = emit_test( node->sloc, IR_JUMP_FOR_EACH, 1, GOTO_NEXT, GOTO_BREAK );
         def( node->sloc, local_index, test );
         end_block( test );
         goto_block( goto_next );
