@@ -127,101 +127,28 @@ ir_operand ir_build::visit( ast_node_index node )
     case AST_EXPR_COMPARE:
     {
         /*
-            a < b
-
-                :0000   a
-                :0001   b
-                :0002   LT :0000, :0001
-
-            a < b < c < d
-
-                :0000   a
-                :0001   b
-                :0002   LT :0000, :0001
-                :0003   B_AND :0002, @0005
-                :0004   B_DEF :0003, :0002, @000B
-                :0005   c
-                :0006   LT :0001, :0005
-                :0007   B_AND :0006, @0009
-                :0008   B_DEF :0007, :0006, @000B
-                :0009   d
-                :000A   LT :0005, :0009
-                :000B   B_PHI :0004, :0008, :000A
+            Comparison used as a non-test value.  Test comparison and
+            materialize result using a constant.
         */
 
-        ast_node_index u = ast_child_node( _f->ast, node );
-        ast_node_index op = ast_next_node( _f->ast, u );
-        ast_node_index v = ast_next_node( _f->ast, op );
+        unsigned local_index = temporary();
 
-        unsigned ocount = 0;
-        ir_operand last = visit( u );
-        ir_operand comp = { IR_O_NONE };
-        goto_scope goto_else = goto_open( node->sloc, GOTO_ELSE );
+        _o.push_back( { IR_O_TRUE } );
+        def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
+
+        goto_scope goto_next = goto_open( node->sloc, GOTO_NEXT );
         goto_scope goto_endif = goto_open( node->sloc, GOTO_ENDIF );
 
-        while ( true )
-        {
-            /*
-                We apply the following transformations:
+        visit_test( node, GOTO_NEXT, GOTO_ENDIF );
+        goto_block( goto_next );
 
-                    u > v becomes v < u
-                    u >= v becomes v <= u
-                    u is not v becomes not u is v
+        _o.push_back( { IR_O_FALSE } );
+        def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
 
-                I'm pretty sure that these hold even considering NaN.
-            */
+        end_block( emit_jump( node->sloc, IR_JUMP, 0, GOTO_ENDIF ) );
+        goto_block( goto_endif );
 
-            _o.push_back( last );
-            _o.push_back( last = visit( v ) );
-
-            ir_opcode opcode = IR_NOP;
-            switch ( op->kind )
-            {
-            case AST_OP_EQ: opcode = IR_EQ; break;
-            case AST_OP_NE: opcode = IR_NE; break;
-            case AST_OP_LT: opcode = IR_LT; break;
-            case AST_OP_LE: opcode = IR_LE; break;
-            case AST_OP_GT: opcode = IR_LT; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
-            case AST_OP_GE: opcode = IR_LE; std::swap( _o.back(), _o[ _o.size() - 2 ] ); break;
-            case AST_OP_IS: opcode = IR_IS; break;
-            case AST_OP_IS_NOT: opcode = IR_IS; break;
-            default: break;
-            }
-
-            comp = emit( op->sloc, opcode, 2 );
-
-            if ( op->kind == AST_OP_IS_NOT )
-            {
-                _o.push_back( comp );
-                comp = emit( op->sloc, IR_NOT, 1 );
-            }
-
-            op = ast_next_node( _f->ast, v );
-            if ( op.index >= node.index )
-            {
-                break;
-            }
-
-            _o.push_back( comp );
-            ir_operand op_and = emit_jump( op->sloc, IR_B_AND, 1, GOTO_ELSE );
-
-            _o.push_back( op_and );
-            _o.push_back( comp );
-            _o.push_back( emit_jump( op->sloc, IR_B_DEF, 2, GOTO_ENDIF ) );
-            ocount += 1;
-
-            goto_branch( goto_else );
-            v = ast_next_node( _f->ast, op );
-        }
-
-        if ( ocount )
-        {
-            _o.push_back( comp );
-            goto_branch( goto_endif );
-            comp = emit( node->sloc, IR_B_PHI, ocount + 1 );
-        }
-
-        return comp;
+        return use( node->sloc, local_index );
     }
 
     case AST_OP_EQ:

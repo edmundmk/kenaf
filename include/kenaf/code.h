@@ -68,10 +68,6 @@ enum opcode : uint8_t
     OP_BITXOR,          // r = a ^ b                | A | r | a | b |
     OP_BITOR,           // r = a | b                | A | r | a | b |
 
-    OP_EQ,              // r = a == b               | A | r | a | b |
-    OP_NE,              // r = a != b               | A | r | a | b |
-    OP_LT,              // r = a < b                | A | r | a | b |
-    OP_LE,              // r = a <= b               | A | r | a | b |
     OP_IS,              // r = a is b               | A | r | a | b |
 
     OP_JMP,             // jump                     | J | - |   j   |
