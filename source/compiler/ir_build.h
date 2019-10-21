@@ -37,6 +37,8 @@ private:
 
     enum goto_kind
     {
+        GOTO_EVAL,
+        GOTO_NEXT,
         GOTO_ELSE,
         GOTO_ENDIF,
         GOTO_BREAK,
@@ -61,6 +63,10 @@ private:
     ir_operand visit( ast_node_index node );
     void block_varenv( ast_node_index node );
     void visit_children( ast_node_index node );
+
+    // Tests.
+    void visit_test( ast_node_index node, goto_kind goto_true, goto_kind goto_false );
+    ir_operand comparison( ast_node_index op );
 
     // Rvals and unpacking
     unsigned rval_list( ast_node_index node, unsigned rvcount );
