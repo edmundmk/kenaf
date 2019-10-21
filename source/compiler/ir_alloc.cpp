@@ -655,6 +655,10 @@ bool ir_alloc::has_result( const ir_op* op )
 {
     switch ( op->opcode )
     {
+    case IR_EQ:
+    case IR_NE:
+    case IR_LT:
+    case IR_LE:
     case IR_SET_KEY:
     case IR_SET_INDEX:
     case IR_SET_ENV:
