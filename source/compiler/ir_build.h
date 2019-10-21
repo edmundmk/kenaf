@@ -57,6 +57,7 @@ private:
 
     // Tests.
     void visit_test( ast_node_index node, goto_label* goto_true, goto_label* goto_false );
+    void materialize( ast_node_index node, unsigned local_index, bool assign_true, goto_label* goto_true, goto_label* goto_false );
     ir_operand comparison( ast_node_index op );
 
     // Rvals and unpacking
