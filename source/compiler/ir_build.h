@@ -50,6 +50,14 @@ private:
         goto_label* loop_continue;
     };
 
+    struct materialize_goto
+    {
+        goto_label* const_true;
+        goto_label* value_true;
+        goto_label* const_false;
+        goto_label* value_false;
+    };
+
     // Visiting AST.
     ir_operand visit( ast_node_index node );
     void block_varenv( ast_node_index node );
@@ -57,7 +65,7 @@ private:
 
     // Tests.
     void visit_test( ast_node_index node, goto_label* goto_true, goto_label* goto_false );
-    void materialize( ast_node_index node, unsigned local_index, bool assign_true, goto_label* goto_true, goto_label* goto_false );
+    void materialize( ast_node_index node, unsigned local_index, materialize_goto* jump );
     ir_operand comparison( ast_node_index op );
 
     // Rvals and unpacking

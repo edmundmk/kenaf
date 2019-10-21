@@ -121,30 +121,38 @@ ir_operand ir_build::visit( ast_node_index node )
     // -- LOGICAL --
 
     case AST_EXPR_COMPARE:
+    case AST_EXPR_AND:
+    case AST_EXPR_OR:
     {
         /*
-            Materialize comparison to bool value.
-
-                    if test goto next else goto else
-            next:   $ <- true
-                    goto endif
-            else:   $ <- false
-                    goto endif
-            endif:  $
+            Materialize.
         */
 
-        goto_label goto_else;
-        goto_label goto_endif;
+        goto_label goto_const_true;
+        goto_label goto_const_false;
+        goto_label goto_result;
 
         unsigned local_index = temporary();
-        materialize( node, local_index, true, &goto_endif, &goto_else );
-        goto_block( &goto_else );
+        materialize_goto jump = { &goto_const_true, &goto_result, &goto_const_false, &goto_result };
+        materialize( node, local_index, &jump );
 
-        _o.push_back( { IR_O_FALSE } );
-        def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
-        end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_endif ) );
-        goto_block( &goto_endif );
+        if ( goto_const_true.size() )
+        {
+            goto_block( &goto_const_true );
+            _o.push_back( { IR_O_TRUE } );
+            def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
+            end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_result ) );
+        }
 
+        if ( goto_const_false.size() )
+        {
+            goto_block( &goto_const_false );
+            _o.push_back( { IR_O_FALSE } );
+            def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
+            end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_result ) );
+        }
+
+        goto_block( &goto_result );
         return use( node->sloc, local_index );
     }
 
@@ -166,58 +174,6 @@ ir_operand ir_build::visit( ast_node_index node )
         ast_node_index u = ast_child_node( _f->ast, node );
         _o.push_back( visit( u ) );
         return emit( node->sloc, IR_NOT, 1 );
-    }
-
-    case AST_EXPR_AND:
-    {
-        /*
-            a and b
-        */
-
-        ast_node_index u = ast_child_node( _f->ast, node );
-        ast_node_index v = ast_next_node( _f->ast, u );
-
-        goto_label goto_else;
-        goto_label goto_endif;
-
-        unsigned local_index = temporary();
-        materialize( u, local_index, false, &goto_else, &goto_endif );
-        goto_block( &goto_else );
-
-        def( node->sloc, local_index, visit( v ) );
-        end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_endif ) );
-        goto_block( &goto_endif );
-
-        return use( node->sloc, local_index );
-    }
-
-    case AST_EXPR_OR:
-    {
-        /*
-            a or b
-
-                    %0 <- $ <- a
-                    if %0 goto endif else goto else
-            else:   $ <- b
-                    goto endif
-            endif:  $
-        */
-
-        ast_node_index u = ast_child_node( _f->ast, node );
-        ast_node_index v = ast_next_node( _f->ast, u );
-
-        goto_label goto_else;
-        goto_label goto_endif;
-
-        unsigned local_index = temporary();
-        materialize( u, local_index, true, &goto_endif, &goto_else );
-        goto_block( &goto_else );
-
-        def( node->sloc, local_index, visit( v ) );
-        end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_endif ) );
-        goto_block( &goto_endif );
-
-        return use( node->sloc, local_index );
     }
 
     case AST_EXPR_IF:
@@ -1154,109 +1110,50 @@ void ir_build::visit_test( ast_node_index node, goto_label* goto_true, goto_labe
     }
 }
 
-void ir_build::materialize( ast_node_index node, unsigned local_index, bool assign_true, goto_label* goto_true, goto_label* goto_false )
+void ir_build::materialize( ast_node_index node, unsigned local_index, materialize_goto* jump )
 {
     switch ( node->kind )
     {
     case AST_EXPR_COMPARE:
     {
         /*
-            assign_true
-                    if test then goto next else goto false
-            next:   $ <- true
-                    goto true
-
-            assign_false
-                    if test then goto true else goto next
-            next:   $ <- false
-                    goto false
+                    if test then goto true else goto false
         */
-
-        goto_label goto_next;
-        if ( assign_true )
-        {
-            visit_test( node, &goto_next, goto_false );
-            goto_block( &goto_next );
-            _o.push_back( { IR_O_TRUE } );
-            def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
-            end_block( emit_jump( node->sloc, IR_JUMP, 0, goto_true ) );
-        }
-        else
-        {
-            visit_test( node, goto_true, &goto_next );
-            goto_block( &goto_next );
-            _o.push_back( { IR_O_FALSE } );
-            def( node->sloc, local_index, emit( node->sloc, IR_CONST, 1 ) );
-            end_block( emit_jump( node->sloc, IR_JUMP, 0, goto_false ) );
-        }
+        visit_test( node, jump->const_true, jump->const_false );
         break;
     }
 
     case AST_EXPR_AND:
     {
         /*
-            when u is true return v
-            when u is false return u
-
-            assign_true
-                    test u when true goto next else goto false
-            next:   materialize v when true if goto true else goto false
-
-            assign_false
-                    materialize u when false if goto next else goto false
-            next:   materialize v when false if goto true else goto false
+                    if u then goto next else goto false
+            next:   if v then goto true else goto false
         */
-
         ast_node_index u = ast_child_node( _f->ast, node );
         ast_node_index v = ast_next_node( _f->ast, u );
 
         goto_label goto_next;
-        if ( assign_true )
-        {
-            visit_test( u, &goto_next, goto_false );
-            goto_block( &goto_next );
-            materialize( v, local_index, true, goto_true, goto_false );
-        }
-        else
-        {
-            materialize( u, local_index, false, &goto_next, goto_false );
-            goto_block( &goto_next );
-            materialize( v, local_index, false, goto_true, goto_false );
-        }
+        materialize_goto ujump = { &goto_next, &goto_next, jump->const_false, jump->value_false };
+        materialize( u, local_index, &ujump );
+        goto_block( &goto_next );
+        materialize( v, local_index, jump );
         break;
     }
 
     case AST_EXPR_OR:
     {
         /*
-            when u is true return u
-            when u is false return v
-
-            assign_true
-                    materialize u when true if goto true else goto next
-            next:   materialize v when true if goto true else goto false
-
-            assign_false
-                    test u when true goto true else goto next
-            next:   materialize v when false if goto true else goto false
+                    if u then goto true else goto next
+            next:   if v then goto true else goto false
         */
-
         ast_node_index u = ast_child_node( _f->ast, node );
         ast_node_index v = ast_next_node( _f->ast, u );
 
         goto_label goto_next;
-        if ( assign_true )
-        {
-            materialize( u, local_index, true, goto_true, &goto_next );
-            goto_block( &goto_next );
-            materialize( v, local_index, true, goto_true, goto_false );
-        }
-        else
-        {
-            visit_test( u, goto_true, &goto_next );
-            goto_block( &goto_next );
-            materialize( v, local_index, false, goto_true, goto_false );
-        }
+        materialize_goto ujump = { jump->const_true, jump->value_true, &goto_next, &goto_next };
+        materialize( u, local_index, &ujump );
+        goto_block( &goto_next );
+        materialize( v, local_index, jump );
         break;
     }
 
@@ -1267,9 +1164,8 @@ void ir_build::materialize( ast_node_index node, unsigned local_index, bool assi
                     %0 <- $ <- a
                     if %0 goto true else goto false
         */
-
         _o.push_back( def( node->sloc, local_index, visit( node ) ) );
-        end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, goto_true, goto_false ) );
+        end_block( emit_test( node->sloc, IR_JUMP_TEST, 1, jump->value_true, jump->value_false ) );
         break;
     }
     }
@@ -1844,6 +1740,12 @@ ir_operand ir_build::emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, 
 
 ir_operand ir_build::emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_label* goto_true, goto_label* goto_false )
 {
+    if ( goto_true == goto_false )
+    {
+        _o.pop_back();
+        return emit_jump( sloc, IR_JUMP, 0, goto_true );
+    }
+
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     _o.push_back( { IR_O_JUMP, IR_INVALID_INDEX } );
     ir_operand test = emit( sloc, opcode, ocount + 2 );
