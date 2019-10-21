@@ -18,6 +18,7 @@
 */
 
 #include <unordered_map>
+#include <list>
 #include "ir.h"
 #include "ast.h"
 
@@ -35,28 +36,18 @@ public:
 
 private:
 
-    enum goto_kind
-    {
-        GOTO_EVAL,
-        GOTO_NEXT,
-        GOTO_ELSE,
-        GOTO_ENDIF,
-        GOTO_BREAK,
-        GOTO_CONTINUE,
-        GOTO_MAX,
-    };
-
     struct goto_fixup
     {
         ir_block_index block_index;
         unsigned operand_index;
     };
 
-    struct goto_stack
+    typedef std::list< goto_fixup > goto_label;
+
+    struct loop_gotos
     {
-        goto_stack() : index( 0 ) {}
-        std::vector< goto_fixup > fixups;
-        unsigned index;
+        goto_label* loop_break;
+        goto_label* loop_continue;
     };
 
     // Visiting AST.
@@ -65,7 +56,7 @@ private:
     void visit_children( ast_node_index node );
 
     // Tests.
-    void visit_test( ast_node_index node, goto_kind goto_true, goto_kind goto_false );
+    void visit_test( ast_node_index node, goto_label* goto_true, goto_label* goto_false );
     ir_operand comparison( ast_node_index op );
 
     // Rvals and unpacking
@@ -84,19 +75,14 @@ private:
     // Emit ops.
     ir_operand emit( srcloc sloc, ir_opcode opcode, unsigned ocount );
 
-    // Structured gotos.
-    struct goto_scope { goto_kind kind; unsigned index; };
-    goto_scope goto_open( srcloc sloc, goto_kind kind );
-    void goto_branch( goto_scope scope );
-    void goto_block( goto_scope scope );
-
     // Blocks and jumps.
+    void goto_block( goto_label* label );
     ir_block_index new_block( srcloc sloc, ir_block_kind kind );
-    ir_operand emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_kind );
-    ir_operand emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_kind goto_true, goto_kind goto_false );
+    ir_operand emit_jump( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_label* goto_jump );
+    ir_operand emit_test( srcloc sloc, ir_opcode opcode, unsigned ocount, goto_label* goto_true, goto_label* goto_false );
     ir_operand end_block( ir_operand jump );
     ir_block_index new_loop( ir_block_index loop_header );
-    void end_loop( ir_block_index loop_header, goto_scope scope );
+    void end_loop( ir_block_index loop_header, goto_label* goto_loop );
 
     // Use/def for SSA construction.
     unsigned temporary();
@@ -113,8 +99,9 @@ private:
     // Operand stack.
     std::vector< ir_operand > _o;
 
-    // Block construction and branch stacks.
-    goto_stack _goto_stacks[ GOTO_MAX ];
+    // Goto blocks.
+    std::vector< loop_gotos > _loop_gotos;
+    std::list< goto_fixup > _goto_block;
     ir_block_index _block_index;
 
     // Definitions per block.
