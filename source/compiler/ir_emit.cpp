@@ -375,7 +375,13 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
         assert( shape->ocount == 1 );
         ir_operand u = _f->operands[ iop->oindex + 0 ];
         assert( u.kind != IR_O_OP );
-        uint16_t c = u.index;
+        uint16_t c = 0;
+        if ( u.kind == IR_O_TRUE )
+            c = 1;
+        else if ( u.kind == IR_O_FALSE )
+            c = 0;
+        else
+            c = u.index;
         emit( iop->sloc, op::op_c( shape->copcode, r, c ) );
         return op_index;
     }
