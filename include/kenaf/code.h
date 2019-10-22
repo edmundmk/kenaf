@@ -136,7 +136,7 @@ struct op
     uint8_t r;
     union
     {
-        struct { uint8_t a; struct { uint8_t b; int8_t i; }; };
+        struct { uint8_t a; union { uint8_t b; int8_t i; }; };
         uint16_t c;
         int16_t j;
     };
@@ -146,6 +146,8 @@ inline op op::op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b ) { op 
 inline op op::op_ai( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) { op o; o.opcode = opcode; o.r = r; o.a = a; o.i = i; return o; }
 inline op op::op_c( enum opcode opcode, uint8_t r, uint16_t c ) { op o; o.opcode = opcode; o.r = r; o.c = c; return o; }
 inline op op::op_j( enum opcode opcode, uint8_t r, int16_t j ) { op o; o.opcode = opcode; o.r = r; o.j = j; return o; }
+
+static_assert( sizeof( op ) == 4 );
 
 const uint32_t CODE_MAGIC = 0x5D2A2A5B; // '[**]'
 
