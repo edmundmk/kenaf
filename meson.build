@@ -16,6 +16,7 @@ lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
 
 sources = [
     'source/common/code.cpp',
+    'source/common/imath.cpp',
     'source/compiler/ast.cpp',
     'source/compiler/ast_resolve.cpp',
     'source/compiler/code_unit.cpp',

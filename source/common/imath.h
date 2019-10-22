@@ -40,7 +40,15 @@ inline double ifloormod( double u, double v )
 
 inline uint32_t ibitint( double u )
 {
-    return (uint32_t)(int64_t)u;
+    if ( -0x1p63 <= u && u < 0x1p63 )
+    {
+        return (uint32_t)(int64_t)u;
+    }
+    else
+    {
+        uint32_t ibitint_overflow( double u );
+        return ibitint_overflow( u );
+    }
 }
 
 inline double ibitnot( double u )
