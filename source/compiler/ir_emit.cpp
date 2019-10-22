@@ -92,7 +92,7 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_NEW_ARRAY,     1, { IR_O_IMMEDIATE                     },  OP_NEW_ARRAY,   C       },
     { IR_NEW_TABLE,     1, { IR_O_IMMEDIATE                     },  OP_NEW_TABLE,   C       },
     { IR_SUPER,         1, { IR_O_OP                            },  OP_SUPER,       AB      },
-    { IR_APPEND,        1, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
+    { IR_APPEND,        2, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
 
     { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB      },
 
@@ -295,7 +295,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
     {
         if ( iop->opcode != shape->iopcode )
         {
-            _source->error( iop->sloc, "internal: no matching instruction shape" );
+            _source->error( iop->sloc, "internal: no matching instruction shape :%04X", op_index );
             return op_index;
         }
 
@@ -386,24 +386,30 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
         return op_index;
     }
 
-    assert( shape->ocount >= 2 );
+    assert( shape->ocount >= 1 );
     ir_operand u = _f->operands[ iop->oindex + 0 ];
-    ir_operand v = _f->operands[ iop->oindex + 1 ];
+    ir_operand v = shape->ocount >= 2 ? _f->operands[ iop->oindex + 1 ] : ir_operand{ IR_O_NONE };
 
     if ( shape->kind == AB_SWAP || shape->kind == AI_SWAP || shape->kind == J_SWAP )
     {
         std::swap( u, v );
     }
 
-    assert( u.kind == IR_O_OP );
-    const ir_op* uop = &_f->ops[ u.index ];
-    if ( uop->r == IR_INVALID_REGISTER )
+    uint8_t a;
+    if ( u.kind == IR_O_OP )
     {
-        _source->error( iop->sloc, "internal: no allocated a register" );
-        return op_index;
+        assert( u.kind == IR_O_OP );
+        const ir_op* uop = &_f->ops[ u.index ];
+        if ( uop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated a register" );
+            return op_index;
+        }
     }
-
-    uint8_t a = uop->r;
+    else
+    {
+        a = u.index;
+    }
 
     op op;
     if ( shape->kind == AI || shape->kind == AI_SWAP )
