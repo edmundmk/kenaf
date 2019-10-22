@@ -57,12 +57,23 @@ private:
         unsigned caddress;
     };
 
+    struct move_entry
+    {
+        unsigned target;
+        unsigned source;
+    };
+
     void emit_constants();
 
     void assemble();
-    unsigned next_block( unsigned op_index );
-    bool match_operands( const ir_op* iop, const emit_shape* shape );
     unsigned with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape );
+    unsigned with_moves( unsigned op_index, const ir_op* iop );
+
+    unsigned next( unsigned op_index, ir_opcode iopcode );
+    bool match_operands( const ir_op* iop, const emit_shape* shape );
+    void add_move( unsigned target, unsigned source );
+    void emit_moves();
+
     void emit( srcloc sloc, op op );
 
     void fixup_jumps();
@@ -73,6 +84,7 @@ private:
     std::unique_ptr< code_function_unit > _u;
     std::vector< jump_fixup > _fixups;
     std::vector< jump_label > _labels;
+    std::vector< move_entry > _moves;
     unsigned _max_r;
 
 };

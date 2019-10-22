@@ -190,9 +190,16 @@ void ir_emit::assemble()
             continue;
         }
 
-        // Jump instructions.
         switch ( iop->opcode )
         {
+        case IR_PARAM:
+        case IR_MOV:
+        case IR_SELECT:
+        {
+            op_index = with_moves( op_index, iop );
+            continue;
+        }
+
         case IR_BLOCK:
         {
             _labels.push_back( { op_index, (unsigned)_u->ops.size() } );
@@ -204,7 +211,7 @@ void ir_emit::assemble()
             assert( iop->ocount == 1 );
             ir_operand j = _f->operands[ iop->oindex ];
             assert( j.kind == IR_O_JUMP );
-            if ( j.index != next_block( op_index ) )
+            if ( j.index != next( op_index, IR_BLOCK ) )
             {
                 _fixups.push_back( { (unsigned)_u->ops.size(), j.index } );
                 emit( iop->sloc, op::op_j( OP_JMP, 0, 0 ) );
@@ -230,7 +237,7 @@ void ir_emit::assemble()
             }
 
             bool test_true = true;
-            unsigned jnext_index = next_block( op_index );
+            unsigned jnext_index = next( op_index, IR_BLOCK );
             if ( jt.index == jnext_index )
             {
                 std::swap( jt, jf );
@@ -249,43 +256,6 @@ void ir_emit::assemble()
         }
         }
     }
-}
-
-unsigned ir_emit::next_block( unsigned op_index )
-{
-    while ( ++op_index < _f->ops.size() )
-    {
-        const ir_op* bop = &_f->ops[ op_index ];
-        if ( bop->opcode == IR_BLOCK )
-        {
-            return op_index;
-        }
-        if ( bop->opcode != IR_PHI && bop->opcode != IR_REF && bop->opcode != IR_NOP )
-        {
-            _source->error( bop->sloc, "internal: jump not followed by block" );
-            break;
-        }
-    }
-    return IR_INVALID_INDEX;
-}
-
-bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
-{
-    if ( iop->ocount != shape->ocount )
-    {
-        return false;
-    }
-
-    for ( unsigned j = 0; j < iop->ocount; ++j )
-    {
-        ir_operand operand = _f->operands[ iop->oindex + j ];
-        if ( operand.kind != shape->okind[ j ] )
-        {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape )
@@ -335,7 +305,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
             }
         }
 
-        jnext_index = next_block( jtest_index );
+        jnext_index = next( jtest_index, IR_BLOCK );
     }
 
     // Get operands.
@@ -476,6 +446,165 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
     }
 
     return op_index;
+}
+
+unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
+{
+    switch ( iop->opcode )
+    {
+    case IR_PARAM:
+    {
+        while ( true )
+        {
+            assert( iop->opcode == IR_PARAM );
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                return op_index;
+            }
+
+            // Move from parameter.
+            assert( iop->ocount == 1 );
+            ir_operand operand = _f->operands[ iop->oindex ];
+            assert( operand.kind == IR_O_LOCAL );
+            add_move( iop->r, operand.index + 1 );
+
+            // Check if next instruction is a parameter.
+            unsigned next_index = next( op_index, IR_PARAM );
+            if ( next_index == IR_INVALID_INDEX )
+            {
+                break;
+            }
+
+            // Perform that move too.
+            op_index = next_index;
+            iop = &_f->ops[ op_index ];
+        }
+        emit_moves();
+        break;
+    }
+
+    case IR_SELECT:
+    {
+        while ( true )
+        {
+            assert( iop->opcode == IR_SELECT );
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                return op_index;
+            }
+
+            // Move from multiple-result instruction.
+            assert( iop->ocount == 2 );
+            ir_operand u = _f->operands[ iop->oindex + 0 ];
+            ir_operand i = _f->operands[ iop->oindex + 1 ];
+            assert( u.kind == IR_O_OP );
+            assert( i.kind == IR_O_SELECT );
+
+            const ir_op* unpack = &_f->ops[ u.index ];
+            if ( unpack->s == IR_INVALID_REGISTER )
+            {
+                _source->error( unpack->sloc, "internal: select from unpack without stack top" );
+                return op_index;
+            }
+
+            add_move( iop->r, unpack->s + i.index );
+
+            // Check if next instruction is another select.
+            unsigned next_index = next( op_index, IR_SELECT );
+            if ( next_index == IR_INVALID_INDEX )
+            {
+                break;
+            }
+
+            // Perform that select too.
+            op_index = next_index;
+            iop = &_f->ops[ op_index ];
+        }
+        emit_moves();
+        break;
+    }
+
+    case IR_MOV:
+    {
+        if ( iop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated result register" );
+            return op_index;
+        }
+
+        // Individual move.
+        assert( iop->ocount == 1 );
+        ir_operand operand = _f->operands[ iop->oindex ];
+        assert( operand.kind == IR_O_OP );
+
+        ir_op* mop = &_f->ops[ operand.index ];
+        if ( mop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( mop->sloc, "internal: no allocated move source register" );
+            return op_index;
+        }
+
+        add_move( iop->r, mop->r );
+        emit_moves();
+        break;
+    }
+    }
+
+    return op_index;
+}
+
+unsigned ir_emit::next( unsigned op_index, ir_opcode iopcode )
+{
+    while ( ++op_index < _f->ops.size() )
+    {
+        const ir_op* iop = &_f->ops[ op_index ];
+        if ( iop->opcode == iopcode )
+        {
+            return op_index;
+        }
+        if ( iop->opcode != IR_PHI && iop->opcode != IR_REF && iop->opcode != IR_NOP )
+        {
+            return IR_INVALID_INDEX;
+        }
+    }
+    return IR_INVALID_INDEX;
+}
+
+bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
+{
+    if ( iop->ocount != shape->ocount )
+    {
+        return false;
+    }
+
+    for ( unsigned j = 0; j < iop->ocount; ++j )
+    {
+        ir_operand operand = _f->operands[ iop->oindex + j ];
+        if ( operand.kind != shape->okind[ j ] )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void ir_emit::add_move( unsigned target, unsigned source )
+{
+    if ( target != source )
+    {
+        _moves.push_back( { target, source } );
+    }
+}
+
+void ir_emit::emit_moves()
+{
+
+
+    // TODO.
+    _moves.clear();
 }
 
 void ir_emit::emit( srcloc sloc, op op )
