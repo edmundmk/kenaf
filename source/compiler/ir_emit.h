@@ -60,9 +60,12 @@ private:
     void emit_constants();
 
     void assemble();
+    unsigned next_block( unsigned op_index );
     bool match_operands( const ir_op* iop, const emit_shape* shape );
     unsigned with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape );
     void emit( srcloc sloc, op op );
+
+    void fixup_jumps();
 
     source* _source;
     code_unit* _unit;

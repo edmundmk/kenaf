@@ -130,8 +130,11 @@ void ir_emit::emit( ir_function* function )
 
     emit_constants();
     assemble();
+    fixup_jumps();
 
     _u->function.stack_size = _max_r + 1;
+    _fixups.clear();
+    _labels.clear();
     _max_r = 0;
 
     _unit->functions.push_back( std::move( _u ) );
@@ -186,8 +189,84 @@ void ir_emit::assemble()
             continue;
         }
 
-        // Other instructions.
+        // Jump instructions.
+        switch ( iop->opcode )
+        {
+        case IR_BLOCK:
+        {
+            _labels.push_back( { op_index, (unsigned)_u->ops.size() } );
+            continue;
+        }
+
+        case IR_JUMP:
+        {
+            assert( iop->ocount == 1 );
+            ir_operand j = _f->operands[ iop->oindex ];
+            assert( j.kind == IR_O_JUMP );
+            if ( j.index != next_block( op_index ) )
+            {
+                _fixups.push_back( { (unsigned)_u->ops.size(), j.index } );
+                emit( iop->sloc, op::op_j( OP_JMP, 0, 0 ) );
+            }
+            continue;
+        }
+
+        case IR_JUMP_TEST:
+        {
+            assert( iop->ocount == 3 );
+            ir_operand u = _f->operands[ iop->oindex + 0 ];
+            ir_operand jt = _f->operands[ iop->oindex + 1 ];
+            ir_operand jf = _f->operands[ iop->oindex + 2 ];
+            assert( u.kind == IR_O_OP );
+            assert( jt.kind == IR_O_JUMP );
+            assert( jf.kind == IR_O_JUMP );
+
+            const ir_op* uop = &_f->ops[ u.index ];
+            if ( uop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated test register" );
+                continue;
+            }
+
+            bool test_true = true;
+            unsigned jnext_index = next_block( op_index );
+            if ( jt.index == jnext_index )
+            {
+                std::swap( jt, jf );
+                test_true = ! test_true;
+            }
+
+            _fixups.push_back( { (unsigned)_u->ops.size(), jt.index } );
+            emit( iop->sloc, op::op_j( test_true ? OP_JT : OP_JF, uop->r, 0 ) );
+            if ( jf.index != jnext_index )
+            {
+                _fixups.push_back( { (unsigned)_u->ops.size(), jf.index } );
+                emit( iop->sloc, op::op_j( OP_JMP, 0, 0 ) );
+            }
+
+            continue;
+        }
+        }
     }
+}
+
+unsigned ir_emit::next_block( unsigned op_index )
+{
+    while ( true )
+    {
+        op_index += 1;
+        const ir_op* bop = &_f->ops[ op_index ];
+        if ( bop->opcode == IR_BLOCK )
+        {
+            break;
+        }
+        if ( bop->opcode != IR_PHI && bop->opcode != IR_REF && bop->opcode != IR_NOP )
+        {
+            _source->error( bop->sloc, "internal: jump not followed by block" );
+            break;
+        }
+    }
+    return op_index;
 }
 
 bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
@@ -256,21 +335,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
             }
         }
 
-        jnext_index = jtest_index;
-        while ( true )
-        {
-            jnext_index += 1;
-            const ir_op* jop = &_f->ops[ jnext_index ];
-            if ( jop->opcode == IR_BLOCK )
-            {
-                break;
-            }
-            if ( jop->opcode != IR_PHI && jop->opcode != IR_REF && jop->opcode != IR_NOP )
-            {
-                _source->error( iop->sloc, "internal: test not followed by block" );
-                return op_index;
-            }
-        }
+        jnext_index = next_block( jtest_index );
     }
 
     // Get operands.
@@ -405,6 +470,29 @@ void ir_emit::emit( srcloc sloc, op op )
 {
     _u->ops.push_back( op );
     _u->debug_slocs.push_back( sloc );
+}
+
+void ir_emit::fixup_jumps()
+{
+    for ( const jump_fixup& fixup : _fixups )
+    {
+        auto i = std::lower_bound
+        (
+            _labels.begin(),
+            _labels.end(),
+            fixup.iaddress,
+            []( const jump_label& label, unsigned iaddress ) { return label.iaddress < iaddress; }
+        );
+
+        if ( i == _labels.end() || i->iaddress != fixup.iaddress )
+        {
+            _source->error( 0, "internal: jump :%04X to invalid address :%04X", fixup.jaddress, fixup.iaddress );
+            continue;
+        }
+
+        op* jop = &_u->ops.at( fixup.jaddress );
+        jop->j = i->caddress - (int)fixup.jaddress + 1;
+    }
 }
 
 }
