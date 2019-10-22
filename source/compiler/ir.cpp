@@ -97,6 +97,8 @@ const char* const OPCODE_NAMES[] =
     [ IR_PHI            ] = "PHI",
     [ IR_PHI_OPEN       ] = "PHI_OPEN",
     [ IR_REF            ] = "REF",
+
+    [ IR_OP_INVALID     ] = "INVALID",
 };
 
 const char* const BLOCK_KIND_NAMES[] =

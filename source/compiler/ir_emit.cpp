@@ -53,11 +53,11 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_EQ,            2, { IR_O_OP, IR_O_STRING               },  OP_JEQK,        JUMP    },
     { IR_EQ,            2, { IR_O_NUMBER, IR_O_OP               },  OP_JEQK,        J_SWAP  },
     { IR_EQ,            2, { IR_O_STRING, IR_O_OP               },  OP_JEQK,        J_SWAP  },
-    { IR_NE,            2, { IR_O_OP, IR_O_OP                   },  OP_JNE,         JUMP    },
-    { IR_NE,            2, { IR_O_OP, IR_O_NUMBER               },  OP_JNEK,        JUMP    },
-    { IR_NE,            2, { IR_O_OP, IR_O_STRING               },  OP_JNEK,        JUMP    },
-    { IR_NE,            2, { IR_O_NUMBER, IR_O_OP               },  OP_JNEK,        J_SWAP  },
-    { IR_NE,            2, { IR_O_STRING, IR_O_OP               },  OP_JNEK,        J_SWAP  },
+    { IR_NE,            2, { IR_O_OP, IR_O_OP                   },  OP_JEQ,         JUMP    },
+    { IR_NE,            2, { IR_O_OP, IR_O_NUMBER               },  OP_JEQK,        JUMP    },
+    { IR_NE,            2, { IR_O_OP, IR_O_STRING               },  OP_JEQK,        JUMP    },
+    { IR_NE,            2, { IR_O_NUMBER, IR_O_OP               },  OP_JEQK,        J_SWAP  },
+    { IR_NE,            2, { IR_O_STRING, IR_O_OP               },  OP_JEQK,        J_SWAP  },
     { IR_LT,            2, { IR_O_OP, IR_O_OP                   },  OP_JLT,         JUMP    },
     { IR_LT,            2, { IR_O_OP, IR_O_NUMBER               },  OP_JLTK,        JUMP    },
     { IR_LT,            2, { IR_O_OP, IR_O_STRING               },  OP_JLTK,        JUMP    },
@@ -68,6 +68,8 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_LE,            2, { IR_O_OP, IR_O_STRING               },  OP_JLEK,        JUMP    },
     { IR_LE,            2, { IR_O_NUMBER, IR_O_OP               },  OP_JGEK,        J_SWAP  },
     { IR_LE,            2, { IR_O_STRING, IR_O_OP               },  OP_JGEK,        J_SWAP  },
+
+    { IR_IS,            1, { IR_O_OP, IR_O_OP                   },  OP_IS,          AB      },
     { IR_NOT,           1, { IR_O_OP                            },  OP_NOT,         AB      },
 
     { IR_GET_GLOBAL,    1, { IR_O_SELECTOR                      },  OP_GET_GLOBAL,  C       },
@@ -93,6 +95,8 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_APPEND,        1, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
 
     { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB      },
+
+    { IR_OP_INVALID,    0, {                                    },  OP_MOV,         AB      },
 };
 
 ir_emit::ir_emit( source* source, code_unit* unit )
@@ -165,257 +169,236 @@ void ir_emit::assemble()
 {
     for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
-        const ir_op* op = &_f->ops[ op_index ];
+        const ir_op* iop = &_f->ops[ op_index ];
 
-        switch ( op->opcode )
+        // Search for entry in shapes.
+        const emit_shape* shape = std::lower_bound
+        (
+            std::begin( SHAPES ),
+            std::end( SHAPES ),
+            (ir_opcode)iop->opcode,
+            []( const emit_shape& shape, ir_opcode iopcode ) { return shape.iopcode < iopcode; }
+        );
+
+        if ( shape != std::end( SHAPES ) && shape->iopcode == iop->opcode )
         {
-        case IR_LENGTH:         op_unary( op, OP_LEN );                         break;
-        case IR_NEG:            op_unary( op, OP_NEG );                         break;
-        case IR_POS:            op_unary( op, OP_POS );                         break;
-        case IR_BITNOT:         op_unary( op, OP_BITNOT );                      break;
-        case IR_NOT:            op_unary( op, OP_NOT );                         break;
-        case IR_SUPER:          op_unary( op, OP_SUPER );                       break;
-        case IR_JUMP_THROW:     op_unary( op, OP_THROW );                       break;
+            op_index = with_shape( op_index, iop, shape );
+            continue;
+        }
 
-        case IR_DIV:            op_binary( op, OP_DIV );                        break;
-        case IR_INTDIV:         op_binary( op, OP_INTDIV );                     break;
-        case IR_MOD:            op_binary( op, OP_MOD );                        break;
-        case IR_LSHIFT:         op_binary( op, OP_LSHIFT );                     break;
-        case IR_RSHIFT:         op_binary( op, OP_RSHIFT );                     break;
-        case IR_ASHIFT:         op_binary( op, OP_ASHIFT );                     break;
-        case IR_BITAND:         op_binary( op, OP_BITAND );                     break;
-        case IR_BITXOR:         op_binary( op, OP_BITXOR );                     break;
-        case IR_BITOR:          op_binary( op, OP_BITOR );                      break;
-        case IR_IS:             op_binary( op, OP_IS );                         break;
+        // Other instructions.
+    }
+}
 
-        case IR_ADD:            op_addmul( op, OP_ADD, OP_ADDK, OP_ADDI );      break;
-        case IR_SUB:            op_addmul( op, OP_SUB, OP_SUBK, OP_SUBI );      break;
-        case IR_MUL:            op_addmul( op, OP_MUL, OP_MULK, OP_MULI );      break;
-        case IR_CONCAT:         op_concat( op );                                break;
+bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
+{
+    if ( iop->ocount != shape->ocount )
+    {
+        return false;
+    }
 
-        case IR_CONST:          op_const( op );                                 break;
-
-        case IR_GET_GLOBAL:     op_genc( op, OP_GET_GLOBAL, IR_O_SELECTOR );    break;
-        case IR_NEW_ENV:        op_genc( op, OP_NEW_ENV, IR_O_IMMEDIATE );      break;
-        case IR_NEW_ARRAY:      op_genc( op, OP_NEW_ARRAY, IR_O_IMMEDIATE );    break;
-        case IR_NEW_TABLE:      op_genc( op, OP_NEW_TABLE, IR_O_IMMEDIATE );    break;
-
-
-        default: break;
+    for ( unsigned j = 0; j < iop->ocount; ++j )
+    {
+        ir_operand operand = _f->operands[ iop->oindex + j ];
+        if ( operand.kind != shape->okind[ j ] )
+        {
+            return false;
         }
     }
+
+    return true;
 }
 
-void ir_emit::op_unary( const ir_op* rop, opcode o )
+unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape )
 {
-    assert( rop->ocount == 1 );
-    ir_operand u = _f->operands[ rop->oindex ];
-    if ( u.kind != IR_O_OP )
+    // Search for matching shape.
+    while ( true )
     {
-        _source->error( rop->sloc, "internal: invalid operand to unary instruction" );
-        return;
-    }
-    const ir_op* uop = &_f->ops[ u.index ];
+        if ( iop->opcode != shape->iopcode )
+        {
+            _source->error( iop->sloc, "internal: no matching instruction shape" );
+            return op_index;
+        }
 
-    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
-    {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
-    }
+        assert( shape < std::end( SHAPES ) );
+        if ( match_operands( iop, shape ) )
+        {
+            break;
+        }
 
-    _max_r = std::max( _max_r, rop->r );
-    emit( rop->sloc, op::op_ab( o, rop->r, uop->r, 0 ) );
-}
-
-void ir_emit::op_binary( const ir_op* rop, opcode o )
-{
-    assert( rop->ocount == 2 );
-    ir_operand u = _f->operands[ rop->oindex + 0 ];
-    ir_operand v = _f->operands[ rop->oindex + 1 ];
-    if ( u.kind != IR_O_OP || v.kind != IR_O_OP )
-    {
-        _source->error( rop->sloc, "internal: invalid operand to binary instruction" );
-        return;
-    }
-    const ir_op* uop = &_f->ops[ u.index ];
-    const ir_op* vop = &_f->ops[ v.index ];
-
-    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER || vop->r == IR_INVALID_REGISTER )
-    {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
+        ++shape;
     }
 
-    _max_r = std::max( _max_r, rop->r );
-    emit( rop->sloc, op::op_ab( o, rop->r, uop->r, vop->r ) );
-}
+    // Comparison must always be followed by a jump instruction.
+    unsigned jtest_index = op_index;
+    unsigned jnext_index = op_index;
+    if ( shape->kind == JUMP || shape->kind == J_SWAP )
+    {
+        while ( true )
+        {
+            jtest_index += 1;
+            const ir_op* jop = &_f->ops[ jtest_index ];
+            if ( jop->opcode == IR_JUMP_TEST )
+            {
+                assert( jop->ocount == 3 );
+                ir_operand operand = _f->operands[ jop->oindex + 0 ];
+                if ( operand.kind != IR_O_OP || operand.index != op_index )
+                {
+                    _source->error( iop->sloc, "internal: next jump after comparison does not use it" );
+                    return op_index;
+                }
+                break;
+            }
+            if ( jop->opcode != IR_PHI && jop->opcode != IR_REF && jop->opcode != IR_NOP )
+            {
+                _source->error( iop->sloc, "internal: comparison without associated jump" );
+                return op_index;
+            }
+        }
 
-void ir_emit::op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi )
-{
-    assert( rop->ocount == 2 );
-    ir_operand u = _f->operands[ rop->oindex + 0 ];
-    ir_operand v = _f->operands[ rop->oindex + 1 ];
+        jnext_index = jtest_index;
+        while ( true )
+        {
+            jnext_index += 1;
+            const ir_op* jop = &_f->ops[ jnext_index ];
+            if ( jop->opcode == IR_BLOCK )
+            {
+                break;
+            }
+            if ( jop->opcode != IR_PHI && jop->opcode != IR_REF && jop->opcode != IR_NOP )
+            {
+                _source->error( iop->sloc, "internal: test not followed by block" );
+                return op_index;
+            }
+        }
+    }
 
-    // Operands to SUB instruction are reversed, to put constant in b slot.
-    if ( rop->opcode == IR_SUB )
+    // Get operands.
+    uint8_t r = 0;
+    if ( shape->kind == AB || shape->kind == AB_SWAP || shape->kind == AI || shape->kind == AI_SWAP || shape->kind == C )
+    {
+        if ( shape->ocount < 3 )
+        {
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                return op_index;
+            }
+
+            r = iop->r;
+        }
+        else
+        {
+            ir_operand w = _f->operands[ iop->oindex + 2 ];
+            assert( w.kind == IR_O_OP );
+
+            const ir_op* wop = &_f->ops[ w.index ];
+            if ( wop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated w register" );
+                return op_index;
+            }
+
+            r = wop->r;
+        }
+
+        _max_r = std::max< unsigned >( _max_r, r );
+    }
+
+    if ( shape->kind == C )
+    {
+        assert( shape->ocount == 1 );
+        ir_operand u = _f->operands[ iop->oindex + 0 ];
+        assert( u.kind != IR_O_OP );
+        uint16_t c = u.index;
+        emit( iop->sloc, op::op_c( shape->copcode, r, c ) );
+        return op_index;
+    }
+
+    assert( shape->ocount >= 2 );
+    ir_operand u = _f->operands[ iop->oindex + 0 ];
+    ir_operand v = _f->operands[ iop->oindex + 1 ];
+
+    if ( shape->kind == AB_SWAP || shape->kind == AI_SWAP || shape->kind == J_SWAP )
     {
         std::swap( u, v );
     }
 
-    // Check registers.
-    if ( u.kind != IR_O_OP )
-    {
-        _source->error( rop->sloc, "internal: invalid operand to addmul instruction" );
-        return;
-    }
+    assert( u.kind == IR_O_OP );
     const ir_op* uop = &_f->ops[ u.index ];
-    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
+    if ( uop->r == IR_INVALID_REGISTER )
     {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
+        _source->error( iop->sloc, "internal: no allocated a register" );
+        return op_index;
     }
 
-    _max_r = std::max( _max_r, rop->r );
+    uint8_t a = uop->r;
 
-    // Select instruction variant.
-    if ( v.kind == IR_O_OP )
+    op op;
+    if ( shape->kind == AI || shape->kind == AI_SWAP )
     {
-        const ir_op* vop = &_f->ops[ v.index ];
-        if ( vop->r == IR_INVALID_REGISTER )
-        {
-            _source->error( rop->sloc, "internal: invalid register allocation" );
-            return;
-        }
-
-        emit( rop->sloc, op::op_ab( o, rop->r, uop->r, vop->r ) );
-    }
-    else if ( v.kind == IR_O_NUMBER )
-    {
-        if ( v.index > 0xFF )
-        {
-            _source->error( rop->sloc, "internal: invalid constant index" );
-            return;
-        }
-
-        emit( rop->sloc, op::op_ab( ok, rop->r, uop->r, v.index ) );
-    }
-    else if ( v.kind == IR_O_IMMEDIATE )
-    {
-        emit( rop->sloc, op::op_ai( oi, rop->r, uop->r, (int8_t)v.index ) );
+        assert( v.kind == IR_O_IMMEDIATE );
+        int8_t i = (int8_t)v.index;
+        op = op::op_ai( shape->copcode, r, a, i );
     }
     else
     {
-        _source->error( rop->sloc, "internal: invalid second operand to addmul instruction" );
-    }
-}
-
-void ir_emit::op_concat( const ir_op* rop )
-{
-    opcode ok = OP_CONCATK;
-    assert( rop->ocount == 2 );
-    ir_operand u = _f->operands[ rop->oindex + 0 ];
-    ir_operand v = _f->operands[ rop->oindex + 1 ];
-
-    if ( u.kind == IR_O_STRING )
-    {
-        ok = OP_RCONCATK;
-        std::swap( u, v );
-    }
-
-    if ( u.kind != IR_O_OP )
-    {
-        _source->error( rop->sloc, "internal: invalid operand to concat instruction" );
-        return;
-    }
-    const ir_op* uop = &_f->ops[ u.index ];
-    if ( rop->r == IR_INVALID_REGISTER || uop->r == IR_INVALID_REGISTER )
-    {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
-    }
-
-    _max_r = std::max( _max_r, rop->r );
-
-    if ( v.kind == IR_O_OP )
-    {
-        const ir_op* vop = &_f->ops[ v.index ];
-        if ( vop->r == IR_INVALID_REGISTER )
+        uint8_t b = 0;
+        if ( v.kind == IR_O_OP )
         {
-            _source->error( rop->sloc, "internal: invalid register allocation" );
-            return;
+            const ir_op* vop = &_f->ops[ v.index ];
+            if ( vop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated b register" );
+                return op_index;
+            }
+
+            b = vop->r;
+        }
+        else
+        {
+            b = v.index;
         }
 
-        emit( rop->sloc, op::op_ab( OP_CONCAT, rop->r, uop->r, vop->r ) );
+        op = op::op_ab( shape->copcode, r, a, b );
     }
-    else if ( v.kind == IR_O_STRING )
+
+    if ( shape->kind == JUMP || shape->kind == J_SWAP )
     {
-        if ( v.index > 0xFF )
+        // Comparison + jump.
+        const ir_op* test = &_f->ops[ jtest_index ];
+        assert( test->ocount == 3 );
+        ir_operand jt = _f->operands[ test->oindex + 1 ];
+        ir_operand jf = _f->operands[ test->oindex + 2 ];
+        assert( jt.kind == IR_O_JUMP );
+        assert( jf.kind == IR_O_JUMP );
+
+        // r controls whether we jump on true ( r == 1 ) or false ( r == 0 ).
+        op.r = iop->opcode != IR_NE;
+        if ( jt.index == jnext_index )
         {
-            _source->error( rop->sloc, "internal: invalid constant index" );
-            return;
+            std::swap( jt, jf );
+            op.r = ! op.r;
         }
 
-        emit( rop->sloc, op::op_ab( ok, rop->r, uop->r, v.index ) );
+        // Emit jump.
+        emit( iop->sloc, op );
+        _fixups.push_back( { (unsigned)_u->ops.size(), jt.index } );
+        emit( test->sloc, op::op_j( OP_JMP, 0, 0 ) );
+        if ( jf.index != jnext_index )
+        {
+            _fixups.push_back( { (unsigned)_u->ops.size(), jf.index } );
+            emit( test->sloc, op::op_j( OP_JMP, 0, 0 ) );
+        }
+
+        op_index = jtest_index;
     }
     else
     {
-        _source->error( rop->sloc, "internal: invalid second operand to concat instruction" );
-    }
-}
-
-void ir_emit::op_const( const ir_op* rop )
-{
-    assert( rop->ocount == 1 );
-    ir_operand k = _f->operands[ rop->oindex ];
-
-    if ( rop->r == IR_INVALID_REGISTER )
-    {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
+        emit( iop->sloc, op );
     }
 
-    _max_r = std::max( _max_r, rop->r );
-
-    if ( k.kind == IR_O_NUMBER || k.kind == IR_O_STRING )
-    {
-        emit( rop->sloc, op::op_c( OP_LDK, rop->r, k.index ) );
-    }
-    else if ( k.kind == IR_O_NULL )
-    {
-        emit( rop->sloc, op::op_c( OP_NULL, rop->r, 0 ) );
-    }
-    else if ( k.kind == IR_O_TRUE )
-    {
-        emit( rop->sloc, op::op_c( OP_BOOL, rop->r, 1 ) );
-    }
-    else if ( k.kind == IR_O_FALSE )
-    {
-        emit( rop->sloc, op::op_c( OP_BOOL, rop->r, 0 ) );
-    }
-    else
-    {
-        _source->error( rop->sloc, "internal: invalid constant operand" );
-    }
-}
-
-void ir_emit::op_genc( const ir_op* rop, opcode o, ir_operand_kind okind )
-{
-    assert( rop->ocount == 1 );
-    ir_operand k = _f->operands[ rop->oindex ];
-    if ( k.kind != okind )
-    {
-        _source->error( rop->sloc, "internal: invalid c operand" );
-        return;
-    }
-
-    if ( rop->r == IR_INVALID_REGISTER )
-    {
-        _source->error( rop->sloc, "internal: invalid register allocation" );
-        return;
-    }
-
-    _max_r = std::max( _max_r, rop->r );
-    emit( rop->sloc, op::op_c( o, rop->r, k.index ) );
+    return op_index;
 }
 
 void ir_emit::emit( srcloc sloc, op op )

@@ -73,16 +73,14 @@ enum opcode : uint8_t
     OP_JMP,             // jump                     | J | - |   j   |
     OP_JT,              // if r then jump           | T | r |   j   |
     OP_JF,              // if not r then jump       | T | r |   j   |
-    OP_JEQ,             // if a == b then jump      | T | - | a | b || J | - |   j   |
-    OP_JEQK,            // if a == k[b] then jump   | T | - | a | b || J | - |   j   |
-    OP_JNE,             // if a != b then jump      | T | - | a | b || J | - |   j   |
-    OP_JNEK,            // if a != k[b] then jump   | T | - | a | b || J | - |   j   |
-    OP_JLT,             // if a < b then jump       | T | - | a | b || J | - |   j   |
-    OP_JLTK,            // if a < k[b] then jump    | T | - | a | b || J | - |   j   |
-    OP_JGTK,            // if a > k[b] then jump    | T | - | a | b || J | - |   j   |
-    OP_JLE,             // if a <= b then jump      | T | - | a | b || J | - |   j   |
-    OP_JLEK,            // if a <= k[b] then jump   | T | - | a | b || J | - |   j   |
-    OP_JGEK,            // if a >= k[b] then jump   | T | - | a | b || J | - |   j   |
+    OP_JEQ,             // if a == b then jump      | T | ! | a | b || J | - |   j   |
+    OP_JEQK,            // if a == k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JLT,             // if a < b then jump       | T | ! | a | b || J | - |   j   |
+    OP_JLTK,            // if a < k[b] then jump    | T | ! | a | b || J | - |   j   |
+    OP_JGTK,            // if a > k[b] then jump    | T | ! | a | b || J | - |   j   |
+    OP_JLE,             // if a <= b then jump      | T | ! | a | b || J | - |   j   |
+    OP_JLEK,            // if a <= k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JGEK,            // if a >= k[b] then jump   | T | ! | a | b || J | - |   j   |
 
     OP_GET_GLOBAL,      // r = s[c]                 | G | r |   c   |
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |

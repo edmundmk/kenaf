@@ -32,7 +32,7 @@ public:
 
 private:
 
-    enum emit_kind { AB, AI, AB_SWAP, AI_SWAP, AB_NO_R, C, NO_JUMP, JUMP, J_SWAP };
+    enum emit_kind { AB, AB_SWAP, AI, AI_SWAP, AB_NO_R, C, JUMP, J_SWAP };
 
     struct emit_shape
     {
@@ -45,22 +45,31 @@ private:
 
     static const emit_shape SHAPES[];
 
+    struct jump_fixup
+    {
+        unsigned jaddress;
+        unsigned iaddress;
+    };
+
+    struct jump_label
+    {
+        unsigned iaddress;
+        unsigned caddress;
+    };
+
     void emit_constants();
 
     void assemble();
-    void op_unary( const ir_op* rop, opcode o );
-    void op_binary( const ir_op* rop, opcode o );
-    void op_addmul( const ir_op* rop, opcode o, opcode ok, opcode oi );
-    void op_concat( const ir_op* rop );
-    void op_const( const ir_op* rop );
-    void op_genc( const ir_op* rop, opcode o, ir_operand_kind okind );
+    bool match_operands( const ir_op* iop, const emit_shape* shape );
+    unsigned with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape );
     void emit( srcloc sloc, op op );
 
     source* _source;
     code_unit* _unit;
     ir_function* _f;
     std::unique_ptr< code_function_unit > _u;
-    std::vector< op > _i;
+    std::vector< jump_fixup > _fixups;
+    std::vector< jump_label > _labels;
     unsigned _max_r;
 
 };

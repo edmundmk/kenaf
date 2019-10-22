@@ -82,7 +82,7 @@ const char* const OPCODE_PRINT[] =
     [ OP_MOV        ] = "MOV %$r, %$a",
     [ OP_SWP        ] = "SWP %$r, %$a",
     [ OP_NULL       ] = "NULL %$r",
-    [ OP_BOOL       ] = "BOOL %$r, %$Bc",
+    [ OP_BOOL       ] = "BOOL %$r, $Bc",
     [ OP_LDK        ] = "LDK %$r, #$Kc",
     [ OP_LEN        ] = "LEN %$r, %$a",
     [ OP_NEG        ] = "NEG %$r, %$a",
@@ -111,19 +111,17 @@ const char* const OPCODE_PRINT[] =
     [ OP_BITXOR     ] = "BITXOR %$r, %$a, %$b",
     [ OP_BITOR      ] = "BITOR %$r, %$a, %$b",
     [ OP_IS         ] = "IS %$s, %$a, %$b",
-    [ OP_JMP        ] = "JMP %$Jj",
-    [ OP_JT         ] = "JT %$r, %$Jj",
-    [ OP_JF         ] = "JF %$r, %$Jj",
-    [ OP_JEQ        ] = "JEQ %$a, %$b",
-    [ OP_JEQK       ] = "JEQK %$a, #$Kb",
-    [ OP_JNE        ] = "JNE %$a, %$b",
-    [ OP_JNEK       ] = "JNEK %$a, #$Kb",
-    [ OP_JLT        ] = "JLT %$a, %$b",
-    [ OP_JLTK       ] = "JLTK %$a, #$Kb",
-    [ OP_JGTK       ] = "JGTK %$a, #$Kb",
-    [ OP_JLE        ] = "JLE %$a, %$b",
-    [ OP_JLEK       ] = "JLEK %$a, #$Kb",
-    [ OP_JGEK       ] = "JGEK %$a, #$Kb",
+    [ OP_JMP        ] = "JMP $Jj",
+    [ OP_JT         ] = "JT %$r, $Jj",
+    [ OP_JF         ] = "JF %$r, $Jj",
+    [ OP_JEQ        ] = "JEQ $Br, %$a, %$b, $*Jj",
+    [ OP_JEQK       ] = "JEQK $Br, %$a, #$Kb, $*Jj",
+    [ OP_JLT        ] = "JLT $Br, %$a, %$b, $*Jj",
+    [ OP_JLTK       ] = "JLTK $Br, %$a, #$Kb, $*Jj",
+    [ OP_JGTK       ] = "JGTK $Br, %$a, #$Kb, $*Jj",
+    [ OP_JLE        ] = "JLE $Br, %$a, %$b, $*Jj",
+    [ OP_JLEK       ] = "JLEK $Br, %$a, #$Kb, $*Jj",
+    [ OP_JGEK       ] = "JGEK $Br, %$a, #$Kb, $*Jj",
     [ OP_GET_GLOBAL ] = "GET_GLOBAL %$r, #$Sc",
     [ OP_GET_KEY    ] = "GET_KEY %$r, %$a, #$Sb",
     [ OP_SET_KEY    ] = "SET_KEY %$r, %$a, #$Sb",
@@ -216,14 +214,27 @@ void code_function::debug_print( const code_script* script ) const
 
     for ( unsigned i = 0; i < op_count; ++i )
     {
-        const op& op = ops[ i ];
+        op cop = ops[ i ];
         printf( ":%04X ", i );
-        for ( const char* p = OPCODE_PRINT[ op.opcode ]; p[ 0 ]; ++p )
+        bool dual = false;
+
+        for ( const char* p = OPCODE_PRINT[ cop.opcode ]; p[ 0 ]; ++p )
         {
             if ( p[ 0 ] == '$' )
             {
+                op pop = cop;
+                unsigned j = i;
+
                 char okind = 'R';
                 char field = p[ 1 ];
+                if ( field == '*' )
+                {
+                    pop = ops[ i + 1 ];
+                    j += 1;
+                    p += 1;
+                    field = p[ 1 ];
+                    dual = true;
+                }
                 if ( field >= 'A' && field <= 'Z' )
                 {
                     okind = field;
@@ -238,12 +249,12 @@ void code_function::debug_print( const code_script* script ) const
                 int v = 0;
                 switch ( field )
                 {
-                case 'r': v = op.r; break;
-                case 'a': v = op.a; break;
-                case 'b': v = op.b; break;
-                case 'c': v = op.c; break;
-                case 'i': v = op.i; break;
-                case 'j': v = op.j; break;
+                case 'r': v = pop.r; break;
+                case 'a': v = pop.a; break;
+                case 'b': v = pop.b; break;
+                case 'c': v = pop.c; break;
+                case 'i': v = pop.i; break;
+                case 'j': v = pop.j; break;
                 }
 
                 switch ( okind )
@@ -256,7 +267,7 @@ void code_function::debug_print( const code_script* script ) const
 
                 case 'B':
                 {
-                    printf( "%s", v ? "true" : "false" );
+                    printf( "%s", v ? "T" : "F" );
                     break;
                 }
 
@@ -276,6 +287,13 @@ void code_function::debug_print( const code_script* script ) const
                     printf( "'%s'", heap + s.key );
                     break;
                 }
+
+                case 'J':
+                {
+                    unsigned label = j + 1 + v;
+                    printf( ":%04X", label );
+                    break;
+                }
                 }
             }
             else
@@ -283,6 +301,12 @@ void code_function::debug_print( const code_script* script ) const
                 putchar( p[ 0 ] );
             }
         }
+
+        if ( dual )
+        {
+            i += 1;
+        }
+
         printf( "\n" );
     }
 }

@@ -221,6 +221,8 @@ enum ir_opcode : uint8_t
     IR_PHI,                     // Phi function.
     IR_PHI_OPEN,                // Open phi function in unclosed loop.
     IR_REF,                     // Value reference.
+
+    IR_OP_INVALID,
 };
 
 enum ir_operand_kind : uint8_t
