@@ -123,13 +123,15 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
 
         case IR_BLOCK:
         case IR_JUMP:
-        case IR_JUMP_FOR_EGEN:
-        case IR_JUMP_FOR_SGEN:
         case IR_JUMP_TEST:
-        case IR_JUMP_FOR_EACH:
-        case IR_JUMP_FOR_STEP:
         case IR_JUMP_THROW:
         case IR_JUMP_RETURN:
+        case IR_JUMP_FOR_EGEN:
+        case IR_JUMP_FOR_EACH:
+        case IR_JUMP_FOR_SGEN:
+        case IR_JUMP_FOR_STEP:
+        case IR_FOR_EACH_ITEMS:
+        case IR_FOR_STEP_INDEX:
         case IR_SET_KEY:
         case IR_SET_INDEX:
         case IR_SET_ENV:
