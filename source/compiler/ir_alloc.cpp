@@ -601,8 +601,21 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
             }
         }
 
+        unsigned prefer;
+        if ( rs == UNPIN_S )
+        {
+            if ( op->opcode != IR_EXTEND )
+                prefer = op->s + j;
+            else
+                prefer = op->s + j - 1;
+        }
+        else
+        {
+            prefer = op->r;
+        }
+
         assert( def_index != IR_INVALID_INDEX );
-        _unpinned.push( { def_index, rs == UNPIN_R ? op->r : op->s + j } );
+        _unpinned.push( { def_index, prefer } );
     }
 }
 
