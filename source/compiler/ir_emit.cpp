@@ -491,7 +491,7 @@ void ir_emit::fixup_jumps()
         }
 
         op* jop = &_u->ops.at( fixup.jaddress );
-        jop->j = i->caddress - (int)fixup.jaddress + 1;
+        jop->j = i->caddress - ( (int)fixup.jaddress + 1 );
     }
 }
 
