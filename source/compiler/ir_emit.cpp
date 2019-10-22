@@ -9,6 +9,7 @@
 //
 
 #include "ir_emit.h"
+#include <algorithm>
 #include "ast.h"
 
 namespace kf

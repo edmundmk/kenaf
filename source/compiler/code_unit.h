@@ -15,6 +15,7 @@
     How we build the code description.
 */
 
+#include <memory>
 #include <vector>
 #include "kenaf/code.h"
 

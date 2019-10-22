@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <assert.h>
+#include <stdexcept>
 
 namespace kf
 {
