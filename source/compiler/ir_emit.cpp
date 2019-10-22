@@ -252,13 +252,12 @@ void ir_emit::assemble()
 
 unsigned ir_emit::next_block( unsigned op_index )
 {
-    while ( true )
+    while ( ++op_index < _f->ops.size() )
     {
-        op_index += 1;
         const ir_op* bop = &_f->ops[ op_index ];
         if ( bop->opcode == IR_BLOCK )
         {
-            break;
+            return op_index;
         }
         if ( bop->opcode != IR_PHI && bop->opcode != IR_REF && bop->opcode != IR_NOP )
         {
@@ -266,7 +265,7 @@ unsigned ir_emit::next_block( unsigned op_index )
             break;
         }
     }
-    return op_index;
+    return IR_INVALID_INDEX;
 }
 
 bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
