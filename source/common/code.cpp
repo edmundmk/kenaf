@@ -143,7 +143,6 @@ const char* const OPCODE_PRINT[] =
     [ OP_CALL       ] = "CALL %$r, @$a, @$b",
     [ OP_CALLR      ] = "CALLR %$r, @$a, %$b",
     [ OP_YCALL      ] = "YCALL %$r, @$a, @$b",
-    [ OP_YCALLR     ] = "YCALLR %$r, @$a, %$b",
     [ OP_YIELD      ] = "YIELD %$r, @$a, @$b",
     [ OP_EXTEND     ] = "EXTEND %$r, @$a, %$b",
     [ OP_RETURN     ] = "RETURN %$r, @$a",

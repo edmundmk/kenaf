@@ -106,7 +106,6 @@ enum opcode : uint8_t
     OP_CALL,            // r:b = call( r:a )        | X | r | a | b |
     OP_CALLR,           // b = call( r:a )          | X | r | a | b |
     OP_YCALL,           // r:b = call( r:a )        | X | r | a | b |
-    OP_YCALLR,          // b = yield call( r:a )    | X | r | a | b |
     OP_YIELD,           // r:b = yield r:a          | X | r | a | b |
     OP_EXTEND,          // b.append( r:a )          | X | r | a | b |
     OP_RETURN,          // return r:a               | X | r | a | - |
