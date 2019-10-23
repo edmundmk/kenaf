@@ -532,7 +532,11 @@ void ir_alloc::anchor_stacked( stacked* instruction )
         if ( unpack->unpack() != IR_UNPACK_ALL )
             return;
 
-        unpack->s = op->s + op->ocount - 1;
+        if ( op->opcode != IR_EXTEND )
+            unpack->s = op->s + op->ocount - 1;
+        else
+            unpack->s = op->s;
+
         unpin_stacked( unpack, operand.index );
         op = unpack;
     }
