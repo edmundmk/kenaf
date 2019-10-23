@@ -174,6 +174,10 @@ void ir_emit::assemble()
     for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
         const ir_op* iop = &_f->ops[ op_index ];
+        if ( iop->opcode == IR_PHI || iop->opcode == IR_REF )
+        {
+            continue;
+        }
 
         // Search for entry in shapes.
         const emit_shape* shape = std::lower_bound
@@ -197,6 +201,45 @@ void ir_emit::assemble()
         case IR_SELECT:
         {
             op_index = with_moves( op_index, iop );
+            continue;
+        }
+
+        case IR_NEW_FUNCTION:
+        {
+            assert( iop->ocount >= 1 );
+            ir_operand operand = _f->operands[ iop->oindex + 0 ];
+            assert( operand.kind == IR_O_FUNCTION );
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                continue;
+            }
+            _max_r = std::max( _max_r, iop->r );
+            emit( iop->sloc, op::op_c( OP_FUNCTION, iop->r, operand.index ) );
+
+            unsigned outenv_index = 0;
+            for ( unsigned j = 1; j < iop->ocount; ++j )
+            {
+                ir_operand operand = _f->operands[ iop->oindex + j ];
+                if ( operand.kind == IR_O_OP )
+                {
+                    const ir_op* vop = &_f->ops[ operand.index ];
+                    if ( vop->r == IR_INVALID_REGISTER )
+                    {
+                        _source->error( vop->sloc, "internal: no allocated varenv register" );
+                        continue;
+                    }
+                    emit( iop->sloc, op::op_ab( OP_F_VARENV, iop->r, outenv_index++, vop->r ) );
+                }
+                else if ( operand.kind == IR_O_OUTENV )
+                {
+                    emit( iop->sloc, op::op_ab( OP_F_OUTENV, iop->r, outenv_index++, operand.index ) );
+                }
+                else
+                {
+                    assert( ! "invalid function environment operand" );
+                }
+            }
             continue;
         }
 
