@@ -647,6 +647,64 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
 
 unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
 {
+    // Special case IR_VARARG or IR_UNPACK with a single result.
+    if ( ( iop->opcode == IR_VARARG || iop->opcode == IR_UNPACK ) && iop->unpack() == 1 )
+    {
+        if ( iop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated result register for single-result stacked op" );
+            return op_index;
+        }
+
+        uint8_t a = 0;
+        if ( iop->opcode == IR_UNPACK )
+        {
+            assert( iop->ocount == 1 );
+            ir_operand u = _f->operands[ iop->oindex ];
+            assert( u.kind == IR_O_OP );
+            const ir_op* uop = &_f->ops[ u.index ];
+            if ( uop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( uop->sloc, "internal: no allocated u register" );
+                return op_index;
+            }
+            a = uop->r;
+        }
+
+        _max_r = std::max( _max_r, iop->r );
+        opcode copcode = iop->opcode == IR_VARARG ? OP_VARARG : OP_UNPACK;
+        emit( iop->sloc, op::op_ab( copcode, iop->r, a, iop->r + 1 ) );
+        return op_index;
+    }
+
+    // Special case - IR_CALL with a single result and a single non-unpacked operand.
+    if ( iop->opcode == IR_CALL && iop->unpack() == 1 && iop->ocount == 1
+        && _f->operands[ iop->oindex ].kind == IR_O_OP
+        && _f->ops[ _f->operands[ iop->oindex ].index ].unpack() <= 1 )
+    {
+        if ( iop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated result register for single-result call" );
+            return op_index;
+        }
+
+        ir_operand u = _f->operands[ iop->oindex ];
+        assert( u.kind == IR_O_OP );
+        const ir_op* uop = &_f->ops[ u.index ];
+        if ( uop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( uop->sloc, "internal: no allocated u register" );
+            return op_index;
+        }
+
+        _max_r = std::max( _max_r, iop->r );
+        emit( iop->sloc, op::op_ab( OP_CALLR, uop->r, uop->r + 1, iop->r ) );
+        return op_index;
+    }
+
+    // Move arguments into place.
+
+
     return op_index;
 }
 

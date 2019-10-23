@@ -620,9 +620,9 @@ bool ir_alloc::is_stacked( const ir_op* op )
     switch ( op->opcode )
     {
     case IR_CALL:
-        if ( op->unpack() > 1 )
+        if ( op->unpack() != 1 )
             return true;
-        if ( op->ocount > 1 )
+        if ( op->ocount != 1 )
             return true;
         if ( op->ocount == 1 )
         {
@@ -635,7 +635,7 @@ bool ir_alloc::is_stacked( const ir_op* op )
     case IR_VARARG:
     case IR_UNPACK:
     case IR_FOR_EACH_ITEMS:
-        if ( op->unpack() > 1 )
+        if ( op->unpack() != 1 )
             return true;
         return false;
 
