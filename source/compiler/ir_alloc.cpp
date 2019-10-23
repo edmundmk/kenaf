@@ -667,19 +667,6 @@ bool ir_alloc::is_stacked( const ir_op* op )
 {
     switch ( op->opcode )
     {
-    case IR_CALL:
-        if ( op->unpack() != 1 )
-            return true;
-        if ( op->ocount != 1 )
-            return true;
-        if ( op->ocount == 1 )
-        {
-            ir_operand operand = _f->operands[ op->oindex ];
-            if ( operand.kind == IR_O_OP && _f->ops[ operand.index ].unpack() > 1 )
-                return true;
-        }
-        return false;
-
     case IR_VARARG:
     case IR_UNPACK:
     case IR_FOR_EACH_ITEMS:
@@ -687,6 +674,7 @@ bool ir_alloc::is_stacked( const ir_op* op )
             return true;
         return false;
 
+    case IR_CALL:
     case IR_YCALL:
     case IR_YIELD:
     case IR_EXTEND:

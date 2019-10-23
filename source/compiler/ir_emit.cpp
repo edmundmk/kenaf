@@ -704,38 +704,6 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop, opcode copc
         return op_index;
     }
 
-    // Special case IR_CALL with a single result and a single non-unpacked operand.
-    if ( iop->opcode == IR_CALL && iop->unpack() == 1 && iop->ocount == 1
-        && _f->operands[ iop->oindex ].kind == IR_O_OP
-        && _f->ops[ _f->operands[ iop->oindex ].index ].unpack() <= 1 )
-    {
-        if ( iop->r == IR_INVALID_REGISTER )
-        {
-            _source->error( iop->sloc, "internal: no allocated result register for single-result call" );
-            return op_index;
-        }
-
-        ir_operand u = _f->operands[ iop->oindex ];
-        assert( u.kind == IR_O_OP );
-        const ir_op* uop = &_f->ops[ u.index ];
-        if ( uop->r == IR_INVALID_REGISTER )
-        {
-            _source->error( uop->sloc, "internal: no allocated u register for call" );
-            return op_index;
-        }
-
-        _max_r = std::max( _max_r, iop->r );
-        if ( uop->r != iop->r )
-        {
-            emit( iop->sloc, op::op_ab( OP_CALLR, uop->r, uop->r + 1, iop->r ) );
-        }
-        else
-        {
-            emit( iop->sloc, op::op_ab( OP_CALL, iop->r, iop->r + 1, iop->r + 1 ) );
-        }
-        return op_index;
-    }
-
     // Operand should be stacked.
     if ( iop->s == IR_INVALID_REGISTER )
     {
