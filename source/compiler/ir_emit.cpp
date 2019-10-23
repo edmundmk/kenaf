@@ -490,6 +490,8 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
             _source->error( iop->sloc, "internal: no allocated a register" );
             return op_index;
         }
+
+        a = uop->r;
     }
     else
     {
