@@ -69,7 +69,7 @@ private:
     void assemble();
     unsigned with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape );
     unsigned with_moves( unsigned op_index, const ir_op* iop );
-    unsigned with_stacked( unsigned op_index, const ir_op* iop );
+    unsigned with_stacked( unsigned op_index, const ir_op* iop, opcode copcode );
     unsigned with_for_each( unsigned op_index, const ir_op* iop );
     unsigned with_for_step( unsigned op_index, const ir_op* iop );
 

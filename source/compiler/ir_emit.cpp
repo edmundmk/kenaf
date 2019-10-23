@@ -197,13 +197,38 @@ void ir_emit::assemble()
         }
 
         case IR_CALL:
+        {
+            op_index = with_stacked( op_index, iop, OP_CALL );
+            break;
+        }
+
         case IR_YCALL:
+        {
+            op_index = with_stacked( op_index, iop, OP_YCALL );
+            break;
+        }
+
         case IR_YIELD:
+        {
+            op_index = with_stacked( op_index, iop, OP_YIELD );
+            break;
+        }
+
         case IR_VARARG:
+        {
+            op_index = with_stacked( op_index, iop, OP_VARARG );
+            break;
+        }
+
         case IR_UNPACK:
+        {
+            op_index = with_stacked( op_index, iop, OP_UNPACK );
+            break;
+        }
+
         case IR_JUMP_RETURN:
         {
-            op_index = with_stacked( op_index, iop );
+            op_index = with_stacked( op_index, iop, OP_RETURN );
             break;
         }
 
@@ -229,7 +254,7 @@ void ir_emit::assemble()
                 break;
             }
 
-            emit( iop->sloc, op::op_ab( OP_EXTEND, uop->s, OP_UNPACK_ALL, aop->r ) );
+            emit( iop->sloc, op::op_ab( OP_EXTEND, uop->s, OP_STACK_MARK, aop->r ) );
             break;
         }
 
@@ -645,8 +670,24 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
     return op_index;
 }
 
-unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
+unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop, opcode copcode )
 {
+    // Get unpack argument.
+    unsigned a = 0;
+    if ( iop->opcode == IR_UNPACK )
+    {
+        assert( iop->ocount == 1 );
+        ir_operand u = _f->operands[ iop->oindex ];
+        assert( u.kind == IR_O_OP );
+        const ir_op* uop = &_f->ops[ u.index ];
+        if ( uop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( uop->sloc, "internal: no allocated u register for unpack" );
+            return op_index;
+        }
+        a = uop->r;
+    }
+
     // Special case IR_VARARG or IR_UNPACK with a single result.
     if ( ( iop->opcode == IR_VARARG || iop->opcode == IR_UNPACK ) && iop->unpack() == 1 )
     {
@@ -656,28 +697,12 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
             return op_index;
         }
 
-        uint8_t a = 0;
-        if ( iop->opcode == IR_UNPACK )
-        {
-            assert( iop->ocount == 1 );
-            ir_operand u = _f->operands[ iop->oindex ];
-            assert( u.kind == IR_O_OP );
-            const ir_op* uop = &_f->ops[ u.index ];
-            if ( uop->r == IR_INVALID_REGISTER )
-            {
-                _source->error( uop->sloc, "internal: no allocated u register" );
-                return op_index;
-            }
-            a = uop->r;
-        }
-
         _max_r = std::max( _max_r, iop->r );
-        opcode copcode = iop->opcode == IR_VARARG ? OP_VARARG : OP_UNPACK;
         emit( iop->sloc, op::op_ab( copcode, iop->r, a, iop->r + 1 ) );
         return op_index;
     }
 
-    // Special case - IR_CALL with a single result and a single non-unpacked operand.
+    // Special case IR_CALL with a single result and a single non-unpacked operand.
     if ( iop->opcode == IR_CALL && iop->unpack() == 1 && iop->ocount == 1
         && _f->operands[ iop->oindex ].kind == IR_O_OP
         && _f->ops[ _f->operands[ iop->oindex ].index ].unpack() <= 1 )
@@ -693,7 +718,7 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
         const ir_op* uop = &_f->ops[ u.index ];
         if ( uop->r == IR_INVALID_REGISTER )
         {
-            _source->error( uop->sloc, "internal: no allocated u register" );
+            _source->error( uop->sloc, "internal: no allocated u register for call" );
             return op_index;
         }
 
@@ -702,8 +727,91 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
         return op_index;
     }
 
-    // Move arguments into place.
+    // Operand should be stacked.
+    if ( iop->s == IR_INVALID_REGISTER )
+    {
+        _source->error( iop->sloc, "internal: no stack register for stacked instruction" );
+        return op_index;
+    }
 
+    // Move arguments r:a into place for CALL, YCALL, YIELD, RETURN.
+    if ( iop->opcode != IR_VARARG && iop->opcode != IR_UNPACK )
+    {
+        a = iop->s;
+        for ( unsigned j = 0; j < iop->ocount; ++j )
+        {
+            ir_operand operand = _f->operands[ iop->oindex + j ];
+            assert( operand.kind == IR_O_OP );
+            const ir_op* uop = &_f->ops[ operand.index ];
+            if ( uop->unpack() != IR_UNPACK_ALL )
+            {
+                if ( uop->r == IR_INVALID_REGISTER )
+                {
+                    _source->error( iop->sloc, "internal: no allocated u register for argument" );
+                    return op_index;
+                }
+                move( iop->sloc, a, uop->r );
+                a += 1;
+            }
+            else
+            {
+                assert( j == iop->ocount - 1 );
+                if ( uop->s != a )
+                {
+                    _source->error( iop->sloc, "internal: misaligned stacked unpack argument" );
+                    return op_index;
+                }
+                a = OP_STACK_MARK;
+            }
+        }
+        move_emit();
+    }
+
+    // Work out how many results to return, and whether we need to move it.
+    unsigned b = 0;
+    unsigned r = IR_INVALID_REGISTER;
+    if ( iop->opcode != IR_JUMP_RETURN )
+    {
+        if ( iop->unpack() != IR_UNPACK_ALL )
+        {
+            b = iop->s + iop->unpack();
+            _max_r = std::max( _max_r, b );
+        }
+        else
+        {
+            b = OP_STACK_MARK;
+        }
+
+        if ( iop->unpack() == 1 )
+        {
+            // Single result.
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                return op_index;
+            }
+
+            // Check if we can do CALLR.
+            if ( iop->opcode == IR_CALL )
+            {
+                copcode = OP_CALLR;
+                b = iop->r;
+            }
+            else
+            {
+                r = iop->r;
+                _max_r = std::max( _max_r, r );
+            }
+        }
+    }
+
+    // Emit.
+    emit( iop->sloc, op::op_ab( copcode, iop->s, a, b ) );
+    if ( r != IR_INVALID_REGISTER )
+    {
+        move( iop->sloc, r, iop->s );
+        move_emit();
+    }
 
     return op_index;
 }
