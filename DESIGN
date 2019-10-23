@@ -296,3 +296,30 @@ current function's capture list.
 Accesses to captured variables are through the function's set of captured
 environment records.
 
+
+BYTECODE IDEAS
+
+LDI instruction (to avoid loads of small constants from pool) if ADDI helps.
+GET_METHOD instruction which does the equivalent of
+    GET_KEY r, a, #'method_name'
+    MOV r+1, a
+Probably represent it in the IR by GET_KEY/MOV pair and then emit fused op.
+
+FOR_STEP improvements:
+
+    FOR_ITER r[2], a, b
+        r[0] <- number( a )
+        r[1] <- length( b )
+
+    FOR_CAST r[2], a, b
+        r[0] <- number( a )
+        r[1] <- number( b )
+
+    FOR_STEP r, a
+        r <- number( a )
+
+    FOR_LOOP /* for when we know step is 1? */
+            /* could also save a register... */
+    FOR_NEXT
+            /* rename current FOR_STEP */
+
