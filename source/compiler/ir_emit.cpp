@@ -467,7 +467,7 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
             assert( iop->ocount == 1 );
             ir_operand operand = _f->operands[ iop->oindex ];
             assert( operand.kind == IR_O_LOCAL );
-            add_move( iop->r, operand.index + 1 );
+            move( iop->sloc, iop->r, operand.index + 1 );
 
             // Check if next instruction is a parameter.
             unsigned next_index = next( op_index, IR_PARAM );
@@ -480,7 +480,7 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
             op_index = next_index;
             iop = &_f->ops[ op_index ];
         }
-        emit_moves();
+        move_emit();
         break;
     }
 
@@ -509,7 +509,7 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
                 return op_index;
             }
 
-            add_move( iop->r, unpack->s + i.index );
+            move( iop->sloc, iop->r, unpack->s + i.index );
 
             // Check if next instruction is another select.
             unsigned next_index = next( op_index, IR_SELECT );
@@ -522,7 +522,7 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
             op_index = next_index;
             iop = &_f->ops[ op_index ];
         }
-        emit_moves();
+        move_emit();
         break;
     }
 
@@ -546,8 +546,8 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
             return op_index;
         }
 
-        add_move( iop->r, mop->r );
-        emit_moves();
+        move( iop->sloc, iop->r, mop->r );
+        move_emit();
         break;
     }
     }
@@ -591,19 +591,90 @@ bool ir_emit::match_operands( const ir_op* iop, const emit_shape* shape )
     return true;
 }
 
-void ir_emit::add_move( unsigned target, unsigned source )
+void ir_emit::move( srcloc sloc, unsigned target, unsigned source )
 {
     if ( target != source )
     {
-        _moves.push_back( { target, source } );
+        _moves.push_back( { sloc, target, source } );
     }
 }
 
-void ir_emit::emit_moves()
+bool ir_emit::move_is_target( unsigned source )
 {
+    // Do a linear search since the number of moves is likely to be tiny.
+    for ( const move_entry& move : _moves )
+    {
+        if ( move.target == source )
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
+void ir_emit::move_emit()
+{
+    // Sort by target register.
+    std::sort
+    (
+        _moves.begin(),
+        _moves.end(),
+        []( const move_entry& a, const move_entry& b ) { return a.target < b.target; }
+    );
 
-    // TODO.
+    // Perform moves where the source register is not itself a target.
+    while ( true )
+    {
+        unsigned i = 0;
+        for ( ; i < _moves.size(); ++i )
+        {
+            if ( ! move_is_target( _moves[ i ].source ) )
+            {
+                break;
+            }
+        }
+
+        if ( i < _moves.size() )
+        {
+            move_entry move = _moves[ i ];
+            _max_r = std::max( _max_r, move.target );
+            emit( move.sloc, op::op_ab( OP_MOV, move.target, move.source, 0 ) );
+            _moves.erase( _moves.begin() + i );
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // Remaining moves form loops.
+    for ( unsigned sweep = 0; sweep < _moves.size(); ++sweep )
+    {
+        move_entry move = _moves[ sweep ];
+
+        // Previous swaps make last move in loop unecessary.
+        if ( move.target == move.source )
+        {
+            continue;
+        }
+
+        // Swap.
+        _max_r = std::max( _max_r, move.target );
+        emit( move.sloc, op::op_ab( OP_SWP, move.target, move.source, 0 ) );
+
+        // Replace occurrences of target in unperformed moves with source.
+        for ( unsigned i = sweep + 1; i < _moves.size(); ++i )
+        {
+            move_entry& next = _moves[ i ];
+            assert( next.target != move.target );
+            if ( next.source == move.target )
+            {
+                next.source = move.source;
+            }
+        }
+    }
+
+    // Done.
     _moves.clear();
 }
 

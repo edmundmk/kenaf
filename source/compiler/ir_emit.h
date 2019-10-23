@@ -59,6 +59,7 @@ private:
 
     struct move_entry
     {
+        srcloc sloc;
         unsigned target;
         unsigned source;
     };
@@ -71,8 +72,10 @@ private:
 
     unsigned next( unsigned op_index, ir_opcode iopcode );
     bool match_operands( const ir_op* iop, const emit_shape* shape );
-    void add_move( unsigned target, unsigned source );
-    void emit_moves();
+
+    void move( srcloc sloc, unsigned target, unsigned source );
+    bool move_is_target( unsigned source );
+    void move_emit();
 
     void emit( srcloc sloc, op op );
 
