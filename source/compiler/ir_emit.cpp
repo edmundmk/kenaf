@@ -725,7 +725,14 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop, opcode copc
         }
 
         _max_r = std::max( _max_r, iop->r );
-        emit( iop->sloc, op::op_ab( OP_CALLR, uop->r, uop->r + 1, iop->r ) );
+        if ( uop->r != iop->r )
+        {
+            emit( iop->sloc, op::op_ab( OP_CALLR, uop->r, uop->r + 1, iop->r ) );
+        }
+        else
+        {
+            emit( iop->sloc, op::op_ab( OP_CALL, iop->r, iop->r + 1, iop->r + 1 ) );
+        }
         return op_index;
     }
 
@@ -794,7 +801,7 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop, opcode copc
             }
 
             // Check if we can do CALLR.
-            if ( iop->opcode == IR_CALL )
+            if ( iop->opcode == IR_CALL && iop->r != iop->s )
             {
                 copcode = OP_CALLR;
                 b = iop->r;
