@@ -879,6 +879,7 @@ unsigned ir_emit::with_for_each( unsigned op_index, const ir_op* iop )
         }
 
         assert( xop->unpack() != IR_UNPACK_ALL );
+        _max_r = std::max( _max_r, xop->s + xop->unpack() );
         emit( xop->sloc, op::op_ab( OP_FOR_EACH, xop->s, iop->r, xop->s + xop->unpack() ) );
     }
 
