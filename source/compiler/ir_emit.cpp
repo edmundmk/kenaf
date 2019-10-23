@@ -732,7 +732,7 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop, opcode copc
             }
             else
             {
-                assert( j == iop->ocount - 1 );
+                assert( j == iop->ocount - 1u );
                 if ( uop->s != a )
                 {
                     _source->error( iop->sloc, "internal: misaligned stacked unpack argument" );
