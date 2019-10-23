@@ -314,9 +314,6 @@ void ir_alloc::mark_pinning()
                 if ( operand.kind != IR_O_OP )
                     continue;
 
-                if ( j == 0 && op->opcode == IR_EXTEND )
-                    continue;
-
                 ir_op* pinned_op = &_f->ops[ operand.index ];
                 if ( pinned_op->local() == IR_INVALID_LOCAL )
                 {
@@ -510,13 +507,16 @@ void ir_alloc::anchor_stacked( stacked* instruction )
     assert( instruction->across_count == 0 );
     ir_op* op = &_f->ops[ instruction->index ];
 
-    // Determine stack top register.
-    if ( op->unpack() != IR_UNPACK_ALL )
+    // Unpack operands have stack top associated with the op that uses them.
+    if ( op->unpack() == IR_UNPACK_ALL )
     {
-        assert( op->s == IR_INVALID_REGISTER );
-        op->s = _regmap.top( instruction->index );
-        unpin_stacked( op, instruction->index );
+        return;
     }
+
+    // Determine stack top register.
+    assert( op->s == IR_INVALID_REGISTER );
+    op->s = _regmap.top( instruction->index );
+    unpin_stacked( op, instruction->index );
 
     // Recursively set stack top register for unpack arguments.
     while ( true )
@@ -536,7 +536,6 @@ void ir_alloc::anchor_stacked( stacked* instruction )
             unpack->s = op->s + op->ocount - 1;
         else
             unpack->s = op->s;
-
         unpin_stacked( unpack, operand.index );
         op = unpack;
     }
@@ -607,16 +606,9 @@ void ir_alloc::unpin_operands( const ir_op* op, unsigned op_index, unpin_rs rs )
 
         unsigned prefer;
         if ( rs == UNPIN_S )
-        {
-            if ( op->opcode != IR_EXTEND )
-                prefer = op->s + j;
-            else
-                prefer = op->s + j - 1;
-        }
+            prefer = op->s + j;
         else
-        {
             prefer = op->r;
-        }
 
         assert( def_index != IR_INVALID_INDEX );
         _unpinned.push( { def_index, prefer } );
@@ -662,6 +654,9 @@ bool ir_alloc::is_pinning( const ir_op* op )
     {
     case IR_MOV:
         return true;
+
+    case IR_EXTEND:
+        return false;
 
     default:
         return is_stacked( op ) && op->ocount > 1;
