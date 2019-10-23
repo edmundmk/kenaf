@@ -307,14 +307,14 @@ ir_operand ir_build::visit( ast_node_index node )
     case AST_EXPR_TABLE:
     {
         _o.push_back( { IR_O_IMMEDIATE, 0 } );
-        ir_operand table = emit( node->sloc, IR_NEW_TABLE, 0 );
+        ir_operand table = emit( node->sloc, IR_NEW_TABLE, 1 );
 
         unsigned kvcount = 0;
         for ( ast_node_index kv = ast_child_node( _f->ast, node ); kv.index < node.index; kv = ast_next_node( _f->ast, kv ) )
         {
             assert( kv->kind == AST_TABLE_KEY );
             ast_node_index k = ast_child_node( _f->ast, kv );
-            ast_node_index v = ast_next_node( _f->ast, kv );
+            ast_node_index v = ast_next_node( _f->ast, k );
             _o.push_back( table );
             _o.push_back( visit( k ) );
             _o.push_back( visit( v ) );
