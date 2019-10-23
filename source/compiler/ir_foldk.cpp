@@ -53,20 +53,22 @@ void ir_foldk::inline_operands()
     /*
         The following constant operands can be inlined:
 
-            ADD v, c            ->  ADDK/ADDI v, c
-            ADD c, v            ->  ADDK/ADDI v, c
-            SUB v, c            ->  ADDK/ADDI v, -c
-            SUB c, v            ->  SUBK/SUBI v, c
-            MUL v, c            ->  MULK/MULI v, c
-            MUL c, v            ->  MULK/MULI v, c
-            CONCAT v, c         ->  CONCATK v, c
-            CONCAT c, v         ->  RCONCATK v, c
-            EQ v, c; JUMP       ->  JEQK v, c
-            NE v, c; JUMP       ->  JNEK v, c
-            LT v, c; JUMP       ->  JLTK v, c
-            LT c, v; JUMP       ->  JGTK v, c
-            LE v, c; JUMP       ->  JLEK v, c
-            LE c, v; JUMP       ->  JGEK v, c
+            ADD v, n            ->  ADDN/ADDI v, n
+            ADD n, v            ->  ADDN/ADDI v, n
+            SUB v, n            ->  ADDN/ADDI v, -n
+            SUB n, v            ->  SUBN/SUBI v, n
+            MUL v, n            ->  MULN/MULI v, n
+            MUL n, v            ->  MULN/MULI v, n
+            CONCAT v, s         ->  CONCATS v, s
+            CONCAT s, v         ->  RCONCATS v, s
+            EQ v, n; JUMP       ->  JEQTN v, n
+            NE v, n; JUMP       ->  JEQFN v, n
+            EQ v, s; JUMP       ->  JEQTS v, s
+            NE v, s; JUMP       ->  JEQFS v, s
+            LT v, n; JUMP       ->  JLTTN v, n
+            LT n, v; JUMP       ->  JGTTN v, n
+            LE v, n; JUMP       ->  JLETN v, n
+            LE n, v; JUMP       ->  JGETN v, n
             GET_INDEX v, c      ->  GET_INDEXK/GET_INDEXI v, c
             SET_INDEX v, c, u   ->  SET_INDEXK/GET_INDEXK v, c, u
 
@@ -90,13 +92,13 @@ void ir_foldk::inline_operands()
             if ( fold_v.kind == IR_O_NUMBER )
             {
                 // Second operand is constant.
-                *v = inline_number( fold_v );
+                *v = immediate_number( fold_v );
             }
             else if ( fold_u.kind == IR_O_NUMBER )
             {
                 // Operation is commutative, switch operands.
                 *u = *v;
-                *v = inline_number( fold_u );
+                *v = immediate_number( fold_u );
             }
 
             break;
@@ -115,12 +117,12 @@ void ir_foldk::inline_operands()
                 double constant = _f->constants[ fold_v.index ].n;
                 fold_v.index = _f->constants.append( ir_constant( -constant ) );
                 op->opcode = IR_ADD;
-                *v = inline_number( fold_v );
+                *v = immediate_number( fold_v );
             }
             else if ( fold_u.kind == IR_O_NUMBER )
             {
                 // First operand is constant.
-                *u = inline_number( fold_u );
+                *u = immediate_number( fold_u );
             }
 
             break;
@@ -172,7 +174,7 @@ void ir_foldk::inline_operands()
             {
                 *v = insert_number( fold_v );
             }
-            else if ( fold_v.kind == IR_O_STRING )
+            else if ( ( op->opcode == IR_EQ || op->opcode == IR_NE ) && fold_v.kind == IR_O_STRING )
             {
                 *v = insert_string( fold_v );
             }
@@ -184,13 +186,10 @@ void ir_foldk::inline_operands()
                     std::swap( *u, *v );
                 }
             }
-            else if ( fold_u.kind == IR_O_STRING )
+            else if ( ( op->opcode == IR_EQ || op->opcode == IR_NE ) && fold_u.kind == IR_O_STRING )
             {
                 *u = insert_string( fold_u );
-                if ( op->opcode == IR_EQ || op->opcode == IR_NE )
-                {
-                    std::swap( *u, *v );
-                }
+                std::swap( *u, *v );
             }
 
             break;
@@ -217,7 +216,7 @@ void ir_foldk::inline_operands()
 
             if ( fold_i.kind == IR_O_NUMBER )
             {
-                *i = inline_number( fold_i );
+                *i = immediate_number( fold_i );
             }
             else if ( fold_i.kind == IR_O_STRING )
             {
@@ -277,7 +276,7 @@ void ir_foldk::alloc_constants()
 }
 
 
-ir_operand ir_foldk::inline_number( ir_operand operand )
+ir_operand ir_foldk::immediate_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     double number = _f->constants[ operand.index ].n;

@@ -47,17 +47,17 @@ enum opcode : uint8_t
     OP_NOT,             // r = not a                | A | r | a | - |
 
     OP_ADD,             // r = a + b                | A | r | a | b |
-    OP_ADDK,            // r = a + k[b]             | A | r | a | b |
+    OP_ADDN,            // r = a + k[b]             | A | r | a | b |
     OP_ADDI,            // r = a + i                | A | r | a | i |
     OP_SUB,             // r = b - a                | A | r | a | b |
-    OP_SUBK,            // r = k[b] - a             | A | r | a | b |
+    OP_SUBN,            // r = k[b] - a             | A | r | a | b |
     OP_SUBI,            // r = i - a                | A | r | a | b |
     OP_MUL,             // r = a * b                | A | r | a | b |
-    OP_MULK,            // r = a * k[b]             | A | r | a | b |
+    OP_MULN,            // r = a * k[b]             | A | r | a | b |
     OP_MULI,            // r = a * i                | A | r | a | i |
     OP_CONCAT,          // r = a ~ b                | A | r | a | b |
-    OP_CONCATK,         // r = a ~ k[b]             | A | r | a | b |
-    OP_RCONCATK,        // r = k[b] ~ a             | A | r | a | b |
+    OP_CONCATS,         // r = a ~ k[b]             | A | r | a | b |
+    OP_RCONCATS,        // r = k[b] ~ a             | A | r | a | b |
     OP_DIV,             // r = a / b                | A | r | a | b |
     OP_INTDIV,          // r = a // b               | A | r | a | b |
     OP_MOD,             // r = a % b                | A | r | a | b |
@@ -74,13 +74,14 @@ enum opcode : uint8_t
     OP_JT,              // if r then jump           | T | r |   j   |
     OP_JF,              // if not r then jump       | T | r |   j   |
     OP_JEQ,             // if a == b then jump      | T | ! | a | b || J | - |   j   |
-    OP_JEQK,            // if a == k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JEQN,            // if a == k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JEQS,            // if a == k[b] then jump   | T | ! | a | b || J | - |   j   |
     OP_JLT,             // if a < b then jump       | T | ! | a | b || J | - |   j   |
-    OP_JLTK,            // if a < k[b] then jump    | T | ! | a | b || J | - |   j   |
-    OP_JGTK,            // if a > k[b] then jump    | T | ! | a | b || J | - |   j   |
+    OP_JLTN,            // if a < k[b] then jump    | T | ! | a | b || J | - |   j   |
+    OP_JGTN,            // if a > k[b] then jump    | T | ! | a | b || J | - |   j   |
     OP_JLE,             // if a <= b then jump      | T | ! | a | b || J | - |   j   |
-    OP_JLEK,            // if a <= k[b] then jump   | T | ! | a | b || J | - |   j   |
-    OP_JGEK,            // if a >= k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JLEN,            // if a <= k[b] then jump   | T | ! | a | b || J | - |   j   |
+    OP_JGEN,            // if a >= k[b] then jump   | T | ! | a | b || J | - |   j   |
 
     OP_GET_GLOBAL,      // r = s[c]                 | G | r |   c   |
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |
