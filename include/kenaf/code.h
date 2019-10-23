@@ -124,6 +124,8 @@ enum opcode : uint8_t
     OP_F_OUTENV,        // r.out[ %a ] = out[b]     | G | r | a | b |
 };
 
+const uint8_t OP_UNPACK_ALL = 0xFF;
+
 struct op
 {
     static op op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b );

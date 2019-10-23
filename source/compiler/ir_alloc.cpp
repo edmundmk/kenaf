@@ -459,7 +459,7 @@ unsigned ir_alloc::allocate_register( unsigned op_index, unsigned prefer, ir_val
 
         for ( unsigned j = 0; j < hidden_count; ++j )
         {
-            _regmap.check( r + j, ranges, rcount );
+            _regmap.allocate( r + j, ranges, rcount );
         }
 
         return r;

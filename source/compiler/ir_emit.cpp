@@ -174,7 +174,7 @@ void ir_emit::assemble()
     for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
     {
         const ir_op* iop = &_f->ops[ op_index ];
-        if ( iop->opcode == IR_PHI || iop->opcode == IR_REF )
+        if ( iop->opcode == IR_PHI || iop->opcode == IR_REF || iop->opcode == IR_NOP )
         {
             continue;
         }
@@ -201,7 +201,56 @@ void ir_emit::assemble()
         case IR_SELECT:
         {
             op_index = with_moves( op_index, iop );
-            continue;
+            break;
+        }
+
+        case IR_CALL:
+        case IR_YCALL:
+        case IR_YIELD:
+        case IR_VARARG:
+        case IR_UNPACK:
+        case IR_JUMP_RETURN:
+        {
+            op_index = with_stacked( op_index, iop );
+            break;
+        }
+
+        case IR_EXTEND:
+        {
+            assert( iop->ocount == 2 );
+            ir_operand a = _f->operands[ iop->oindex + 0 ];
+            ir_operand u = _f->operands[ iop->oindex + 1 ];
+            assert( a.kind == IR_O_OP );
+            assert( u.kind == IR_O_OP );
+
+            const ir_op* aop = &_f->ops[ a.index ];
+            if ( aop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( aop->sloc, "internal: no allocated a register" );
+                break;
+            }
+
+            const ir_op* uop = &_f->ops[ u.index ];
+            if ( uop->unpack() != IR_UNPACK_ALL || uop->s == IR_INVALID_REGISTER )
+            {
+                _source->error( aop->sloc, "internal: invalid unpack operand" );
+                break;
+            }
+
+            emit( iop->sloc, op::op_ab( OP_EXTEND, uop->s, OP_UNPACK_ALL, aop->r ) );
+            break;
+        }
+
+        case IR_JUMP_FOR_EGEN:
+        {
+            op_index = with_for_each( op_index, iop );
+            break;
+        }
+
+        case IR_JUMP_FOR_SGEN:
+        {
+            op_index = with_for_step( op_index, iop );
+            break;
         }
 
         case IR_NEW_FUNCTION:
@@ -212,7 +261,7 @@ void ir_emit::assemble()
             if ( iop->r == IR_INVALID_REGISTER )
             {
                 _source->error( iop->sloc, "internal: no allocated result register" );
-                continue;
+                break;
             }
             _max_r = std::max( _max_r, iop->r );
             emit( iop->sloc, op::op_c( OP_FUNCTION, iop->r, operand.index ) );
@@ -227,7 +276,7 @@ void ir_emit::assemble()
                     if ( vop->r == IR_INVALID_REGISTER )
                     {
                         _source->error( vop->sloc, "internal: no allocated varenv register" );
-                        continue;
+                        break;
                     }
                     emit( iop->sloc, op::op_ab( OP_F_VARENV, iop->r, outenv_index++, vop->r ) );
                 }
@@ -240,13 +289,13 @@ void ir_emit::assemble()
                     assert( ! "invalid function environment operand" );
                 }
             }
-            continue;
+            break;
         }
 
         case IR_BLOCK:
         {
             _labels.push_back( { op_index, (unsigned)_u->ops.size() } );
-            continue;
+            break;
         }
 
         case IR_JUMP:
@@ -259,7 +308,7 @@ void ir_emit::assemble()
                 _fixups.push_back( { (unsigned)_u->ops.size(), j.index } );
                 emit( iop->sloc, op::op_j( OP_JMP, 0, 0 ) );
             }
-            continue;
+            break;
         }
 
         case IR_JUMP_TEST:
@@ -276,7 +325,7 @@ void ir_emit::assemble()
             if ( uop->r == IR_INVALID_REGISTER )
             {
                 _source->error( iop->sloc, "internal: no allocated test register" );
-                continue;
+                break;
             }
 
             bool test_true = true;
@@ -295,7 +344,13 @@ void ir_emit::assemble()
                 emit( iop->sloc, op::op_j( OP_JMP, 0, 0 ) );
             }
 
-            continue;
+            break;
+        }
+
+        default:
+        {
+            _source->error( iop->sloc, "internal: unhanded ir opcode at :%04X", op_index );
+            break;
         }
         }
     }
@@ -598,8 +653,201 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
     return op_index;
 }
 
+unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
+{
+    return op_index;
+}
+
+unsigned ir_emit::with_for_each( unsigned op_index, const ir_op* iop )
+{
+    /*
+        intermediate:
+            %0 <- JUMP_FOR_EGEN g, :a
+            BLOCK :a
+            JUMP_FOR_EACH %0, :b, :break
+            BLOCK :b
+            %1 <- FOR_EACH_ITEMS %0, maybe unpacked
+
+        code:
+            GENERATE %0[2], g
+            FOR_EACH %1, %0[2], @unpack / JMP :break
+    */
+
+    // Expect everything to have been emitted next to each other.
+    unsigned block_a_index = next( op_index, IR_BLOCK );
+    unsigned jump_index = next( block_a_index, IR_JUMP_FOR_EACH );
+    unsigned block_b_index = next( jump_index, IR_BLOCK );
+    unsigned items_index = next( block_b_index, IR_FOR_EACH_ITEMS );
+
+    if ( block_a_index == IR_INVALID_INDEX || jump_index == IR_INVALID_INDEX
+        || block_b_index == IR_INVALID_INDEX || items_index == IR_INVALID_INDEX )
+    {
+        _source->error( iop->sloc, "internal: malformed for-each loop" );
+        return op_index;
+    }
+
+    op_index = items_index;
+
+    // Generate the hidden variables from the generator.
+    if ( iop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( iop->sloc, "internal: no allocated for-each generator registers" );
+        return op_index;
+    }
+
+    assert( iop->ocount == 2 );
+    assert( _f->operands[ iop->oindex + 1 ].kind == IR_O_JUMP );
+    assert( _f->operands[ iop->oindex + 1 ].index == block_a_index );
+    ir_operand goperand = _f->operands[ iop->oindex + 0 ];
+
+    assert( goperand.kind == IR_O_OP );
+    const ir_op* gop = &_f->ops[ goperand.index ];
+    if ( gop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( iop->sloc, "internal: no allocated for-each g register" );
+        return op_index;
+    }
+
+    _max_r = std::max( _max_r, iop->r + 1u );
+    emit( iop->sloc, op::op_ab( OP_GENERATE, iop->r, gop->r, 0 ) );
+
+    // A block.
+    _labels.push_back( { block_a_index, (unsigned)_u->ops.size() } );
+
+    // Emit for loop instruction.
+    const ir_op* jop = &_f->ops[ jump_index ];
+    assert( jop->r == iop->r );
+    assert( _f->operands[ jop->oindex + 0 ].kind == IR_O_OP );
+    assert( _f->operands[ jop->oindex + 1 ].kind == IR_O_JUMP );
+    assert( _f->operands[ jop->oindex + 1 ].index == block_b_index );
+    ir_operand j = _f->operands[ jop->oindex + 2 ];
+    assert( j.kind == IR_O_JUMP );
+
+    const ir_op* xop = &_f->ops[ items_index ];
+    if ( xop->unpack() == 1 )
+    {
+        if ( xop->r == IR_INVALID_INDEX )
+        {
+            _source->error( iop->sloc, "internal: no allocated for-each item register" );
+            return op_index;
+        }
+
+        _max_r = std::max( _max_r, xop->r );
+        emit( xop->sloc, op::op_ab( OP_FOR_EACH, xop->r, iop->r, xop->r + 1 ) );
+    }
+    else
+    {
+        if ( xop->s == IR_INVALID_INDEX )
+        {
+            _source->error( iop->sloc, "internal: no stacked register for for-each items" );
+            return op_index;
+        }
+
+        assert( xop->unpack() != IR_UNPACK_ALL );
+        emit( xop->sloc, op::op_ab( OP_FOR_EACH, xop->s, iop->r, xop->s + xop->unpack() ) );
+    }
+
+    _fixups.push_back( { (unsigned)_u->ops.size(), j.index } );
+    emit( jop->sloc, op::op_j( OP_JMP, 0, 0 ) );
+
+    // B block.
+    _labels.push_back( { block_b_index, (unsigned)_u->ops.size() } );
+
+    return op_index;
+}
+
+unsigned ir_emit::with_for_step( unsigned op_index, const ir_op* iop )
+{
+    /*
+        intermediate:
+            %0 <- JUMP_FOR_SGEN start, limit, step, :a
+            BLOCK :a
+            JUMP_FOR_STEP %0, :b, :break
+            BLOCK :b
+            %1 <- FOR_STEP_INDEX %0
+
+        code:
+            MOV %0[0], start
+            MOV %0[1], limit
+            MOV %0[2], step
+            FOR_STEP %1, %0[3] / JMP :break
+    */
+
+    unsigned block_a_index = next( op_index, IR_BLOCK );
+    unsigned jump_index = next( block_a_index, IR_JUMP_FOR_STEP );
+    unsigned block_b_index = next( jump_index, IR_BLOCK );
+    unsigned index_index = next( block_b_index, IR_FOR_STEP_INDEX );
+
+    if ( block_a_index == IR_INVALID_INDEX || jump_index == IR_INVALID_INDEX
+        || block_b_index == IR_INVALID_INDEX || index_index == IR_INVALID_INDEX )
+    {
+        _source->error( iop->sloc, "internal: malformed for-step loop" );
+        return op_index;
+    }
+
+    op_index = index_index;
+
+    // Move start, limit, step into the correct registers.
+    if ( iop->r == IR_INVALID_REGISTER )
+    {
+        _source->error( iop->sloc, "internal: no allocated for-each generator registers" );
+        return op_index;
+    }
+
+    assert( iop->ocount == 4 );
+    assert( _f->operands[ iop->oindex + 3 ].kind == IR_O_JUMP );
+    assert( _f->operands[ iop->oindex + 3 ].index == block_a_index );
+    for ( unsigned j = 0; j < 3; ++j )
+    {
+        ir_operand operand = _f->operands[ iop->oindex + j ];
+        assert( operand.kind == IR_O_OP );
+        const ir_op* vop = &_f->ops[ operand.index ];
+        if ( vop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated for-step start/limit/step register" );
+            return op_index;
+        }
+        move( vop->sloc, iop->r + j, vop->r );
+    }
+    move_emit();
+
+    // A block.
+    _labels.push_back( { block_a_index, (unsigned)_u->ops.size() } );
+
+    // Emit for loop instruction.
+    const ir_op* jop = &_f->ops[ jump_index ];
+    assert( jop->r == iop->r );
+    assert( _f->operands[ jop->oindex + 0 ].kind == IR_O_OP );
+    assert( _f->operands[ jop->oindex + 1 ].kind == IR_O_JUMP );
+    assert( _f->operands[ jop->oindex + 1 ].index == block_b_index );
+    ir_operand j = _f->operands[ jop->oindex + 2 ];
+    assert( j.kind == IR_O_JUMP );
+
+    const ir_op* xop = &_f->ops[ index_index ];
+    if ( xop->r == IR_INVALID_INDEX )
+    {
+        _source->error( iop->sloc, "internal: no allocated for-step index register" );
+        return op_index;
+    }
+
+    _max_r = std::max( _max_r, xop->r );
+    emit( xop->sloc, op::op_ab( OP_FOR_STEP, xop->r, iop->r, 0 ) );
+
+    _fixups.push_back( { (unsigned)_u->ops.size(), j.index } );
+    emit( jop->sloc, op::op_j( OP_JMP, 0, 0 ) );
+
+    // B block.
+    _labels.push_back( { block_b_index, (unsigned)_u->ops.size() } );
+
+    return op_index;
+}
+
 unsigned ir_emit::next( unsigned op_index, ir_opcode iopcode )
 {
+    if ( op_index == IR_INVALID_INDEX )
+    {
+        return IR_INVALID_INDEX;
+    }
     while ( ++op_index < _f->ops.size() )
     {
         const ir_op* iop = &_f->ops[ op_index ];
