@@ -555,6 +555,15 @@ void ir_alloc::anchor_stacked( stacked* instruction )
     // Determine stack top register.
     assert( op->s == IR_INVALID_REGISTER );
     op->s = _regmap.top( instruction->index );
+    if ( has_result( op ) && op->r != IR_INVALID_REGISTER && op->s == op->r + 1 )
+    {
+        // Might have already allocated result register, which will be taken
+        // into account when determining stack top, but it doesn't become live
+        // until after this instruction.
+        op->s = op->r;
+    }
+
+    // Unpin operands.
     unpin_stacked( op, instruction->index );
 
     // Recursively set stack top register for unpack arguments.
