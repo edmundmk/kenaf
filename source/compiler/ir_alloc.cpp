@@ -92,6 +92,7 @@ void ir_alloc::alloc( ir_function* function )
 {
     _f = function;
 
+    zero_results();
     build_values();
     mark_pinning();
     allocate();
@@ -104,6 +105,44 @@ void ir_alloc::alloc( ir_function* function )
     _stacked_across.clear();
     assert( _unpinned.empty() );
     _regmap.clear();
+}
+
+void ir_alloc::zero_results()
+{
+    /*
+        Ops which produce a result which is not used cause issues.  These
+        must be ops which were forcibly kept alive.
+    */
+    for ( unsigned op_index = 0; op_index < _f->ops.size(); ++op_index )
+    {
+        ir_op* op = &_f->ops[ op_index ];
+        if ( op->opcode == IR_REF || op->opcode == IR_PHI )
+        {
+            continue;
+        }
+
+        if ( op->live_range != op_index )
+        {
+            assert( op->live_range > op_index );
+            continue;
+        }
+
+        if ( ! has_result( op ) )
+        {
+            continue;
+        }
+
+        if ( is_stacked( op ) )
+        {
+            op->set_local( IR_INVALID_LOCAL );
+            op->set_unpack( 0 );
+            assert( ! has_result( op ) );
+        }
+        else
+        {
+            op->live_range += 1;
+        }
+    }
 }
 
 void ir_alloc::build_values()

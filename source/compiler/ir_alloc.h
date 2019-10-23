@@ -57,6 +57,7 @@ private:
         unsigned across_count;  // number of values live across this op.
     };
 
+    void zero_results();
     void build_values();
     void mark_pinning();
 
