@@ -620,10 +620,6 @@ bool ir_alloc::is_stacked( const ir_op* op )
     switch ( op->opcode )
     {
     case IR_CALL:
-    case IR_VARARG:
-    case IR_UNPACK:
-    case IR_JUMP_RETURN:
-    case IR_FOR_EACH_ITEMS:
         if ( op->unpack() > 1 )
             return true;
         if ( op->ocount > 1 )
@@ -636,9 +632,17 @@ bool ir_alloc::is_stacked( const ir_op* op )
         }
         return false;
 
+    case IR_VARARG:
+    case IR_UNPACK:
+    case IR_FOR_EACH_ITEMS:
+        if ( op->unpack() > 1 )
+            return true;
+        return false;
+
     case IR_YCALL:
     case IR_YIELD:
     case IR_EXTEND:
+    case IR_JUMP_RETURN:
     case IR_JUMP_FOR_SGEN:
     case IR_JUMP_FOR_EGEN:
         return true;
@@ -656,6 +660,8 @@ bool ir_alloc::is_pinning( const ir_op* op )
         return true;
 
     case IR_EXTEND:
+    case IR_UNPACK:
+    case IR_FOR_EACH_ITEMS:
         return false;
 
     default:
