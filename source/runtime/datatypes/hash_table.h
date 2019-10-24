@@ -337,6 +337,58 @@ T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
     return main_slot;
 }
 
+template < typename K, typename T, typename KeyVal, typename HashKeyValue >
+template < typename constT >
+basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::basic_iterator( constT* p )
+    :   _p( p )
+{
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::basic_iterator( const basic_iterator< value_type >& i )
+    :   _p( i._p )
+{
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+bool basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator == ( const basic_iterator& i ) const
+{
+    return _p == i._p;
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+bool basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator != ( const basic_iterator& i ) const
+{
+    return _p != i._p;
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+typename basic_hash_table< K, T, KeyVal, HashKeyValue >::template basic_iterator< constT >& basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator ++ ()
+{
+    // TODO.
+    return *this;
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+typename basic_hash_table< K, T, KeyVal, HashKeyValue >::template basic_iterator< constT > basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator ++ ( int )
+{
+    basic_iterator i = *this;
+    ++i;
+    return *this;
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+constT& basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator * () const
+{
+    return *_p;
+}
+
+template < typename K, typename T, typename KeyVal, typename HashKeyValue > template < typename constT >
+constT* basic_hash_table< K, T, KeyVal, HashKeyValue >::basic_iterator< constT >::operator -> () const
+{
+    return _p;
+}
+
 }
 
 #endif
