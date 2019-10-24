@@ -18,11 +18,12 @@
 
 #include <iterator>
 #include <type_traits>
+#include <functional>
 
 namespace kf
 {
 
-template < typename K, typename V >
+template < typename K, typename V, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
 class hash_table
 {
 private:
@@ -110,13 +111,22 @@ public:
 
 private:
 
+    struct HashKeyValue : private Hash, KeyEqual
+    {
+        size_t hash( const K& key ) const;
+        size_t hash( const keyval& keyval ) const;
+        bool equal( const keyval& keyval, const K& key ) const;
+        void move( keyval* slot, keyval&& from ) const;
+        void destroy( keyval* slot ) const;
+    };
+
     keyval* _kv;
     size_t _capacity;
     size_t _occupancy;
 
 };
 
-template < typename K >
+template < typename K, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
 class hash_set
 {
 private:
@@ -204,21 +214,29 @@ public:
 
 private:
 
+    struct HashKeyValue : private Hash, KeyEqual
+    {
+        size_t hash( const K& key ) const;
+        bool equal( const keyval& keyval, const K& key ) const;
+        void move( keyval* slot, K&& from ) const;
+        void destroy( keyval* slot ) const;
+    };
+
     K* _v;
     size_t _capacity;
     size_t _occupancy;
 
 };
 
-template < typename T, typename HashT, typename K, typename HashK, typename Equal >
-T* hash_table_lookup( const T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+template < typename HashKeyValue, typename T, typename K >
+T* hash_table_lookup( const HashKeyValue& hashkv, const T* kv, size_t kvsize, const K& key )
 {
     if ( ! kvsize )
     {
         return nullptr;
     }
 
-    size_t hash = hashK( key );
+    size_t hash = hashkv.hash( key );
     const T* slot = kv + ( hash % kvsize );
     if ( ! slot->next )
     {
@@ -227,7 +245,7 @@ T* hash_table_lookup( const T* kv, size_t kvsize, const K& key, const HashT& has
 
     do
     {
-        if ( equalTK( *slot, key ) )
+        if ( hashkv.equal( *slot, key ) )
         {
             return slot;
         }
@@ -238,15 +256,15 @@ T* hash_table_lookup( const T* kv, size_t kvsize, const K& key, const HashT& has
     return nullptr;
 }
 
-template < typename T, typename HashT, typename K, typename HashK, typename Equal >
-T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+template < typename HashKeyValue, typename T, typename K >
+T* hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
 {
     if ( ! kvsize )
     {
         return nullptr;
     }
 
-    size_t hash = hashK( key );
+    size_t hash = hashkv.hash( key );
     T* main_slot = kv + ( hash & kvsize - 1u );
     T* next_slot = main_slot->next;
     if ( ! next_slot )
@@ -254,16 +272,17 @@ T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, con
         return nullptr;
     }
 
-    if ( equalTK( *main_slot, key ) )
+    if ( hashkv.equal( *main_slot, key ) )
     {
         // Erase kv which is in main position.
-        main_slot->~T();
+        hashkv.destroy( main_slot );
 
         // Move next slot in linked list into main position.
         if ( next_slot != (T*)-1 )
         {
-            new ( main_slot ) T( std::move( *next_slot ) );
-            next_slot->~T();
+            hashkv.move( main_slot, std::move( *next_slot ) );
+            main_slot->next = next_slot->next;
+            hashkv.destroy( next_slot );
             main_slot = next_slot;
         }
 
@@ -275,13 +294,13 @@ T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, con
     T* prev_slot = main_slot;
     while ( next_slot != (T*)-1 )
     {
-        if ( equalTK( *next_slot, key ) )
+        if ( hashkv.equal( *next_slot, key ) )
         {
             // Unlink next_slot.
             prev_slot->next = next_slot->next;
 
             // Erase next_slot.
-            next_slot->~T();
+            hashkv.destroy( next_slot );
             next_slot->next = nullptr;
             return next_slot;
         }
@@ -293,15 +312,15 @@ T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, con
     return nullptr;
 }
 
-template < typename T, typename HashT, typename K, typename HashK, typename Equal >
-T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+template < typename HashKeyValue, typename T, typename K >
+T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
 {
     if ( ! kvsize )
     {
         return nullptr;
     }
 
-    size_t hash = hashK( key );
+    size_t hash = hashkv.hash( key );
     T* main_slot = kv + ( hash & kvsize - 1u );
     if ( ! main_slot->next )
     {
@@ -314,7 +333,7 @@ T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, co
     T* slot = main_slot;
     do
     {
-        if ( equalTK( *slot, key ) )
+        if ( hashkv.equal( *slot, key ) )
         {
             return slot;
         }
@@ -323,7 +342,7 @@ T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, co
     while ( slot != (T*)-1 );
 
     // Key is not in the table, and the main position is occupied.
-    size_t cuckoo_hash = hashT( *main_slot );
+    size_t cuckoo_hash = hashkv.hash( *main_slot );
     T* cuckoo_main_slot = kv + ( cuckoo_hash & kvsize - 1u );
 
     // Cuckoo's main slot must be occupied, because the cuckoo exists.
@@ -369,12 +388,12 @@ T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, co
 
     // Move item from main_slot to free_slot and update bucket list.
     T* next_slot = main_slot->next;
-    new ( free_slot ) T( std::move( main_slot ) );
+    hashkv.move( free_slot, std::move( *main_slot ) );
     prev_slot->next = free_slot;
     free_slot->next = next_slot;
 
     // Erase main_slot, as it's where we'll put the new element.
-    main_slot->~T();
+    hashkv.destroy( main_slot );
     main_slot->next = (T*)-1;
     return main_slot;
 }
