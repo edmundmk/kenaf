@@ -49,14 +49,14 @@ T* hash_table_lookup( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
 }
 
 template < typename HashKeyValue, typename T, typename K >
-std::pair< bool, T* > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+std::pair< bool, bool > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
 {
     assert( kvsize );
     T* main_slot = kv + ( hash % kvsize );
     T* next_slot = main_slot->next;
     if ( ! next_slot )
     {
-        return std::make_pair( false, nullptr );
+        return std::make_pair( false, false );
     }
 
     if ( hashkv.equal( *main_slot, key ) )
@@ -75,7 +75,7 @@ std::pair< bool, T* > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_
 
         // Erase newly empty slot.
         main_slot->next = nullptr;
-        return std::make_pair( true, next_slot );
+        return std::make_pair( true, next_slot < main_slot );
     }
 
     T* prev_slot = main_slot;
@@ -89,14 +89,14 @@ std::pair< bool, T* > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_
             // Erase next_slot.
             hashkv.destroy( next_slot );
             next_slot->next = nullptr;
-            return std::make_pair( true, nullptr );
+            return std::make_pair( true, false );
         }
 
         prev_slot = next_slot;
         next_slot = next_slot->next;
     }
 
-    return std::make_pair( false, nullptr );
+    return std::make_pair( false, false );
 }
 
 template < typename HashKeyValue, typename T, typename K >
@@ -279,8 +279,9 @@ public:
     iterator find( const K& key )                   { return iterator( lookup( key ) ); }
     V& at( const K& key )                           { keyval* slot = lookup( key ); if ( slot != _kv + _kvsize ) return slot->kv.second; else throw std::out_of_range( "hash_table" ); }
 
-    iterator assign( K&& key, V&& value );
-    iterator assign( const K& key, V&& value );
+    template < typename M > iterator assign( K&& key, M&& value );
+    template < typename M > iterator assign( const K& key, M&& value );
+
     iterator erase( const_iterator i );
     size_type erase( const K& key );
     void clear();
@@ -290,6 +291,7 @@ public:
 protected:
 
     keyval* lookup( const K& key ) const            { return hash_table_lookup( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ); }
+    keyval* insert( const K& key, size_t hash );
 
     keyval* _kv;
     size_t _kvsize;
@@ -382,6 +384,7 @@ public:
 
     iterator insert( K&& key );
     iterator insert( const K& key );
+
     iterator erase( const_iterator i );
     size_type erase( const K& key );
     void clear();
@@ -391,11 +394,137 @@ public:
 private:
 
     keyval* lookup( const K& key ) const        { return hash_table_lookup( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ); }
+    keyval* insert( const K& key, size_t hash );
 
     keyval* _kv;
     size_t _kvsize;
     size_t _length;
 };
+
+template < typename K, typename V, typename Hash, typename KeyEqual > template < typename M >
+typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::assign( K&& key, M&& value )
+{
+    size_t hash = hashkv().hash( key );
+    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, hash ) )
+        slot->kv = std::make_pair( std::move( key ), std::forward< M >( value ) );
+    else
+        new ( &insert( key, hash )->kv ) std::pair< const K, V >( std::move( key ), std::forward< M >( value ) );
+}
+
+template < typename K, typename V, typename Hash, typename KeyEqual > template < typename M >
+typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::assign( const K& key, M&& value )
+{
+    size_t hash = hashkv().hash( key );
+    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, hash ) )
+        slot->kv = std::make_pair( key, std::forward< M >( value ) );
+    else
+        new ( &insert( key, hash )->kv ) std::pair< const K, V >( key, std::forward< M >( value ) );
+}
+
+template < typename K, typename V, typename Hash, typename KeyEqual >
+typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert( const K& key, size_t hash )
+{
+    if ( _length >= _kvsize - ( _kvsize / 8 ) )
+    {
+        keyval* oldkv = _kv;
+        size_t oldkvsize = _kvsize;
+
+
+
+
+
+    }
+    _length += 1;
+    return hash_table_insert( hashkv(), _kv, _kvsize, key, hash );
+}
+
+template < typename K, typename V, typename Hash, typename KeyEqual >
+typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::erase( const_iterator i )
+{
+    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first, hashkv().hash( i->first ) ).second;
+    return iterator( moved ? i._p + 1 : i._p );
+}
+
+template < typename K, typename V, typename Hash, typename KeyEqual >
+typename hash_table< K, V, Hash, KeyEqual >::size_type hash_table< K, V, Hash, KeyEqual >::erase( const K& key )
+{
+    return hash_table_erase( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ).first ? 1 : 0;
+}
+
+template < typename K, typename V, typename Hash, typename KeyEqual >
+void hash_table< K, V, Hash, KeyEqual >::clear()
+{
+    for ( size_t i = 0; i < _kvsize; ++i )
+    {
+        if ( _kv[ i ].next )
+        {
+            _kv[ i ].kv.~pair();
+            _kv[ i ].next = nullptr;
+        }
+    }
+    _length = 0;
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::insert( K&& key )
+{
+    size_t hash = hashkv().hash( key );
+    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, hash ) )
+        slot->key = std::move( key );
+    else
+        new ( &insert( key, hash )->kv ) K( std::move( key ) );
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::insert( const K& key )
+{
+    size_t hash = hashkv().hash( key );
+    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, hash ) )
+        slot->key = key;
+    else
+        new ( &insert( key, hash )->kv ) K( key );
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+typename hash_set< K, Hash, KeyEqual >::keyval* hash_set< K, Hash, KeyEqual >::insert( const K& key, size_t hash )
+{
+    if ( _length >= _kvsize - ( _kvsize / 8 ) )
+    {
+
+
+
+
+    }
+    _length += 1;
+    return hash_table_insert( hashkv(), _kv, _kvsize, key, hash );
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::erase( const_iterator i )
+{
+    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first, hashkv().hash( *i ) ).second;
+    return iterator( moved ? i._p + 1 : i._p );
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+typename hash_set< K, Hash, KeyEqual >::size_type hash_set< K, Hash, KeyEqual >::erase( const K& key )
+{
+    return hash_table_erase( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ).first ? 1 : 0;
+}
+
+template < typename K, typename Hash, typename KeyEqual >
+void hash_set< K, Hash, KeyEqual >::clear()
+{
+    for ( size_t i = 0; i < _kvsize; ++i )
+    {
+        if ( _kv[ i ].next )
+        {
+            _kv[ i ].key.~K();
+            _kv[ i ].next = nullptr;
+        }
+    }
+    _length = 0;
+}
 
 }
 
