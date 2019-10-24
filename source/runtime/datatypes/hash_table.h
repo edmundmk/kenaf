@@ -23,15 +23,10 @@
 namespace kf
 {
 
-template < typename K, typename V, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
-class hash_table
+template < typename K, typename T, typename KeyVal, typename HashKeyValue >
+class basic_hash_table : private HashKeyValue
 {
-private:
-
-    struct keyval : public std::pair< const K, V >
-    {
-        keyval* next;
-    };
+public:
 
     template < typename constT >
     class basic_iterator
@@ -57,133 +52,27 @@ private:
 
     private:
 
-        friend class hash_table;
+        friend class basic_hash_table;
         basic_iterator( constT* p );
-
-        keyval* _p;
-
+        KeyVal* _p;
     };
 
 public:
 
-    typedef std::pair< const K, V > value_type;
-    typedef std::pair< const K, V >& reference_type;
-    typedef const std::pair< const K, V >& const_reference;
-    typedef basic_iterator< std::pair< const K, V > > iterator;
-    typedef basic_iterator< const std::pair< const K, V > > const_iterator;
+    typedef T value_type;
+    typedef T& reference_type;
+    typedef const T& const_reference;
+    typedef basic_iterator< T > iterator;
+    typedef basic_iterator< const T > const_iterator;
     typedef ptrdiff_t difference_type;
     typedef size_t size_type;
 
-    hash_table();
-    hash_table( hash_table&& t );
-    hash_table( const hash_table& t );
-    hash_table& operator = ( hash_table&& t );
-    hash_table& operator = ( const hash_table& t );
-    ~hash_table();
-
-    size_type size() const;
-    size_type max_size() const;
-    bool empty() const;
-
-    const_iterator cbegin() const;
-    const_iterator begin() const;
-    const_iterator cend() const;
-    const_iterator end() const;
-
-    const V& at( const K& key ) const;
-    const_iterator find( const K& key ) const;
-
-    iterator begin();
-    iterator end();
-
-    V& at( const K& key );
-    iterator find( const K& key );
-
-    iterator assign( K&& key, V&& value );
-    iterator assign( const K& key, V&& value );
-
-    iterator erase( const_iterator i );
-    iterator erase( const K& key );
-
-    void clear();
-
-    void swap( hash_table& t );
-
-private:
-
-    struct HashKeyValue : private Hash, KeyEqual
-    {
-        size_t hash( const K& key ) const;
-        size_t hash( const keyval& keyval ) const;
-        bool equal( const keyval& keyval, const K& key ) const;
-        void move( keyval* slot, keyval&& from ) const;
-        void destroy( keyval* slot ) const;
-    };
-
-    keyval* _kv;
-    size_t _capacity;
-    size_t _occupancy;
-
-};
-
-template < typename K, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
-class hash_set
-{
-private:
-
-    struct keyval
-    {
-        K key;
-        keyval* next;
-    };
-
-    template < typename constT >
-    class basic_iterator
-    {
-    public:
-
-        typedef std::forward_iterator_tag iterator_category;
-        typedef std::remove_cv_t< constT > value_type;
-        typedef ptrdiff_t difference_type;
-        typedef constT* pointer;
-        typedef constT& reference;
-
-        basic_iterator( const basic_iterator< value_type >& i );
-
-        bool operator == ( const basic_iterator& i ) const;
-        bool operator != ( const basic_iterator& i ) const;
-
-        basic_iterator& operator ++ ();
-        basic_iterator operator ++ ( int );
-
-        constT& operator * () const;
-        constT* operator -> () const;
-
-    private:
-
-        friend class hash_set;
-        basic_iterator( constT* p );
-
-        keyval* _p;
-
-    };
-
-public:
-
-    typedef K value_type;
-    typedef K& reference_type;
-    typedef const K& const_reference;
-    typedef basic_iterator< K > iterator;
-    typedef basic_iterator< const K > const_iterator;
-    typedef ptrdiff_t difference_type;
-    typedef size_t size_type;
-
-    hash_set();
-    hash_set( hash_set&& s );
-    hash_set( const hash_set& s );
-    hash_set& operator = ( hash_set&& s );
-    hash_set& operator = ( const hash_set& s );
-    ~hash_set();
+    basic_hash_table();
+    basic_hash_table( basic_hash_table&& t );
+    basic_hash_table( const basic_hash_table& t );
+    basic_hash_table& operator = ( basic_hash_table&& t );
+    basic_hash_table& operator = ( const basic_hash_table& t );
+    ~basic_hash_table();
 
     size_type size() const;
     size_type max_size() const;
@@ -202,29 +91,80 @@ public:
 
     iterator find( const K& key );
 
-    iterator assign( K&& key );
-    iterator assign( const K& key );
-
     iterator erase( const_iterator i );
     iterator erase( const K& key );
 
     void clear();
 
-    void swap( hash_set& s );
+    void swap( basic_hash_table& t );
 
-private:
+protected:
 
-    struct HashKeyValue : private Hash, KeyEqual
-    {
-        size_t hash( const K& key ) const;
-        bool equal( const keyval& keyval, const K& key ) const;
-        void move( keyval* slot, K&& from ) const;
-        void destroy( keyval* slot ) const;
-    };
-
-    K* _v;
+    KeyVal* _kv;
     size_t _capacity;
     size_t _occupancy;
+
+};
+
+template < typename K, typename V >
+struct hash_table_keyval
+{
+    std::pair< const K, V > kv;
+    hash_table_keyval* next;
+};
+
+template < typename K, typename V, typename Hash, typename KeyEqual >
+struct hash_table_hashkv : private Hash, private KeyEqual
+{
+    size_t hash( const K& key ) const;
+    size_t hash( const hash_table_keyval< K, V >& keyval ) const;
+    bool equal( const hash_table_keyval< K, V >& keyval, const K& key ) const;
+    void move( hash_table_keyval< K, V >* slot, hash_table_keyval< K, V >&& from ) const;
+    void destroy( hash_table_keyval< K, V >* slot ) const;
+};
+
+template < typename K, typename V, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
+class hash_table : public basic_hash_table< K, std::pair< const K, V >, hash_table_keyval< K, V >, hash_table_hashkv< K, V, Hash, KeyEqual > >
+{
+public:
+
+    using basic_hash_table< K, std::pair< const K, V >, hash_table_keyval< K, V >, hash_table_hashkv< K, V, Hash, KeyEqual > >::basic_hash_table;
+    using typename basic_hash_table< K, std::pair< const K, V >, hash_table_keyval< K, V >, hash_table_hashkv< K, V, Hash, KeyEqual > >::iterator;
+
+    const V& at( const K& key ) const;
+    V& at( const K& key );
+
+    iterator assign( K&& key, V&& value );
+    iterator assign( const K& key, V&& value );
+
+};
+
+template < typename K >
+struct hash_set_keyval
+{
+    K key;
+    hash_set_keyval* next;
+};
+
+template < typename K, typename Hash, typename KeyEqual >
+struct hash_set_hashkv : private Hash, KeyEqual
+{
+    size_t hash( const K& key ) const;
+    bool equal( const hash_set_keyval< K >& keyval, const K& key ) const;
+    void move( hash_set_keyval< K >* slot, K&& from ) const;
+    void destroy( hash_set_keyval< K >* slot ) const;
+};
+
+template < typename K, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
+class hash_set : public basic_hash_table< K, K, hash_set_keyval< K >, hash_set_hashkv< K, Hash, KeyEqual > >
+{
+public:
+
+    using basic_hash_table< K, K, hash_set_keyval< K >, hash_set_hashkv< K, Hash, KeyEqual > >::basic_hash_table;
+    using typename basic_hash_table< K, K, hash_set_keyval< K >, hash_set_hashkv< K, Hash, KeyEqual > >::iterator;
+
+    iterator insert( K&& key );
+    iterator insert( const K& key );
 
 };
 
