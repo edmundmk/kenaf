@@ -59,7 +59,7 @@ private:
         friend class hash_table;
         basic_iterator( constT* p );
 
-        constT* _p;
+        keyval* _p;
 
     };
 
@@ -121,6 +121,12 @@ class hash_set
 {
 private:
 
+    struct keyval
+    {
+        K key;
+        keyval* next;
+    };
+
     template < typename constT >
     class basic_iterator
     {
@@ -148,7 +154,7 @@ private:
         friend class hash_set;
         basic_iterator( constT* p );
 
-        constT* _p;
+        keyval* _p;
 
     };
 
@@ -203,6 +209,95 @@ private:
     size_t _occupancy;
 
 };
+
+template < typename T, typename HashT, typename K, typename HashK, typename Equal >
+T* hash_table_lookup( const T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+{
+    if ( ! kvsize )
+    {
+        return nullptr;
+    }
+
+    size_t hash = hashK( key );
+    const T* slot = kv + ( hash % kvsize );
+    if ( ! slot->next )
+    {
+        return nullptr;
+    }
+
+    do
+    {
+        if ( equalTK( *slot, key ) )
+        {
+            return slot;
+        }
+        slot = slot->next;
+    }
+    while ( slot != (T*)-1 );
+
+    return nullptr;
+}
+
+template < typename T, typename HashT, typename K, typename HashK, typename Equal >
+T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+{
+    if ( ! kvsize )
+    {
+        return nullptr;
+    }
+
+    size_t hash = hashK( key );
+    T* main_slot = kv + ( hash & kvsize - 1u );
+    T* next_slot = main_slot->next;
+    if ( ! next_slot )
+    {
+        return nullptr;
+    }
+
+    if ( equalTK( *main_slot, key ) )
+    {
+        // Erase kv which is in main position.
+        main_slot->~T();
+
+        // Move next slot in linked list into main position.
+        if ( next_slot != (T*)-1 )
+        {
+            new ( main_slot ) T( std::move( *next_slot ) );
+            next_slot->~T();
+            main_slot = next_slot;
+        }
+
+        // Erase newly empty slot.
+        main_slot->next = nullptr;
+        return main_slot;
+    }
+
+    T* prev_slot = main_slot;
+    while ( next_slot != (T*)-1 )
+    {
+        if ( equalTK( *next_slot, key ) )
+        {
+            // Unlink next_slot.
+            prev_slot->next = next_slot->next;
+
+            // Erase next_slot.
+            next_slot->~T();
+            next_slot->next = nullptr;
+            return next_slot;
+        }
+
+        prev_slot = next_slot;
+        next_slot = next_slot->next;
+    }
+
+    return nullptr;
+}
+
+template < typename T, typename HashT, typename K, typename HashK, typename Equal >
+T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
+{
+
+}
 
 }
 
