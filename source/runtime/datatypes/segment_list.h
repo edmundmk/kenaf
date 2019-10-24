@@ -18,7 +18,6 @@
 
 #include <iterator>
 #include <type_traits>
-#include <limits>
 
 namespace kf
 {
@@ -46,25 +45,24 @@ private:
         typedef constT* pointer;
         typedef constT& reference;
 
-        basic_iterator( const basic_iterator< value_type >& i );
+        basic_iterator( const basic_iterator< value_type >& i ) : _s( i._s ), _i( i._i ) {}
 
-        bool operator == ( const basic_iterator& i ) const;
-        bool operator != ( const basic_iterator& i ) const;
+        bool operator == ( const basic_iterator& i ) const      { return _s == i._s && _i == i._i; }
+        bool operator != ( const basic_iterator& i ) const      { return ! operator == ( i ); }
 
-        basic_iterator& operator ++ ();
-        basic_iterator operator ++ ( int );
+        basic_iterator& operator ++ ()                          { if ( ++_i >= segment_size ) { _s = _s->next; _i = 0; } return *this; }
+        basic_iterator operator ++ ( int )                      { basic_iterator i( *this ); operator ++ (); return i; }
 
-        constT& operator * () const;
-        constT* operator -> () const;
+        constT& operator * () const                             { return _s->v[ _i ]; }
+        constT* operator -> () const                            { return _s->v[ _i ]; }
 
     private:
 
         friend class segment_list;
-        basic_iterator( segment* s, size_t i );
+        basic_iterator( segment* s, size_t i )                  : _s( s ), _i( i ) {}
 
         segment* _s;
         size_t _i;
-
     };
 
 public:
@@ -77,256 +75,43 @@ public:
     typedef ptrdiff_t difference_type;
     typedef size_t size_type;
 
-    segment_list();
-    segment_list( segment_list&& s );
-    segment_list( const segment_list& s );
-    segment_list& operator = ( segment_list&& s );
-    segment_list& operator = ( const segment_list& s );
-    ~segment_list();
+    segment_list()                                      : _head( nullptr ), _tail( nullptr ), _i( segment_size ) {}
+    segment_list( segment_list&& s )                    : _head( nullptr ), _tail( nullptr ), _i( segment_size ) { swap( s ); }
+    segment_list( const segment_list& s )               : _head( nullptr ), _tail( nullptr ), _i( segment_size ) { for ( const auto& v : s ) push_back( s ); }
+    segment_list& operator = ( segment_list&& s )       { destroy(); swap( s ); return *this; }
+    segment_list& operator = ( const segment_list& s )  { clear(); for ( const auto& v : s ) push_back( s ); return *this; }
+    ~segment_list()                                     { destroy(); }
 
-    size_type max_size() const;
-    bool empty() const;
+    bool empty() const                                  { return _head == _tail && ( _i == 0 || _head == nullptr ); }
 
-    const_iterator cbegin() const;
-    const_iterator begin() const;
-    const_iterator cend() const;
-    const_iterator end() const;
-    const_reference back() const;
+    const_iterator cbegin() const                       { return const_iterator( _head, 0 ); }
+    const_iterator begin() const                        { return const_iterator( _head, 0 ); }
+    const_iterator cend() const                         { return const_iterator( _tail, _i ); }
+    const_iterator end() const                          { return const_iterator( _tail, _i ); }
+    const_reference back() const                        { assert( ! empty() ); if ( _i > 0 ) return _tail->v[ _i - 1 ]; else return _tail->prev->v[ segment_size - 1 ]; }
 
-    iterator begin();
-    iterator end();
-    reference back();
+    iterator begin()                                    { return iterator( _head, 0 ); }
+    iterator end()                                      { return iterator( _tail, _i ); }
+    reference back()                                    { assert( ! empty() ); if ( _i > 0 ) return _tail->v[ _i - 1 ]; else return _tail->prev->v[ segment_size - 1 ]; }
 
-    void push_back( T&& element );
-    void push_back( const T& element );
-    template < typename ... A > void emplace_back( A ... arguments );
+    void push_back( T&& element )                       { new ( push_alloc() ) T( std::move( element ) ); _i += 1; }
+    void push_back( const T& element )                  { new ( push_alloc() ) T( element ); _i += 1; }
+    template < typename ... A > void emplace_back( A ... arguments ) { new ( push_alloc() ) T( std::forward< A ... >( arguments ... ) ); _i += 1; }
     void pop_back();
     void clear();
 
-    void swap( segment_list& s );
+    void swap( segment_list& s )                        { std::swap( _head, s._head ); std::swap( _tail, s._tail ); std::swap( _i, s._i ); }
 
 private:
 
     T* push_alloc();
+    void destroy();
 
     segment* _head;
     segment* _tail;
     size_t _i;
 
 };
-
-
-template < typename T, size_t segment_size >
-template < typename constT >
-segment_list< T, segment_size >::basic_iterator< constT >::basic_iterator( segment* s, size_t i )
-    :   _s( s )
-    ,   _i( i )
-{
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-segment_list< T, segment_size >::basic_iterator< constT >::basic_iterator( const basic_iterator< value_type >& i )
-    :   _s( i._s )
-    ,   _i( i._i )
-{
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-bool segment_list< T, segment_size >::basic_iterator< constT >::operator == ( const basic_iterator& i ) const
-{
-    return _s == i._s && _i == i._i;
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-bool segment_list< T, segment_size >::basic_iterator< constT >::operator != ( const basic_iterator& i ) const
-{
-    return ! operator == ( i );
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-typename segment_list< T, segment_size >::template basic_iterator< constT >& segment_list< T, segment_size >::basic_iterator< constT >::operator ++ ()
-{
-    _i += 1;
-    if ( _i >= segment_size )
-    {
-        _s = _s->next;
-        _i = 0;
-    }
-    return *this;
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-typename segment_list< T, segment_size >::template basic_iterator< constT > segment_list< T, segment_size >::basic_iterator< constT >::operator ++ ( int )
-{
-    basic_iterator result( *this );
-    operator ++ ();
-    return result;
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-constT& segment_list< T, segment_size >::basic_iterator< constT >::operator * () const
-{
-    return _s->v[ _i ];
-}
-
-template < typename T, size_t segment_size >
-template < typename constT >
-constT* segment_list< T, segment_size >::basic_iterator< constT >::operator -> () const
-{
-    return _s->v + _i;
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >::segment_list()
-    :   _head( nullptr )
-    ,   _tail( nullptr )
-    ,   _i( segment_size )
-{
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >::segment_list( segment_list&& s )
-    :   _head( nullptr )
-    ,   _tail( nullptr )
-    ,   _i( segment_size )
-{
-    swap( s );
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >::segment_list( const segment_list& s )
-    :   _head( nullptr )
-    ,   _tail( nullptr )
-    ,   _i( segment_size )
-{
-    operator = ( s );
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >& segment_list< T, segment_size >::operator = ( segment_list&& s )
-{
-    swap( s );
-    return *this;
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >& segment_list< T, segment_size >::operator = ( const segment_list& s )
-{
-    clear();
-    for ( const T& value : s )
-    {
-        push_back( value );
-    }
-    return *this;
-}
-
-template < typename T, size_t segment_size >
-segment_list< T, segment_size >::~segment_list()
-{
-    clear();
-    for ( segment* ss = _head; ss != nullptr; )
-    {
-        segment* zz = ss;
-        ss = ss->next;
-        free( zz );
-    }
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::size_type segment_list< T, segment_size >::max_size() const
-{
-    return std::numeric_limits< size_type >::max();
-}
-
-template < typename T, size_t segment_size >
-bool segment_list< T, segment_size >::empty() const
-{
-    return _head == _tail && ( _i == 0 || _head == nullptr );
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::cbegin() const
-{
-    return const_iterator( _head, 0 );
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::begin() const
-{
-    return cbegin();
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::cend() const
-{
-    return const_iterator( _tail, index );
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::end() const
-{
-    return cend();
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::const_reference segment_list< T, segment_size >::back() const
-{
-    assert( ! empty() );
-    if ( _i > 0 )
-        return _tail->v[ _i - 1 ];
-    else
-        return _tail->prev->v[ segment_size - 1 ];
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::iterator segment_list< T, segment_size >::begin()
-{
-    return iterator( _head, 0 );
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::iterator segment_list< T, segment_size >::end()
-{
-    return iterator( _tail, index );
-}
-
-template < typename T, size_t segment_size >
-typename segment_list< T, segment_size >::reference segment_list< T, segment_size >::back()
-{
-    assert( ! empty() );
-    if ( _i > 0 )
-        return _tail->v[ _i - 1 ];
-    else
-        return _tail->prev->v[ segment_size - 1 ];
-}
-
-template < typename T, size_t segment_size >
-void segment_list< T, segment_size >::push_back( T&& element )
-{
-    new ( push_alloc() ) T( std::move( element ) );
-    _i += 1;
-}
-
-template < typename T, size_t segment_size >
-void segment_list< T, segment_size >::push_back( const T& element )
-{
-    new ( push_alloc() ) T( element );
-    _i += 1;
-}
-
-template < typename T, size_t segment_size >
-template < typename ... arguments_t >
-void segment_list< T, segment_size >::emplace_back( arguments_t ... arguments )
-{
-    new ( push_alloc() ) T( std::forward< arguments_t ... >( arguments ... ) );
-    _i += 1;
-}
 
 template < typename T, size_t segment_size >
 void segment_list< T, segment_size >::pop_back()
@@ -371,14 +156,6 @@ void segment_list< T, segment_size >::clear()
 }
 
 template < typename T, size_t segment_size >
-void segment_list< T, segment_size >::swap( segment_list& s )
-{
-    std::swap( _head, s._head );
-    std::swap( _tail, s._tail );
-    std::swap( _i, s._i );
-}
-
-template < typename T, size_t segment_size >
 T* segment_list< T, segment_size >::push_alloc()
 {
     if ( _i >= segment_size )
@@ -402,6 +179,18 @@ T* segment_list< T, segment_size >::push_alloc()
         _i = 0;
     }
     return _tail->v + _i;
+}
+
+template < typename T, size_t segment_size >
+void segment_list< T, segment_size >::destroy()
+{
+    clear();
+    for ( segment* ss = _head; ss != nullptr; )
+    {
+        segment* zz = ss;
+        ss = ss->next;
+        free( zz );
+    }
 }
 
 }
