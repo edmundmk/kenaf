@@ -21,6 +21,8 @@
 namespace kf
 {
 
+struct gc_header;
+
 struct vm_context
 {
     // Write barrier mark state.

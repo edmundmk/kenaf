@@ -54,19 +54,19 @@
 namespace kf
 {
 
-template < typename T > struct { T* v; } atomic_p;
-struct { uint8_t v; } atomic_u8;
-struct { uint64_t v; } atomic_u64;
+template < typename T > struct atomic_p { T* v; };
+struct atomic_u8 { uint8_t v; };
+struct atomic_u64 { uint64_t v; };
 
 // Load/store.
 
-template < typename T > inline T* atomic_load( const atomic_p< T >& p ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, __ATOMIC_RELAXED ); }
-inline uint8_t atomic_load( const atomic_u8& u ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, __ATOMIC_RELAXED ); }
-inline uint64_t atomic_load( const atomic_u64& u ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, __ATOMIC_RELAXED ); }
+template < typename T > inline T* __attribute__(( always_inline )) atomic_load( const atomic_p< T >& p ) { return __atomic_load_n( &p.v, __ATOMIC_RELAXED ); }
+inline uint8_t __attribute__(( always_inline )) atomic_load( const atomic_u8& u ) { return __atomic_load_n( &u.v, __ATOMIC_RELAXED ); }
+inline uint64_t __attribute__(( always_inline )) atomic_load( const atomic_u64& u ) { return __atomic_load_n( &u.v, __ATOMIC_RELAXED ); }
 
-template < typename T > inline void atomic_store( atomic_p< T >& p, T* v ) __attribute__(( always_inline )) { __atomic_store_n( &p.v, v, __ATOMIC_RELAXED ); }
-inline void atomic_store( atomic_u8& u, uint8_t v ) __attribute__(( always_inline )) { __atomic_store_n( &p.v, v, __ATOMIC_RELAXED ); }
-inline void atomic_store( atomic_u64& u, uint64_t v ) __attribute__(( always_inline )) { __atomic_store_n( &p.v, v, __ATOMIC_RELAXED ); }
+template < typename T > inline void __attribute__(( always_inline )) atomic_store( atomic_p< T >& p, T* v ) { __atomic_store_n( &p.v, v, __ATOMIC_RELAXED ); }
+inline void __attribute__(( always_inline )) atomic_store( atomic_u8& u, uint8_t v ) { __atomic_store_n( &u.v, v, __ATOMIC_RELAXED ); }
+inline void __attribute__(( always_inline )) atomic_store( atomic_u64& u, uint64_t v ) { __atomic_store_n( &u.v, v, __ATOMIC_RELAXED ); }
 
 // Release/consume.
 
@@ -76,11 +76,11 @@ inline void atomic_store( atomic_u64& u, uint64_t v ) __attribute__(( always_inl
 #define ATOMIC_CONSUME __ATOMIC_CONSUME
 #endif
 
-inline void atomic_produce_fence() __attribute__(( always_inline )) { __atomic_thread_fence( __ATOMIC_RELEASE ); }
+inline void __attribute__(( always_inline )) atomic_produce_fence() { __atomic_thread_fence( __ATOMIC_RELEASE ); }
 
-template < typename T > inline T* atomic_consume( const atomic_p< T >& p ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
-template < typename T > inline uint8_t atomic_consume( const atomic_u8& p ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
-template < typename T > inline uint64_t atomic_consume( const atomic_u64& p ) __attribute__(( always_inline )) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
+template < typename T > inline T* __attribute__(( always_inline )) atomic_consume( const atomic_p< T >& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
+template < typename T > inline uint8_t __attribute__(( always_inline )) atomic_consume( const atomic_u8& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
+template < typename T > inline uint64_t __attribute__(( always_inline )) atomic_consume( const atomic_u64& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
 
 #undef ATOMIC_CONSUME
 

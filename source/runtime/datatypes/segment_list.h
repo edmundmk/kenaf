@@ -18,11 +18,12 @@
 
 #include <iterator>
 #include <type_traits>
+#include <limits>
 
 namespace kf
 {
 
-template < typename T, size_t segment_size >
+template < typename T, size_t segment_size = 64 >
 class segment_list
 {
 private:
@@ -45,7 +46,7 @@ private:
         typedef constT* pointer;
         typedef constT& reference;
 
-        basic_iterator( const basic_iterator< T >& i );
+        basic_iterator( const basic_iterator< value_type >& i );
 
         bool operator == ( const basic_iterator& i ) const;
         bool operator != ( const basic_iterator& i ) const;
@@ -96,9 +97,9 @@ public:
     iterator end();
     reference back();
 
-    void push_back( element_t&& element );
-    void push_back( const element_t& element );
-    template < typename ... arguments_t > void emplace_back( arguments_t ... arguments );
+    void push_back( T&& element );
+    void push_back( const T& element );
+    template < typename ... A > void emplace_back( A ... arguments );
     void pop_back();
     void clear();
 
@@ -125,7 +126,7 @@ segment_list< T, segment_size >::basic_iterator< constT >::basic_iterator( segme
 
 template < typename T, size_t segment_size >
 template < typename constT >
-segment_list< T, segment_size >::basic_iterator< constT >::basic_iterator( const basic_iterator< const T >& i )
+segment_list< T, segment_size >::basic_iterator< constT >::basic_iterator( const basic_iterator< value_type >& i )
     :   _s( i._s )
     ,   _i( i._i )
 {
@@ -169,14 +170,14 @@ typename segment_list< T, segment_size >::template basic_iterator< constT > segm
 
 template < typename T, size_t segment_size >
 template < typename constT >
-result_t& segment_list< T, segment_size >::basic_iterator< constT >::operator * () const
+constT& segment_list< T, segment_size >::basic_iterator< constT >::operator * () const
 {
     return _s->v[ _i ];
 }
 
 template < typename T, size_t segment_size >
 template < typename constT >
-result_t* segment_list< T, segment_size >::basic_iterator< constT >::operator -> () const
+constT* segment_list< T, segment_size >::basic_iterator< constT >::operator -> () const
 {
     return _s->v + _i;
 }
@@ -252,7 +253,7 @@ bool segment_list< T, segment_size >::empty() const
 template < typename T, size_t segment_size >
 typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::cbegin() const
 {
-    return const_iterator( first, 0 );
+    return const_iterator( _head, 0 );
 }
 
 template < typename T, size_t segment_size >
@@ -264,7 +265,7 @@ typename segment_list< T, segment_size >::const_iterator segment_list< T, segmen
 template < typename T, size_t segment_size >
 typename segment_list< T, segment_size >::const_iterator segment_list< T, segment_size >::cend() const
 {
-    return const_iterator( last, index );
+    return const_iterator( _tail, index );
 }
 
 template < typename T, size_t segment_size >
@@ -278,7 +279,7 @@ typename segment_list< T, segment_size >::const_reference segment_list< T, segme
 {
     assert( ! empty() );
     if ( _i > 0 )
-        return _tail->v[ index - 1 ];
+        return _tail->v[ _i - 1 ];
     else
         return _tail->prev->v[ segment_size - 1 ];
 }
@@ -286,13 +287,13 @@ typename segment_list< T, segment_size >::const_reference segment_list< T, segme
 template < typename T, size_t segment_size >
 typename segment_list< T, segment_size >::iterator segment_list< T, segment_size >::begin()
 {
-    return iterator( first, 0 );
+    return iterator( _head, 0 );
 }
 
 template < typename T, size_t segment_size >
 typename segment_list< T, segment_size >::iterator segment_list< T, segment_size >::end()
 {
-    return iterator( last, index );
+    return iterator( _tail, index );
 }
 
 template < typename T, size_t segment_size >
@@ -300,20 +301,20 @@ typename segment_list< T, segment_size >::reference segment_list< T, segment_siz
 {
     assert( ! empty() );
     if ( _i > 0 )
-        return _tail->v[ index - 1 ];
+        return _tail->v[ _i - 1 ];
     else
-        return _tail->prev->v[ segsize - 1 ];
+        return _tail->prev->v[ segment_size - 1 ];
 }
 
 template < typename T, size_t segment_size >
-void segment_list< T, segment_size >::push_back( element_t&& element )
+void segment_list< T, segment_size >::push_back( T&& element )
 {
     new ( push_alloc() ) T( std::move( element ) );
     _i += 1;
 }
 
 template < typename T, size_t segment_size >
-void segment_list< T, segment_size >::push_back( const element_t& element )
+void segment_list< T, segment_size >::push_back( const T& element )
 {
     new ( push_alloc() ) T( element );
     _i += 1;
@@ -349,7 +350,7 @@ void segment_list< T, segment_size >::clear()
         return;
     }
 
-    if ( ! std::is_trivially_destructible< element_t >::value )
+    if ( ! std::is_trivially_destructible< T >::value )
     {
         for ( segment* ss = _head; ss != _tail; ss = ss->next )
         {
@@ -378,7 +379,7 @@ void segment_list< T, segment_size >::swap( segment_list& s )
 }
 
 template < typename T, size_t segment_size >
-T segment_list< T, segment_size >::push_alloc()
+T* segment_list< T, segment_size >::push_alloc()
 {
     if ( _i >= segment_size )
     {
@@ -388,7 +389,7 @@ T segment_list< T, segment_size >::push_alloc()
         }
         else
         {
-            segment* s = (segment*)malloc( sizeof( segment ) );
+            segment* s = (segment*)malloc( sizeof( segment ) + sizeof( T ) * segment_size );
             s->next = nullptr;
             s->prev = _tail;
             _tail->next = s;
@@ -396,7 +397,7 @@ T segment_list< T, segment_size >::push_alloc()
             {
                 _head = s;
             }
-            _tail = s
+            _tail = s;
         }
         _i = 0;
     }

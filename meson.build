@@ -33,6 +33,7 @@ sources = [
     'source/compiler/source.cpp',
     'source/compiler/parser.cpp',
     'source/runtime/heap.cpp',
+    'source/runtime/runtime.cpp',
 ]
 
 sources += lemon.process( 'source/compiler/grammar.lemon' )
