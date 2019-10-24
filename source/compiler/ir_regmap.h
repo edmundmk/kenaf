@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_REGMAP_H
-#define IR_REGMAP_H
+#ifndef KF_IR_REGMAP_H
+#define KF_IR_REGMAP_H
 
 /*
     This data structure is used by the register allocation pass, and stores

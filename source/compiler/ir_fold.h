@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_FOLD_H
-#define IR_FOLD_H
+#ifndef KF_IR_FOLD_H
+#define KF_IR_FOLD_H
 
 /*
     The folding process performs the following transformations:

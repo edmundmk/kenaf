@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef INDEX_VECTOR_H
-#define INDEX_VECTOR_H
+#ifndef KF_INDEX_VECTOR_H
+#define KF_INDEX_VECTOR_H
 
 /*
     A lot of our data structures are stored in vectors, with indexes that have

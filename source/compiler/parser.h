@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef KF_PARSER_H
+#define KF_PARSER_H
 
 #include <vector>
 #include "lexer.h"

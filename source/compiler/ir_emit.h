@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_EMIT_H
-#define IR_EMIT_H
+#ifndef KF_IR_EMIT_H
+#define KF_IR_EMIT_H
 
 /*
     Takes IR that's been through register allocation and emits bytecode.

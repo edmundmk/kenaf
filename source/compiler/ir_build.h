@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_BUILD_H
-#define IR_BUILD_H
+#ifndef KF_IR_BUILD_H
+#define KF_IR_BUILD_H
 
 /*
     Traverses an AST and builds IR.  Performs SSA form construction using

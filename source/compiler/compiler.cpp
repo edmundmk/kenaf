@@ -25,52 +25,57 @@ namespace kf
 {
 
 compile_result::compile_result()
-    :   _code( nullptr )
+    :   _data( nullptr )
 {
 }
 
-compile_result::compile_result( const code_script* code, std::vector< struct diagnostic >&& diagnostics )
-    :   _code( code )
+compile_result::compile_result( const void* data, std::vector< struct diagnostic >&& diagnostics )
+    :   _data( data )
     ,   _diagnostics( std::move( diagnostics ) )
 {
 }
 
 compile_result::compile_result( std::vector< struct diagnostic >&& diagnostics )
-    :   _code( nullptr )
+    :   _data( nullptr )
     ,   _diagnostics( std::move( diagnostics ) )
 {
 }
 
 compile_result::compile_result( compile_result&& r )
-    :   _code( nullptr )
+    :   _data( nullptr )
 {
-    std::swap( _code, r._code );
+    std::swap( _data, r._data );
     std::swap( _diagnostics, r._diagnostics );
 }
 
 compile_result& compile_result::operator = ( compile_result&& r )
 {
-    free( (void*)_code );
-    _code = nullptr;
+    free( (void*)_data );
+    _data = nullptr;
     _diagnostics.clear();
-    std::swap( _code, r._code );
+    std::swap( _data, r._data );
     std::swap( _diagnostics, r._diagnostics );
     return *this;
 }
 
 compile_result::~compile_result()
 {
-    free( (void*)_code );
+    free( (void*)_data );
 }
 
 compile_result::operator bool () const
 {
-    return _code != nullptr;
+    return _data != nullptr;
 }
 
-const code_script* compile_result::code() const
+const void* compile_result::data() const
 {
-    return _code;
+    return _data;
+}
+
+size_t compile_result::size() const
+{
+    return ( (const code_script*)_data )->code_size;
 }
 
 size_t compile_result::diagnostic_count() const
@@ -90,93 +95,97 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
     try
     {
 
-    // Load source text.
-    source.filename = filename;
-    source.append( text.data(), text.size() );
+        // Load source text.
+        source.filename = filename;
+        source.append( text.data(), text.size() );
 
-    // Parse AST.
-    lexer lexer( &source );
-    parser parser( &source, &lexer );
-    std::unique_ptr< ast_script > script = parser.parse();
-    if ( debug_print & PRINT_AST_PARSED )
-        script->debug_print();
-    if ( source.has_error )
-        return compile_result( std::move( source.diagnostics ) );
-
-    // Construct code unit.
-    code_unit unit;
-    unit.script.debug_script_name = unit.debug_heap.size();
-    unit.debug_newlines = source.newlines;
-    unit.debug_heap.insert( unit.debug_heap.end(), source.filename.begin(), source.filename.end() );
-    unit.debug_heap.push_back( '\0' );
-
-    // Resolve names.
-    ast_resolve resolve( &source, script.get() );
-    resolve.resolve();
-    if ( debug_print & PRINT_AST_RESOLVED )
-        script->debug_print();
-    if ( source.has_error )
-        return compile_result( std::move( source.diagnostics ) );
-
-    // Perform IR passes.
-    ir_build build( &source );
-    ir_fold fold( &source );
-    ir_live live( &source );
-    ir_foldk foldk( &source );
-    ir_alloc alloc( &source );
-    ir_emit emit( &source, &unit );
-
-    for ( const auto& function : script->functions )
-    {
-        std::unique_ptr< ir_function > ir = build.build( function.get() );
-        if ( ir && ( debug_print & PRINT_IR_BUILD ) )
-            ir->debug_print();
-        if ( ! ir || source.has_error )
-            return compile_result( std::move( source.diagnostics ) );
-
-        fold.fold( ir.get() );
-        if ( debug_print & PRINT_IR_FOLD )
-            ir->debug_print();
+        // Parse AST.
+        lexer lexer( &source );
+        parser parser( &source, &lexer );
+        std::unique_ptr< ast_script > script = parser.parse();
+        if ( debug_print & PRINT_AST_PARSED )
+            script->debug_print();
         if ( source.has_error )
             return compile_result( std::move( source.diagnostics ) );
 
-        live.live( ir.get() );
-        if ( debug_print & PRINT_IR_LIVE )
-            ir->debug_print();
+        // Construct code unit.
+        code_unit unit;
+        unit.script.debug_script_name = unit.debug_heap.size();
+        unit.debug_newlines = source.newlines;
+        unit.debug_heap.insert( unit.debug_heap.end(), source.filename.begin(), source.filename.end() );
+        unit.debug_heap.push_back( '\0' );
+
+        // Resolve names.
+        ast_resolve resolve( &source, script.get() );
+        resolve.resolve();
+        if ( debug_print & PRINT_AST_RESOLVED )
+            script->debug_print();
         if ( source.has_error )
             return compile_result( std::move( source.diagnostics ) );
 
-        foldk.foldk( ir.get() );
-        if ( debug_print & PRINT_IR_FOLDK )
-            ir->debug_print();
-        if ( source.has_error )
-            return compile_result( std::move( source.diagnostics ) );
+        // Perform IR passes.
+        ir_build build( &source );
+        ir_fold fold( &source );
+        ir_live live( &source );
+        ir_foldk foldk( &source );
+        ir_alloc alloc( &source );
+        ir_emit emit( &source, &unit );
 
-        live.live( ir.get() );
-        if ( debug_print & PRINT_IR_FOLD_LIVE )
-            ir->debug_print();
-        if ( source.has_error )
-            return compile_result( std::move( source.diagnostics ) );
+        for ( const auto& function : script->functions )
+        {
+            std::unique_ptr< ir_function > ir = build.build( function.get() );
+            if ( ir && ( debug_print & PRINT_IR_BUILD ) )
+                ir->debug_print();
+            if ( ! ir || source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
 
-        alloc.alloc( ir.get() );
-        if ( debug_print & PRINT_IR_ALLOC )
-            ir->debug_print();
-        if ( source.has_error )
-            return compile_result( std::move( source.diagnostics ) );
+            fold.fold( ir.get() );
+            if ( debug_print & PRINT_IR_FOLD )
+                ir->debug_print();
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
 
-        emit.emit( ir.get() );
-        if ( source.has_error )
-            return compile_result( std::move( source.diagnostics ) );
-    }
+            live.live( ir.get() );
+            if ( debug_print & PRINT_IR_LIVE )
+                ir->debug_print();
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
 
-    return compile_result( unit.pack(), std::move( source.diagnostics ) );
+            foldk.foldk( ir.get() );
+            if ( debug_print & PRINT_IR_FOLDK )
+                ir->debug_print();
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
+
+            live.live( ir.get() );
+            if ( debug_print & PRINT_IR_FOLD_LIVE )
+                ir->debug_print();
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
+
+            alloc.alloc( ir.get() );
+            if ( debug_print & PRINT_IR_ALLOC )
+                ir->debug_print();
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
+
+            emit.emit( ir.get() );
+            if ( source.has_error )
+                return compile_result( std::move( source.diagnostics ) );
+        }
+
+        compile_result result( unit.pack(), std::move( source.diagnostics ) );
+        if ( debug_print & PRINT_CODE )
+            ( (const code_script*)result.data() )->debug_print();
+
+        return result;
 
     }
     catch ( std::exception& e )
     {
 
-    source.error( 0, "internal: %s", e.what() );
-    return compile_result( std::move( source.diagnostics ) );
+        source.error( 0, "internal: %s", e.what() );
+        return compile_result( std::move( source.diagnostics ) );
 
     }
 }

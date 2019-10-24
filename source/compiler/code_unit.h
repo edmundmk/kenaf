@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef CODE_UNIT_H
-#define CODE_UNIT_H
+#ifndef KF_CODE_UNIT_H
+#define KF_CODE_UNIT_H
 
 /*
     How we build the code description.
@@ -17,7 +17,7 @@
 
 #include <memory>
 #include <vector>
-#include "kenaf/code.h"
+#include "../common/code.h"
 
 namespace kf
 {

@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_LIVE_H
-#define IR_LIVE_H
+#ifndef KF_IR_LIVE_H
+#define KF_IR_LIVE_H
 
 /*
     Perform liveness analysis.  After this process, each op in the IR has

@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef AST_RESOLVE_H
-#define AST_RESOLVE_H
+#ifndef KF_AST_RESOLVE_H
+#define KF_AST_RESOLVE_H
 
 /*
     -- Name Resolution

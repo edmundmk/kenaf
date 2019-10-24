@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_H
-#define IR_H
+#ifndef KF_IR_H
+#define KF_IR_H
 
 /*
     -- Intermediate Representation

@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_FOLDK_H
-#define IR_FOLDK_H
+#ifndef KF_IR_FOLDK_H
+#define KF_IR_FOLDK_H
 
 /*
     Builds final constant tables and inlines constant operands into

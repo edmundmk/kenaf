@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef IR_ALLOC_H
-#define IR_ALLOC_H
+#ifndef KF_IR_ALLOC_H
+#define KF_IR_ALLOC_H
 
 /*
     Perform register allocation.  Registers are allocated to values in a

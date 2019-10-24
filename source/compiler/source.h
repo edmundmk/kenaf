@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef SOURCE_H
-#define SOURCE_H
+#ifndef KF_SOURCE_H
+#define KF_SOURCE_H
 
 #include <stdlib.h>
 #include <stdint.h>

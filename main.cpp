@@ -32,13 +32,8 @@ int main( int argc, char* argv[] )
     fread( text.data(), 1, text.size(), file );
     fclose( file );
 
-    unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC;
+    unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC | kf::PRINT_CODE;
     kf::compile_result result = kf::compile( argv[ 1 ], std::string_view( text.data(), text.size() ), debug_print );
-
-    if ( result )
-    {
-        result.code()->debug_print();
-    }
 
     for ( size_t i = 0; i < result.diagnostic_count(); ++i )
     {

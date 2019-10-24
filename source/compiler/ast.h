@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef AST_H
-#define AST_H
+#ifndef KF_AST_H
+#define KF_AST_H
 
 /*
     The parser builds an AST for each function.  The AST is stored in a linear
