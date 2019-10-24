@@ -296,7 +296,87 @@ T* hash_table_erase( T* kv, size_t kvsize, const K& key, const HashT& hashT, con
 template < typename T, typename HashT, typename K, typename HashK, typename Equal >
 T* hash_table_assign( T* kv, size_t kvsize, const K& key, const HashT& hashT, const HashK& hashK, const Equal& equalTK )
 {
+    if ( ! kvsize )
+    {
+        return nullptr;
+    }
 
+    size_t hash = hashK( key );
+    T* main_slot = kv + ( hash & kvsize - 1u );
+    if ( ! main_slot->next )
+    {
+        // Main position is empty, insert here.
+        main_slot->next = (T*)-1;
+        return main_slot;
+    }
+
+    // Check if key exists.
+    T* slot = main_slot;
+    do
+    {
+        if ( equalTK( *slot, key ) )
+        {
+            return slot;
+        }
+        slot = slot->next;
+    }
+    while ( slot != (T*)-1 );
+
+    // Key is not in the table, and the main position is occupied.
+    size_t cuckoo_hash = hashT( *main_slot );
+    T* cuckoo_main_slot = kv + ( cuckoo_hash & kvsize - 1u );
+
+    // Cuckoo's main slot must be occupied, because the cuckoo exists.
+    assert( cuckoo_main_slot->next );
+
+    // Find nearby free slot.
+    T* free_slot = nullptr;
+    for ( T* slot = cuckoo_main_slot + 1; slot < kv + kvsize; ++slot )
+    {
+        if ( ! slot->next )
+        {
+            free_slot = slot;
+            break;
+        }
+    }
+
+    if ( ! free_slot ) for ( T* slot = cuckoo_main_slot - 1; slot >= kv; --slot )
+    {
+        if ( ! slot->next )
+        {
+            free_slot = slot;
+            break;
+        }
+    }
+
+    // Hash collision if both the occupying cuckoo and the key hash to the
+    // same bucket.  Link the free slot into the list starting at main.
+    if ( cuckoo_main_slot == main_slot )
+    {
+        free_slot->next = main_slot->next;
+        main_slot->next = free_slot;
+        return free_slot;
+    }
+
+    // Otherwise, the occupying element is a member of another bucket.  Find
+    // previous slot in that bucket's linked list.
+    T* prev_slot = cuckoo_main_slot;
+    while ( prev_slot->next != main_slot )
+    {
+        prev_slot = prev_slot->next;
+        assert( prev_slot != (T*)-1 );
+    }
+
+    // Move item from main_slot to free_slot and update bucket list.
+    T* next_slot = main_slot->next;
+    new ( free_slot ) T( std::move( main_slot ) );
+    prev_slot->next = free_slot;
+    free_slot->next = next_slot;
+
+    // Erase main_slot, as it's where we'll put the new element.
+    main_slot->~T();
+    main_slot->next = (T*)-1;
+    return main_slot;
 }
 
 }
