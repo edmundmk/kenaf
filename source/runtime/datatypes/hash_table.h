@@ -16,6 +16,7 @@
     bucket is linked into a list, using other positions in the array.
 */
 
+#include <assert.h>
 #include <iterator>
 #include <type_traits>
 #include <functional>
@@ -169,15 +170,10 @@ public:
 };
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_lookup( const HashKeyValue& hashkv, const T* kv, size_t kvsize, const K& key )
+const T* hash_table_lookup( const HashKeyValue& hashkv, const T* kv, size_t kvsize, const K& key, size_t hash )
 {
-    if ( ! kvsize )
-    {
-        return nullptr;
-    }
-
-    size_t hash = hashkv.hash( key );
-    const T* slot = kv + ( hash % kvsize );
+    assert( kvsize );
+    T* slot = kv + ( hash & kvsize - 1 );
     if ( ! slot->next )
     {
         return nullptr;
@@ -197,14 +193,9 @@ T* hash_table_lookup( const HashKeyValue& hashkv, const T* kv, size_t kvsize, co
 }
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
+T* hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
 {
-    if ( ! kvsize )
-    {
-        return nullptr;
-    }
-
-    size_t hash = hashkv.hash( key );
+    assert( kvsize );
     T* main_slot = kv + ( hash & kvsize - 1u );
     T* next_slot = main_slot->next;
     if ( ! next_slot )
@@ -253,24 +244,15 @@ T* hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& 
 }
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
+T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
 {
-    if ( ! kvsize )
+    assert( kvsize );
+    T* slot = kv + ( hash & kvsize - 1u );
+    if ( ! slot->next )
     {
         return nullptr;
     }
 
-    size_t hash = hashkv.hash( key );
-    T* main_slot = kv + ( hash & kvsize - 1u );
-    if ( ! main_slot->next )
-    {
-        // Main position is empty, insert here.
-        main_slot->next = (T*)-1;
-        return main_slot;
-    }
-
-    // Check if key exists.
-    T* slot = main_slot;
     do
     {
         if ( hashkv.equal( *slot, key ) )
@@ -280,6 +262,23 @@ T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
         slot = slot->next;
     }
     while ( slot != (T*)-1 );
+
+    return nullptr;
+}
+
+template < typename HashKeyValue, typename T, typename K >
+T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+{
+    assert( kvsize );
+
+    // Client should already have attempted to assign to existing key.
+    T* main_slot = kv + ( hash & kvsize - 1u );
+    if ( ! main_slot->next )
+    {
+        // Main position is empty, insert here.
+        main_slot->next = (T*)-1;
+        return main_slot;
+    }
 
     // Key is not in the table, and the main position is occupied.
     size_t cuckoo_hash = hashkv.hash( *main_slot );
