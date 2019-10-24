@@ -1,5 +1,5 @@
 //
-//  gcatomic.h
+//  atomic_load_store.h
 //
 //  Created by Edmund Kapusniak on 12/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef GCATOMIC_H
-#define GCATOMIC_H
+#ifndef KF_ATOMIC_LOAD_STORE_H
+#define KF_ATOMIC_LOAD_STORE_H
 
 /*
     Our concurrent garbage collector requires:
@@ -40,7 +40,7 @@
 #include <stdint.h>
 
 /*
-    Check for architectures where we know that our consume operations can be
+    Check for architectures where we know that our consume pattern can be
     implemented using relaxed loads.  In reality, this is every current
     architecture, but it's good practise to be conservative.
 */

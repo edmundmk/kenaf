@@ -15,7 +15,7 @@
     The garbage collector is a concurrent mark-sweep algorithm.
 */
 
-#include "gcatomic.h"
+#include "datatypes/atomic_load_store.h"
 
 namespace kf
 {
@@ -55,16 +55,16 @@ struct gc_header
 */
 
 template < typename T > using gc_ref = atomic_p< T >;
-template < typename T > inline T* gc_read( const gc_ref< T >& r );
-template < typename T > inline void gc_write( gc_ref< T >& r, T* v );
+template < typename T > T* gc_read( const gc_ref< T >& r );
+template < typename T > void gc_write( gc_ref< T >& r, T* v );
 
 /*
     A gcvalue, which is either a boxed number or a gcref.
 */
 
 using gc_value = atomic_u64;
-inline value gc_read( const gc_value& r );
-inline void gc_write( gc_value& r, value v );
+value gc_read( const gc_value& r );
+void gc_write( gc_value& r, value v );
 
 }
 
