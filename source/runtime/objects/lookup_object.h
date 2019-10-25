@@ -89,7 +89,7 @@ struct layout_object : public object
 
 struct slots_object : public object
 {
-    ref_value slots[];
+    ref_value slots[ 0 ];
 };
 
 struct lookup_object : public object

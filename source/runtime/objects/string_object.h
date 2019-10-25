@@ -17,6 +17,7 @@
 */
 
 #include <stddef.h>
+#include <string.h>
 #include <functional>
 #include <string_view>
 #include "object_model.h"
