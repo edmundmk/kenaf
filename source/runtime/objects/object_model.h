@@ -40,6 +40,18 @@ struct vm_context;
 
 struct value { uint64_t v; };
 
+/*
+    References that are read by the garbage collector must be atomic.  Writes
+    to GC references must use a write barrier.
+*/
+
+template < typename T > using ref = atomic_p< T >;
+template < typename T > T* read( const ref< T >& ref );
+template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
+
+using ref_value = atomic_u64;
+value read( const ref_value& ref );
+void write( vm_context* vm, ref_value& ref, value value );
 
 /*
     Base class of all objects.  It's empty - data is stored in the header.
@@ -71,7 +83,7 @@ enum object_type
 
 enum
 {
-    FLAG_KEY = 1 << 0,   // String is a key.
+    FLAG_KEY = 1 << 0, // String is a key.
 };
 
 /*
@@ -90,24 +102,11 @@ struct object_header
 object_header* header( object* object );
 
 /*
-    Allocate an object.
+    Object functions.
 */
 
 void* object_new( vm_context* vm, object_type type, size_t size );
 size_t object_size( vm_context* vm, object* object );
-
-/*
-    References that are read by the garbage collector must be atomic.  Writes
-    to GC references must use a write barrier.
-*/
-
-template < typename T > using ref = atomic_p< T >;
-template < typename T > T* read( const ref< T >& ref );
-template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
-
-using ref_value = atomic_u64;
-value read( const ref_value& ref );
-void write( vm_context* vm, ref_value& ref, value value );
 
 /*
     Inline functions.

@@ -130,11 +130,27 @@ protected:
 template < typename K, typename V, typename Hash, typename KeyEqual > template < typename M >
 typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::insert_or_assign( K&& key, M&& value )
 {
+    Hash keyhash;
+    size_t hash = keyhash( key );
+    keyval* main_slot = _kv + hash % _kvsize;
+    keyval* slot = assign_key( key, main_slot );
+    if ( ! slot )
+        slot = insert_key( key, hash, main_slot );
+    new ( &slot->kv ) std::pair< const K, V >( std::move( key ), std::forward< M >( value ) );
+    return iterator( slot );
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual > template < typename M >
 typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::insert_or_assign( const K& key, M&& value )
 {
+    Hash keyhash;
+    size_t hash = keyhash( key );
+    keyval* main_slot = _kv + hash % _kvsize;
+    keyval* slot = assign_key( key, main_slot );
+    if ( ! slot )
+        slot = insert_key( key, hash, main_slot );
+    new ( &slot->kv ) std::pair< const K, V >( key, std::forward< M >( value ) );
+    return iterator( slot );
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual >
@@ -180,8 +196,8 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
         return _kv;
     }
 
-    Hash keyhash = Hash();
-    KeyEqual keyequal = KeyEqual();
+    Hash keyhash;
+    KeyEqual keyequal;
 
     keyval* slot = _kv + keyhash( key ) % _kvsize;
     if ( slot->next ) do
@@ -205,13 +221,14 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
         return nullptr;
     }
 
-    KeyEqual keyequal = KeyEqual();
+    KeyEqual keyequal;
 
     keyval* slot = main_slot;
     if ( slot->next ) do
     {
         if ( keyequal( slot->kv.first, key ) )
         {
+            slot->kv.~pair();
             return slot;
         }
         slot = slot->next;
@@ -224,15 +241,14 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
 template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert_key( const K& key, size_t hash, keyval* main_slot )
 {
-    Hash keyhash = Hash();
-    KeyEqual keyequal = KeyEqual();
+    Hash keyhash;
 
     // Load factor is 87.5%.
     if ( _length >= _kvsize - ( _kvsize / 8 ) )
     {
         // Reallocate.  Last element of kv is a sentinel value.
         size_t new_kvsize = std::max< size_t >( ( _kvsize + 1 ) * 2, 16 ) - 1;
-        keyval* new_kv = calloc( new_kvsize + 1, sizeof( keyval ) );
+        keyval* new_kv = (keyval*)calloc( new_kvsize + 1, sizeof( keyval ) );
         new_kv[ new_kvsize ].next = (keyval*)-1;
 
         // Re-insert all elements.
@@ -240,7 +256,7 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
         {
             const K& key = _kv[ i ].kv.first;
             keyval* slot = new_kv + keyhash( key ) % new_kvsize;
-            new ( insert_key( key, new_kv, new_kvsize, slot )->kv ) std::pair< const K, V >( std::move( _kv[ i ].kv ) );
+            new ( &insert_key( key, new_kv, new_kvsize, slot )->kv ) std::pair< const K, V >( std::move( _kv[ i ].kv ) );
             _kv[ i ].kv.~pair();
         }
 
@@ -262,8 +278,7 @@ template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert_key( const K& key, keyval* kv, size_t kvsize, keyval* main_slot )
 {
     assert( kvsize );
-    Hash keyhash = Hash();
-    KeyEqual keyequal = KeyEqual();
+    Hash keyhash;
 
     // Client should already have attempted to assign to existing key.
     if ( ! main_slot->next )
@@ -274,7 +289,7 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
     }
 
     // Key is not in the table, and the main position is occupied.
-    size_t cuckoo_hash = keyhash( *main_slot );
+    size_t cuckoo_hash = keyhash( main_slot->kv.first );
     keyval* cuckoo_main_slot = kv + ( cuckoo_hash % kvsize );
 
     // Cuckoo's main slot must be occupied, because the cuckoo exists.
@@ -340,8 +355,8 @@ std::pair< bool, bool > hash_table< K, V, Hash, KeyEqual >::erase_key( const K& 
         return std::make_pair( false, false );
     }
 
-    Hash keyhash = Hash();
-    KeyEqual keyequal = KeyEqual();
+    Hash keyhash;
+    KeyEqual keyequal;
 
     keyval* main_slot = _kv + keyhash( key ) % _kvsize;
     keyval* next_slot = main_slot->next;

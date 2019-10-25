@@ -17,6 +17,7 @@
 
 #include "datatypes/hash_table.h"
 #include "datatypes/segment_list.h"
+#include "objects/lookup_object.h"
 #include "objects/string_object.h"
 
 namespace kf
@@ -24,7 +25,10 @@ namespace kf
 
 struct vm_context
 {
+    hash_table< object*, size_t > roots;
     hash_table< string_hashkey, string_object* > keys;
+    hash_table< lookup_object*, layout_object* > instance_layouts;
+    hash_table< layout_hashkey, layout_object* > splitkey_layouts;
 };
 
 }
