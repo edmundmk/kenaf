@@ -83,7 +83,8 @@ enum object_type
 
 enum
 {
-    FLAG_KEY = 1 << 0, // String is a key.
+    FLAG_KEY    = 1 << 0, // String object is a key.
+    FLAG_SEALED = 1 << 1, // Lookup object is sealed.
 };
 
 /*

@@ -78,7 +78,7 @@ inline bool operator != ( const layout_hashkey& a, const layout_hashkey& b )
     Object structures.
 */
 
-struct layout_object
+struct layout_object : public object
 {
     ref< object > parent;
     ref< string_object > key;
@@ -87,12 +87,12 @@ struct layout_object
     layout_object* next;
 };
 
-struct slots_object
+struct slots_object : public object
 {
     ref_value slots[];
 };
 
-struct lookup_object
+struct lookup_object : public object
 {
     ref< slots_object > slots;
     ref< layout_object > layout;
@@ -127,8 +127,8 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
     layout_object* layout = read( object->layout );
     if ( sel->cookie != layout->cookie )
     {
-        extern void lookup_selector( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
-        lookup_selector( vm, object, key, sel );
+        extern void lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+        lookup_getsel( vm, object, key, sel );
     }
     if ( sel->sindex != ~(uint32_t)0 )
     {
@@ -146,8 +146,8 @@ inline void lookup_setkey( vm_context* vm, lookup_object* object, string_object*
     layout_object* layout = read( object->layout );
     if ( sel->cookie != layout->cookie )
     {
-        extern void lookup_selector( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
-        lookup_selector( vm, object, key, sel );
+        extern void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+        lookup_setsel( vm, object, key, sel );
     }
     if ( sel->sindex != ~(uint32_t)0 )
     {
