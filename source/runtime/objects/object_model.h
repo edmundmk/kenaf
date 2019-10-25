@@ -37,7 +37,7 @@ struct vm_context;
           FFFF FFFF FFFF FFFF   +0
 */
 
-typedef struct value { uint64_t v; };
+struct value { uint64_t v; };
 
 
 /*

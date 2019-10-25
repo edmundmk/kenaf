@@ -17,13 +17,14 @@
 
 #include "datatypes/hash_table.h"
 #include "datatypes/segment_list.h"
+#include "objects/string_object.h"
 
 namespace kf
 {
 
 struct vm_context
 {
-
+    hash_table< string_hashkey, string_object* > keys;
 };
 
 }

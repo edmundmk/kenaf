@@ -49,7 +49,7 @@ inline bool operator != ( const string_hashkey& a, const string_hashkey& b )
     String object structure.
 */
 
-struct string_object
+struct string_object : public object
 {
     size_t size;
     char text[];
@@ -70,15 +70,16 @@ string_object* string_key( vm_context* vm, const char* text, size_t size );
 
 inline size_t string_hash( vm_context* vm, string_object* string )
 {
-    return std::hash< std::string_view >()( std::string_view( string->s, string->size ) );
+    return std::hash< std::string_view >()( std::string_view( string->text, string->size ) );
 }
 
-inline string_object* string_check_key( vm_context* vm, string_object* string )
+inline string_object* string_key( vm_context* vm, string_object* string )
 {
+    extern string_object* string_key_internal( vm_context*, string_object* );
     if ( header( string )->flags & FLAG_KEY )
         return string;
     else
-        return string_key( vm, string );
+        return string_key_internal( vm, string );
 }
 
 }
