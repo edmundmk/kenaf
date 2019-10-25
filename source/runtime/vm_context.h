@@ -21,18 +21,8 @@
 namespace kf
 {
 
-struct gc_header;
-
 struct vm_context
 {
-    // Write barrier mark state.
-    uint8_t mark_color;
-    segment_list< gc_header* > mark_list;
-
-    // Runtime tables.
-
-
-
 
 };
 

@@ -5,8 +5,8 @@
 
 namespace kf
 {
+
 hash_table< int, int > x;
-hash_set< int > s;
 segment_list< int > ss;
 
 }

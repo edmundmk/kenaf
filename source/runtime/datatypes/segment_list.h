@@ -93,17 +93,17 @@ public:
     iterator end()                                      { return iterator( _tail, _i ); }
     reference back()                                    { assert( ! empty() ); if ( _i > 0 ) return _tail->v[ _i - 1 ]; else return _tail->prev->v[ segment_size - 1 ]; }
 
-    void push_back( T&& element )                       { new ( push_alloc() ) T( std::move( element ) ); _i += 1; }
-    void push_back( const T& element )                  { new ( push_alloc() ) T( element ); _i += 1; }
-    template < typename ... A > void emplace_back( A ... arguments ) { new ( push_alloc() ) T( std::forward< A ... >( arguments ... ) ); _i += 1; }
+    void push_back( T&& element )                       { new ( allocate() ) T( std::move( element ) ); _i += 1; }
+    void push_back( const T& element )                  { new ( allocate() ) T( element ); _i += 1; }
+    template < typename ... A > void emplace_back( A ... arguments ) { new ( allocate() ) T( std::forward< A ... >( arguments ... ) ); _i += 1; }
     void pop_back();
     void clear();
 
-    void swap( segment_list& s )                        { std::swap( _head, s._head ); std::swap( _tail, s._tail ); std::swap( _i, s._i ); }
+    void swap( segment_list& s );
 
 private:
 
-    T* push_alloc();
+    T* allocate();
     void destroy();
 
     segment* _head;
@@ -148,7 +148,15 @@ void segment_list< T, segment_size >::clear()
 }
 
 template < typename T, size_t segment_size >
-T* segment_list< T, segment_size >::push_alloc()
+void segment_list< T, segment_size >::swap( segment_list& s )
+{
+    std::swap( _head, s._head );
+    std::swap( _tail, s._tail );
+    std::swap( _i, s._i );
+}
+
+template < typename T, size_t segment_size >
+T* segment_list< T, segment_size >::allocate()
 {
     if ( _i >= segment_size )
     {
@@ -183,6 +191,8 @@ void segment_list< T, segment_size >::destroy()
         ss = ss->next;
         free( zz );
     }
+    _head = _tail = nullptr;
+    _i = segment_size;
 }
 
 }
