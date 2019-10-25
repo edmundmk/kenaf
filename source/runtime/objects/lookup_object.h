@@ -41,6 +41,8 @@
     layout can reuse the result.
 */
 
+#include <functional>
+#include <string_view>
 #include "object_model.h"
 #include "string_object.h"
 
@@ -48,33 +50,121 @@ namespace kf
 {
 
 struct layout_object;
-struct slot_list_object;
+struct slots_object;
 struct lookup_object;
+struct selector;
+
+/*
+    Key for split map.
+*/
+
+struct layout_hashkey
+{
+    layout_object* layout;
+    string_object* key;
+};
+
+inline bool operator == ( const layout_hashkey& a, const layout_hashkey& b )
+{
+    return a.layout == b.layout && a.key == b.key;
+}
+
+inline bool operator != ( const layout_hashkey& a, const layout_hashkey& b )
+{
+    return ! operator == ( a, b );
+}
+
+/*
+    Object structures.
+*/
 
 struct layout_object
 {
-    ref< layout_object > parent;
+    ref< object > parent;
     ref< string_object > key;
     uint32_t cookie;
     uint32_t sindex;
     layout_object* next;
 };
 
-struct slot_list_object
+struct slots_object
 {
-    ref_value slots[]
+    ref_value slots[];
 };
 
 struct lookup_object
 {
-    ref< slot_list_object > slots;
+    ref< slots_object > slots;
     ref< layout_object > layout;
 };
 
+/*
+    Selector.
+*/
 
+struct selector
+{
+    uint32_t cookie;
+    uint32_t sindex;
+    ref_value* slot;
+};
 
+/*
+    Lookup functions.
+*/
 
+lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
+lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
+value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value );
+
+/*
+    Inline functions.
+*/
+
+inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+{
+    layout_object* layout = read( object->layout );
+    if ( sel->cookie != layout->cookie )
+    {
+        extern void lookup_selector( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+        lookup_selector( vm, object, key, sel );
+    }
+    if ( sel->sindex != ~(uint32_t)0 )
+    {
+        slots_object* slots = read( object->slots );
+        return read( slots->slots[ sel->sindex ] );
+    }
+    else
+    {
+        return read( *sel->slot );
+    }
+}
+
+inline void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value )
+{
+    layout_object* layout = read( object->layout );
+    if ( sel->cookie != layout->cookie )
+    {
+        extern void lookup_selector( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+        lookup_selector( vm, object, key, sel );
+    }
+    if ( sel->sindex != ~(uint32_t)0 )
+    {
+        slots_object* slots = read( object->slots );
+        write( vm, slots->slots[ sel->sindex ], value );
+    }
+    else
+    {
+        write( vm, *sel->slot, value );
+    }
+}
 
 }
+
+template <> struct std::hash< kf::layout_hashkey > : private std::hash< std::string_view >
+{
+    size_t operator () ( const kf::layout_hashkey& k ) { return std::hash< std::string_view >::operator () ( std::string_view( (char*)&k, sizeof( k ) ) ); }
+};
 
 #endif

@@ -15,6 +15,7 @@
     The basics of the object model for all garbage-collected objects.
 */
 
+#include <stddef.h>
 #include "../datatypes/atomic_load_store.h"
 
 namespace kf
@@ -93,6 +94,7 @@ object_header* header( object* object );
 */
 
 void* object_new( vm_context* vm, object_type type, size_t size );
+size_t object_size( vm_context* vm, object* object );
 
 /*
     References that are read by the garbage collector must be atomic.  Writes
@@ -106,6 +108,15 @@ template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
 using ref_value = atomic_u64;
 value read( const ref_value& ref );
 void write( vm_context* vm, ref_value& ref, value value );
+
+/*
+    Inline functions.
+*/
+
+inline object_header* header( object* object )
+{
+    return (object_header*)object - 1;
+}
 
 }
 

@@ -32,6 +32,9 @@ sources = [
     'source/compiler/lexer.cpp',
     'source/compiler/source.cpp',
     'source/compiler/parser.cpp',
+    'source/runtime/objects/lookup_object.cpp',
+    'source/runtime/objects/object_model.cpp',
+    'source/runtime/objects/string_object.cpp',
     'source/runtime/heap.cpp',
     'source/runtime/runtime.cpp',
 ]

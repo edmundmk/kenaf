@@ -62,8 +62,8 @@ public:
 
     private:
 
-        friend class basic_hash_table;
-        basic_iterator( constT* p )                             : _p( p ? next_slot( p ) : nullptr ) {}
+        friend class hash_table;
+        basic_iterator( keyval* p )                             : _p( p ? next_slot( p ) : nullptr ) {}
         keyval* next_slot( keyval* p )                          { while ( ! p->next ) ++p; return p; }
 
         keyval* _p;
@@ -183,7 +183,7 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
     Hash keyhash = Hash();
     KeyEqual keyequal = KeyEqual();
 
-    keyval* slot = _kv + hashkey( key ) % _kvsize;
+    keyval* slot = _kv + keyhash( key ) % _kvsize;
     if ( slot->next ) do
     {
         if ( keyequal( slot->kv.first, key ) )
