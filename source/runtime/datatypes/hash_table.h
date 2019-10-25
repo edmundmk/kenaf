@@ -12,8 +12,10 @@
 #define KF_HASH_TABLE_H
 
 /*
-    Hash table where keyvals are stored in a flat array.  Each keyval in a
-    bucket is linked into a list, using other positions in the array.
+    Hash table where keyvals are stored in a flat array, using open addressing.
+    Each entry in the array is a 'slot'.  Each element is either in it's
+    bucket's main slot (i.e. the one that it hashes to), or in a slot in a
+    linked list from that slot.
 */
 
 #include <assert.h>
@@ -150,6 +152,7 @@ T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
             break;
         }
     }
+    assert( free_slot );
 
     // Hash collision if both the occupying cuckoo and the key hash to the
     // same bucket.  Link the free slot into the list starting at main.
@@ -181,6 +184,49 @@ T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
     return main_slot;
 }
 
+template < typename HashKeyValue, typename T >
+bool hash_table_grow( const HashKeyValue& hashkv, T*& kv, size_t& kvsize, size_t length )
+{
+    // Load factor is 87.5%.
+    if ( length < kvsize - ( kvsize / 8 ) )
+    {
+        return false;
+    }
+
+    // Reallocate.  Last element of kv is a sentinel value.
+    size_t new_kvsize = std::max< size_t >( ( kvsize + 1 ) * 2, 16 ) - 1;
+    T* new_kv = calloc( new_kvsize + 1u, sizeof( T ) );
+    new_kv[ new_kvsize ].next = (T*)-1;
+
+    // Re-insert all elements.
+    for ( size_t i = 0; i < kvsize; ++i )
+    {
+        T* slot = new_kv + ( hashkv.hash( kv[ i ] ) % new_kvsize );
+        hashkv.move( hash_table_insert( hashkv(), new_kv, new_kvsize, hashkv.key( kv[ i ] ), slot ), kv[ i ] );
+        hashkv.destroy( kv + i );
+    }
+
+    // Update.
+    free( kv );
+    kv = new_kv;
+    kvsize = new_kvsize;
+    return true;
+}
+
+template < typename HashKeyValue, typename T >
+void hash_table_clear( const HashKeyValue& hashkv, T* kv, size_t kvsize )
+{
+    for ( size_t i = 0; i < kvsize; ++i )
+    {
+        if ( kv[ i ].next )
+        {
+            hashkv.destroy( kv + i );
+            kv[ i ].next = nullptr;
+        }
+    }
+    assert( kv[ kvsize ].next == (T*)-1 );
+}
+
 template < typename K, typename V, typename Hash = std::hash< K >, typename KeyEqual = std::equal_to< K > >
 class hash_table
 {
@@ -194,6 +240,7 @@ public:
 
     struct hashkv : public Hash, public KeyEqual
     {
+        const K& key( const keyval& keyval ) const              { return keyval.kv.first; }
         size_t hash( const K& key ) const                       { return Hash::operator () ( key ); }
         size_t hash( const keyval& keyval ) const               { return Hash::operator () ( keyval.kv.first ); }
         bool equal( const keyval& keyval, const K& key ) const  { return KeyEqual::operator () ( keyval.kv.first, key ); }
@@ -299,6 +346,7 @@ public:
 
     struct hashkv : public Hash, public KeyEqual
     {
+        const K& key( const keyval& keyval ) const              { return keyval.key; }
         size_t hash( const K& key ) const                       { return Hash::operator () ( key ); }
         size_t hash( const keyval& keyval ) const               { return Hash::operator () ( keyval.key ); }
         bool equal( const keyval& keyval, const K& key ) const  { return KeyEqual::operator () ( keyval.key, key ); }
@@ -413,34 +461,8 @@ typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, Ke
 template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert( const K& key, size_t hash, keyval* main_slot )
 {
-    // Check if table needs to grow.
-    if ( _length >= _kvsize - ( _kvsize / 8u ) )
-    {
-        // Reallocate.
-        size_t new_kvsize = std::max( ( _kvsize + 1u ) * 2u, 16u ) - 1u;
-        keyval* new_kv = calloc( new_kvsize + 1u, sizeof( keyval ) );
-        new_kv[ _kvsize ].next = (keyval*)-1;
-
-        // Re-insert all elements.
-        for ( size_t i = 0; i < _kvsize; ++i )
-        {
-            const keyval& old = _kv[ i ];
-            keyval* slot = new_kv + ( hashkv().hash( old.kv.first ) % new_kvsize );
-            slot = hash_table_insert( hashkv(), new_kv, new_kvsize, old.kv.first, slot );
-            slot->kv = std::move( old.kv );
-            old.kv.~pair();
-        }
-
-        // Update data.
-        free( _kv );
-        _kv = new_kv;
-        _kvsize = new_kvsize;
-
-        // Recalculate main slot.
+    if ( hash_table_grow( hashkv(), _kv, _kvsize, _length ) )
         main_slot = _kv + ( hash % _kvsize );
-    }
-
-    // Insert as new keyval.
     _length += 1;
     return hash_table_insert( hashkv(), _kv, _kvsize, key, main_slot );
 }
@@ -461,14 +483,7 @@ typename hash_table< K, V, Hash, KeyEqual >::size_type hash_table< K, V, Hash, K
 template < typename K, typename V, typename Hash, typename KeyEqual >
 void hash_table< K, V, Hash, KeyEqual >::clear()
 {
-    for ( size_t i = 0; i < _kvsize; ++i )
-    {
-        if ( _kv[ i ].next )
-        {
-            _kv[ i ].kv.~pair();
-            _kv[ i ].next = nullptr;
-        }
-    }
+    hash_table_clear( hashkv(), _kv, _kvsize );
     _length = 0;
 }
 
@@ -495,33 +510,8 @@ typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::
 template < typename K, typename Hash, typename KeyEqual >
 typename hash_set< K, Hash, KeyEqual >::keyval* hash_set< K, Hash, KeyEqual >::insert( const K& key, size_t hash, keyval* main_slot )
 {
-    if ( _length >= _kvsize - ( _kvsize / 8u ) )
-    {
-        // Reallocate.
-        size_t new_kvsize = std::max( ( _kvsize + 1u ) * 2u, 16u ) - 1u;
-        keyval* new_kv = calloc( new_kvsize + 1u, sizeof( keyval ) );
-        new_kv[ _kvsize ].next = (keyval*)-1;
-
-        // Re-insert all elements.
-        for ( size_t i = 0; i < _kvsize; ++i )
-        {
-            const keyval& old = _kv[ i ];
-            keyval* slot = new_kv + ( hashkv().hash( old.key ) % new_kvsize );
-            slot = hash_table_insert( hashkv(), new_kv, new_kvsize, old.key, slot );
-            slot->key = std::move( old.key );
-            old.key.~K();
-        }
-
-        // Update data.
-        free( _kv );
-        _kv = new_kv;
-        _kvsize = new_kvsize;
-
-        // Recalculate main slot.
+    if ( hash_table_grow( hashkv(), _kv, _kvsize, _length ) )
         main_slot = _kv + ( hash % _kvsize );
-    }
-
-    // Insert as new keyval.
     _length += 1;
     return hash_table_insert( hashkv(), _kv, _kvsize, key, main_slot );
 }
@@ -542,14 +532,7 @@ typename hash_set< K, Hash, KeyEqual >::size_type hash_set< K, Hash, KeyEqual >:
 template < typename K, typename Hash, typename KeyEqual >
 void hash_set< K, Hash, KeyEqual >::clear()
 {
-    for ( size_t i = 0; i < _kvsize; ++i )
-    {
-        if ( _kv[ i ].next )
-        {
-            _kv[ i ].key.~K();
-            _kv[ i ].next = nullptr;
-        }
-    }
+    hash_table_clear( hashkv(), _kv, _kvsize );
     _length = 0;
 }
 
