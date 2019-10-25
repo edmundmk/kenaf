@@ -18,24 +18,19 @@
 
 #include <assert.h>
 #include <iterator>
-#include <type_traits>
 #include <functional>
+#include <algorithm>
 #include <stdexcept>
 
 namespace kf
 {
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_lookup( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+T* hash_table_lookup( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
 {
     assert( kvsize );
-    T* slot = kv + ( hash % kvsize );
-    if ( ! slot->next )
-    {
-        return kv + kvsize;
-    }
-
-    do
+    T* slot = kv + ( hashkv.hash( key ) % kvsize );
+    if ( slot->next ) do
     {
         if ( hashkv.equal( *slot, key ) )
         {
@@ -49,10 +44,10 @@ T* hash_table_lookup( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
 }
 
 template < typename HashKeyValue, typename T, typename K >
-std::pair< bool, bool > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+std::pair< bool, bool > hash_table_erase( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key )
 {
     assert( kvsize );
-    T* main_slot = kv + ( hash % kvsize );
+    T* main_slot = kv + ( hashkv.hash( key ) % kvsize );
     T* next_slot = main_slot->next;
     if ( ! next_slot )
     {
@@ -100,16 +95,10 @@ std::pair< bool, bool > hash_table_erase( const HashKeyValue& hashkv, T* kv, siz
 }
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, T* slot )
 {
     assert( kvsize );
-    T* slot = kv + ( hash % kvsize );
-    if ( ! slot->next )
-    {
-        return nullptr;
-    }
-
-    do
+    if ( slot->next ) do
     {
         if ( hashkv.equal( *slot, key ) )
         {
@@ -123,12 +112,11 @@ T* hash_table_assign( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K&
 }
 
 template < typename HashKeyValue, typename T, typename K >
-T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, size_t hash )
+T* hash_table_insert( const HashKeyValue& hashkv, T* kv, size_t kvsize, const K& key, T* main_slot )
 {
     assert( kvsize );
 
     // Client should already have attempted to assign to existing key.
-    T* main_slot = kv + ( hash % kvsize );
     if ( ! main_slot->next )
     {
         // Main position is empty, insert here.
@@ -291,7 +279,7 @@ public:
 protected:
 
     keyval* lookup( const K& key ) const            { return hash_table_lookup( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ); }
-    keyval* insert( const K& key, size_t hash );
+    keyval* insert( const K& key, size_t hash, keyval* main_slot );
 
     keyval* _kv;
     size_t _kvsize;
@@ -393,8 +381,8 @@ public:
 
 private:
 
-    keyval* lookup( const K& key ) const        { return hash_table_lookup( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ); }
-    keyval* insert( const K& key, size_t hash );
+    keyval* lookup( const K& key ) const        { return hash_table_lookup( hashkv(), _kv, _kvsize, key ); }
+    keyval* insert( const K& key, size_t hash, keyval* main_slot );
 
     keyval* _kv;
     size_t _kvsize;
@@ -415,40 +403,59 @@ template < typename K, typename V, typename Hash, typename KeyEqual > template <
 typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::assign( const K& key, M&& value )
 {
     size_t hash = hashkv().hash( key );
-    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, hash ) )
+    keyval* main_slot = _kv + ( hash % _kvsize );
+    if ( keyval* slot = hash_table_assign( hashkv(), _kv, _kvsize, key, main_slot ) )
         slot->kv = std::make_pair( key, std::forward< M >( value ) );
     else
-        new ( &insert( key, hash )->kv ) std::pair< const K, V >( key, std::forward< M >( value ) );
+        new ( &insert( key, hash, main_slot )->kv ) std::pair< const K, V >( key, std::forward< M >( value ) );
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual >
-typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert( const K& key, size_t hash )
+typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::insert( const K& key, size_t hash, keyval* main_slot )
 {
-    if ( _length >= _kvsize - ( _kvsize / 8 ) )
+    // Check if table needs to grow.
+    if ( _length >= _kvsize - ( _kvsize / 8u ) )
     {
-        keyval* oldkv = _kv;
-        size_t oldkvsize = _kvsize;
+        // Reallocate.
+        size_t new_kvsize = std::max( ( _kvsize + 1u ) * 2u, 16u ) - 1u;
+        keyval* new_kv = calloc( new_kvsize + 1u, sizeof( keyval ) );
+        new_kv[ _kvsize ].next = (keyval*)-1;
 
+        // Re-insert all elements.
+        for ( size_t i = 0; i < _kvsize; ++i )
+        {
+            const keyval& old = _kv[ i ];
+            keyval* slot = new_kv + ( hashkv().hash( old.kv.first ) % new_kvsize );
+            slot = hash_table_insert( hashkv(), new_kv, new_kvsize, old.kv.first, slot );
+            slot->kv = std::move( old.kv );
+            old.kv.~pair();
+        }
 
+        // Update data.
+        free( _kv );
+        _kv = new_kv;
+        _kvsize = new_kvsize;
 
-
-
+        // Recalculate main slot.
+        main_slot = _kv + ( hash % _kvsize );
     }
+
+    // Insert as new keyval.
     _length += 1;
-    return hash_table_insert( hashkv(), _kv, _kvsize, key, hash );
+    return hash_table_insert( hashkv(), _kv, _kvsize, key, main_slot );
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, KeyEqual >::erase( const_iterator i )
 {
-    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first, hashkv().hash( i->first ) ).second;
+    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first ).second;
     return iterator( moved ? i._p + 1 : i._p );
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::size_type hash_table< K, V, Hash, KeyEqual >::erase( const K& key )
 {
-    return hash_table_erase( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ).first ? 1 : 0;
+    return hash_table_erase( hashkv(), _kv, _kvsize, key ).first ? 1 : 0;
 }
 
 template < typename K, typename V, typename Hash, typename KeyEqual >
@@ -486,30 +493,50 @@ typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::
 }
 
 template < typename K, typename Hash, typename KeyEqual >
-typename hash_set< K, Hash, KeyEqual >::keyval* hash_set< K, Hash, KeyEqual >::insert( const K& key, size_t hash )
+typename hash_set< K, Hash, KeyEqual >::keyval* hash_set< K, Hash, KeyEqual >::insert( const K& key, size_t hash, keyval* main_slot )
 {
-    if ( _length >= _kvsize - ( _kvsize / 8 ) )
+    if ( _length >= _kvsize - ( _kvsize / 8u ) )
     {
+        // Reallocate.
+        size_t new_kvsize = std::max( ( _kvsize + 1u ) * 2u, 16u ) - 1u;
+        keyval* new_kv = calloc( new_kvsize + 1u, sizeof( keyval ) );
+        new_kv[ _kvsize ].next = (keyval*)-1;
 
+        // Re-insert all elements.
+        for ( size_t i = 0; i < _kvsize; ++i )
+        {
+            const keyval& old = _kv[ i ];
+            keyval* slot = new_kv + ( hashkv().hash( old.key ) % new_kvsize );
+            slot = hash_table_insert( hashkv(), new_kv, new_kvsize, old.key, slot );
+            slot->key = std::move( old.key );
+            old.key.~K();
+        }
 
+        // Update data.
+        free( _kv );
+        _kv = new_kv;
+        _kvsize = new_kvsize;
 
-
+        // Recalculate main slot.
+        main_slot = _kv + ( hash % _kvsize );
     }
+
+    // Insert as new keyval.
     _length += 1;
-    return hash_table_insert( hashkv(), _kv, _kvsize, key, hash );
+    return hash_table_insert( hashkv(), _kv, _kvsize, key, main_slot );
 }
 
 template < typename K, typename Hash, typename KeyEqual >
 typename hash_set< K, Hash, KeyEqual >::iterator hash_set< K, Hash, KeyEqual >::erase( const_iterator i )
 {
-    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first, hashkv().hash( *i ) ).second;
+    bool moved = hash_table_erase( hashkv(), _kv, _kvsize, i->first ).second;
     return iterator( moved ? i._p + 1 : i._p );
 }
 
 template < typename K, typename Hash, typename KeyEqual >
 typename hash_set< K, Hash, KeyEqual >::size_type hash_set< K, Hash, KeyEqual >::erase( const K& key )
 {
-    return hash_table_erase( hashkv(), _kv, _kvsize, key, hashkv().hash( key ) ).first ? 1 : 0;
+    return hash_table_erase( hashkv(), _kv, _kvsize, key ).first ? 1 : 0;
 }
 
 template < typename K, typename Hash, typename KeyEqual >

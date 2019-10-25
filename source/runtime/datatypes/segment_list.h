@@ -17,7 +17,6 @@
 */
 
 #include <iterator>
-#include <type_traits>
 
 namespace kf
 {
@@ -135,21 +134,14 @@ void segment_list< T, segment_size >::clear()
         return;
     }
 
-    if ( ! std::is_trivially_destructible< T >::value )
+    for ( segment* ss = _head; ss != _tail; ss = ss->next )
     {
-        for ( segment* ss = _head; ss != _tail; ss = ss->next )
-        {
-            for ( size_t i = 0; i < segment_size; ++i )
-            {
-                ss->v[ i ].~T();
-            }
-        }
-
-        for ( size_t i = 0; i < _i; ++i )
-        {
-            _tail->v[ i ].~T();
-        }
+        for ( size_t i = 0; i < segment_size; ++i )
+            ss->v[ i ].~T();
     }
+
+    for ( size_t i = 0; i < _i; ++i )
+        _tail->v[ i ].~T();
 
     _tail = _head;
     _i = 0;
