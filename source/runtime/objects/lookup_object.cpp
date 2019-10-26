@@ -9,6 +9,7 @@
 //
 
 #include "lookup_object.h"
+#include <vector>
 #include "../vm_context.h"
 
 namespace kf
@@ -143,6 +144,27 @@ bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, s
     return false;
 }
 
+static layout_object* next_layout( vm_context* vm, layout_object* layout, string_object* key )
+{
+    layout_object* next_layout = layout->next;
+
+    if ( read( next_layout->key ) != key )
+    {
+        auto i = vm->splitkey_layouts.find( { layout, key } );
+        if ( i != vm->splitkey_layouts.end() )
+        {
+            next_layout = i->second;
+        }
+        else
+        {
+            next_layout = layout_new( vm, layout, key );
+        }
+    }
+
+    assert( next_layout->sindex == layout->sindex + 1 );
+    return next_layout;
+}
+
 void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
 {
     assert( header( key )->flags & FLAG_KEY );
@@ -169,20 +191,7 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     }
 
     // Determine new layout.
-    layout = lookup_layout->next;
-    if ( read( layout->key ) != key )
-    {
-        auto i = vm->splitkey_layouts.find( { lookup_layout, key } );
-        if ( i != vm->splitkey_layouts.end() )
-        {
-            layout = i->second;
-        }
-        else
-        {
-            layout = layout_new( vm, lookup_layout, key );
-        }
-    }
-    assert( layout->sindex == lookup_layout->sindex + 1 );
+    layout = next_layout( vm, lookup_layout, key );
 
     // Might need to reallocate slots.
     oslots_object* oslots = read( object->oslots );
@@ -228,10 +237,46 @@ bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key )
     return false;
 }
 
-void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
+bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 {
+    assert( header( key )->flags & FLAG_KEY );
 
+    // Remember all keys that we search past.
+    struct surviving_key { string_object* key; uint32_t sindex; };
+    std::vector< surviving_key > surviving_keys;
 
+    // 'Rewind' layout until we hit the key we're deleting.
+    layout_object* layout = read( object->layout );
+    while ( true )
+    {
+        string_object* layout_key = read( layout->key );
+        if ( ! layout_key )
+        {
+            return false;
+        }
+
+        uint32_t sindex = layout->sindex;
+        layout = (layout_object*)read( layout->parent );
+        if ( layout_key == key )
+        {
+            break;
+        }
+
+        surviving_keys.push_back( { layout_key, sindex } );
+    }
+
+    // Starting at layout, re-add keys.
+    oslots_object* oslots = read( object->oslots );
+    for ( auto i = surviving_keys.crbegin(); i != surviving_keys.crend(); ++i )
+    {
+        layout = next_layout( vm, layout, i->key );
+        assert( layout->sindex = i->sindex - 1 );
+        write( vm, oslots->slots[ layout->sindex ], read( oslots->slots[ i->sindex ] ) );
+    }
+
+    // Update layout.
+    write( vm, object->layout, layout );
+    return true;
 }
 
 }
