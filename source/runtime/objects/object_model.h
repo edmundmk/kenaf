@@ -84,8 +84,11 @@ enum object_type : uint8_t
     TABLE_OBJECT,
     FUNCTION_OBJECT,
     COTHREAD_OBJECT,
+    NUMBER_OBJECT,
+    BOOL_OBJECT,
     LAYOUT_OBJECT,
-    OSLOTS_OBJECT,
+    VSLOTS_OBJECT,
+    KVSLOTS_OBJECT,
 };
 
 /*

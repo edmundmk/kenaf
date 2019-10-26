@@ -56,9 +56,9 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
     return layout;
 }
 
-oslots_object* oslots_new( vm_context* vm, size_t size )
+vslots_object* vslots_new( vm_context* vm, size_t count )
 {
-    oslots_object* oslots = (oslots_object*)object_new( vm, OSLOTS_OBJECT, size * sizeof( ref_value ) );
+    vslots_object* oslots = (vslots_object*)object_new( vm, VSLOTS_OBJECT, count * sizeof( ref_value ) );
     return oslots;
 }
 
@@ -86,7 +86,7 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
 
     // Create object.
     lookup_object* object = (lookup_object*)object_new( vm, LOOKUP_OBJECT, sizeof( lookup_object ) );
-    winit( object->oslots, oslots_new( vm, 4 ) );
+    winit( object->oslots, vslots_new( vm, 4 ) );
     winit( object->layout, instance_layout );
 
     return object;
@@ -194,15 +194,15 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     layout = next_layout( vm, lookup_layout, key );
 
     // Might need to reallocate slots.
-    oslots_object* oslots = read( object->oslots );
-    uint32_t oslots_size = object_size( vm, oslots ) / sizeof( ref_value );
-    if ( layout->sindex >= oslots_size )
+    vslots_object* oslots = read( object->oslots );
+    size_t oslots_count = object_size( vm, oslots ) / sizeof( ref_value );
+    if ( layout->sindex >= oslots_count )
     {
-        uint32_t expand_size = oslots_size * 2;
-        if ( oslots_size >= 16 ) expand_size -= oslots_size / 2;
-        oslots_object* expand = oslots_new( vm, expand_size );
+        size_t expand_count = oslots_count * 2;
+        if ( oslots_count >= 16 ) expand_count -= oslots_count / 2;
+        vslots_object* expand = vslots_new( vm, expand_count );
 
-        for ( size_t i = 0; i < oslots_size; ++i )
+        for ( size_t i = 0; i < oslots_count; ++i )
         {
             winit( expand->slots[ i ], read( oslots->slots[ i ] ) );
         }
@@ -272,7 +272,7 @@ bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
     }
 
     // Starting at layout, re-add keys.
-    oslots_object* oslots = read( object->oslots );
+    vslots_object* oslots = read( object->oslots );
     for ( auto i = surviving_keys.crbegin(); i != surviving_keys.crend(); ++i )
     {
         layout = next_layout( vm, layout, i->key );

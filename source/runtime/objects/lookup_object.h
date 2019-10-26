@@ -50,7 +50,7 @@ namespace kf
 {
 
 struct layout_object;
-struct oslots_object;
+struct vslots_object;
 struct lookup_object;
 struct selector;
 
@@ -87,14 +87,14 @@ struct layout_object : public object
     layout_object* next;
 };
 
-struct oslots_object : public object
+struct vslots_object : public object
 {
     ref_value slots[ 0 ];
 };
 
 struct lookup_object : public object
 {
-    ref< oslots_object > oslots;
+    ref< vslots_object > oslots;
     ref< layout_object > layout;
 };
 
@@ -114,7 +114,7 @@ struct selector
 */
 
 layout_object* layout_new( vm_context* vm, object* parent, string_object* key );
-oslots_object* oslots_new( vm_context* vm, size_t size );
+vslots_object* vslots_new( vm_context* vm, size_t count );
 lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
 lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
 value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
