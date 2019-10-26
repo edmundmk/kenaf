@@ -16,6 +16,7 @@
 */
 
 #include <stddef.h>
+#include <assert.h>
 #include "../datatypes/atomic_load_store.h"
 
 namespace kf
@@ -40,6 +41,14 @@ struct vm_context;
 
 struct value { uint64_t v; };
 
+const value null_value = { 0 };
+const value false_value = { 1 };
+const value true_value = { 2 };
+
+inline bool is_null( value v )      { return v.v == null_value.v; }
+inline bool is_false( value v )     { return v.v == false_value.v; }
+inline bool is_true( value v )      { return v.v == true_value.v; }
+
 /*
     References that are read by the garbage collector must be atomic.  Writes
     to GC references must use a write barrier.
@@ -47,10 +56,12 @@ struct value { uint64_t v; };
 
 template < typename T > using ref = atomic_p< T >;
 template < typename T > T* read( const ref< T >& ref );
+template < typename T > void winit( ref< T >& ref, T* value );
 template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
 
 using ref_value = atomic_u64;
 value read( const ref_value& ref );
+void winit( ref_value& ref, value value );
 void write( vm_context* vm, ref_value& ref, value value );
 
 /*
@@ -65,7 +76,7 @@ struct object
     Each object type has a unique type index to identify it.
 */
 
-enum object_type
+enum object_type : uint8_t
 {
     LOOKUP_OBJECT,
     STRING_OBJECT,
@@ -73,8 +84,8 @@ enum object_type
     TABLE_OBJECT,
     FUNCTION_OBJECT,
     COTHREAD_OBJECT,
-    SLOT_LIST_OBJECT,
-    KEYVAL_LIST_OBJECT,
+    LAYOUT_OBJECT,
+    OSLOTS_OBJECT,
 };
 
 /*
@@ -95,7 +106,7 @@ enum
 struct object_header
 {
     atomic_u8 color;
-    uint8_t type;
+    object_type type;
     uint8_t flags;
     uint8_t refcount;
 };
@@ -118,6 +129,12 @@ template < typename T > inline T* read( const ref< T >& ref )
     return atomic_load( ref );
 }
 
+template < typename T > inline void winit( ref< T >& ref, T* value )
+{
+    assert( atomic_load( ref ) == nullptr );
+    atomic_store( ref, value );
+}
+
 template < typename T > inline void write( vm_context* vm, ref< T >& ref, T* value )
 {
     // TODO: pass previous unmarked value of reference to gc thread.
@@ -127,6 +144,12 @@ template < typename T > inline void write( vm_context* vm, ref< T >& ref, T* val
 inline value read( const ref_value& ref )
 {
     return { atomic_load( ref ) };
+}
+
+inline void winit( ref_value& ref, value value )
+{
+    assert( atomic_load( ref ) == 0 );
+    atomic_store( ref, value.v );
 }
 
 inline void write( vm_context* vm, ref_value& ref, value value )

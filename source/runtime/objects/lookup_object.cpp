@@ -14,14 +14,51 @@
 namespace kf
 {
 
-layout_object* layout_new( vm_context* vm, object* parent, string_object* key, uint32_t sindex )
+layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
 {
-    return nullptr;
+    layout_object* layout = (layout_object*)object_new( vm, LAYOUT_OBJECT, sizeof( layout_object ) );
+    winit( layout->parent, parent );
+    winit( layout->key, key );
+    layout->cookie = ++vm->next_cookie;
+
+    if ( layout->cookie == 0 )
+    {
+        throw std::out_of_range( "layout cookies exhausted" );
+    }
+
+    if ( key )
+    {
+        assert( header( key )->flags & FLAG_KEY );
+        layout_object* parent_layout = (layout_object*)parent;
+        layout->sindex = parent_layout->sindex + 1;
+        if ( layout->sindex == 0 )
+        {
+            throw std::out_of_range( "too many object slots" );
+        }
+
+        if ( ! parent_layout->next )
+        {
+            parent_layout->next = layout;
+        }
+        else
+        {
+            vm->splitkey_layouts.insert_or_assign( { parent_layout, key }, layout );
+        }
+    }
+    else
+    {
+        assert( header( parent )->flags & FLAG_SEALED );
+        layout->sindex = (uint32_t)-1;
+        vm->instance_layouts.insert_or_assign( (lookup_object*)parent, layout );
+    }
+
+    return layout;
 }
 
-slots_object* slots_new( vm_context* vm, size_t size )
+oslots_object* oslots_new( vm_context* vm, size_t size )
 {
-    return nullptr;
+    oslots_object* oslots = (oslots_object*)object_new( vm, OSLOTS_OBJECT, size * sizeof( ref_value ) );
+    return oslots;
 }
 
 lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
@@ -42,14 +79,14 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
     }
     else
     {
-        instance_layout = layout_new( vm, prototype, nullptr, -1 );
+        instance_layout = layout_new( vm, prototype, nullptr );
         vm->instance_layouts.insert_or_assign( prototype, instance_layout );
     }
 
     // Create object.
     lookup_object* object = (lookup_object*)object_new( vm, LOOKUP_OBJECT, sizeof( lookup_object ) );
-    write( vm, object->slots, slots_new( vm, 4 ) );
-    write( vm, object->layout, instance_layout );
+    winit( object->oslots, oslots_new( vm, 4 ) );
+    winit( object->layout, instance_layout );
 
     return object;
 }
@@ -66,12 +103,112 @@ lookup_object* lookup_prototype( vm_context* vm, lookup_object* object )
     return (lookup_object*)read( layout->parent );
 }
 
-void lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
 {
+    assert( header( key )->flags & FLAG_KEY );
+    layout_object* lookup_layout = read( object->layout );
 
+    // Search layout list for key.
+    layout_object* layout = lookup_layout;
+    while ( string_object* layout_key = read( layout->key ) )
+    {
+        if ( layout_key == key )
+        {
+            sel->cookie = lookup_layout->cookie;
+            sel->sindex = layout->sindex;
+            sel->slot = nullptr;
+            return true;
+        }
+        layout = (layout_object*)read( layout->parent );
+    }
+
+    // Search prototypes.
+    while ( object )
+    {
+        object = (lookup_object*)read( layout->parent );
+        layout = read( object->layout );
+        while ( string_object* layout_key = read( layout->key ) )
+        {
+            if ( layout_key == key )
+            {
+                sel->cookie = lookup_layout->cookie;
+                sel->sindex = ~(uint32_t)0;
+                sel->slot = &read( object->oslots )->slots[ layout->sindex ];
+                return true;
+            }
+            layout = (layout_object*)read( layout->parent );
+        }
+    }
+
+    return false;
 }
 
 void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+{
+    assert( header( key )->flags & FLAG_KEY );
+    layout_object* lookup_layout = read( object->layout );
+
+    // Search layout list for key.
+    layout_object* layout = lookup_layout;
+    while ( string_object* layout_key = read( layout->key ) )
+    {
+        if ( layout_key == key )
+        {
+            sel->cookie = layout->cookie;
+            sel->sindex = layout->sindex;
+            sel->slot = nullptr;
+            return;
+        }
+        layout = (layout_object*)read( layout->parent );
+    }
+
+    // Determine new layout.
+    layout = lookup_layout->next;
+    if ( read( layout->key ) != key )
+    {
+        auto i = vm->splitkey_layouts.find( { lookup_layout, key } );
+        if ( i != vm->splitkey_layouts.end() )
+        {
+            layout = i->second;
+        }
+        else
+        {
+            layout = layout_new( vm, lookup_layout, key );
+        }
+    }
+    assert( layout->sindex == lookup_layout->sindex + 1 );
+
+    // Might need to reallocate slots.
+    oslots_object* oslots = read( object->oslots );
+    uint32_t oslots_size = object_size( vm, oslots ) / sizeof( ref_value );
+    if ( layout->sindex >= oslots_size )
+    {
+        uint32_t expand_size = oslots_size * 2;
+        if ( oslots_size >= 16 ) expand_size -= oslots_size / 2;
+        oslots_object* expand = oslots_new( vm, expand_size );
+
+        for ( size_t i = 0; i < oslots_size; ++i )
+        {
+            winit( expand->slots[ i ], read( oslots->slots[ i ] ) );
+        }
+
+        write( vm, object->oslots, expand );
+    }
+
+    // Created slot.
+    sel->cookie = layout->cookie;
+    sel->sindex = layout->sindex;
+    sel->slot = nullptr;
+    return;
+}
+
+bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+{
+    // TODO.
+    return true;
+}
+
+void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 {
 }
 

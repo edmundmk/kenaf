@@ -50,7 +50,7 @@ namespace kf
 {
 
 struct layout_object;
-struct slots_object;
+struct oslots_object;
 struct lookup_object;
 struct selector;
 
@@ -87,14 +87,14 @@ struct layout_object : public object
     layout_object* next;
 };
 
-struct slots_object : public object
+struct oslots_object : public object
 {
     ref_value slots[ 0 ];
 };
 
 struct lookup_object : public object
 {
-    ref< slots_object > slots;
+    ref< oslots_object > oslots;
     ref< layout_object > layout;
 };
 
@@ -110,13 +110,17 @@ struct selector
 };
 
 /*
-    Lookup functions.
+    Functions.
 */
 
+layout_object* layout_new( vm_context* vm, object* parent, string_object* key );
+oslots_object* oslots_new( vm_context* vm, size_t size );
 lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
 lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
 value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
 void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value );
+bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
 
 /*
     Inline functions.
@@ -125,19 +129,21 @@ void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, s
 inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
 {
     layout_object* layout = read( object->layout );
-    if ( sel->cookie != layout->cookie )
+    extern bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+    if ( sel->cookie == layout->cookie || lookup_getsel( vm, object, key, sel ) )
     {
-        extern void lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
-        lookup_getsel( vm, object, key, sel );
-    }
-    if ( sel->sindex != ~(uint32_t)0 )
-    {
-        slots_object* slots = read( object->slots );
-        return read( slots->slots[ sel->sindex ] );
+        if ( sel->sindex != ~(uint32_t)0 )
+        {
+            return read( read( object->oslots )->slots[ sel->sindex ] );
+        }
+        else
+        {
+            return read( *sel->slot );
+        }
     }
     else
     {
-        return read( *sel->slot );
+        throw std::out_of_range( "lookup" );
     }
 }
 
@@ -149,15 +155,7 @@ inline void lookup_setkey( vm_context* vm, lookup_object* object, string_object*
         extern void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
         lookup_setsel( vm, object, key, sel );
     }
-    if ( sel->sindex != ~(uint32_t)0 )
-    {
-        slots_object* slots = read( object->slots );
-        write( vm, slots->slots[ sel->sindex ], value );
-    }
-    else
-    {
-        write( vm, *sel->slot, value );
-    }
+    write( vm, read( object->oslots )->slots[ sel->sindex ], value );
 }
 
 }

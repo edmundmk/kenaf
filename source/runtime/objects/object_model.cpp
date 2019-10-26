@@ -19,5 +19,11 @@ void* object_new( vm_context* vm, object_type type, size_t size )
     return nullptr;
 }
 
+size_t object_size( vm_context* vm, object* object )
+{
+    // TODO.
+    return 0;
+}
+
 }
 

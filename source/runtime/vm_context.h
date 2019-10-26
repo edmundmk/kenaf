@@ -29,6 +29,7 @@ struct vm_context
     hash_table< string_hashkey, string_object* > keys;
     hash_table< lookup_object*, layout_object* > instance_layouts;
     hash_table< layout_hashkey, layout_object* > splitkey_layouts;
+    uint32_t next_cookie;
 };
 
 }
