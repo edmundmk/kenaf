@@ -78,9 +78,13 @@ inline string_object* string_key( vm_context* vm, string_object* string )
 {
     extern string_object* string_key_internal( vm_context* vm, string_object* string );
     if ( header( string )->flags & FLAG_KEY )
+    {
         return string;
+    }
     else
+    {
         return string_key_internal( vm, string );
+    }
 }
 
 }
