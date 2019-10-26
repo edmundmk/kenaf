@@ -9,20 +9,25 @@
 //
 
 #include "object_model.h"
+#include <stdlib.h>
 
 namespace kf
 {
 
 void* object_new( vm_context* vm, object_type type, size_t size )
 {
-    // TODO.
-    return nullptr;
+    // TEMP.
+    void* p = calloc( 1, 8 + size );
+    *(uint32_t*)p = size;
+    object_header* header = (object_header*)( (char*)p + 4 );
+    header->type = type;
+    return header + 1;
 }
 
 size_t object_size( vm_context* vm, object* object )
 {
-    // TODO.
-    return 0;
+    // TEMP.
+    return *(uint32_t*)( (char*)object - 8 );
 }
 
 }
