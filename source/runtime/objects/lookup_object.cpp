@@ -162,6 +162,12 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
         layout = (layout_object*)read( layout->parent );
     }
 
+    // Check if object is sealed.
+    if ( header( object )->flags & FLAG_SEALED )
+    {
+        throw std::out_of_range( "sealed object" );
+    }
+
     // Determine new layout.
     layout = lookup_layout->next;
     if ( read( layout->key ) != key )
@@ -194,6 +200,9 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
 
         write( vm, object->oslots, expand );
     }
+
+    // Update layout.
+    write( vm, object->layout, layout );
 
     // Created slot.
     sel->cookie = layout->cookie;
