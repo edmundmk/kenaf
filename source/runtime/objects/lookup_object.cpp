@@ -241,6 +241,12 @@ bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 {
     assert( header( key )->flags & FLAG_KEY );
 
+    // Check if object is sealed.
+    if ( header( object )->flags & FLAG_SEALED )
+    {
+        throw std::out_of_range( "sealed object" );
+    }
+
     // Remember all keys that we search past.
     struct surviving_key { string_object* key; uint32_t sindex; };
     std::vector< surviving_key > surviving_keys;
