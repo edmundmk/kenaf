@@ -113,6 +113,28 @@ size_t object_size( vm_context* vm, object* object );
     Inline functions.
 */
 
+template < typename T > inline T* read( const ref< T >& ref )
+{
+    return atomic_load( ref );
+}
+
+template < typename T > inline void write( vm_context* vm, ref< T >& ref, T* value )
+{
+    // TODO: pass previous unmarked value of reference to gc thread.
+    atomic_store( ref, value );
+}
+
+inline value read( const ref_value& ref )
+{
+    return { atomic_load( ref ) };
+}
+
+inline void write( vm_context* vm, ref_value& ref, value value )
+{
+    // TODO: pass previous unmarked value of reference to gc thread.
+    atomic_store( ref, value.v );
+}
+
 inline object_header* header( object* object )
 {
     return (object_header*)object - 1;
