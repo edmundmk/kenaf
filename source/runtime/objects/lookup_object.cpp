@@ -202,14 +202,27 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     return;
 }
 
-bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key )
 {
-    // TODO.
-    return true;
+    assert( header( key )->flags & FLAG_KEY );
+
+    layout_object* layout = read( object->layout );
+    while ( string_object* layout_key = read( layout->key ) )
+    {
+        if ( layout_key == key )
+        {
+            return true;
+        }
+        layout = (layout_object*)read( layout->parent );
+    }
+
+    return false;
 }
 
 void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 {
+
+
 }
 
 }

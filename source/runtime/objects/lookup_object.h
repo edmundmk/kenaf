@@ -119,8 +119,8 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
 lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
 value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
 void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value );
-bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
-void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key );
+void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key );
 
 /*
     Inline functions.
