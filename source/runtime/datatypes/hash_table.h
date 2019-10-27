@@ -254,10 +254,14 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
         // Re-insert all elements.
         for ( size_t i = 0; i < _kvsize; ++i )
         {
-            const K& key = _kv[ i ].kv.first;
-            keyval* slot = new_kv + keyhash( key ) % new_kvsize;
-            new ( &insert_key( key, new_kv, new_kvsize, slot )->kv ) std::pair< const K, V >( std::move( _kv[ i ].kv ) );
-            _kv[ i ].kv.~pair();
+            keyval& kval = _kv[ i ];
+            if ( kval.next )
+            {
+                const K& key = kval.kv.first;
+                keyval* slot = new_kv + keyhash( key ) % new_kvsize;
+                new ( &insert_key( key, new_kv, new_kvsize, slot )->kv ) std::pair< const K, V >( std::move( kval.kv ) );
+                kval.kv.~pair();
+            }
         }
 
         // Update.

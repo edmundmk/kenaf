@@ -11,9 +11,43 @@
 #include "hash_table.h"
 #include <unordered_map>
 
+
+struct kv
+{
+    std::pair< const int, int > kv;
+    struct kv* next;
+};
+
+struct kvtable
+{
+    kv* kv;
+    size_t kvsize;
+    size_t length;
+};
+
+
+void debug_print( kf::hash_table< int, int >* table )
+{
+    kvtable* kvtable = (struct kvtable*)table;
+    printf( "HASH TABLE: kvsize : %zu, length : %zu\n", kvtable->kvsize, kvtable->length );
+    for ( size_t i = 0; i < kvtable->kvsize; ++i )
+    {
+        printf( "  %p : %i -> %i", kvtable->kv + i, kvtable->kv[ i ].kv.first, kvtable->kv[ i ].kv.second );
+        if ( kvtable->kv[ i ].next != (kv*)-1 )
+        {
+            printf( " : %p\n", kvtable->kv[ i ].next );
+        }
+        else
+        {
+            printf( " : END\n" );
+        }
+    }
+}
+
+
 int main( int argc, char* argv[] )
 {
-    srand( clock() );
+    srand( 0 );
 
     kf::hash_table< int, int > imap;
     std::unordered_map< int, int > umap;
@@ -24,6 +58,7 @@ int main( int argc, char* argv[] )
         int val = rand();
         imap.insert_or_assign( key, val );
         umap.insert_or_assign( key, val );
+        debug_print( &imap );
     }
 
     for ( auto i = imap.cbegin(); i != imap.cend(); ++i )
