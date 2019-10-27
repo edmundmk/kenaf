@@ -54,7 +54,7 @@ public:
         bool operator == ( const basic_iterator& i ) const      { return _p == i._p; }
         bool operator != ( const basic_iterator& i ) const      { return _p != i._p; }
 
-        basic_iterator& operator ++ ()                          { _p = next_slot( ++_p ); }
+        basic_iterator& operator ++ ()                          { _p = next_slot( ++_p ); return *this; }
         basic_iterator operator ++ ( int )                      { basic_iterator i( *this ); operator ++ (); return *this; }
 
         constT& operator * () const                             { return _p->kv; }
@@ -87,7 +87,7 @@ public:
     ~hash_table()                                       { destroy(); }
 
     size_type size() const                              { return _length; }
-    bool empty() const                                  { return _length = 0; }
+    bool empty() const                                  { return _length == 0; }
 
     const_iterator cbegin() const                       { return const_iterator( _kv ); }
     const_iterator begin() const                        { return const_iterator( _kv ); }
@@ -132,7 +132,7 @@ typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, Ke
 {
     Hash keyhash;
     size_t hash = keyhash( key );
-    keyval* main_slot = _kv + hash % _kvsize;
+    keyval* main_slot = _kvsize ? _kv + hash % _kvsize : nullptr;
     keyval* slot = assign_key( key, main_slot );
     if ( ! slot )
         slot = insert_key( key, hash, main_slot );
@@ -145,7 +145,7 @@ typename hash_table< K, V, Hash, KeyEqual >::iterator hash_table< K, V, Hash, Ke
 {
     Hash keyhash;
     size_t hash = keyhash( key );
-    keyval* main_slot = _kv + hash % _kvsize;
+    keyval* main_slot = _kvsize ? _kv + hash % _kvsize : nullptr;
     keyval* slot = assign_key( key, main_slot );
     if ( ! slot )
         slot = insert_key( key, hash, main_slot );
@@ -216,7 +216,7 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
 template < typename K, typename V, typename Hash, typename KeyEqual >
 typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, KeyEqual >::assign_key( const K& key, keyval* main_slot )
 {
-    if ( ! _kvsize )
+    if ( ! main_slot )
     {
         return nullptr;
     }
