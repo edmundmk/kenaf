@@ -208,7 +208,7 @@ void table_setindex( vm_context* vm, table_object* table, value key, value val )
     kvslot* main_slot;
 
     kvslots_object* kvslots = read( table->kvslots );
-    size_t kvcount = kvslots->count;
+    size_t kvcount = kvslots ? kvslots->count : 0;
 
     if ( kvcount )
     {
@@ -264,10 +264,80 @@ void table_setindex( vm_context* vm, table_object* table, value key, value val )
 
 void table_delindex( vm_context* vm, table_object* table, value key )
 {
+    kvslots_object* kvslots = read( table->kvslots );
+    if ( ! kvslots || ! table->length )
+    {
+        return;
+    }
+
+    key = key_value( key );
+    size_t kvcount = kvslots->count;
+    kvslot* main_slot = kvslots->slots + key_hash( key ) % kvcount;
+    kvslot* next_slot = main_slot->next;
+    if ( ! next_slot )
+    {
+        return;
+    }
+
+    if ( key_equal( read( main_slot->k ), key ) )
+    {
+        // Move next slot in linked list into main position.
+        if ( next_slot != (kvslot*)-1 )
+        {
+            write( vm, main_slot->k, read( next_slot->k ) );
+            write( vm, main_slot->v, read( next_slot->v ) );
+            main_slot->next = next_slot->next;
+            main_slot = next_slot;
+        }
+
+        // Erase newly empty slot.
+        write( vm, main_slot->k, { 0 } );
+        write( vm, main_slot->v, { 0 } );
+        main_slot->next = nullptr;
+        table->length -= 1;
+        return;
+    }
+
+    kvslot* prev_slot = main_slot;
+    while ( next_slot != (kvslot*)-1 )
+    {
+        if ( key_equal( read( next_slot->k ), key ) )
+        {
+            // Unlink and erase next_slot.
+            write( vm, next_slot->k, { 0 } );
+            write( vm, next_slot->v, { 0 } );
+            prev_slot->next = next_slot->next;
+            next_slot->next = nullptr;
+            table->length -= 1;
+            return;
+        }
+
+        prev_slot = next_slot;
+        next_slot = next_slot->next;
+    }
 }
 
 void table_clear( vm_context* vm, table_object* table )
 {
+    kvslots_object* kvslots = read( table->kvslots );
+    if ( ! kvslots )
+    {
+        return;
+    }
+
+    size_t kvcount = kvslots->count;
+    for ( size_t i = 0; i < kvcount; ++i )
+    {
+        kvslot* kval = kvslots->slots + i;
+        if ( kval->next )
+        {
+            write( vm, kval->k, { 0 } );
+            write( vm, kval->v, { 0 } );
+            kval->next = nullptr;
+        }
+    }
+
+    table->length = 0;
 }
 
 }
