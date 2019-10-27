@@ -10,6 +10,7 @@
 
 #include "hash_table.h"
 #include <unordered_map>
+#include <vector>
 
 
 size_t calc_hash( int i )
@@ -73,7 +74,68 @@ void debug_print( kf::hash_table< int, int >* table )
 
 int main( int argc, char* argv[] )
 {
-    srand( clock() );
+    srand( 0 ); //clock() );
+
+    if ( argc > 1 && strcmp( argv[ 1 ], "std" ) == 0 )
+    {
+        std::unordered_map< int, int > umap;
+        std::vector< int > keys;
+
+        for ( size_t i = 0; i < 1000000; ++i )
+        {
+            int key = rand();
+            int val = rand();
+            umap.insert_or_assign( key, val );
+            if ( rand() % 2 )
+            {
+                keys.push_back( key );
+            }
+        }
+
+        for ( int key : keys )
+        {
+            umap.erase( key );
+        }
+
+        long ii = 0;
+        for ( auto i = umap.begin(); i != umap.end(); ++i )
+        {
+            ii += i->second;
+        }
+
+        printf( "ii : %li\n", ii );
+        return EXIT_SUCCESS;
+    }
+    else if ( argc > 1 && strcmp( argv[ 1 ], "kf" ) == 0 )
+    {
+        kf::hash_table< int, int > umap;
+        std::vector< int > keys;
+
+        for ( size_t i = 0; i < 1000000; ++i )
+        {
+            int key = rand();
+            int val = rand();
+            umap.insert_or_assign( key, val );
+            if ( rand() % 2 )
+            {
+                keys.push_back( key );
+            }
+        }
+
+        for ( int key : keys )
+        {
+            umap.erase( key );
+        }
+
+        long ii = 0;
+        for ( auto i = umap.begin(); i != umap.end(); ++i )
+        {
+            ii += i->second;
+        }
+
+        printf( "ii : %li\n", ii );
+        return EXIT_SUCCESS;
+    }
 
     kf::hash_table< int, int > imap;
     std::unordered_map< int, int > umap;
