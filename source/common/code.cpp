@@ -50,9 +50,14 @@ const code_selector* code_function::selectors() const
     return (const code_selector*)( constants() + constant_count );
 }
 
+const uint32_t* code_function::functions() const
+{
+    return (const uint32_t*)( selectors() + selector_count );
+}
+
 const code_debug_function* code_function::debug_function() const
 {
-    const code_debug_function* d = (const code_debug_function*)( selectors() + selector_count );
+    const code_debug_function* d = (const code_debug_function*)( functions() + function_count );
     return d->code_size ? d : nullptr;
 }
 
@@ -176,6 +181,7 @@ void code_function::debug_print( const code_script* script ) const
     const op* ops = this->ops();
     const code_constant* constants = this->constants();
     const code_selector* selectors = this->selectors();
+    const uint32_t* functions = this->functions();
     const code_debug_function* debug = this->debug_function();
 
     if ( debug )
@@ -210,6 +216,13 @@ void code_function::debug_print( const code_script* script ) const
     {
         const code_selector& s = selectors[ i ];
         printf( "    %u : '%s'\n", i, heap + s.key );
+    }
+
+    printf( "  FUNCTIONS\n" );
+    for ( unsigned i = 0; i < function_count; ++i )
+    {
+        uint32_t f = functions[ i ];
+        printf( "    %u : %u\n", i, f );
     }
 
     for ( unsigned i = 0; i < op_count; ++i )

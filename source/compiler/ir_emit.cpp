@@ -159,6 +159,12 @@ void ir_emit::emit_constants()
         _unit->heap.insert( _unit->heap.end(), k.text, k.text + k.size );
         _unit->heap.push_back( '\0' );
     }
+
+    _u->functions.reserve( _f->functions.size() );
+    for ( const ast_function* f : _f->functions )
+    {
+        _u->functions.push_back( f->index );
+    }
 }
 
 void ir_emit::assemble()
@@ -274,7 +280,7 @@ void ir_emit::assemble()
         {
             assert( iop->ocount >= 1 );
             ir_operand operand = _f->operands[ iop->oindex + 0 ];
-            assert( operand.kind == IR_O_FUNCTION );
+            assert( operand.kind == IR_O_IFUNCREF );
             if ( iop->r == IR_INVALID_REGISTER )
             {
                 _source->error( iop->sloc, "internal: no allocated result register" );

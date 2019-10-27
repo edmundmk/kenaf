@@ -270,6 +270,13 @@ void ir_foldk::alloc_constants()
             break;
         }
 
+        case IR_NEW_FUNCTION:
+        {
+            ir_operand* f = &_f->operands[ op->oindex ];
+            *f = insert_function( *f );
+            break;
+        }
+
         default: break;
         }
     }
@@ -366,6 +373,21 @@ ir_operand ir_foldk::insert_selector( ir_operand operand )
     _selectors.push_back( sc );
     _selector_map.emplace( sv, index );
     return { IR_O_SELECTOR, index };
+}
+
+ir_operand ir_foldk::insert_function( ir_operand operand )
+{
+    assert( operand.kind == IR_O_FUNCTION );
+    for ( unsigned index = 0; index < _f->functions.size(); ++index )
+    {
+        if ( _f->functions[ index ]->index == operand.index )
+        {
+            return { IR_O_IFUNCREF, index };
+        }
+    }
+
+    ast_function* function = _f->ast->script->functions[ operand.index ].get();
+    return { IR_O_IFUNCREF, _f->functions.append( function ) };
 }
 
 }

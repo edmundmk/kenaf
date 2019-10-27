@@ -48,6 +48,7 @@ struct code_function_unit
     std::vector< op > ops;
     std::vector< code_constant > constants;
     std::vector< code_selector > selectors;
+    std::vector< uint32_t > functions;
     code_debug_function debug;
     std::vector< uint32_t > debug_slocs;
     std::vector< code_debug_variable > debug_variables;

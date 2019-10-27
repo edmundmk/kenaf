@@ -54,7 +54,7 @@ struct ast_script
     ast_function* new_function( srcloc sloc, ast_function* outer );
     void debug_print() const;
 
-    index_vector< std::unique_ptr< ast_function >, 0xFFFF > functions;
+    index_vector< std::unique_ptr< ast_function >, 0xFFFFFFFF > functions;
 };
 
 struct ast_outenv
@@ -91,7 +91,7 @@ struct ast_local
 
 struct ast_function
 {
-    ast_function( srcloc sloc, ast_function* outer, unsigned index );
+    ast_function( srcloc sloc, ast_script* script, ast_function* outer, unsigned index );
     ~ast_function();
 
     void fixup_nodes();
@@ -99,6 +99,7 @@ struct ast_function
 
     srcloc sloc;                // Source location of function.
     std::string name;           // Name of function.
+    ast_script* script;         // Script.
     ast_function* outer;        // Lexically outer function.
     unsigned index;             // Index of function in the AST.
     unsigned parameter_count;   // First count locals are parameters.

@@ -127,6 +127,9 @@ struct ir_function
     // Constant numbers and strings.
     index_vector< ir_constant, 0xFFFFFF > constants;
     index_vector< ir_selector, 0xFFFFFF > selectors;
+
+    // Functions used by this one.
+    index_vector< ast_function*, 0xFFFF > functions;
 };
 
 /*
@@ -247,7 +250,8 @@ enum ir_operand_kind : uint8_t
     IR_O_LOCAL,         // Index of local.
     IR_O_OUTENV,        // Index of outenv
     IR_O_ENVSLOT,       // Index of slot in varenv or outenv.
-    IR_O_FUNCTION,      // Index of function.
+    IR_O_FUNCTION,      // Index of AST function.
+    IR_O_IFUNCREF,      // Index of function in local ist.
 };
 
 enum ir_block_kind : uint8_t

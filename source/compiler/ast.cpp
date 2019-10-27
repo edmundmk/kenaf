@@ -117,7 +117,7 @@ ast_script::~ast_script()
 
 ast_function* ast_script::new_function( srcloc sloc, ast_function* outer )
 {
-    functions.append( std::make_unique< ast_function >( sloc, outer, functions.size() ) );
+    functions.append( std::make_unique< ast_function >( sloc, this, outer, functions.size() ) );
     return functions.back().get();
 }
 
@@ -129,8 +129,9 @@ void ast_script::debug_print() const
     }
 }
 
-ast_function::ast_function( srcloc sloc, ast_function* outer, unsigned index )
+ast_function::ast_function( srcloc sloc, ast_script* script, ast_function* outer, unsigned index )
     :   sloc( sloc )
+    ,   script( script )
     ,   outer( outer )
     ,   index( index )
     ,   parameter_count( 0 )

@@ -40,6 +40,7 @@ private:
     ir_operand insert_number( ir_operand operand );
     ir_operand insert_string( ir_operand operand );
     ir_operand insert_selector( ir_operand operand );
+    ir_operand insert_function( ir_operand operand );
 
     source* _source;
     ir_function* _f;

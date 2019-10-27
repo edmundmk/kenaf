@@ -182,9 +182,10 @@ enum
 struct code_function
 {
     uint32_t code_size;
-    uint32_t op_count;
+    uint16_t op_count;
     uint16_t constant_count;
     uint16_t selector_count;
+    uint16_t function_count;
     uint8_t outenv_count;
     uint8_t param_count;
     uint8_t stack_size;
@@ -193,6 +194,7 @@ struct code_function
     const op* ops() const;
     const code_constant* constants() const;
     const code_selector* selectors() const;
+    const uint32_t* functions() const;
     const code_debug_function* debug_function() const;
     const code_function* next() const;
 

@@ -257,6 +257,12 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             printf( " FUNCTION %u", operand.index );
             break;
         }
+
+        case IR_O_IFUNCREF:
+        {
+            printf( " IFUNCREF %u", operand.index );
+            break;
+        }
         }
     }
     if ( op.local() != IR_INVALID_LOCAL )

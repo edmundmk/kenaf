@@ -38,6 +38,7 @@ const code_script* code_unit::pack() const
         code_size += sizeof( op ) * funit->ops.size();
         code_size += sizeof( code_constant ) * funit->constants.size();
         code_size += sizeof( code_selector ) * funit->selectors.size();
+        code_size += sizeof( uint32_t ) * funit->functions.size();
         code_size += sizeof( code_debug_function );
         code_size += sizeof( uint32_t ) * funit->debug_slocs.size();
         code_size += sizeof( code_debug_variable ) * funit->debug_variables.size();
@@ -78,6 +79,7 @@ const code_script* code_unit::pack() const
         f->op_count = funit->ops.size();
         f->constant_count = funit->constants.size();
         f->selector_count = funit->selectors.size();
+        f->function_count = funit->functions.size();
         f->outenv_count = funit->function.outenv_count;
         f->param_count = funit->function.param_count;
         f->stack_size = funit->function.stack_size;
@@ -86,8 +88,9 @@ const code_script* code_unit::pack() const
         memcpy( (op*)f->ops(), funit->ops.data(), sizeof( op ) * funit->ops.size() );
         memcpy( (code_constant*)f->constants(), funit->constants.data(), sizeof( code_constant ) * funit->constants.size() );
         memcpy( (code_selector*)f->selectors(), funit->selectors.data(), sizeof( code_selector ) * funit->selectors.size() );
+        memcpy( (uint32_t*)f->functions(), funit->functions.data(), sizeof( uint32_t ) * funit->functions.size() );
 
-        code_debug_function* d = (code_debug_function*)( f->selectors() + f->selector_count );
+        code_debug_function* d = (code_debug_function*)( f->functions() + f->function_count );
         d->code_size = debug_size;
         d->function_name = funit->debug.function_name;
         d->sloc_count = funit->debug_slocs.size();
