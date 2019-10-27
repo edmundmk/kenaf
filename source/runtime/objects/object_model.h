@@ -102,6 +102,7 @@ enum object_type : uint8_t
     LAYOUT_OBJECT,
     VSLOTS_OBJECT,
     KVSLOTS_OBJECT,
+    CODE_OBJECT,
 };
 
 /*
