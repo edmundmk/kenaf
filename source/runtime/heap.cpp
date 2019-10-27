@@ -24,12 +24,12 @@ namespace kf
     Count leading and trailing zeroes.
 */
 
-inline uint32_t clz( uint32_t x )
+static inline uint32_t clz( uint32_t x )
 {
     return __builtin_clz( x );
 }
 
-inline uint32_t ctz( uint32_t x )
+static inline uint32_t ctz( uint32_t x )
 {
     return __builtin_ctz( x );
 }

@@ -17,6 +17,7 @@
 
 #include <stddef.h>
 #include <assert.h>
+#include <string.h>
 #include "../datatypes/atomic_load_store.h"
 
 namespace kf
@@ -25,11 +26,19 @@ namespace kf
 struct vm_context;
 
 /*
+    Base class of all objects.  It's empty - data is stored in the header.
+*/
+
+struct object {};
+
+/*
     Values are 64-bit 'nun-boxed' pointers/doubles.  Inverting the bits of
     a double puts negative NaNs at the bottom of the encoding space.  Both
     x86-64 and ARM64 have a 48-bit virtual address space.
 
           0000 0000 0000 0000   null
+          0000 0000 0000 0001   false
+          0000 0000 0000 0003   true
           0000 XXXX XXXX XXXX   object pointer
           000F FFFF FFFF FFFF   -infinity
           7FFF FFFF FFFF FFFF   -0
@@ -37,17 +46,29 @@ struct vm_context;
           800F FFFF FFFF FFFE   sNaN
           800F FFFF FFFF FFFF   +infinity
           FFFF FFFF FFFF FFFF   +0
+
+    All objects are allocated 8-byte aligned.  Bit 2 is used as a tag in
+    certain circumstances.  When a value is used as a table key, this bit
+    indicates that the key is a string.
 */
 
 struct value { uint64_t v; };
 
-const value null_value = { 0 };
+const value null_value  = { 0 };
 const value false_value = { 1 };
-const value true_value = { 2 };
+const value true_value  = { 3 };
 
-inline bool is_null( value v )      { return v.v == null_value.v; }
-inline bool is_false( value v )     { return v.v == false_value.v; }
-inline bool is_true( value v )      { return v.v == true_value.v; }
+inline bool is_null( value v )          { return v.v == null_value.v; }
+inline bool is_false( value v )         { return v.v == false_value.v; }
+inline bool is_true( value v )          { return v.v == true_value.v; }
+inline bool is_object( value v )        { return v.v > 3 && v.v < UINT64_C( 0x000F'FFFF'FFFF'FFFF ); }
+inline bool is_number( value v )        { return v.v >= UINT64_C( 0x000F'FFFF'FFFF'FFFF ); }
+
+inline value object_value( object* p )  { return { (uint64_t)p }; }
+inline object* as_object( value v )     { return (object*)v.v; }
+
+inline value number_value( double n )   { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
+inline double as_number( value v )      { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
 
 /*
     References that are read by the garbage collector must be atomic.  Writes
@@ -63,14 +84,6 @@ using ref_value = atomic_u64;
 value read( const ref_value& ref );
 void winit( ref_value& ref, value value );
 void write( vm_context* vm, ref_value& ref, value value );
-
-/*
-    Base class of all objects.  It's empty - data is stored in the header.
-*/
-
-struct object
-{
-};
 
 /*
     Each object type has a unique type index to identify it.

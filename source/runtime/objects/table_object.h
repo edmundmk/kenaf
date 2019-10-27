@@ -24,17 +24,17 @@ namespace kf
     Structures.
 */
 
-struct keyval
+struct kvslot
 {
     ref_value k;
     ref_value v;
-    keyval* next;
+    kvslot* next;
 };
 
 struct kvslots_object : public object
 {
     size_t count;
-    keyval slots[];
+    kvslot slots[];
 };
 
 struct table_object : public object
