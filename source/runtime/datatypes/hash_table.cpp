@@ -12,6 +12,12 @@
 #include <unordered_map>
 
 
+size_t calc_hash( int i )
+{
+    return std::hash< int >()( i );
+}
+
+
 struct kv
 {
     std::pair< const int, int > kv;
@@ -32,14 +38,34 @@ void debug_print( kf::hash_table< int, int >* table )
     printf( "HASH TABLE: kvsize : %zu, length : %zu\n", kvtable->kvsize, kvtable->length );
     for ( size_t i = 0; i < kvtable->kvsize; ++i )
     {
-        printf( "  %p : %i -> %i", kvtable->kv + i, kvtable->kv[ i ].kv.first, kvtable->kv[ i ].kv.second );
-        if ( kvtable->kv[ i ].next != (kv*)-1 )
+        kv* kval = kvtable->kv + i;
+        if ( kval->next )
         {
-            printf( " : %p\n", kvtable->kv[ i ].next );
+            size_t bucket = calc_hash( kval->kv.first ) % kvtable->kvsize;
+            while ( kval != (kv*)-1 )
+            {
+                size_t this_bucket = calc_hash( kval->kv.first ) % kvtable->kvsize;
+                printf( " %p -> %zu %i : %i ->", kval, this_bucket, kval->kv.first, kval->kv.second );
+
+                assert( this_bucket == bucket );
+                bool linked = false;
+                for ( kv* search = kvtable->kv + bucket; search != (kv*)-1; search = search->next )
+                {
+                    if ( search == kval )
+                    {
+                        linked = true;
+                        break;
+                    }
+                }
+                assert( linked );
+
+                kval = kval->next;
+            }
+            printf( " END\n" );
         }
         else
         {
-            printf( " : END\n" );
+            printf( " %p -> EMPTY\n", kval );
         }
     }
 }
@@ -47,7 +73,7 @@ void debug_print( kf::hash_table< int, int >* table )
 
 int main( int argc, char* argv[] )
 {
-    srand( 0 );
+    srand( clock() );
 
     kf::hash_table< int, int > imap;
     std::unordered_map< int, int > umap;
@@ -56,9 +82,13 @@ int main( int argc, char* argv[] )
     {
         int key = rand();
         int val = rand();
+
+        if ( i == 0 )
+            printf( "%i : %i ", key, val );
+
         imap.insert_or_assign( key, val );
         umap.insert_or_assign( key, val );
-        debug_print( &imap );
+//        debug_print( &imap );
     }
 
     for ( auto i = imap.cbegin(); i != imap.cend(); ++i )
@@ -106,12 +136,13 @@ int main( int argc, char* argv[] )
             fprintf( stderr, "umap value mismatch to imap\n" );
             return EXIT_FAILURE;
         }
+
         imap.erase( j );
     }
 
     if ( ! imap.empty() )
     {
-        fprintf( stderr, "imap is not empty after erasing all keys" );
+        fprintf( stderr, "imap is not empty after erasing all keys\n" );
         return EXIT_FAILURE;
     }
 
@@ -131,7 +162,7 @@ int main( int argc, char* argv[] )
 
     if ( ! imap.empty() )
     {
-        fprintf( stderr, "erasing during iteration left non-empty imap" );
+        fprintf( stderr, "erasing during iteration left non-empty imap\n" );
         return EXIT_FAILURE;
     }
 

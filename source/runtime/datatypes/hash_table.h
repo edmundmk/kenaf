@@ -341,10 +341,10 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
     // Move item from main_slot to free_slot.
     new ( &free_slot->kv ) std::pair< const K, V >( std::move( main_slot->kv ) );
     main_slot->kv.~pair();
+    keyval* next_slot = main_slot->next;
     main_slot->next = (keyval*)-1;
 
-    // Update bucket list.
-    keyval* next_slot = main_slot->next;
+    // Update bucket list for amended cuckoo bucket.
     prev_slot->next = free_slot;
     free_slot->next = next_slot;
 
@@ -354,7 +354,7 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
 template < typename K, typename V, typename Hash, typename KeyEqual >
 std::pair< bool, bool > hash_table< K, V, Hash, KeyEqual >::erase_key( const K& key )
 {
-    if ( ! _kvsize )
+    if ( ! _kvsize || ! _length )
     {
         return std::make_pair( false, false );
     }
@@ -385,6 +385,7 @@ std::pair< bool, bool > hash_table< K, V, Hash, KeyEqual >::erase_key( const K& 
 
         // Erase newly empty slot.
         main_slot->next = nullptr;
+        _length -= 1;
         return std::make_pair( true, next_slot < main_slot );
     }
 
@@ -399,6 +400,7 @@ std::pair< bool, bool > hash_table< K, V, Hash, KeyEqual >::erase_key( const K& 
             // Erase next_slot.
             next_slot->kv.~pair();
             next_slot->next = nullptr;
+            _length -= 1;
             return std::make_pair( true, false );
         }
 
