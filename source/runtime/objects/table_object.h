@@ -50,7 +50,7 @@ struct table_object : public object
 kvslots_object* kvslots_new( vm_context* vm, size_t count );
 table_object* table_new( vm_context* vm, size_t capacity );
 value table_getindex( vm_context* vm, table_object* table, value key );
-void table_setindex( vm_context* vm, table_object* table, value key, value value );
+void table_setindex( vm_context* vm, table_object* table, value key, value val );
 void table_delindex( vm_context* vm, table_object* table, value key );
 void table_clear( vm_context* vm, table_object* table );
 

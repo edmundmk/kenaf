@@ -139,24 +139,86 @@ value table_getindex( vm_context* vm, table_object* table, value key )
     throw std::out_of_range( "table" );
 }
 
-void table_setindex( vm_context* vm, table_object* table, value key, value value )
+static kvslot* table_insert( vm_context* vm, kvslots_object* kvslots, size_t kvcount, value key, kvslot* main_slot )
+{
+    // Insert in main slot if it's empty.
+    if ( main_slot->next )
+    {
+        main_slot->next = (kvslot*)-1;
+        return main_slot;
+    }
+
+    // Identify cuckoo.
+    size_t cuckoo_hash = key_hash( read( main_slot->k ) );
+    kvslot* cuckoo_main_slot = kvslots->slots + cuckoo_hash % kvcount;
+    assert( cuckoo_main_slot->next );
+
+    // Find nearby free slot.
+    kvslot* free_slot = nullptr;
+    for ( kvslot* slot = cuckoo_main_slot + 1; slot < kvslots->slots + kvcount; ++slot )
+    {
+        if ( ! slot->next )
+        {
+            free_slot = slot;
+            break;
+        }
+    }
+
+    if ( ! free_slot ) for ( kvslot* slot = cuckoo_main_slot - 1; slot >= kvslots->slots; --slot )
+    {
+        if ( ! slot->next )
+        {
+            free_slot = slot;
+            break;
+        }
+    }
+
+    // Check for hash collision if cuckoo and new entry hash to same bucket.
+    if ( cuckoo_main_slot == main_slot )
+    {
+        free_slot->next = main_slot->next;
+        main_slot->next = free_slot;
+        return free_slot;
+    }
+
+    // Find previous slot in cuckoo's bucket's linked list.
+    kvslot* prev_slot = cuckoo_main_slot;
+    while ( prev_slot->next != main_slot )
+    {
+        prev_slot = prev_slot->next;
+        assert( prev_slot != (kvslot*)-1 );
+    }
+
+    // Move item from main_slot to free_slot.
+    write( vm, free_slot->k, read( main_slot->k ) );
+    write( vm, free_slot->v, read( main_slot->v ) );
+
+    // Update bucket list for amended cuckoo bucket.
+    prev_slot->next = free_slot;
+    free_slot->next = main_slot->next;
+    main_slot->next = (kvslot*)-1;
+
+    return main_slot;
+}
+
+void table_setindex( vm_context* vm, table_object* table, value key, value val )
 {
     key = key_value( key );
     size_t hash = key_hash( key );
     kvslot* main_slot;
 
     kvslots_object* kvslots = read( table->kvslots );
-    size_t count = kvslots->count;
+    size_t kvcount = kvslots->count;
 
-    if ( count )
+    if ( kvcount )
     {
         // Check if the key already exists in the table.
-        kvslot* slot = main_slot = kvslots->slots + hash % count;
+        kvslot* slot = main_slot = kvslots->slots + hash % kvcount;
         if ( slot->next ) do
         {
             if ( key_equal( read( slot->k ), key ) )
             {
-                write( vm, slot->v, value );
+                write( vm, slot->v, val );
                 return;
             }
             slot = slot->next;
@@ -164,19 +226,40 @@ void table_setindex( vm_context* vm, table_object* table, value key, value value
         while ( slot != (kvslot*)-1 );
     }
 
-    if ( table->length >= count - ( count / 8 ) )
+    if ( table->length >= kvcount - ( kvcount / 8 ) )
     {
         // Reallocate kvslots with a larger count.
-        size_t new_count = std::max< size_t >( ( count + 1 ) * 2, 16 ) - 1;
-        kvslots_object* new_kvslots = kvslots_new( vm, new_count );
+        size_t new_kvcount = std::max< size_t >( ( kvcount + 1 ) * 2, 16 ) - 1;
+        kvslots_object* new_kvslots = kvslots_new( vm, new_kvcount );
 
         // Re-insert all elements.
-        for ( size_t i = 0; i < count; ++i )
+        for ( size_t i = 0; i < kvcount; ++i )
         {
+            kvslot* kval = kvslots->slots + i;
+            if ( kval->next )
+            {
+                value key = read( kval->k );
+                kvslot* slot = new_kvslots->slots + key_hash( key ) % new_kvcount;
+                slot = table_insert( vm, new_kvslots, new_kvcount, key, slot );
+                write( vm, slot->k, key );
+                write( vm, slot->v, val );
+            }
         }
 
+        // Update.
+        write( vm, table->kvslots, new_kvslots );
+        kvslots = new_kvslots;
+        kvcount = new_kvcount;
+
+        // Recalculate main slot in reallocated slots list.
+        main_slot = kvslots->slots + hash % kvcount;
     }
 
+    // Insert.
+    table->length += 1;
+    kvslot* slot = table_insert( vm, kvslots, kvcount, key, main_slot );
+    write( vm, slot->k, key );
+    write( vm, slot->v, val );
 }
 
 void table_delindex( vm_context* vm, table_object* table, value key )

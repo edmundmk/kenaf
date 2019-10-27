@@ -341,12 +341,11 @@ typename hash_table< K, V, Hash, KeyEqual >::keyval* hash_table< K, V, Hash, Key
     // Move item from main_slot to free_slot.
     new ( &free_slot->kv ) std::pair< const K, V >( std::move( main_slot->kv ) );
     main_slot->kv.~pair();
-    keyval* next_slot = main_slot->next;
-    main_slot->next = (keyval*)-1;
 
     // Update bucket list for amended cuckoo bucket.
     prev_slot->next = free_slot;
-    free_slot->next = next_slot;
+    free_slot->next = main_slot->next;
+    main_slot->next = (keyval*)-1;
 
     return main_slot;
 }
