@@ -9,6 +9,7 @@
 //
 
 #include "hash_table.h"
+#include <string.h>
 #include <unordered_map>
 #include <vector>
 
@@ -27,7 +28,7 @@ struct kv
 
 struct kvtable
 {
-    kv* kv;
+    struct kv* kv;
     size_t kvsize;
     size_t length;
 };
