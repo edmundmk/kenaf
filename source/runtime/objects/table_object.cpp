@@ -57,7 +57,7 @@ static inline string_object* as_string_key( value key )
     return (string_object*)( key.v & ~(uint64_t)4 );
 }
 
-static inline size_t hash_key( value key )
+static inline size_t key_hash( value key )
 {
     if ( ! is_string_key( key ) )
     {
@@ -70,7 +70,7 @@ static inline size_t hash_key( value key )
     }
 }
 
-static inline bool equal_key( value a, value b )
+static inline bool key_equal( value a, value b )
 {
     if ( a.v == b.v )
     {
@@ -121,11 +121,62 @@ table_object* table_new( vm_context* vm, size_t capacity )
 
 value table_getindex( vm_context* vm, table_object* table, value key )
 {
-
+    kvslots_object* kvslots = read( table->kvslots );
+    if ( kvslots->count )
+    {
+        key = key_value( key );
+        kvslot* slot = kvslots->slots + key_hash( key ) % kvslots->count;
+        if ( slot->next ) do
+        {
+            if ( key_equal( read( slot->k ), key ) )
+            {
+                return read( slot->v );
+            }
+            slot = slot->next;
+        }
+        while ( slot != (kvslot*)-1 );
+    }
+    throw std::out_of_range( "table" );
 }
 
 void table_setindex( vm_context* vm, table_object* table, value key, value value )
 {
+    key = key_value( key );
+    size_t hash = key_hash( key );
+    kvslot* main_slot;
+
+    kvslots_object* kvslots = read( table->kvslots );
+    size_t count = kvslots->count;
+
+    if ( count )
+    {
+        // Check if the key already exists in the table.
+        kvslot* slot = main_slot = kvslots->slots + hash % count;
+        if ( slot->next ) do
+        {
+            if ( key_equal( read( slot->k ), key ) )
+            {
+                write( vm, slot->v, value );
+                return;
+            }
+            slot = slot->next;
+        }
+        while ( slot != (kvslot*)-1 );
+    }
+
+    if ( table->length >= count - ( count / 8 ) )
+    {
+        // Reallocate kvslots with a larger count.
+        size_t new_count = std::max< size_t >( ( count + 1 ) * 2, 16 ) - 1;
+        kvslots_object* new_kvslots = kvslots_new( vm, new_count );
+
+        // Re-insert all elements.
+        for ( size_t i = 0; i < count; ++i )
+        {
+        }
+
+    }
+
 }
 
 void table_delindex( vm_context* vm, table_object* table, value key )
