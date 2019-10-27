@@ -189,7 +189,7 @@ struct code_function
     uint8_t outenv_count;
     uint8_t param_count;
     uint8_t stack_size;
-    uint8_t flags;
+    uint8_t code_flags;
 
     const op* ops() const;
     const code_constant* constants() const;

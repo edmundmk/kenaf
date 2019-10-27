@@ -112,11 +112,11 @@ void ir_emit::emit( ir_function* function )
     _u->function.outenv_count = _f->ast->outenvs.size();
     _u->function.param_count = _f->ast->parameter_count;
     _u->function.stack_size = 0;
-    _u->function.flags = 0;
+    _u->function.code_flags = 0;
     if ( _f->ast->is_varargs )
-        _u->function.flags |= CODE_FLAGS_VARARGS;
+        _u->function.code_flags |= CODE_FLAGS_VARARGS;
     if ( _f->ast->is_generator )
-        _u->function.flags |= CODE_FLAGS_GENERATOR;
+        _u->function.code_flags |= CODE_FLAGS_GENERATOR;
     _u->debug.function_name = _unit->debug_heap.size();
     _unit->debug_heap.insert( _unit->debug_heap.end(), _f->ast->name.begin(), _f->ast->name.end() );
     _unit->debug_heap.push_back( '\0' );

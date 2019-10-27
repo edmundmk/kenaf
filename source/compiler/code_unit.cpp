@@ -83,7 +83,7 @@ const code_script* code_unit::pack() const
         f->outenv_count = funit->function.outenv_count;
         f->param_count = funit->function.param_count;
         f->stack_size = funit->function.stack_size;
-        f->flags = funit->function.flags;
+        f->code_flags = funit->function.code_flags;
 
         memcpy( (op*)f->ops(), funit->ops.data(), sizeof( op ) * funit->ops.size() );
         memcpy( (code_constant*)f->constants(), funit->constants.data(), sizeof( code_constant ) * funit->constants.size() );

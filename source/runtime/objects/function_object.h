@@ -12,23 +12,36 @@
 #define KF_FUNCTION_OBJECT_H
 
 /*
-
+    Functions, cothreads, and supporting objects.
 */
 
+#include <vector>
 #include "object_model.h"
 #include "lookup_object.h"
+#include "../../common/code.h"
 
 namespace kf
 {
 
 /*
-
+    Objects.
 */
 
 struct code_object : public object
 {
+    uint16_t op_count;
+    uint16_t constant_count;
+    uint16_t selector_count;
+    uint16_t function_count;
+    uint8_t outenv_count;
+    uint8_t param_count;
+    uint8_t stack_size;
+    uint8_t code_flags;
 
-    ref< code_object > code[];
+    op* ops() const;
+    ref_value* constants() const;
+    selector* selectors() const;
+    ref< code_object >* functions() const;
 };
 
 struct function_object : public object
@@ -37,9 +50,14 @@ struct function_object : public object
     ref< vslots_object > outenvs[];
 };
 
+struct call_frame
+{
+};
+
 struct cothread_object : public object
 {
-
+    std::vector< value > stack;
+    std::vector< call_frame > call_frames;
 };
 
 /*
