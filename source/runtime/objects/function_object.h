@@ -24,11 +24,35 @@ namespace kf
 {
 
 /*
+    Utility.
+*/
+
+struct source_location
+{
+    unsigned line;
+    unsigned column;
+};
+
+/*
     Objects.
 */
 
-struct code_object : public object
+struct script_object : public object
 {
+    const char* name_text;
+    uint32_t name_size;
+    uint32_t newline_count;
+    uint32_t newlines[];
+};
+
+struct program_object : public object
+{
+    ref_value* constants;
+    selector* selectors;
+    ref< program_object >* functions;
+    ref< script_object > script;
+    const char* name_text;
+    uint32_t name_size;
     uint16_t op_count;
     uint16_t constant_count;
     uint16_t selector_count;
@@ -37,16 +61,12 @@ struct code_object : public object
     uint8_t param_count;
     uint8_t stack_size;
     uint8_t code_flags;
-
-    op* ops() const;
-    ref_value* constants() const;
-    selector* selectors() const;
-    ref< code_object >* functions() const;
+    op ops[];
 };
 
 struct function_object : public object
 {
-    ref< code_object > code;
+    ref< program_object > program;
     ref< vslots_object > outenvs[];
 };
 
@@ -64,7 +84,10 @@ struct cothread_object : public object
     Functions.
 */
 
-code_object* code_new( vm_context* vm, void* code, size_t size );
+script_object* script_new( vm_context* vm, code_script* code );
+program_object* program_new( vm_context* vm, void* code, size_t size );
+function_object* function_new( vm_context* vm, program_object* program );
+cothread_object* cothread_new( vm_context* vm );
 
 }
 
