@@ -114,9 +114,9 @@ def offset_momentum( bodies )
         pz += bi.vz * bi.mass
     end
     var sun = bodies[ 0 ]
-    sun.vx -= px / SOLAR_MASS;
-    sun.vy -= py / SOLAR_MASS;
-    sun.vz -= pz / SOLAR_MASS;
+    sun.vx -= px / SOLAR_MASS
+    sun.vy -= py / SOLAR_MASS
+    sun.vz -= pz / SOLAR_MASS
 end
 
 var _, n = args ...
