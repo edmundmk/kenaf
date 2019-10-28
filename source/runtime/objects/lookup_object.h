@@ -132,7 +132,7 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
     extern bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
     if ( sel->cookie == layout->cookie || lookup_getsel( vm, object, key, sel ) )
     {
-        if ( sel->sindex != ~(uint32_t)0 )
+        if ( sel->cookie != ~(uint32_t)0 )
         {
             return read( read( object->oslots )->slots[ sel->sindex ] );
         }

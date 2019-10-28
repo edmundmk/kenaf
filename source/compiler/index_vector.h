@@ -32,7 +32,7 @@ struct index_vector : public std::vector< T >
         unsigned index = this->size();
         if ( index >= limit )
         {
-            throw std::out_of_range( "limit exceeded" );
+            throw std::length_error( "limit exceeded" );
         }
         std::vector< T >::push_back( std::move( value ) );
         return index;
@@ -43,7 +43,7 @@ struct index_vector : public std::vector< T >
         unsigned index = this->size();
         if ( index >= limit )
         {
-            throw std::out_of_range( "limit exceeded" );
+            throw std::length_error( "limit exceeded" );
         }
         std::vector< T >::push_back( value );
         return index;

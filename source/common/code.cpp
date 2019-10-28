@@ -205,17 +205,17 @@ void code_function::debug_print( const code_script* script ) const
     for ( unsigned i = 0; i < constant_count; ++i )
     {
         const code_constant& k = constants[ i ];
-        if ( k.is_number() )
-            printf( "    %u : %f\n", i, k.as_number() );
+        if ( k.text == ~(uint32_t)0 )
+            printf( "    %u : %f\n", i, k.n );
         else
-            printf( "    %u : \"%s\"\n", i, heap + k.as_offset() );
+            printf( "    %u : \"%.*s\"\n", i, (int)k.size, heap + k.text );
     }
 
     printf( "  SELECTORS\n" );
     for ( unsigned i = 0; i < selector_count; ++i )
     {
         const code_selector& s = selectors[ i ];
-        printf( "    %u : '%s'\n", i, heap + s.key );
+        printf( "    %u : '%.*s'\n", i, s.size, heap + s.text );
     }
 
     printf( "  FUNCTIONS\n" );
@@ -287,17 +287,17 @@ void code_function::debug_print( const code_script* script ) const
                 case 'K':
                 {
                     const code_constant& k = constants[ v ];
-                    if ( k.is_number() )
-                        printf( "%f", k.as_number() );
+                    if ( k.text == ~(uint32_t)0 )
+                        printf( "%f", k.n );
                     else
-                        printf( "\"%s\"", heap + k.as_offset() );
+                        printf( "\"%.*s\"", (int)k.size, heap + k.text );
                     break;
                 }
 
                 case 'S':
                 {
                     const code_selector& s = selectors[ v ];
-                    printf( "'%s'", heap + s.key );
+                    printf( "'%.*s'", (int)s.size, heap + s.text );
                     break;
                 }
 

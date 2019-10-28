@@ -60,7 +60,7 @@ struct string_object : public object
     String functions.
 */
 
-string_object* string_new( vm_context* vm, size_t size );
+string_object* string_new( vm_context* vm, const char* text, size_t size );
 size_t string_hash( vm_context* vm, string_object* string );
 string_object* string_key( vm_context* vm, string_object* string );
 string_object* string_key( vm_context* vm, const char* text, size_t size );

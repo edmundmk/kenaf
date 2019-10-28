@@ -12,10 +12,10 @@
 #define KF_FUNCTION_OBJECT_H
 
 /*
-    Functions, cothreads, and supporting objects.
+    Functions and supporting objects.
 */
 
-#include <vector>
+#include <string_view>
 #include "object_model.h"
 #include "lookup_object.h"
 #include "../../common/code.h"
@@ -33,13 +33,18 @@ struct source_location
     unsigned column;
 };
 
+struct key_selector
+{
+    ref< string_object > key;
+    selector sel;
+};
+
 /*
     Objects.
 */
 
 struct script_object : public object
 {
-    const char* name_text;
     uint32_t name_size;
     uint32_t newline_count;
     uint32_t newlines[];
@@ -48,10 +53,9 @@ struct script_object : public object
 struct program_object : public object
 {
     ref_value* constants;
-    selector* selectors;
+    key_selector* selectors;
     ref< program_object >* functions;
     ref< script_object > script;
-    const char* name_text;
     uint32_t name_size;
     uint16_t op_count;
     uint16_t constant_count;
@@ -70,24 +74,18 @@ struct function_object : public object
     ref< vslots_object > outenvs[];
 };
 
-struct call_frame
-{
-};
-
-struct cothread_object : public object
-{
-    std::vector< value > stack;
-    std::vector< call_frame > call_frames;
-};
-
 /*
     Functions.
 */
 
 script_object* script_new( vm_context* vm, code_script* code );
+std::string_view script_name( vm_context* vm, script_object* script );
+
 program_object* program_new( vm_context* vm, void* code, size_t size );
+std::string_view program_name( vm_context* vm, program_object* program );
+source_location program_source_location( vm_context* vm, program_object* program, unsigned ip );
+
 function_object* function_new( vm_context* vm, program_object* program );
-cothread_object* cothread_new( vm_context* vm );
 
 }
 

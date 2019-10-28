@@ -203,27 +203,15 @@ struct code_function
 
 struct code_constant
 {
-    uint64_t v;
-
-    code_constant();
-    explicit code_constant( double n );
-    explicit code_constant( uint32_t s );
-
-    bool is_number() const;
-    double as_number() const;
-    size_t as_offset() const;
+    uint32_t text;
+    uint32_t size;
+    double n;
 };
-
-inline code_constant::code_constant() {}
-inline code_constant::code_constant( double n ) { uint64_t u; memcpy( &u, &n, sizeof( u ) ); v = ~u; }
-inline code_constant::code_constant( uint32_t s ) { v = s; }
-inline bool code_constant::is_number() const { return v > UINT_MAX; }
-inline double code_constant::as_number() const { uint64_t u = ~v; double n; memcpy( &n, &u, sizeof( n ) ); return n; }
-inline size_t code_constant::as_offset() const { return (uint32_t)v; }
 
 struct code_selector
 {
-    uint32_t key;
+    uint32_t text;
+    uint32_t size;
 };
 
 struct code_debug_function

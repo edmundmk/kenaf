@@ -14,10 +14,14 @@
 namespace kf
 {
 
-string_object* string_new( vm_context* vm, size_t size )
+string_object* string_new( vm_context* vm, const char* text, size_t size )
 {
     string_object* string = (string_object*)object_new( vm, STRING_OBJECT, sizeof( string_object ) + size );
     string->size = size;
+    if ( text )
+    {
+        memcpy( string->text, text, size );
+    }
     return string;
 }
 
@@ -47,8 +51,7 @@ string_object* string_key( vm_context* vm, const char* text, size_t size )
         return i->second;
     }
 
-    string_object* string = string_new( vm, size );
-    memcpy( string->text, text, size );
+    string_object* string = string_new( vm, text, size );
     hashkey = { hash, string->size, string->text };
 
     header( string )->flags |= FLAG_KEY;

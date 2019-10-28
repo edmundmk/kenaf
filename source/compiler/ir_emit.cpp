@@ -141,13 +141,12 @@ void ir_emit::emit_constants()
         code_constant kk;
         if ( k.text )
         {
-            kk = code_constant( (uint32_t)_unit->heap.size() );
+            kk = { (uint32_t)_unit->heap.size(), (uint32_t)k.size, 0.0 };
             _unit->heap.insert( _unit->heap.end(), k.text, k.text + k.size );
-            _unit->heap.push_back( '\0' );
         }
         else
         {
-            kk = code_constant( k.n );
+            kk = { ~(uint32_t)0, ~(uint32_t)0, k.n };
         }
         _u->constants.push_back( kk );
     }
@@ -155,9 +154,8 @@ void ir_emit::emit_constants()
     _u->selectors.reserve( _f->selectors.size() );
     for ( const ir_selector& k : _f->selectors )
     {
-        _u->selectors.push_back( { (uint32_t)_unit->heap.size() } );
+        _u->selectors.push_back( { (uint32_t)_unit->heap.size(), (uint32_t)k.size } );
         _unit->heap.insert( _unit->heap.end(), k.text, k.text + k.size );
-        _unit->heap.push_back( '\0' );
     }
 
     _u->functions.reserve( _f->functions.size() );
