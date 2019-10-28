@@ -25,7 +25,9 @@ namespace kf
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
-    return u.v > 1 && ( u.v & UINT64_C( 0x7FFF'FFFF'FFFF'FFFF ) ) != UINT64_C( 0x7FFF'FFFF'FFFF'FFFF );
+    return u.v > 1
+        && u.v != UINT64_C( 0x7FFF'FFFF'FFFF'FFFF )
+        && u.v != UINT64_C( 0xFFFF'FFFF'FFFF'FFFF );
 }
 
 void vm_execute( vm_context* context )
@@ -142,6 +144,17 @@ void vm_execute( vm_context* context )
         break;
     }
 
+    op_add:
+    {
+        value u = r[ op.a ];
+        if ( is_number( u ) )
+        {
+            r[ op.r ] = number_value( as_number( u ) + n );
+            break;
+        }
+        throw std::exception();
+    }
+
     case OP_ADD:
     {
         value v = r[ op.b ];
@@ -165,12 +178,12 @@ void vm_execute( vm_context* context )
         goto op_add;
     }
 
-    op_add:
+    op_sub:
     {
         value u = r[ op.a ];
         if ( is_number( u ) )
         {
-            r[ op.r ] = number_value( as_number( u ) + n );
+            r[ op.r ] = number_value( n - as_number( u ) );
             break;
         }
         throw std::exception();
@@ -199,20 +212,40 @@ void vm_execute( vm_context* context )
         goto op_sub;
     }
 
-    op_sub:
+    op_mul:
     {
         value u = r[ op.a ];
         if ( is_number( u ) )
         {
-            r[ op.r ] = number_value( n - as_number( u ) );
+            r[ op.r ] = number_value( as_number( u ) * n );
             break;
         }
         throw std::exception();
     }
 
     case OP_MUL:
+    {
+        value v = r[ op.b ];
+        if ( is_number( v ) )
+        {
+            n = as_number( v );
+            goto op_mul;
+        }
+        throw std::exception();
+    }
+
     case OP_MULN:
+    {
+        n = as_number( read( k[ op.b ] ) );
+        goto op_mul;
+    }
+
     case OP_MULI:
+    {
+        n = op.i;
+        goto op_mul;
+    }
+
     case OP_CONCAT:
     case OP_CONCATS:
     case OP_RCONCATS:
