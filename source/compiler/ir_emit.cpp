@@ -426,7 +426,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
 
     // Get operands.
     uint8_t r = 0;
-    if ( shape->kind == AB || shape->kind == AB_SWAP || shape->kind == AI || shape->kind == AI_SWAP || shape->kind == C )
+    if ( shape->kind == AB || shape->kind == AB_SWAP || shape->kind == AI || shape->kind == AI_SWAP || shape->kind == C || shape->kind == J )
     {
         if ( shape->ocount < 3 )
         {
