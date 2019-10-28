@@ -43,6 +43,9 @@ struct vm_context
     // Cothread stack.
     std::vector< cothread_object* > cothreads;
 
+    // Prototype objects.
+    lookup_object* prototypes[ TYPE_COUNT ];
+
     // Lookup object tables.
     hash_table< string_hashkey, string_object* > keys;
     hash_table< lookup_object*, layout_object* > instance_layouts;

@@ -104,6 +104,7 @@ enum type_code : uint8_t
     KVSLOTS_OBJECT,
     PROGRAM_OBJECT,
     SCRIPT_OBJECT,
+    TYPE_COUNT,
 };
 
 /*

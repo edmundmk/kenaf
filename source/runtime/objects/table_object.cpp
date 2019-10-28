@@ -81,11 +81,7 @@ static inline bool key_equal( value a, value b )
     {
         string_object* sa = as_string_key( a );
         string_object* sb = as_string_key( b );
-        if ( sa->size != sb->size )
-        {
-            return false;
-        }
-        return memcmp( sa->text, sb->text, sa->size ) == 0;
+        return sa->size == sb->size && memcmp( sa->text, sb->text, sa->size ) == 0;
     }
 
     return false;

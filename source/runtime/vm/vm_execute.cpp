@@ -34,13 +34,85 @@ static inline string_object* cast_string( value u )
 {
     if ( is_object( u ) )
     {
-        object* object = as_object( u );
-        if ( header( object )->type == STRING_OBJECT )
+        object* uo = as_object( u );
+        if ( header( uo )->type == STRING_OBJECT )
         {
-            return (string_object*)object;
+            return (string_object*)uo;
         }
     }
     return nullptr;
+}
+
+static lookup_object* keyer_of( vm_context* vm, value u )
+{
+    if ( is_number( u ) )
+    {
+        return vm->prototypes[ NUMBER_OBJECT ];
+    }
+    if ( u.v > 3 )
+    {
+        object* uo = as_object( u );
+        type_code type = header( uo )->type;
+        if ( type == LOOKUP_OBJECT )
+        {
+            return (lookup_object*)uo;
+        }
+        else
+        {
+            return vm->prototypes[ type ];
+        }
+    }
+    if ( u.v > 0 )
+    {
+        return vm->prototypes[ BOOL_OBJECT ];
+    }
+    return nullptr;
+}
+
+static bool value_is( vm_context* vm, value u, value v )
+{
+    if ( u.v == v.v )
+    {
+        return true;
+    }
+    if ( is_number( v ) )
+    {
+        if ( u.v == number_value( -0.0 ).v ) u = number_value( +0.0 );
+        if ( v.v == number_value( -0.0 ).v ) v = number_value( +0.0 );
+        return u.v == v.v;
+    }
+    if ( v.v > 3 )
+    {
+        object* vo = as_object( v );
+        type_code type = header( vo )->type;
+        if ( type == LOOKUP_OBJECT )
+        {
+            lookup_object* prototype = (lookup_object*)vo;
+            lookup_object* uo = keyer_of( vm, u );
+            while ( uo )
+            {
+                if ( uo == prototype )
+                {
+                    return true;
+                }
+                uo = lookup_prototype( vm, uo );
+            }
+        }
+        else if ( type == STRING_OBJECT )
+        {
+            if ( is_object( u ) )
+            {
+                object* uo = as_object( u );
+                if ( header( uo )->type == STRING_OBJECT )
+                {
+                    string_object* us = (string_object*)uo;
+                    string_object* vs = (string_object*)vo;
+                    return us->size == vs->size && memcmp( us->text, vs->text, us->size ) == 0;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 void vm_execute( vm_context* vm )
@@ -104,21 +176,21 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         if ( is_object( u ) )
         {
-            object* object = as_object( u );
-            type_code type = header( object )->type;
+            object* uo = as_object( u );
+            type_code type = header( uo )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r ] = number_value( ( (array_object*)object )->length );
+                r[ op.r ] = number_value( ( (array_object*)uo )->length );
                 break;
             }
             if ( type == TABLE_OBJECT )
             {
-                r[ op.r ] = number_value( ( (table_object*)object )->length );
+                r[ op.r ] = number_value( ( (table_object*)uo )->length );
                 break;
             }
             if ( type == STRING_OBJECT )
             {
-                r[ op.r ] = number_value( ( (string_object*)object )->size );
+                r[ op.r ] = number_value( ( (string_object*)uo )->size );
                 break;
             }
         }
@@ -422,9 +494,35 @@ void vm_execute( vm_context* vm )
     }
 
     case OP_IS:
+    {
+        r[ op.r ] = value_is( vm, r[ op.a ], r[ op.b ] ) ? true_value : false_value;
+        break;
+    }
+
     case OP_JMP:
+    {
+        ip += op.j;
+        break;
+    }
+
     case OP_JT:
+    {
+        if ( test( r[ op.r ] ) )
+        {
+            ip += op.j;
+        }
+        break;
+    }
+
     case OP_JF:
+    {
+        if ( ! test( r[ op.r ] ) )
+        {
+            ip += op.j;
+        }
+        break;
+    }
+
     case OP_JEQ:
     case OP_JEQN:
     case OP_JEQS:
