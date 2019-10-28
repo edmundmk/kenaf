@@ -30,9 +30,9 @@ static inline bool test( value u )
         && u.v != UINT64_C( 0xFFFF'FFFF'FFFF'FFFF );
 }
 
-void vm_execute( vm_context* context )
+void vm_execute( vm_context* vm )
 {
-    cothread_object* cothread = context->cothreads.back();
+    cothread_object* cothread = vm->cothreads.back();
 
     vm_stack_frame stack_frame = cothread->stack_frames.back();
     function_object* function = stack_frame.function;
@@ -46,7 +46,10 @@ void vm_execute( vm_context* context )
 
     while ( true )
     {
+
     double n;
+    string_object* us;
+    string_object* vs;
 
     op op = ops[ ip++ ];
     switch ( op.opcode )
@@ -246,9 +249,38 @@ void vm_execute( vm_context* context )
         goto op_mul;
     }
 
+    op_concat:
+    {
+        string_object* s = string_new( vm, nullptr, us->size + vs->size );
+        memcpy( s->text, us->text, us->size );
+        memcpy( s->text + us->size, vs->text, vs->size );
+        r[ op.r ] = object_value( s );
+        break;
+    }
+
+    op_concats:
+    {
+        value u = r[ op.a ];
+        vs = (string_object*)as_object( read( k[ op.b ] ) );
+        if ( is_object( u ) )
+        {
+        }
+    }
+
     case OP_CONCAT:
+    {
+    }
+
     case OP_CONCATS:
+    {
+        vs = (string_object*)as_object( read( k[ op.b ] ) );
+        goto op_concats;
+    }
+
     case OP_RCONCATS:
+    {
+    }
+
     case OP_DIV:
     case OP_INTDIV:
     case OP_MOD:
