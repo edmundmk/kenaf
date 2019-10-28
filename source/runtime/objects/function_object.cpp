@@ -10,6 +10,7 @@
 
 #include "function_object.h"
 #include <vector>
+#include <algorithm>
 
 namespace kf
 {
@@ -163,8 +164,10 @@ source_location program_source_location( vm_context* vm, program_object* program
     uint32_t sloc = ( (uint32_t*)( program->functions + program->function_count ) )[ ip ];
 
     // Search script for newline.
-
-
+    script_object* script = read( program->script );
+    auto i = std::upper_bound( script->newlines, script->newlines + script->newline_count, sloc );
+    assert( i > script->newlines );
+    return { (unsigned)( i - script->newlines ), (unsigned)( sloc - *( i - 1 ) + 1 ) };
 }
 
 function_object* function_new( vm_context* vm, program_object* program )
