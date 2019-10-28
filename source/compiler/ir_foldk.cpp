@@ -92,13 +92,13 @@ void ir_foldk::inline_operands()
             if ( fold_v.kind == IR_O_NUMBER )
             {
                 // Second operand is constant.
-                *v = immediate_number( fold_v );
+                *v = i_number( fold_v );
             }
             else if ( fold_u.kind == IR_O_NUMBER )
             {
                 // Operation is commutative, switch operands.
                 *u = *v;
-                *v = immediate_number( fold_u );
+                *v = i_number( fold_u );
             }
 
             break;
@@ -117,12 +117,12 @@ void ir_foldk::inline_operands()
                 double constant = _f->constants[ fold_v.index ].n;
                 fold_v.index = _f->constants.append( ir_constant( -constant ) );
                 op->opcode = IR_ADD;
-                *v = immediate_number( fold_v );
+                *v = i_number( fold_v );
             }
             else if ( fold_u.kind == IR_O_NUMBER )
             {
                 // First operand is constant.
-                *u = immediate_number( fold_u );
+                *u = i_number( fold_u );
             }
 
             break;
@@ -216,11 +216,7 @@ void ir_foldk::inline_operands()
 
             if ( fold_i.kind == IR_O_NUMBER )
             {
-                *i = immediate_number( fold_i );
-            }
-            else if ( fold_i.kind == IR_O_STRING )
-            {
-                *i = insert_string( fold_i );
+                *i = i_immediate( fold_i );
             }
 
             break;
@@ -254,7 +250,7 @@ void ir_foldk::alloc_constants()
             ir_operand* u = &_f->operands[ op->oindex ];
             if ( u->kind == IR_O_NUMBER )
             {
-                *u = insert_number( *u );
+                *u = j_number( *u );
             }
             else if ( u->kind == IR_O_STRING )
             {
@@ -283,7 +279,7 @@ void ir_foldk::alloc_constants()
 }
 
 
-ir_operand ir_foldk::immediate_number( ir_operand operand )
+ir_operand ir_foldk::i_number( ir_operand operand )
 {
     assert( operand.kind == IR_O_NUMBER );
     double number = _f->constants[ operand.index ].n;
@@ -296,6 +292,36 @@ ir_operand ir_foldk::immediate_number( ir_operand operand )
     {
         return insert_number( operand );
     }
+}
+
+ir_operand ir_foldk::j_number( ir_operand operand )
+{
+    assert( operand.kind == IR_O_NUMBER );
+    double number = _f->constants[ operand.index ].n;
+    int16_t imm16 = (int16_t)number;
+    if ( (double)imm16 == number )
+    {
+        return { IR_O_IMMEDIATE, (unsigned)imm16 };
+    }
+    else
+    {
+        return insert_number( operand );
+    }
+}
+
+ir_operand ir_foldk::i_immediate( ir_operand operand )
+{
+    if ( operand.kind == IR_O_NUMBER )
+    {
+        double number = _f->constants[ operand.index ].n;
+        int8_t imm8 = (int8_t)number;
+        if ( (double)imm8 == number )
+        {
+            return { IR_O_IMMEDIATE, (unsigned)imm8 };
+        }
+    }
+
+    return operand;
 }
 
 ir_operand ir_foldk::insert_number( ir_operand operand )

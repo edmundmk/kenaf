@@ -86,9 +86,9 @@ const char* const OPCODE_PRINT[] =
 {
     [ OP_MOV        ] = "MOV %$r, %$a",
     [ OP_SWP        ] = "SWP %$r, %$a",
-    [ OP_NULL       ] = "NULL %$r",
-    [ OP_BOOL       ] = "BOOL %$r, $Bc",
+    [ OP_LDV        ] = "LDV %$r, #$Vc",
     [ OP_LDK        ] = "LDK %$r, #$Kc",
+    [ OP_LDJ        ] = "LDJ %$r, #$j",
     [ OP_LEN        ] = "LEN %$r, %$a",
     [ OP_NEG        ] = "NEG %$r, %$a",
     [ OP_POS        ] = "POS %$r, %$a",
@@ -132,10 +132,8 @@ const char* const OPCODE_PRINT[] =
     [ OP_GET_KEY    ] = "GET_KEY %$r, %$a, #$Sb",
     [ OP_SET_KEY    ] = "SET_KEY %$r, %$a, #$Sb",
     [ OP_GET_INDEX  ] = "GET_INDEX %$r, %$a, %$b",
-    [ OP_GET_INDEXK ] = "GET_INDEXK %$r, %$a, #$Kb",
     [ OP_GET_INDEXI ] = "GET_INDEXI %$r, %$a, #$i",
     [ OP_SET_INDEX  ] = "SET_INDEX %$r, %$a, %$b",
-    [ OP_SET_INDEXK ] = "SET_INDEXK %$r, %$a, #$Kb",
     [ OP_SET_INDEXI ] = "SET_INDEXI %$r, %$a, #$i",
     [ OP_NEW_ENV    ] = "NEW_ENV %$r, #$c",
     [ OP_GET_VARENV ] = "GET_VARENV %$r, %$a, #$b",
@@ -275,6 +273,19 @@ void code_function::debug_print( const code_script* script ) const
                 case 'R':
                 {
                     printf( "%d", v );
+                    break;
+                }
+
+                case 'V':
+                {
+                    if ( v == 0 )
+                        printf( "null" );
+                    else if ( v == 1 )
+                        printf( "false" );
+                    else if ( v == 3 )
+                        printf( "true" );
+                    else
+                        printf( "!!%d", v );
                     break;
                 }
 

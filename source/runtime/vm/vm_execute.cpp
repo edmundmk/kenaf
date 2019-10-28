@@ -68,21 +68,21 @@ void vm_execute( vm_context* vm )
         break;
     }
 
-    case OP_NULL:
+    case OP_LDV:
     {
-        r[ op.r ] = null_value;
-        break;
-    }
-
-    case OP_BOOL:
-    {
-        r[ op.r ] = op.c ? true_value : false_value;
+        r[ op.r ] = { op.c };
         break;
     }
 
     case OP_LDK:
     {
         r[ op.r ] = read( program->constants[ op.c ] );
+        break;
+    }
+
+    case OP_LDJ:
+    {
+        r[ op.r ] = number_value( op.j );
         break;
     }
 
@@ -309,10 +309,8 @@ void vm_execute( vm_context* vm )
     case OP_GET_KEY:
     case OP_SET_KEY:
     case OP_GET_INDEX:
-    case OP_GET_INDEXK:
     case OP_GET_INDEXI:
     case OP_SET_INDEX:
-    case OP_SET_INDEXK:
     case OP_SET_INDEXI:
     case OP_NEW_ENV:
     case OP_GET_VARENV:

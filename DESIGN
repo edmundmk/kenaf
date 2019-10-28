@@ -299,7 +299,6 @@ environment records.
 
 BYTECODE IDEAS
 
-LDI instruction (to avoid loads of small constants from pool) if ADDI helps.
 GET_METHOD instruction which does the equivalent of
     GET_KEY r, a, #'method_name'
     MOV r+1, a
@@ -322,10 +321,4 @@ FOR_STEP improvements:
             /* could also save a register... */
     FOR_NEXT
             /* rename current FOR_STEP */
-
-
-split LDK into LDS/LDN/LDJ
-remove GET_INDEXK and SET_INDEXK
-split number and string constants, saves a not and fp<->integer stall in the decoder.
-maybe remove ADDN/SUBN/MULN.
 

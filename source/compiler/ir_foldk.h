@@ -36,7 +36,10 @@ private:
     void inline_operands();
     void alloc_constants();
 
-    ir_operand immediate_number( ir_operand operand );
+    ir_operand i_number( ir_operand operand );
+    ir_operand j_number( ir_operand operand );
+    ir_operand i_immediate( ir_operand operand );
+
     ir_operand insert_number( ir_operand operand );
     ir_operand insert_string( ir_operand operand );
     ir_operand insert_selector( ir_operand operand );

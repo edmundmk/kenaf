@@ -43,11 +43,12 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_BITXOR,        2, { IR_O_OP, IR_O_OP                   },  OP_BITXOR,      AB      },
     { IR_BITOR,         2, { IR_O_OP, IR_O_OP                   },  OP_BITOR,       AB      },
 
-    { IR_CONST,         1, { IR_O_NULL                          },  OP_NULL,        C       },
-    { IR_CONST,         1, { IR_O_TRUE                          },  OP_BOOL,        C       },
-    { IR_CONST,         1, { IR_O_FALSE                         },  OP_BOOL,        C       },
+    { IR_CONST,         1, { IR_O_NULL                          },  OP_LDV,         C       },
+    { IR_CONST,         1, { IR_O_TRUE                          },  OP_LDV,         C       },
+    { IR_CONST,         1, { IR_O_FALSE                         },  OP_LDV,         C       },
     { IR_CONST,         1, { IR_O_NUMBER                        },  OP_LDK,         C       },
     { IR_CONST,         1, { IR_O_STRING                        },  OP_LDK,         C       },
+    { IR_CONST,         1, { IR_O_IMMEDIATE                     },  OP_LDJ,         J       },
 
     { IR_EQ,            2, { IR_O_OP, IR_O_OP                   },  OP_JEQ,         JUMP    },
     { IR_EQ,            2, { IR_O_OP, IR_O_NUMBER               },  OP_JEQN,        JUMP    },
@@ -69,12 +70,8 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_GET_KEY,       2, { IR_O_OP, IR_O_SELECTOR             },  OP_GET_KEY,     AB      },
     { IR_SET_KEY,       3, { IR_O_OP, IR_O_SELECTOR, IR_O_OP    },  OP_SET_KEY,     AB      },
     { IR_GET_INDEX,     2, { IR_O_OP, IR_O_OP                   },  OP_GET_INDEX,   AB      },
-    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_NUMBER               },  OP_GET_INDEXK,  AB      },
-    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_STRING               },  OP_GET_INDEXK,  AB      },
     { IR_GET_INDEX,     2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_GET_INDEXI,  AI      },
     { IR_SET_INDEX,     3, { IR_O_OP, IR_O_OP, IR_O_OP          },  OP_SET_INDEX,   AB      },
-    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_NUMBER, IR_O_OP      },  OP_SET_INDEXK,  AB      },
-    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_STRING, IR_O_OP      },  OP_SET_INDEXK,  AB      },
     { IR_SET_INDEX,     3, { IR_O_OP, IR_O_IMMEDIATE, IR_O_OP   },  OP_SET_INDEXI,  AI      },
     { IR_NEW_ENV,       1, { IR_O_IMMEDIATE                     },  OP_NEW_ENV,     C       },
     { IR_GET_ENV,       2, { IR_O_OP, IR_O_ENVSLOT              },  OP_GET_VARENV,  AB      },
@@ -466,12 +463,24 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
         assert( u.kind != IR_O_OP );
         uint16_t c = 0;
         if ( u.kind == IR_O_TRUE )
-            c = 1;
+            c = 3;
         else if ( u.kind == IR_O_FALSE )
+            c = 1;
+        else if ( u.kind == IR_O_NULL )
             c = 0;
         else
             c = u.index;
         emit( iop->sloc, op::op_c( shape->copcode, r, c ) );
+        return op_index;
+    }
+
+    if ( shape->kind == J )
+    {
+        assert( shape->ocount == 1 );
+        ir_operand u = _f->operands[ iop->oindex + 0 ];
+        assert( u.kind == IR_O_IMMEDIATE );
+        int16_t j = (int16_t)u.index;
+        emit( iop->sloc, op::op_j( shape->copcode, r, j ) );
         return op_index;
     }
 

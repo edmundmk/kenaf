@@ -244,7 +244,7 @@ enum ir_operand_kind : uint8_t
     IR_O_FALSE,         // false
     IR_O_NUMBER,        // Constant number.
     IR_O_STRING,        // Constant string.
-    IR_O_IMMEDIATE,     // 8-bit signed immediate.
+    IR_O_IMMEDIATE,     // 8 or 16-bit signed immediate.
     IR_O_SELECTOR,      // Constant selector.
 
     IR_O_LOCAL,         // Index of local.

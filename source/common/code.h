@@ -36,9 +36,9 @@ enum opcode : uint8_t
     OP_MOV,             // r = a                    | M | r | a | - |
     OP_SWP,             // r <-> a                  | M | r | a | - |
 
-    OP_NULL,            // r = null                 | K | r |   -   |
-    OP_BOOL,            // r = c ? true : false     | K | r |   c   |
-    OP_LDK,             // r = k[c]                 | K | r |   c   |
+    OP_LDV,             // r = null / true / false  | L | r |   c   |
+    OP_LDK,             // r = k[c]                 | L | r |   c   |
+    OP_LDJ,             // r = c                    | L | r |   c   |
 
     OP_LEN,             // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
@@ -87,10 +87,8 @@ enum opcode : uint8_t
     OP_GET_KEY,         // r = a[ s[b] ]            | G | r | a | b |
     OP_SET_KEY,         // a[ s[b] ] = r            | G | r | a | b |
     OP_GET_INDEX,       // r = a[ b ]               | G | r | a | b |
-    OP_GET_INDEXK,      // r = a[ k[b] ]            | G | r | a | b |
     OP_GET_INDEXI,      // r = a[ %b ]              | G | r | a | b |
     OP_SET_INDEX,       // a[ b ] = r               | G | r | a | b |
-    OP_SET_INDEXK,      // a[ k[b] ] = r            | G | r | a | b |
     OP_SET_INDEXI,      // a[ %b ] = r              | G | r | a | b |
 
     OP_NEW_ENV,         // r = environment c        | N | r |   c   |
