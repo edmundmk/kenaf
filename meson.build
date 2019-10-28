@@ -40,7 +40,6 @@ sources = [
     'source/runtime/objects/string_object.cpp',
     'source/runtime/objects/table_object.cpp',
     'source/runtime/heap.cpp',
-    'source/runtime/runtime.cpp',
 ]
 
 sources += lemon.process( 'source/compiler/grammar.lemon' )

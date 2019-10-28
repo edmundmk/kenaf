@@ -9,7 +9,7 @@
 //
 
 #include "string_object.h"
-#include "../vm_context.h"
+#include "../vm/vm_context.h"
 
 namespace kf
 {

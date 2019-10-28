@@ -10,7 +10,7 @@
 
 #include "lookup_object.h"
 #include <vector>
-#include "../vm_context.h"
+#include "../vm/vm_context.h"
 
 namespace kf
 {
