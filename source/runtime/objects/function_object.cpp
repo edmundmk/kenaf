@@ -18,7 +18,7 @@ namespace kf
 script_object* script_new( vm_context* vm, code_script* code )
 {
     const char* name = code->debug_heap() + code->debug_script_name;
-    script_object* script = (script_object*)object_new( vm, SCRIPT_OBJECT, sizeof( script_object ) + sizeof( uint32_t ) * code->debug_newline_count + strlen( name ) );
+    script_object* script = new ( object_new( vm, SCRIPT_OBJECT, sizeof( script_object ) + sizeof( uint32_t ) * code->debug_newline_count + strlen( name ) ) ) script_object();
     script->name_size = strlen( name );
     script->newline_count = code->debug_newline_count;
     memcpy( (char*)( script->newlines + script->newline_count ), name, script->name_size );
@@ -84,7 +84,7 @@ program_object* program_new( vm_context* vm, void* data, size_t size )
         size += strlen( name );
 
         // Construct program.
-        program_object* program = (program_object*)object_new( vm, PROGRAM_OBJECT, size );
+        program_object* program = new ( object_new( vm, PROGRAM_OBJECT, size ) ) program_object();
 
         winit( program->script, script );
         program->name_size = strlen( name );
@@ -172,7 +172,7 @@ source_location program_source_location( vm_context* vm, program_object* program
 
 function_object* function_new( vm_context* vm, program_object* program )
 {
-    function_object* function = (function_object*)object_new( vm, FUNCTION_OBJECT, sizeof( function_object ) + sizeof( ref< vslots_object > ) * program->outenv_count );
+    function_object* function = new ( object_new( vm, FUNCTION_OBJECT, sizeof( function_object ) + sizeof( ref< vslots_object > ) * program->outenv_count ) ) function_object();
     winit( function->program, program );
     return function;
 }

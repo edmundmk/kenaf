@@ -15,7 +15,7 @@ namespace kf
 
 array_object* array_new( vm_context* vm, size_t capacity )
 {
-    array_object* array = (array_object*)object_new( vm, ARRAY_OBJECT, sizeof( array_object ) );
+    array_object* array = new ( object_new( vm, ARRAY_OBJECT, sizeof( array_object ) ) ) array_object();
     if ( capacity )
     {
         winit( array->aslots, vslots_new( vm, capacity ) );

@@ -16,7 +16,7 @@ namespace kf
 
 string_object* string_new( vm_context* vm, const char* text, size_t size )
 {
-    string_object* string = (string_object*)object_new( vm, STRING_OBJECT, sizeof( string_object ) + size );
+    string_object* string = new ( object_new( vm, STRING_OBJECT, sizeof( string_object ) + size ) ) string_object();
     string->size = size;
     if ( text )
     {

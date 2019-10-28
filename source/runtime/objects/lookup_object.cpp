@@ -17,7 +17,7 @@ namespace kf
 
 layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
 {
-    layout_object* layout = (layout_object*)object_new( vm, LAYOUT_OBJECT, sizeof( layout_object ) );
+    layout_object* layout = new ( object_new( vm, LAYOUT_OBJECT, sizeof( layout_object ) ) ) layout_object();
     winit( layout->parent, parent );
     winit( layout->key, key );
     layout->cookie = ++vm->next_cookie;
@@ -58,7 +58,7 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
 
 vslots_object* vslots_new( vm_context* vm, size_t count )
 {
-    vslots_object* oslots = (vslots_object*)object_new( vm, VSLOTS_OBJECT, count * sizeof( ref_value ) );
+    vslots_object* oslots = new ( object_new( vm, VSLOTS_OBJECT, count * sizeof( ref_value ) ) ) vslots_object();
     return oslots;
 }
 
@@ -85,7 +85,7 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
     }
 
     // Create object.
-    lookup_object* object = (lookup_object*)object_new( vm, LOOKUP_OBJECT, sizeof( lookup_object ) );
+    lookup_object* object = new ( object_new( vm, LOOKUP_OBJECT, sizeof( lookup_object ) ) ) lookup_object();
     winit( object->oslots, vslots_new( vm, 4 ) );
     winit( object->layout, instance_layout );
 

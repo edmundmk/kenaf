@@ -13,5 +13,10 @@
 namespace kf
 {
 
+cothread_object* cothread_new( vm_context* vm )
+{
+    return new ( object_new( vm, COTHREAD_OBJECT, sizeof( cothread_object ) ) ) cothread_object();
+}
+
 }
 

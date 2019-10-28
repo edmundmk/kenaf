@@ -97,7 +97,7 @@ static inline bool key_equal( value a, value b )
 
 kvslots_object* kvslots_new( vm_context* vm, size_t count )
 {
-    kvslots_object* kvslots = (kvslots_object*)object_new( vm, KVSLOTS_OBJECT, sizeof( kvslots_object ) + ( count + 1 ) * sizeof( kvslot ) );
+    kvslots_object* kvslots = new ( object_new( vm, KVSLOTS_OBJECT, sizeof( kvslots_object ) + ( count + 1 ) * sizeof( kvslot ) ) ) kvslots_object();
     kvslots->count = count;
     kvslots->slots[ count ].next = (kvslot*)-1;
     return kvslots;
@@ -109,7 +109,7 @@ kvslots_object* kvslots_new( vm_context* vm, size_t count )
 
 table_object* table_new( vm_context* vm, size_t capacity )
 {
-    table_object* table = (table_object*)object_new( vm, TABLE_OBJECT, sizeof( table_object ) );
+    table_object* table = new ( object_new( vm, TABLE_OBJECT, sizeof( table_object ) ) ) table_object();
     if ( capacity != 0 )
     {
         capacity += capacity / 4;
