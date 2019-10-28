@@ -322,3 +322,7 @@ FOR_STEP improvements:
     FOR_NEXT
             /* rename current FOR_STEP */
 
+Maybe replace i and j immediates with some kind of small float packing,
+allowing us to recover a double using integer instructions - cvtsi2sd is a
+pretty heavyweight instruction.  This would also reduce the need for MULK.
+
