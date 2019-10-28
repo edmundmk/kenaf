@@ -30,6 +30,19 @@ static inline bool test( value u )
         && u.v != UINT64_C( 0xFFFF'FFFF'FFFF'FFFF );
 }
 
+static inline string_object* cast_string( value u )
+{
+    if ( is_object( u ) )
+    {
+        object* object = as_object( u );
+        if ( header( object )->type == STRING_OBJECT )
+        {
+            return (string_object*)object;
+        }
+    }
+    return nullptr;
+}
+
 void vm_execute( vm_context* vm )
 {
     cothread_object* cothread = vm->cothreads.back();
@@ -103,8 +116,13 @@ void vm_execute( vm_context* vm )
                 r[ op.r ] = number_value( ( (table_object*)object )->length );
                 break;
             }
+            if ( type == STRING_OBJECT )
+            {
+                r[ op.r ] = number_value( ( (string_object*)object )->size );
+                break;
+            }
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_NEG:
@@ -115,7 +133,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( -as_number( u ) );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_POS:
@@ -126,7 +144,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( +as_number( u ) );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_BITNOT:
@@ -137,7 +155,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( ibitnot( as_number( u ) ) );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_NOT:
@@ -155,7 +173,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( as_number( u ) + n );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_ADD:
@@ -166,7 +184,7 @@ void vm_execute( vm_context* vm )
             n = as_number( v );
             goto op_add;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_ADDN:
@@ -189,7 +207,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( n - as_number( u ) );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_SUB:
@@ -200,7 +218,7 @@ void vm_execute( vm_context* vm )
             n = as_number( v );
             goto op_sub;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_SUBN:
@@ -223,7 +241,7 @@ void vm_execute( vm_context* vm )
             r[ op.r ] = number_value( as_number( u ) * n );
             break;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_MUL:
@@ -234,7 +252,7 @@ void vm_execute( vm_context* vm )
             n = as_number( v );
             goto op_mul;
         }
-        throw std::exception();
+        goto type_error;
     }
 
     case OP_MULN:
@@ -261,14 +279,21 @@ void vm_execute( vm_context* vm )
     op_concats:
     {
         value u = r[ op.a ];
-        vs = (string_object*)as_object( read( k[ op.b ] ) );
-        if ( is_object( u ) )
+        if ( ( us = cast_string( u ) ) )
         {
+            goto op_concat;
         }
+        goto type_error;
     }
 
     case OP_CONCAT:
     {
+        value v = r[ op.b ];
+        if ( ( vs = cast_string( v ) ) )
+        {
+            goto op_concats;
+        }
+        goto type_error;
     }
 
     case OP_CONCATS:
@@ -279,18 +304,122 @@ void vm_execute( vm_context* vm )
 
     case OP_RCONCATS:
     {
+        value v = r[ op.a ];
+        us = (string_object*)as_object( read( k[ op.b ] ) );
+        if ( ( vs = cast_string( v ) ) )
+        {
+            goto op_concat;
+        }
+        goto type_error;
     }
 
     case OP_DIV:
-    case OP_INTDIV:
-    case OP_MOD:
-    case OP_LSHIFT:
-    case OP_RSHIFT:
-    case OP_ASHIFT:
-    case OP_BITAND:
-    case OP_BITXOR:
-    case OP_BITOR:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( as_number( u ) / as_number( v ) );
+            break;
+        }
+        goto type_error;
+    }
 
+    case OP_INTDIV:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ifloordiv( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_MOD:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ifloormod( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_LSHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ilshift( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_RSHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( irshift( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_ASHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( iashift( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITAND:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ibitand( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITXOR:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ibitxor( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITOR:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_number( u ) && is_number( v ) )
+        {
+            r[ op.r ] = number_value( ibitor( as_number( u ), as_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
 
     case OP_IS:
     case OP_JMP:
@@ -343,6 +472,10 @@ void vm_execute( vm_context* vm )
 
     }
 
+    return;
+
+type_error:
+    throw std::exception();
 }
 
 }
