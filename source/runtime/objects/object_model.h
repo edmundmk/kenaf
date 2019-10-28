@@ -89,7 +89,7 @@ void write( vm_context* vm, ref_value& ref, value value );
     Each object type has a unique type index to identify it.
 */
 
-enum object_type : uint8_t
+enum type_code : uint8_t
 {
     LOOKUP_OBJECT,
     STRING_OBJECT,
@@ -124,7 +124,7 @@ enum
 struct object_header
 {
     atomic_u8 color;
-    object_type type;
+    type_code type;
     uint8_t flags;
     uint8_t refcount;
 };
@@ -135,7 +135,7 @@ object_header* header( object* object );
     Object functions.
 */
 
-void* object_new( vm_context* vm, object_type type, size_t size );
+void* object_new( vm_context* vm, type_code type, size_t size );
 size_t object_size( vm_context* vm, object* object );
 
 /*

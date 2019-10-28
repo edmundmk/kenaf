@@ -15,6 +15,7 @@
     Context structure storing runtime state.
 */
 
+#include <vector>
 #include "../datatypes/hash_table.h"
 #include "../datatypes/segment_list.h"
 #include "../objects/lookup_object.h"
@@ -23,13 +24,24 @@
 namespace kf
 {
 
+struct function_object;
+struct cothread_object;
+
+struct vm_stack_frame
+{
+    function_object* function;
+    unsigned ip;
+    unsigned fp;
+    unsigned xp;
+};
+
 struct vm_context
 {
     vm_context();
     ~vm_context();
 
-    // List of root objects.
-    hash_table< object*, size_t > roots;
+    // Cothread stack.
+    std::vector< cothread_object* > cothreads;
 
     // Lookup object tables.
     hash_table< string_hashkey, string_object* > keys;
@@ -37,6 +49,8 @@ struct vm_context
     hash_table< layout_hashkey, layout_object* > splitkey_layouts;
     uint32_t next_cookie;
 
+    // List of root objects.
+    hash_table< object*, size_t > roots;
 };
 
 }

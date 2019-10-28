@@ -23,18 +23,19 @@
 namespace kf
 {
 
+struct vm_stack_frame;
+
 /*
     Structures.
 */
 
-struct call_frame
-{
-};
-
 struct cothread_object : public object
 {
+    cothread_object();
+    ~cothread_object();
+
     std::vector< value > stack;
-    std::vector< call_frame > call_frames;
+    std::vector< vm_stack_frame > stack_frames;
 };
 
 /*

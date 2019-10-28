@@ -9,9 +9,18 @@
 //
 
 #include "cothread_object.h"
+#include "../vm/vm_context.h"
 
 namespace kf
 {
+
+cothread_object::cothread_object()
+{
+}
+
+cothread_object::~cothread_object()
+{
+}
 
 cothread_object* cothread_new( vm_context* vm )
 {

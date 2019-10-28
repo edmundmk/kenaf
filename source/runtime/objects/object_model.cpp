@@ -14,7 +14,7 @@
 namespace kf
 {
 
-void* object_new( vm_context* vm, object_type type, size_t size )
+void* object_new( vm_context* vm, type_code type, size_t size )
 {
     // TEMP.
     void* p = calloc( 1, 8 + size );
