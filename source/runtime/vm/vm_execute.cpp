@@ -1054,7 +1054,6 @@ void vm_execute( vm_context* vm )
                 if i <= limit then jump
             i += step
         */
-
         value v0 = r[ op.a + 0 ];
         value v1 = r[ op.a + 1 ];
         value v2 = r[ op.a + 2 ];
