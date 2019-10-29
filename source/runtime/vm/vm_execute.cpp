@@ -855,14 +855,59 @@ void vm_execute( vm_context* vm )
     case OP_EXTEND:
 
     case OP_GENERATE:
+    {
+        /*
+            | O | r | a | b |
+            if g is cothread:
+                [ r + 0 ] = cothread
+            if g is array:
+                [ r + 0 ] = array
+                [ r + 1 ] = 0
+            if g is table:
+                [ r + 0 ] = table
+                [ r + 1 ] = index of first nonempty slot
+            if g is string:
+                [ r + 0 ] = string
+                [ r + 1 ] = 0
+        */
+
+    }
+
     case OP_FOR_EACH:
+    {
+        /*
+            | O | r | a | b | J | - |   j   |
+            g : [ a + 0 ]
+            i : [ a + 1 ]
+            if g is cothread:
+                resume cothread.
+                if cothread is finished, jump
+                [ r ... ] = cothread results
+            if g is array:
+                if i >= #array then jump
+                [ r + 0 ] = g[ i ]
+                [ r + 1 ] = i
+                i += 1
+            if g is table:
+                if i >= table-slots then jump
+                [ r + 0 ] = g[ i ].key
+                [ r + 1 ] = g[ i ].value
+                i = index of next nonempty slot
+            if g is string
+                if i >= #string then jump
+                [ r + 0 ] = g[ i ]
+                [ r + 1 ] = i
+                i += 1
+        */
+
+        break;
+    }
 
 
     case OP_FOR_STEP:
     {
         /*
             | O | r | a | - | J | - |   j   |
-
             i     : number( [ a + 0 ] )
             limit : number( [ a + 1 ] )
             step  : number( [ a + 2 ] )
