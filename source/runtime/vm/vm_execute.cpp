@@ -856,7 +856,45 @@ void vm_execute( vm_context* vm )
 
     case OP_GENERATE:
     case OP_FOR_EACH:
+
+
     case OP_FOR_STEP:
+    {
+        /*
+            | O | r | a | - | J | - |   j   |
+
+            i     : number( [ a + 0 ] )
+            limit : number( [ a + 1 ] )
+            step  : number( [ a + 2 ] )
+            [ r ] = i
+            if step >= 0.0
+                if i >= limit then jump
+            else
+                if i <= limit then jump
+            i += step
+        */
+
+        value v0 = r[ op.a + 0 ];
+        value v1 = r[ op.a + 1 ];
+        value v2 = r[ op.a + 2 ];
+        if ( ! is_number( v0 ) ) goto type_error;
+        if ( ! is_number( v1 ) ) goto type_error;
+        if ( ! is_number( v2 ) ) goto type_error;
+        double i = as_number( v0 );
+        double limit = as_number( v1 );
+        double step = as_number( v2 );
+        struct op jop = ops[ ip++ ];
+        if ( step >= 0.0 ? i < limit : i > limit )
+        {
+            r[ op.r ] = number_value( i );
+            r[ op.a ] = number_value( i + step );
+        }
+        else
+        {
+            ip += jop.j;
+        }
+        break;
+    }
 
     case OP_SUPER:
     {
