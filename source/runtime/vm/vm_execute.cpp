@@ -22,6 +22,12 @@
 namespace kf
 {
 
+static value* ensure_stack( cothread_object* cothread, unsigned xp )
+{
+    // TODO.
+    return nullptr;
+}
+
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
@@ -118,6 +124,7 @@ void vm_execute( vm_context* vm )
     key_selector* s = program->selectors;
 
     value* r = cothread->stack.data() + stack_frame.fp;
+    unsigned xp = stack_frame.xp;
 
     while ( true )
     {
@@ -851,8 +858,46 @@ void vm_execute( vm_context* vm )
     case OP_YIELD:
     case OP_RETURN:
     case OP_VARARG:
+        break;
+
     case OP_UNPACK:
+    {
+        // Unpack array elements from a into r:b.
+        value u = r[ op.a ];
+        if ( ! is_object( u ) || header( as_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)as_object( u );
+        size_t rp = op.r;
+        xp = op.b;
+        if ( xp == OP_STACK_MARK )
+        {
+            r = ensure_stack( cothread, xp = rp + array->length );
+        }
+        size_t i = 0;
+        while ( rp < xp )
+        {
+            if ( i < array->length )
+                r[ rp++ ] = array_getindex( vm, array, i++ );
+            else
+                r[ rp++ ] = null_value;
+        }
+        break;
+    }
+
     case OP_EXTEND:
+    {
+        // Extend array in b with values in r:a.
+        value v = r[ op.b ];
+        if ( ! is_object( v ) || header( as_object( v ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)as_object( v );
+        size_t rp = op.r;
+        if ( op.a != OP_STACK_MARK )
+        {
+            xp = op.a;
+        }
+        assert( rp <= xp );
+        array_extend( vm, array, r + rp, xp - rp );
+        break;
+    }
 
     case OP_GENERATE:
     {
@@ -936,9 +981,19 @@ void vm_execute( vm_context* vm )
                 size_t i = r[ op.a + 1 ].v;
                 if ( i < array->length )
                 {
-                    if ( op.r + 0 < op.b ) r[ op.r + 0 ] = read( read( array->aslots )->slots[ i ] );
-                    if ( op.r + 1 < op.b ) r[ op.r + 1 ] = number_value( i );
-                    r[ op.a + 1 ] = { (uint64_t)( i + 1 ) };
+                    size_t rp = op.r;
+                    xp = op.b;
+                    if ( xp == OP_STACK_MARK )
+                    {
+                        r = ensure_stack( cothread, xp = rp + 2 );
+                    }
+                    if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
+                    if ( rp < xp ) r[ rp++ ] = number_value( i );
+                    while ( rp < xp )
+                    {
+                        r[ rp++ ] = null_value;
+                    }
+                    r[ op.a + 1 ] = { (uint64_t)i };
                 }
                 else
                 {
@@ -953,8 +1008,18 @@ void vm_execute( vm_context* vm )
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
-                    if ( op.r + 0 < op.b ) r[ op.r + 0 ] = keyval.k;
-                    if ( op.r + 1 < op.b ) r[ op.r + 1 ] = keyval.v;
+                    size_t rp = op.r;
+                    xp = op.b;
+                    if ( xp == OP_STACK_MARK )
+                    {
+                        r = ensure_stack( cothread, xp = rp + 2 );
+                    }
+                    if ( rp < xp ) r[ rp++ ] = keyval.k;
+                    if ( rp < xp ) r[ rp++ ] = keyval.v;
+                    while ( rp < xp )
+                    {
+                        r[ rp++ ] = null_value;
+                    }
                     r[ op.a + 1 ] = { (uint64_t)i };
                 }
                 else
@@ -974,7 +1039,6 @@ void vm_execute( vm_context* vm )
         }
         goto type_error;
     }
-
 
     case OP_FOR_STEP:
     {

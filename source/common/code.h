@@ -105,7 +105,7 @@ enum opcode : uint8_t
     OP_RETURN,          // return r:a               | X | r | a | - |
     OP_VARARG,          // r:b = args ...           | X | r | - | b |
     OP_UNPACK,          // r:b = a ...              | X | r | a | b |
-    OP_EXTEND,          // b.append( r:a )          | X | r | a | b |
+    OP_EXTEND,          // b.extend( r:a )          | X | r | a | b |
 
     OP_GENERATE,        // r:2 = generate a         | F | r | a | - |
     OP_FOR_EACH,        // r:b = generate a:2       | F | r | a | b || J | - |   j   |
