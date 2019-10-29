@@ -132,7 +132,7 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
     extern bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
     if ( sel->cookie == layout->cookie || lookup_getsel( vm, object, key, sel ) )
     {
-        if ( sel->cookie != ~(uint32_t)0 )
+        if ( sel->sindex != ~(uint32_t)0 )
         {
             return read( read( object->oslots )->slots[ sel->sindex ] );
         }
@@ -150,7 +150,7 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
 inline void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value )
 {
     layout_object* layout = read( object->layout );
-    if ( sel->cookie != layout->cookie )
+    if ( sel->cookie != layout->cookie || sel->sindex == ~(uint32_t)0 )
     {
         extern void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
         lookup_setsel( vm, object, key, sel );

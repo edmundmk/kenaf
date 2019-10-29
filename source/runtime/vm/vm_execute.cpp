@@ -114,9 +114,10 @@ void vm_execute( vm_context* vm )
 
     program_object* program = read( function->program );
     const op* ops = program->ops;
+    ref_value* k = program->constants;
+    key_selector* s = program->selectors;
 
     value* r = cothread->stack.data() + stack_frame.fp;
-    ref_value* k = program->constants;
 
     while ( true )
     {
@@ -646,12 +647,129 @@ void vm_execute( vm_context* vm )
     }
 
     case OP_GET_GLOBAL:
+    {
+        key_selector* ks = s + op.c;
+        r[ op.r ] = lookup_getkey( vm, vm->global_object, read( ks->key ), &ks->sel );
+        break;
+    }
+
     case OP_GET_KEY:
+    {
+        value u = r[ op.a ];
+        key_selector* ks = s + op.b;
+        r[ op.r ] = lookup_getkey( vm, keyer_of( vm, u ), read( ks->key ), &ks->sel );
+        break;
+    }
+
     case OP_SET_KEY:
+    {
+        value u = r[ op.a ];
+        key_selector* ks = s + op.b;
+        if ( ! is_object( u ) || header( as_object( u ) )->type != LOOKUP_OBJECT ) goto type_error;
+        lookup_setkey( vm, (lookup_object*)as_object( u ), read( ks->key ), &ks->sel, r[ op.r ] );
+        break;
+    }
+
     case OP_GET_INDEX:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_object( u ) )
+        {
+            type_code type = header( as_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                array_object* array = (array_object*)as_object( u );
+                if ( ! is_number( v ) ) goto type_error;
+                r[ op.r ] = array_getindex( vm, array, (size_t)(int64_t)as_number( v ) );
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                table_object* table = (table_object*)as_object( u );
+                r[ op.r ] = table_getindex( vm, table, v );
+                break;
+            }
+        }
+        else if ( is_string( u ) )
+        {
+            // TODO.
+        }
+        goto type_error;
+    }
+
     case OP_GET_INDEXI:
+    {
+        value u = r[ op.a ];
+        if ( is_object( u ) )
+        {
+            type_code type = header( as_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                array_object* array = (array_object*)as_object( u );
+                r[ op.r ] = array_getindex( vm, array, op.b );
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                table_object* table = (table_object*)as_object( u );
+                r[ op.r ] = table_getindex( vm, table, number_value( op.b ) );
+                break;
+            }
+        }
+        else if ( is_string( u ) )
+        {
+            // TODO.
+        }
+        goto type_error;
+    }
+
     case OP_SET_INDEX:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( is_object( u ) )
+        {
+            type_code type = header( as_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                array_object* array = (array_object*)as_object( u );
+                if ( ! is_number( v ) ) goto type_error;
+                array_setindex( vm, array, (size_t)(int64_t)as_number( v ), r[ op.r ] );
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                table_object* table = (table_object*)as_object( u );
+                table_setindex( vm, table, v, r[ op.r ] );
+                break;
+            }
+        }
+        goto type_error;
+    }
+
     case OP_SET_INDEXI:
+    {
+        value u = r[ op.a ];
+        if ( is_object( u ) )
+        {
+            type_code type = header( as_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                array_object* array = (array_object*)as_object( u );
+                array_setindex( vm, array, op.b, r[ op.r ] );
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                table_object* table = (table_object*)as_object( u );
+                table_setindex( vm, table, number_value( op.b ), r[ op.r ] );
+                break;
+            }
+        }
+        goto type_error;
+    }
+
     case OP_NEW_ENV:
     case OP_GET_VARENV:
     case OP_SET_VARENV:

@@ -40,10 +40,9 @@ struct vm_context
     vm_context();
     ~vm_context();
 
-    // Cothread stack.
+    // Context state.
     std::vector< cothread_object* > cothreads;
-
-    // Prototype objects.
+    lookup_object* global_object;
     lookup_object* prototypes[ TYPE_COUNT ];
 
     // Lookup object tables.
