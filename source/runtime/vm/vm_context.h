@@ -27,13 +27,9 @@ namespace kf
 struct function_object;
 struct cothread_object;
 
-struct vm_stack_frame
-{
-    function_object* function;
-    unsigned ip;
-    unsigned fp;
-    unsigned xp;
-};
+/*
+    Global VM state.
+*/
 
 struct vm_context
 {
@@ -54,6 +50,38 @@ struct vm_context
     // List of root objects.
     hash_table< object*, size_t > roots;
 };
+
+/*
+    Dealing with call stacks.  Stack frames have this general layout:
+
+        bp  ->  vararg 0
+                vararg 1
+        fp  ->  function
+                argument 0
+                argument 1
+
+    fp:xp is the range of results requested.
+*/
+
+const unsigned VM_STACK_MARK = ~(unsigned)0;
+
+struct vm_stack_frame
+{
+    function_object* function;
+    unsigned ip;
+    unsigned bp;
+    unsigned fp;
+    unsigned xp;
+};
+
+value* vm_active_stack( vm_context* vm, vm_stack_frame* out_frame );
+value* vm_ensure_stack( vm_context* vm, unsigned xp );
+value* vm_entire_stack( vm_context* vm, vm_stack_frame* out_frame );
+
+value* vm_prologue( vm_context* vm, unsigned rp, unsigned ap, unsigned xp, vm_stack_frame* out_frame );
+value* vm_epilogue( vm_context* vm, unsigned rp, unsigned xp, vm_stack_frame* out_frame );
+value* vm_generate( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp, vm_stack_frame* out_frame );
+value* vm_genyield( vm_context* vm, unsigned rp, unsigned ap, unsigned xp, vm_stack_frame* out_frame );
 
 }
 

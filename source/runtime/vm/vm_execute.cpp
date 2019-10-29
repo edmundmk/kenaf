@@ -22,12 +22,6 @@
 namespace kf
 {
 
-static value* ensure_stack( cothread_object* cothread, unsigned xp )
-{
-    // TODO.
-    return nullptr;
-}
-
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
@@ -112,18 +106,16 @@ static bool value_is( vm_context* vm, value u, value v )
 
 void vm_execute( vm_context* vm )
 {
-    cothread_object* cothread = vm->cothreads.back();
+    vm_stack_frame stack_frame;
+    value* r = vm_active_stack( vm, &stack_frame );
 
-    vm_stack_frame stack_frame = cothread->stack_frames.back();
     function_object* function = stack_frame.function;
-    unsigned ip = stack_frame.ip;
-
     program_object* program = read( function->program );
     const op* ops = program->ops;
     ref_value* k = program->constants;
     key_selector* s = program->selectors;
 
-    value* r = cothread->stack.data() + stack_frame.fp;
+    unsigned ip = stack_frame.ip;
     unsigned xp = stack_frame.xp;
 
     while ( true )
@@ -855,10 +847,43 @@ void vm_execute( vm_context* vm )
     case OP_CALL:
     case OP_CALLR:
     case OP_YCALL:
+    {
+
+
+
+    }
+
     case OP_YIELD:
+    {
+    }
+
     case OP_RETURN:
+    {
+
+    }
+
     case OP_VARARG:
+    {
+        // Unpack varargs into r:b.
+        vm_stack_frame stack_frame;
+        vm_active_stack( vm, &stack_frame );
+        size_t rp = op.r;
+        xp = op.b;
+        if ( xp == OP_STACK_MARK )
+        {
+            r = vm_ensure_stack( vm, xp = rp + stack_frame.fp - stack_frame.bp );
+        }
+        value* stack = vm_entire_stack( vm, &stack_frame );
+        size_t ap = stack_frame.bp;
+        while ( rp < xp )
+        {
+            if ( ap < stack_frame.fp )
+                r[ rp++ ] = stack[ ap++ ];
+            else
+                r[ rp++ ] = null_value;
+        }
         break;
+    }
 
     case OP_UNPACK:
     {
@@ -870,7 +895,7 @@ void vm_execute( vm_context* vm )
         xp = op.b;
         if ( xp == OP_STACK_MARK )
         {
-            r = ensure_stack( cothread, xp = rp + array->length );
+            r = vm_ensure_stack( vm, xp = rp + array->length );
         }
         size_t i = 0;
         while ( rp < xp )
@@ -985,7 +1010,7 @@ void vm_execute( vm_context* vm )
                     xp = op.b;
                     if ( xp == OP_STACK_MARK )
                     {
-                        r = ensure_stack( cothread, xp = rp + 2 );
+                        r = vm_ensure_stack( vm, xp = rp + 2 );
                     }
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
                     if ( rp < xp ) r[ rp++ ] = number_value( i );
@@ -1012,7 +1037,7 @@ void vm_execute( vm_context* vm )
                     xp = op.b;
                     if ( xp == OP_STACK_MARK )
                     {
-                        r = ensure_stack( cothread, xp = rp + 2 );
+                        r = vm_ensure_stack( vm, xp = rp + 2 );
                     }
                     if ( rp < xp ) r[ rp++ ] = keyval.k;
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
