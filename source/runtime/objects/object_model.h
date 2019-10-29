@@ -24,6 +24,7 @@ namespace kf
 {
 
 struct vm_context;
+struct string_object;
 
 /*
     Base class of all objects.  It's empty - data is stored in the header.
@@ -40,6 +41,8 @@ struct object {};
           0000 0000 0000 0001   false
           0000 0000 0000 0003   true
           0000 XXXX XXXX XXXX   object pointer
+          0004 XXXX XXXX XXXX   string pointer
+          0008 0000 0000 0000   minimum number
           000F FFFF FFFF FFFF   -infinity
           7FFF FFFF FFFF FFFF   -0
           8007 FFFF FFFF FFFE   qNaN
@@ -47,9 +50,9 @@ struct object {};
           800F FFFF FFFF FFFF   +infinity
           FFFF FFFF FFFF FFFF   +0
 
-    All objects are allocated 8-byte aligned.  Bit 2 is used as a tag in
-    certain circumstances.  When a value is used as a table key, this bit
-    indicates that the key is a string.
+    String objects are tagged using a high bit in the boxed bit pattern,
+    because the VM frequently needs to check if an object is a string when
+    doing comparisons.
 */
 
 struct value { uint64_t v; };
@@ -58,17 +61,23 @@ const value null_value  = { 0 };
 const value false_value = { 1 };
 const value true_value  = { 2 };
 
-inline bool is_null( value v )          { return v.v == null_value.v; }
-inline bool is_false( value v )         { return v.v == false_value.v; }
-inline bool is_true( value v )          { return v.v == true_value.v; }
-inline bool is_object( value v )        { return v.v > 3 && v.v < UINT64_C( 0x000F'FFFF'FFFF'FFFF ); }
-inline bool is_number( value v )        { return v.v >= UINT64_C( 0x000F'FFFF'FFFF'FFFF ); }
+inline bool is_null( value v )                  { return v.v == null_value.v; }
+inline bool is_false( value v )                 { return v.v == false_value.v; }
+inline bool is_true( value v )                  { return v.v == true_value.v; }
+inline bool is_bool( value v )                  { return v.v >= 1 && v.v < 3; }
+inline bool is_object( value v )                { return v.v >= 3 && v.v < UINT64_C( 0x0004'0000'0000'0000 ); }
+inline bool is_string( value v )                { return v.v >= UINT64_C( 0x0004'0000'0000'0000 ) && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool is_object_or_string( value v )      { return v.v >= 3 && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool is_number( value v )                { return v.v >= UINT64_C( 0x0008'0000'0000'0000 ); }
 
-inline value object_value( object* p )  { return { (uint64_t)p }; }
-inline object* as_object( value v )     { return (object*)v.v; }
+inline value object_value( object* p )          { return { (uint64_t)p }; }
+inline value string_value( string_object* s )   { return { (uint64_t)s | UINT64_C( 0x0004'0000'0000'0000 ) }; }
+inline object* as_object( value v )             { return (object*)v.v; }
+inline object* as_object_or_string( value v )   { return (object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
+inline string_object* as_string( value v )      { return (string_object*)as_object_or_string( v ); }
 
-inline value number_value( double n )   { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
-inline double as_number( value v )      { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
+inline value number_value( double n )           { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
+inline double as_number( value v )              { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
 
 /*
     References that are read by the garbage collector must be atomic.  Writes

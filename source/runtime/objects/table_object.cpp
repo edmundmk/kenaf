@@ -29,43 +29,31 @@ static inline size_t ceilpow2( size_t x )
 }
 
 /*
-    When used as keys, -0.0 becomes 0.0, and string pointers are marked.
+    When used as keys, -0.0 becomes 0.0.
 */
 
 static inline value key_value( value value )
 {
-    if ( ! is_object( value ) || header( as_object( value ) )->type != STRING_OBJECT )
+    if ( ! is_number( value ) || value.v != number_value( -0.0 ).v )
     {
-        if ( value.v != number_value( -0.0 ).v )
-            return value;
-        else
-            return number_value( +0.0 );
+        return value;
     }
     else
     {
-        return { value.v | 4 };
+        return number_value( +0.0 );
     }
-}
 
-static inline bool is_string_key( value key )
-{
-    return ! is_number( key ) && ( key.v & 4 ) != 0;
-}
-
-static inline string_object* as_string_key( value key )
-{
-    return (string_object*)( key.v & ~(uint64_t)4 );
 }
 
 static inline size_t key_hash( value key )
 {
-    if ( ! is_string_key( key ) )
+    if ( ! is_string( key ) )
     {
         return std::hash< uint64_t >()( key.v );
     }
     else
     {
-        string_object* string = as_string_key( key );
+        string_object* string = as_string( key );
         return std::hash< std::string_view >()( std::string_view( string->text, string->size ) );
     }
 }
@@ -77,10 +65,10 @@ static inline bool key_equal( value a, value b )
         return true;
     }
 
-    if ( is_string_key( a ) && is_string_key( b ) )
+    if ( is_string( a ) && is_string( b ) )
     {
-        string_object* sa = as_string_key( a );
-        string_object* sb = as_string_key( b );
+        string_object* sa = as_string( a );
+        string_object* sb = as_string( b );
         return sa->size == sb->size && memcmp( sa->text, sb->text, sa->size ) == 0;
     }
 

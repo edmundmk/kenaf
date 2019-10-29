@@ -28,17 +28,20 @@ static inline bool test( value u )
     return u.v > 1 && u.v != number_value( +0.0 ).v && u.v != number_value( -0.0 ).v;
 }
 
-static inline string_object* cast_string( value u )
+static inline bool string_equal( string_object* us, string_object* vs )
 {
-    if ( is_object( u ) )
-    {
-        object* uo = as_object( u );
-        if ( header( uo )->type == STRING_OBJECT )
-        {
-            return (string_object*)uo;
-        }
-    }
-    return nullptr;
+    return us == vs || ( us->size == vs->size && memcmp( us->text, vs->text, us->size ) == 0 );
+}
+
+static inline int string_compare( string_object* us, string_object* vs )
+{
+    if ( us == vs ) return 0;
+    size_t size = std::min( us->size, vs->size );
+    int order = memcmp( us->text, vs->text, size );
+    if ( order != 0 ) return order;
+    if ( us->size < vs->size ) return -1;
+    if ( us->size > vs->size ) return +1;
+    return 0;
 }
 
 static lookup_object* keyer_of( vm_context* vm, value u )
@@ -47,20 +50,23 @@ static lookup_object* keyer_of( vm_context* vm, value u )
     {
         return vm->prototypes[ NUMBER_OBJECT ];
     }
-    if ( u.v > 3 )
+    else if ( is_string( u ) )
     {
-        object* uo = as_object( u );
-        type_code type = header( uo )->type;
+        return vm->prototypes[ STRING_OBJECT ];
+    }
+    else if ( is_object( u ) )
+    {
+        type_code type = header( as_object( u ) )->type;
         if ( type == LOOKUP_OBJECT )
         {
-            return (lookup_object*)uo;
+            return (lookup_object*)as_object( u );
         }
         else
         {
             return vm->prototypes[ type ];
         }
     }
-    if ( u.v > 0 )
+    else if ( is_bool( u ) )
     {
         return vm->prototypes[ BOOL_OBJECT ];
     }
@@ -71,46 +77,29 @@ static bool value_is( vm_context* vm, value u, value v )
 {
     if ( is_number( v ) )
     {
-        if ( is_number( u ) )
-        {
-            return as_number( u ) == as_number( v );
-        }
-        return false;
+        return is_number( u ) && as_number( u ) == as_number( v );
     }
-    if ( u.v == v.v )
+    else if ( u.v == v.v )
     {
         return true;
     }
-    if ( v.v > 3 )
+    else if ( is_object( v ) )
     {
-        object* vo = as_object( v );
-        type_code type = header( vo )->type;
+        type_code type = header( as_object( v ) )->type;
         if ( type == LOOKUP_OBJECT )
         {
-            lookup_object* prototype = (lookup_object*)vo;
+            lookup_object* vo = (lookup_object*)as_object( v );
             lookup_object* uo = keyer_of( vm, u );
             while ( uo )
             {
-                if ( uo == prototype )
-                {
-                    return true;
-                }
+                if ( uo == vo ) return true;
                 uo = lookup_prototype( vm, uo );
             }
         }
-        else if ( type == STRING_OBJECT )
-        {
-            if ( is_object( u ) )
-            {
-                object* uo = as_object( u );
-                if ( header( uo )->type == STRING_OBJECT )
-                {
-                    string_object* us = (string_object*)uo;
-                    string_object* vs = (string_object*)vo;
-                    return us->size == vs->size && memcmp( us->text, vs->text, us->size ) == 0;
-                }
-            }
-        }
+    }
+    else if ( is_string( v ) )
+    {
+        return is_string( u ) && string_equal( as_string( u ), as_string( v ) );
     }
     return false;
 }
@@ -136,7 +125,7 @@ void vm_execute( vm_context* vm )
     string_object* us;
     string_object* vs;
 
-    op op = ops[ ip++ ];
+    struct op op = ops[ ip++ ];
     switch ( op.opcode )
     {
     case OP_MOV:
@@ -161,7 +150,7 @@ void vm_execute( vm_context* vm )
 
     case OP_LDK:
     {
-        r[ op.r ] = read( program->constants[ op.c ] );
+        r[ op.r ] = read( k[ op.c ] );
         break;
     }
 
@@ -170,23 +159,22 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         if ( is_object( u ) )
         {
-            object* uo = as_object( u );
-            type_code type = header( uo )->type;
+            type_code type = header( as_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r ] = number_value( ( (array_object*)uo )->length );
+                r[ op.r ] = number_value( ( (array_object*)as_object( u ) )->length );
                 break;
             }
-            if ( type == TABLE_OBJECT )
+            else if ( type == TABLE_OBJECT )
             {
-                r[ op.r ] = number_value( ( (table_object*)uo )->length );
+                r[ op.r ] = number_value( ( (table_object*)as_object( u ) )->length );
                 break;
             }
-            if ( type == STRING_OBJECT )
-            {
-                r[ op.r ] = number_value( ( (string_object*)uo )->size );
-                break;
-            }
+        }
+        else if ( is_string( u ) )
+        {
+            r[ op.r ] = number_value( as_string( u )->size );
+            break;
         }
         goto type_error;
     }
@@ -320,15 +308,16 @@ void vm_execute( vm_context* vm )
         string_object* s = string_new( vm, nullptr, us->size + vs->size );
         memcpy( s->text, us->text, us->size );
         memcpy( s->text + us->size, vs->text, vs->size );
-        r[ op.r ] = object_value( s );
+        r[ op.r ] = string_value( s );
         break;
     }
 
-    op_concats:
+    op_concatu:
     {
         value u = r[ op.a ];
-        if ( ( us = cast_string( u ) ) )
+        if ( is_string( u ) )
         {
+            us = as_string( u );
             goto op_concat;
         }
         goto type_error;
@@ -337,25 +326,27 @@ void vm_execute( vm_context* vm )
     case OP_CONCAT:
     {
         value v = r[ op.b ];
-        if ( ( vs = cast_string( v ) ) )
+        if ( is_string( v ) )
         {
-            goto op_concats;
+            vs = as_string( v );
+            goto op_concatu;
         }
         goto type_error;
     }
 
     case OP_CONCATS:
     {
-        vs = (string_object*)as_object( read( k[ op.b ] ) );
-        goto op_concats;
+        vs = as_string( read( k[ op.b ] ) );
+        goto op_concatu;
     }
 
     case OP_RCONCATS:
     {
         value v = r[ op.a ];
-        us = (string_object*)as_object( read( k[ op.b ] ) );
-        if ( ( vs = cast_string( v ) ) )
+        us = as_string( read( k[ op.b ] ) );
+        if ( is_string( v ) )
         {
+            vs = as_string( v );
             goto op_concat;
         }
         goto type_error;
@@ -500,14 +491,160 @@ void vm_execute( vm_context* vm )
     }
 
     case OP_JEQ:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        bool test = false;
+        if ( is_number( u ) )
+        {
+            test = is_number( v ) && as_number( u ) == as_number( v );
+        }
+        else if ( u.v == v.v )
+        {
+            test = true;
+        }
+        else if ( is_string( u ) )
+        {
+            test = is_string( v ) && string_equal( as_string( u ), as_string( v ) );
+        }
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JEQN:
+    {
+        value u = r[ op.a ];
+        bool test = is_number( u ) && as_number( u ) == as_number( read( k[ op.b ] ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JEQS:
+    {
+        value u = r[ op.a ];
+        bool test = is_string( u ) && string_equal( as_string( u ), as_string( read( k[ op.b ] ) ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JLT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        bool test = false;
+        if ( is_number( u ) )
+        {
+            if ( ! is_number( v ) ) goto type_error;
+            test = as_number( u ) < as_number( v );
+        }
+        else if ( is_string( u ) )
+        {
+            if ( ! is_string( v ) ) goto type_error;
+            test = string_compare( as_string( u ), as_string( v ) ) < 0;
+        }
+        else
+        {
+            goto type_error;
+        }
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JLTN:
+    {
+        value u = r[ op.a ];
+        if ( ! is_number( u ) ) goto type_error;
+        bool test = as_number( u ) < as_number( read( k[ op.b ] ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JGTN:
+    {
+        value u = r[ op.a ];
+        if ( ! is_number( u ) ) goto type_error;
+        bool test = as_number( u ) > as_number( read( k[ op.b ] ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JLE:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        bool test = false;
+        if ( is_number( u ) )
+        {
+            if ( ! is_number( v ) ) goto type_error;
+            test = as_number( u ) <= as_number( v );
+        }
+        else if ( is_string( u ) )
+        {
+            if ( ! is_string( v ) ) goto type_error;
+            test = string_compare( as_string( u ), as_string( v ) ) <= 0;
+        }
+        else
+        {
+            goto type_error;
+        }
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JLEN:
+    {
+        value u = r[ op.a ];
+        if ( ! is_number( u ) ) goto type_error;
+        bool test = as_number( u ) <= as_number( read( k[ op.b ] ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_JGEN:
+    {
+        value u = r[ op.a ];
+        if ( ! is_number( u ) ) goto type_error;
+        bool test = as_number( u ) >= as_number( read( k[ op.b ] ) );
+        struct op jop = ops[ ip++ ];
+        if ( test == op.r )
+        {
+            ip += jop.j;
+        }
+        break;
+    }
+
     case OP_GET_GLOBAL:
     case OP_GET_KEY:
     case OP_SET_KEY:

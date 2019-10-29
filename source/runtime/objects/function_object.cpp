@@ -113,7 +113,7 @@ program_object* program_new( vm_context* vm, void* data, size_t size )
             }
             else
             {
-                winit( program->constants[ i ], object_value( string_new( vm, heap + k.text, k.size ) ) );
+                winit( program->constants[ i ], string_value( string_new( vm, heap + k.text, k.size ) ) );
             }
         }
 
