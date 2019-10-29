@@ -71,15 +71,17 @@ static lookup_object* keyer_of( vm_context* vm, value u )
 
 static bool value_is( vm_context* vm, value u, value v )
 {
+    if ( is_number( v ) )
+    {
+        if ( is_number( u ) )
+        {
+            return as_number( u ) == as_number( v );
+        }
+        return false;
+    }
     if ( u.v == v.v )
     {
         return true;
-    }
-    if ( is_number( v ) )
-    {
-        if ( u.v == number_value( -0.0 ).v ) u = number_value( +0.0 );
-        if ( v.v == number_value( -0.0 ).v ) v = number_value( +0.0 );
-        return u.v == v.v;
     }
     if ( v.v > 3 )
     {
