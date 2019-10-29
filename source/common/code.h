@@ -38,7 +38,6 @@ enum opcode : uint8_t
 
     OP_LDV,             // r = null / true / false  | L | r |   c   |
     OP_LDK,             // r = k[c]                 | L | r |   c   |
-    OP_LDJ,             // r = c                    | L | r |   c   |
 
     OP_LEN,             // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
@@ -48,13 +47,10 @@ enum opcode : uint8_t
 
     OP_ADD,             // r = a + b                | A | r | a | b |
     OP_ADDN,            // r = a + k[b]             | A | r | a | b |
-    OP_ADDI,            // r = a + i                | A | r | a | i |
     OP_SUB,             // r = b - a                | A | r | a | b |
     OP_SUBN,            // r = k[b] - a             | A | r | a | b |
-    OP_SUBI,            // r = i - a                | A | r | a | b |
     OP_MUL,             // r = a * b                | A | r | a | b |
     OP_MULN,            // r = a * k[b]             | A | r | a | b |
-    OP_MULI,            // r = a * i                | A | r | a | i |
     OP_CONCAT,          // r = a ~ b                | A | r | a | b |
     OP_CONCATS,         // r = a ~ k[b]             | A | r | a | b |
     OP_RCONCATS,        // r = k[b] ~ a             | A | r | a | b |

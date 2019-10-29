@@ -68,13 +68,6 @@ vm_execute:
     mov [rbp+rdi*8], rbx
     jmp .loop
 
-.ldj:
-    movsx eax, ax
-    cvtsi2sd xmm0, eax
-    xorpd xmm0, xmm1
-    movsd [rbp+rdi*8], xmm0
-    jmp .loop
-
 .len:
     mov rax, [rbp+rax*8]
 

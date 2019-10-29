@@ -165,12 +165,6 @@ void vm_execute( vm_context* vm )
         break;
     }
 
-    case OP_LDJ:
-    {
-        r[ op.r ] = number_value( op.j );
-        break;
-    }
-
     case OP_LEN:
     {
         value u = r[ op.a ];
@@ -265,12 +259,6 @@ void vm_execute( vm_context* vm )
         goto op_add;
     }
 
-    case OP_ADDI:
-    {
-        n = op.i;
-        goto op_add;
-    }
-
     op_sub:
     {
         value u = r[ op.a ];
@@ -299,12 +287,6 @@ void vm_execute( vm_context* vm )
         goto op_sub;
     }
 
-    case OP_SUBI:
-    {
-        n = op.i;
-        goto op_sub;
-    }
-
     op_mul:
     {
         value u = r[ op.a ];
@@ -330,12 +312,6 @@ void vm_execute( vm_context* vm )
     case OP_MULN:
     {
         n = as_number( read( k[ op.b ] ) );
-        goto op_mul;
-    }
-
-    case OP_MULI:
-    {
-        n = op.i;
         goto op_mul;
     }
 
