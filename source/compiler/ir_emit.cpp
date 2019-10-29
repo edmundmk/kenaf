@@ -459,7 +459,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
         assert( u.kind != IR_O_OP );
         uint16_t c = 0;
         if ( u.kind == IR_O_TRUE )
-            c = 3;
+            c = 2;
         else if ( u.kind == IR_O_FALSE )
             c = 1;
         else if ( u.kind == IR_O_NULL )

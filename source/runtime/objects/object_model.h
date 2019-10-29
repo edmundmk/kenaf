@@ -56,7 +56,7 @@ struct value { uint64_t v; };
 
 const value null_value  = { 0 };
 const value false_value = { 1 };
-const value true_value  = { 3 };
+const value true_value  = { 2 };
 
 inline bool is_null( value v )          { return v.v == null_value.v; }
 inline bool is_false( value v )         { return v.v == false_value.v; }
