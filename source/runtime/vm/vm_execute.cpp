@@ -25,9 +25,7 @@ namespace kf
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
-    return u.v > 1
-        && u.v != UINT64_C( 0x7FFF'FFFF'FFFF'FFFF )
-        && u.v != UINT64_C( 0xFFFF'FFFF'FFFF'FFFF );
+    return u.v > 1 && u.v != number_value( +0.0 ).v && u.v != number_value( -0.0 ).v;
 }
 
 static inline string_object* cast_string( value u )
