@@ -858,19 +858,45 @@ void vm_execute( vm_context* vm )
     {
         /*
             | O | r | a | b |
-            if g is cothread:
-                [ r + 0 ] = cothread
+            g : [ a ]
             if g is array:
                 [ r + 0 ] = array
                 [ r + 1 ] = 0
             if g is table:
                 [ r + 0 ] = table
                 [ r + 1 ] = index of first nonempty slot
+            if g is cothread:
+                [ r + 0 ] = cothread
             if g is string:
                 [ r + 0 ] = string
                 [ r + 1 ] = 0
         */
-
+        value u = r[ op.a ];
+        r[ op.r + 0 ] = u;
+        if ( is_object( u ) )
+        {
+            type_code type = header( as_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                r[ op.r + 1 ] = { 0 };
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                r[ op.r + 1 ] = { (uint64_t)table_iterate( vm, (table_object*)as_object( u ) };
+                break;
+            }
+            else if ( type == COTHREAD_OBJECT )
+            {
+                break;
+            }
+        }
+        else if ( is_string( u ) )
+        {
+            r[ op.r + 1 ] = { 0 };
+            break;
+        }
+        goto type_error;
     }
 
     case OP_FOR_EACH:
@@ -879,10 +905,6 @@ void vm_execute( vm_context* vm )
             | O | r | a | b | J | - |   j   |
             g : [ a + 0 ]
             i : [ a + 1 ]
-            if g is cothread:
-                resume cothread.
-                if cothread is finished, jump
-                [ r ... ] = cothread results
             if g is array:
                 if i >= #array then jump
                 [ r + 0 ] = g[ i ]
@@ -893,6 +915,10 @@ void vm_execute( vm_context* vm )
                 [ r + 0 ] = g[ i ].key
                 [ r + 1 ] = g[ i ].value
                 i = index of next nonempty slot
+            if g is cothread:
+                resume cothread.
+                if cothread is finished, jump
+                [ r ... ] = cothread results
             if g is string
                 if i >= #string then jump
                 [ r + 0 ] = g[ i ]

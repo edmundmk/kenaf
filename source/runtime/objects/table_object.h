@@ -54,6 +54,19 @@ void table_setindex( vm_context* vm, table_object* table, value key, value val )
 void table_delindex( vm_context* vm, table_object* table, value key );
 void table_clear( vm_context* vm, table_object* table );
 
+/*
+    Table for-each.
+*/
+
+struct table_keyval
+{
+    value k;
+    value v;
+};
+
+size_t table_iterate( vm_context* vm );
+bool table_next( vm_context* vm, size_t* i, table_keyval* entry );
+
 }
 
 #endif
