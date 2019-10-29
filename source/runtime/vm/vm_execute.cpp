@@ -771,14 +771,80 @@ void vm_execute( vm_context* vm )
     }
 
     case OP_NEW_ENV:
+    {
+        r[ op.r ] = object_value( vslots_new( vm, op.c ) );
+        break;
+    }
+
     case OP_GET_VARENV:
+    {
+        vslots_object* varenv = (vslots_object*)as_object( r[ op.a ] );
+        r[ op.r ] = read( varenv->slots[ op.b ] );
+        break;
+    }
+
     case OP_SET_VARENV:
+    {
+        vslots_object* varenv = (vslots_object*)as_object( r[ op.a ] );
+        write( vm, varenv->slots[ op.b ], r[ op.r ] );
+        break;
+    }
+
     case OP_GET_OUTENV:
+    {
+        vslots_object* outenv = read( function->outenvs[ op.a ] );
+        r[ op.r ] = read( outenv->slots[ op.b ] );
+        break;
+    }
+
     case OP_SET_OUTENV:
+    {
+        vslots_object* outenv = read( function->outenvs[ op.a ] );
+        write( vm, outenv->slots[ op.b ], r[ op.r ] );
+        break;
+    }
+
     case OP_NEW_OBJECT:
+    {
+        value u = r[ op.a ];
+        lookup_object* prototype;
+        if ( is_null( u ) )
+        {
+            prototype = vm->prototypes[ LOOKUP_OBJECT ];
+        }
+        else if ( is_object( u ) && header( as_object( u ) )->type == LOOKUP_OBJECT )
+        {
+            prototype = (lookup_object*)as_object( u );
+        }
+        else
+        {
+            goto type_error;
+        }
+        r[ op.r ] = object_value( lookup_new( vm, prototype ) );
+        break;
+    }
+
     case OP_NEW_ARRAY:
+    {
+        r[ op.r ] = object_value( array_new( vm, op.c ) );
+        break;
+    }
+
     case OP_NEW_TABLE:
+    {
+        r[ op.r ] = object_value( table_new( vm, op.c ) );
+        break;
+    }
+
     case OP_APPEND:
+    {
+        value w = r[ op.r ];
+        if ( ! is_object( w ) || header( as_object( w ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)as_object( w );
+        array_append( vm, array, r[ op.a ] );
+        break;
+    }
+
     case OP_CALL:
     case OP_CALLR:
     case OP_YCALL:
@@ -787,21 +853,56 @@ void vm_execute( vm_context* vm )
     case OP_VARARG:
     case OP_UNPACK:
     case OP_EXTEND:
+
     case OP_GENERATE:
     case OP_FOR_EACH:
     case OP_FOR_STEP:
+
     case OP_SUPER:
+    {
+        // TODO.
+        break;
+    }
+
     case OP_THROW:
+    {
+        // TODO.
+        throw std::exception();
+    }
 
     case OP_FUNCTION:
+    {
+        program_object* program = read( read( function->program )->functions[ op.c ] );
+        function_object* closure = function_new( vm, program );
+        r[ op.r ] = object_value( closure );
+        while ( true )
+        {
+            struct op vop = ops[ ip ];
+            if ( vop.opcode == OP_F_VARENV )
+            {
+                assert( vop.r == op.r );
+                winit( closure->outenvs[ op.a ], (vslots_object*)as_object( r[ op.b ] ) );
+            }
+            else if ( vop.opcode == OP_F_OUTENV )
+            {
+                assert( vop.r == op.r );
+                winit( closure->outenvs[ op.a ], read( function->outenvs[ op.b ] ) );
+            }
+            else
+            {
+                break;
+            }
+            ++ip;
+        }
+    }
+
     case OP_F_VARENV:
     case OP_F_OUTENV:
+        assert( ! "orphan environment op" );
         break;
     }
 
     }
-
-    return;
 
 type_error:
     throw std::exception();

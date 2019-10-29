@@ -67,14 +67,12 @@ inline bool is_true( value v )                  { return v.v == true_value.v; }
 inline bool is_bool( value v )                  { return v.v >= 1 && v.v < 3; }
 inline bool is_object( value v )                { return v.v >= 3 && v.v < UINT64_C( 0x0004'0000'0000'0000 ); }
 inline bool is_string( value v )                { return v.v >= UINT64_C( 0x0004'0000'0000'0000 ) && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
-inline bool is_object_or_string( value v )      { return v.v >= 3 && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
 inline bool is_number( value v )                { return v.v >= UINT64_C( 0x0008'0000'0000'0000 ); }
 
 inline value object_value( object* p )          { return { (uint64_t)p }; }
 inline value string_value( string_object* s )   { return { (uint64_t)s | UINT64_C( 0x0004'0000'0000'0000 ) }; }
 inline object* as_object( value v )             { return (object*)v.v; }
-inline object* as_object_or_string( value v )   { return (object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
-inline string_object* as_string( value v )      { return (string_object*)as_object_or_string( v ); }
+inline string_object* as_string( value v )      { return (string_object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
 
 inline value number_value( double n )           { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
 inline double as_number( value v )              { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
