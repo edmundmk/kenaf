@@ -9,6 +9,28 @@ set that runs on it.
 
 # Virtual Machine
 
+## Values
+
+The virtual machine deals with values.  A value can be one of the following:
+
+  * `null`
+  * `true`
+  * `false`
+  * A number.  All numbers are IEEE 754 double-precision floating-point.
+  * A reference to a UTF-8 string, stored with its length.  Strings are not
+    null terminated.
+  * A reference to an object.
+
+Strings and other objects are allocated from a garbage-collected heap.  Objects
+are stored along with their type, which is one of the following:
+
+  * A lookup object, which associates values with string keys.
+  * An array, which stores values indexed by integers.  Arrays can be resized.
+  * A table, which associates values with keys of other values.
+  * An environment record, which is a fixed-length tuple of values.
+  * A function closure, which references a program and environment records.
+  * A cothread.
+
 
 # Instructions
 
@@ -52,22 +74,19 @@ Swaps the values in registers `r` and `a`.
 
 ## Constant Loading
 
-### NULL
+### LDV
 
-    AB  [        - |        - |        r |     NULL ]   NULL r
+    AB  [                   c |        r |      LDV ]   LDV r, #c
 
-Loads `null` into register `r`.
+Loads a value into register `r` based on `c`:
 
-### BOOL
-
-    AC  [                   c |        r |     BOOL ]   BOOL r, [c]
-
-Loads a boolean value into register `r`.  If `c` is zero, the value is `false`,
-otherwise the value is `true`.
+  * 0 : `null`.
+  * 1 : `false`.
+  * 2 : `true`.
 
 ### LDK
 
-    AC  [                   c |        r |      LDK ]   LDK r, [c]
+    AC  [                   c |        r |      LDK ]   LDK r, #c
 
 Loads a value from the function's constant pool, indexed by `c`, into the
 destination register `r`.
@@ -119,12 +138,11 @@ the value tests true, the result is `false`, otherwise the result is `true`.
 ### ADD
 
     AB  [        b |        a |        r |      ADD ]   ADD r, a, b
-    AB  [        b |        a |        r |     ADDK ]   ADDK r, a, [b]
-    AI  [        i |        a |        r |     ADDI ]   ADDI r, a, [i]
+    AB  [        b |        a |        r |     ADDN ]   ADDN r, a, #b
 
 There are three forms of the `ADD` instruction, which differ in the treatment
-of the second operand.  `ADDK` uses a value from the constant pool, indexed by
-`b`.  `ADDI` uses the 8-bit signed integer immediate `i`.
+of the second operand.  `ADDN` uses a number from the constant pool, indexed by
+`b`.
 
 Adds the number in register `a` to the second operand and writes the result to
 register `r`.  If either operand is not a number, throws `type_error`.
@@ -132,8 +150,7 @@ register `r`.  If either operand is not a number, throws `type_error`.
 ### SUB
 
     AB  [        b |        a |        r |      SUB ]   SUB r, a, b
-    AB  [        b |        a |        r |     SUBK ]   SUBK r, a, [b]
-    AI  [        i |        a |        r |     SUBI ]   SUBI r, a, [i]
+    AB  [        b |        a |        r |     SUBN ]   SUBN r, a, #b
 
 Performs a subtraction, with the same forms as the `ADD` instruction.  The
 order of the operands is swapped - the number in register `a` is subtracted
@@ -142,8 +159,39 @@ from the second operand.
 ### MUL
 
     AB  [        b |        a |        r |      MUL ]   MUL r, a, b
-    AB  [        b |        a |        r |     MULK ]   MULK r, a, [b]
-    AI  [        i |        a |        r |     MULI ]   MULI r, a, [i]
+    AB  [        b |        a |        r |     MULN ]   MULN r, a, #b
 
 Performs a multiplication, with the same forms as the `ADD` instruction.
+
+### CONCAT
+
+    AB  [        b |        a |        r |   CONCAT ]   CONCAT r, a, b
+    AB  [        b |        a |        r |  CONCATS ]   CONCATS r, a, #b
+    AB  [        b |        a |        r | RCONCATS ]   RCONCATS r, a, #b
+
+Concatenates the string in register `a` with the string in register `b`, and
+stores the result in register `r`.  If either operand is not a string, throws
+`type_error`.
+
+`CONCATS` uses a string from the constant pool, indexed by `b` as the second
+operand.  `RCONCATS` also uses one operand from a register, and one from the
+constant pool, but the order in which the strings are concatenated is swapped.
+
+### DIV
+
+    AB  [        b |        a |        r |      DIV ]   DIV r, a, b
+
+Performs a division between the number in register `a` and the number in
+register `b`, and stores the result in register `r`.
+
+### INTDIV
+
+    AB [         b |        a |        r |   INTDIV ]   INTDIV r, a, b
+
+Performs a floored division `⌊a÷b⌋` between the number in register `a` and the
+number in register `b`, and stores the result in register `r`.
+
+### MOD
+
+    AB  [        b |        a |        r |      MOD ]   MOD r, a, b
 
