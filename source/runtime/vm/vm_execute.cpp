@@ -883,7 +883,7 @@ void vm_execute( vm_context* vm )
             }
             else if ( type == TABLE_OBJECT )
             {
-                r[ op.r + 1 ] = { (uint64_t)table_iterate( vm, (table_object*)as_object( u ) };
+                r[ op.r + 1 ] = { (uint64_t)table_iterate( vm, (table_object*)as_object( u ) ) };
                 break;
             }
             else if ( type == COTHREAD_OBJECT )
@@ -925,8 +925,54 @@ void vm_execute( vm_context* vm )
                 [ r + 1 ] = i
                 i += 1
         */
-
-        break;
+        value g = r[ op.a + 0 ];
+        struct op jop = ops[ ip++ ];
+        if ( is_object( g ) )
+        {
+            type_code type = header( as_object( g ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                array_object* array = (array_object*)as_object( g );
+                size_t i = r[ op.a + 1 ].v;
+                if ( i < array->length )
+                {
+                    if ( op.r + 0 < op.b ) r[ op.r + 0 ] = read( read( array->aslots )->slots[ i ] );
+                    if ( op.r + 1 < op.b ) r[ op.r + 1 ] = number_value( i );
+                    r[ op.a + 1 ] = { (uint64_t)( i + 1 ) };
+                }
+                else
+                {
+                    ip += jop.j;
+                }
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                table_object* table = (table_object*)as_object( g );
+                size_t i = r[ op.a + 1 ].v;
+                table_keyval keyval;
+                if ( table_next( vm, table, &i, &keyval ) )
+                {
+                    if ( op.r + 0 < op.b ) r[ op.r + 0 ] = keyval.k;
+                    if ( op.r + 1 < op.b ) r[ op.r + 1 ] = keyval.v;
+                    r[ op.a + 1 ] = { (uint64_t)i };
+                }
+                else
+                {
+                    ip += jop.j;
+                }
+                break;
+            }
+            else if ( type == COTHREAD_OBJECT )
+            {
+                // TODO.
+            }
+        }
+        else if ( is_string( g ) )
+        {
+            // TODO.
+        }
+        goto type_error;
     }
 
 

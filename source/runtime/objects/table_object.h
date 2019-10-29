@@ -64,8 +64,8 @@ struct table_keyval
     value v;
 };
 
-size_t table_iterate( vm_context* vm );
-bool table_next( vm_context* vm, size_t* i, table_keyval* entry );
+size_t table_iterate( vm_context* vm, table_object* table );
+bool table_next( vm_context* vm, table_object* table, size_t* i, table_keyval* keyval );
 
 }
 

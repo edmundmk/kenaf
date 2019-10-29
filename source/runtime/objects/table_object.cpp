@@ -324,5 +324,42 @@ void table_clear( vm_context* vm, table_object* table )
     table->length = 0;
 }
 
+size_t table_iterate( vm_context* vm, table_object* table )
+{
+    kvslots_object* kvslots = read( table->kvslots );
+    size_t i = 0;
+    while ( ! kvslots->slots[ i ].next )
+    {
+        ++i;
+    }
+    return i;
+}
+
+bool table_next( vm_context* vm, table_object* table, size_t* i, table_keyval* keyval )
+{
+    kvslots_object* kvslots = read( table->kvslots );
+    if ( *i < kvslots->count )
+    {
+        // Get key/value from this slot.
+        kvslot* kvslot = kvslots->slots + *i;
+        assert( kvslot->next );
+        keyval->k = read( kvslot->k );
+        keyval->v = read( kvslot->v );
+
+        // Find next non-empty slot.  kvslots objects always end with sentinel.
+        ++*i;
+        while ( ! kvslots->slots[ *i ].next )
+        {
+            ++*i;
+        }
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 }
 
