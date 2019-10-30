@@ -80,7 +80,7 @@ def sd_solve( R, C, s )
     var hints = 0
     out.resize( 81 )
     for i = 0 : 81 do
-        var a = if s[ i ] >= "1" and s[ i ] <= "9" then s.char( i ) - char( "1" ) else -1 end
+        var a = if s[ i ] >= "1" and s[ i ] <= "9" then codepoint( s[ i ] ) - codepoint( "1" ) else -1 end
         if a >= 0 then sd_update( R, C, sr, sc, i * 9 + a, 1 ) end
         if a >= 0 then hints += 1 end
         cr[ i ] = cc[ i ] = -1
