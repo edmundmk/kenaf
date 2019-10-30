@@ -22,8 +22,6 @@
 namespace kf
 {
 
-const uint64_t INDEX_VALUE = 0xFFFF'0000'0000'0000;
-
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
@@ -950,13 +948,13 @@ void vm_execute( vm_context* vm )
             type_code type = header( as_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r + 1 ] = { INDEX_VALUE | 0 };
+                r[ op.r + 1 ] = { ~(uint64_t)0 };
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
                 uint64_t index = table_iterate( vm, (table_object*)as_object( u ) );
-                r[ op.r + 1 ] = { INDEX_VALUE | index };
+                r[ op.r + 1 ] = { ~index };
                 break;
             }
             else if ( type == COTHREAD_OBJECT )
@@ -1006,7 +1004,7 @@ void vm_execute( vm_context* vm )
             if ( type == ARRAY_OBJECT )
             {
                 array_object* array = (array_object*)as_object( g );
-                size_t i = r[ op.a + 1 ].v & ~INDEX_VALUE;
+                size_t i = ~r[ op.a + 1 ].v;
                 if ( i < array->length )
                 {
                     size_t rp = op.r;
@@ -1021,7 +1019,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { INDEX_VALUE | (uint64_t)i };
+                    r[ op.a + 1 ] = { ~(uint64_t)i };
                 }
                 else
                 {
@@ -1032,7 +1030,7 @@ void vm_execute( vm_context* vm )
             else if ( type == TABLE_OBJECT )
             {
                 table_object* table = (table_object*)as_object( g );
-                size_t i = r[ op.a + 1 ].v & ~INDEX_VALUE;
+                size_t i = ~r[ op.a + 1 ].v;
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
@@ -1048,7 +1046,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { INDEX_VALUE | (uint64_t)i };
+                    r[ op.a + 1 ] = { ~(uint64_t)i };
                 }
                 else
                 {

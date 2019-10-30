@@ -56,13 +56,11 @@ struct object {};
 
     For-each loops over arrays, tables, and strings store an index value
     directly on the value stack.  To differentiate indexes from pointers, the
-    index value is stored as:
+    index value is stored as the not of the index.
 
-          FFFF XXXX XXXX XXXX   index
-
-    This overlaps with the encoding of subnormal numbers, but the compiler
-    knows not to use a register containing an index as an operand to an
-    instruction that requires a number.
+    This overlaps with the encoding of numbers, but the compiler knows not to
+    use a register containing an index as an operand to an instruction that
+    requires a number.
 */
 
 struct value { uint64_t v; };
