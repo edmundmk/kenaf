@@ -23,9 +23,9 @@ are stored along with their type, which is one of the following:
 
   * A lookup object, which associates values with string keys.
   * An array, which stores values indexed by integers.  Arrays can be resized.
-  * A table, which associates values with keys of other values.
+  * A table, which stores values indexed by key values.
   * An environment record, which is a fixed-length tuple of values.
-  * A function, which references a program and outenv environment records.
+  * A function, which references a program and a list of environment records.
   * A cothread, containing call frame and execution stacks.
 
 
@@ -35,9 +35,9 @@ The virtual machine runs bytecode programs.  Each program consists of:
 
   * Bytecode instructions.
   * An array of constant values.
-  * An array of selectors, which reference strings used as keys.
+  * An array of selectors, which are references to strings used as keys.
   * An array of references to programs used by function closures.
-  * A count of the number of outenv environments required by the function.
+  * A count of the number of environment records required by the function.
   * A count of the number of parameters expected by the function.
   * A flag indicating if the function has a variable argument parameter.
   * A flag indicating if the function is a generator.
@@ -90,7 +90,7 @@ following the jump, counting in instructions.
     AB  [        - |        a |        r |      SWP ]   SWP r, a
 
 The `MOV` instruction copies the value from register `a` into register `r`.
-The `SWP` instruction swaps the values of the two registers.
+The `SWP` instruction swaps the values in the two registers.
 
 
 ## Constant Loading
@@ -152,14 +152,14 @@ Any other value throws a `type_error`.
     AB  [        b |        a |        r |      MUL ]   MUL r, a, b
     AB  [        b |        a |        r |     MULN ]   MULN r, a, #b
 
+Performs an arithmetic operation using the number in register `a` and the
+number loaded by the second operand, and writes the result to register `r`.
+If either operand is not a number, throws `type_error`.
+
 There are two forms of each of these arithmetic instructions, which differ in
 the treatment of the second operand.  The `N` forms of the instructions load
 a value from the program's constant pool, indexed by `b`.  The normal forms
 of the instruction use the value in register `b`.
-
-Performs an arithmetic operation using the number in register `a` and the
-number loaded by the second operand, and writes the result to register `r`.
-If either operand is not a number, throws `type_error`.
 
 For `SUB` and `SUBN`, the order of the operands is swapped - the number in
 register `a` is subtracted from the second operand.  Subtraction of a constant
@@ -177,8 +177,8 @@ stores the result in register `r`.  If either operand is not a string, throws
 
 `CONCATS` uses a string from the constant pool, indexed by `b` as the second
 operand.  `RCONCATS` similarly uses a string from the constant pool as the
-second operand, but additionally the order in which the strings are
-concatenated is swapped.
+second operand, and also swaps the two operands, concatenating the constant
+indexed by `b` with the string in register `a`.
 
 
 ## Binary Arithmetic
