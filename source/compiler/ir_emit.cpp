@@ -77,7 +77,6 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_NEW_OBJECT,    1, { IR_O_OP                            },  OP_NEW_OBJECT,  AB      },
     { IR_NEW_ARRAY,     1, { IR_O_IMMEDIATE                     },  OP_NEW_ARRAY,   C       },
     { IR_NEW_TABLE,     1, { IR_O_IMMEDIATE                     },  OP_NEW_TABLE,   C       },
-    { IR_SUPER,         1, { IR_O_OP                            },  OP_SUPER,       AB      },
     { IR_APPEND,        2, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
 
     { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB      },
@@ -269,7 +268,7 @@ void ir_emit::assemble()
 
         case IR_NEW_FUNCTION:
         {
-            assert( iop->ocount >= 1 );
+            assert( iop->ocount >= 2 );
             ir_operand operand = _f->operands[ iop->oindex + 0 ];
             assert( operand.kind == IR_O_IFUNCREF );
             if ( iop->r == IR_INVALID_REGISTER )
@@ -280,8 +279,21 @@ void ir_emit::assemble()
             _max_r = std::max( _max_r, iop->r );
             emit( iop->sloc, op::op_c( OP_FUNCTION, iop->r, operand.index ) );
 
+            ir_operand omethod = _f->operands[ iop->oindex + 1 ];
+            if ( omethod.kind != IR_O_NONE )
+            {
+                assert( omethod.kind == IR_O_OP );
+                const ir_op* oop = &_f->ops[ omethod.index ];
+                if ( oop->r == IR_INVALID_REGISTER )
+                {
+                    _source->error( oop->sloc, "internal: no allocated register for method object" );
+                    break;
+                }
+                emit( iop->sloc, op::op_ab( OP_F_METHOD, iop->r, oop->r, 0 ) );
+            }
+
             unsigned outenv_index = 0;
-            for ( unsigned j = 1; j < iop->ocount; ++j )
+            for ( unsigned j = 2; j < iop->ocount; ++j )
             {
                 ir_operand operand = _f->operands[ iop->oindex + j ];
                 if ( operand.kind == IR_O_OP )
@@ -303,6 +315,17 @@ void ir_emit::assemble()
                     assert( ! "invalid function environment operand" );
                 }
             }
+            break;
+        }
+
+        case IR_SUPER:
+        {
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                break;
+            }
+            emit( iop->sloc, op::op_ab( OP_SUPER, iop->r, 0, 0 ) );
             break;
         }
 

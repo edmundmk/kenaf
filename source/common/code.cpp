@@ -154,6 +154,7 @@ const char* const OPCODE_PRINT[] =
     [ OP_SUPER      ] = "SUPER %$r, %$a",
     [ OP_THROW      ] = "THROW %$r",
     [ OP_FUNCTION   ] = "FUNCTION %$r, #$c",
+    [ OP_F_METHOD   ] = "F_METHOD %$r, %$a",
     [ OP_F_VARENV   ] = "F_VARENV %$r, #$a, %$b",
     [ OP_F_OUTENV   ] = "F_OUTENV %$r, #$a, ^$b",
 };

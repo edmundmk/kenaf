@@ -405,15 +405,27 @@ ir_operand ir_build::visit( ast_node_index node )
         ast_node_index qname = ast_child_node( _f->ast, node );
         ast_node_index value = ast_next_node( _f->ast, qname );
 
-        ir_operand object = visit( value );
         if ( qname->kind == AST_LOCAL_DECL )
         {
+            ir_operand object = visit( value );
             def( node->sloc, qname->leaf_index().index, object );
         }
         else
         {
             assert( qname->kind == AST_EXPR_KEY );
-            assign( qname, object );
+            if ( value->kind == AST_DEF_FUNCTION )
+            {
+                ir_operand omethod = visit( ast_child_node( _f->ast, qname ) );
+                _o.push_back( omethod );
+                _o.push_back( selector_operand( qname ) );
+                _o.push_back( def_function( value, omethod ) );
+                emit( qname->sloc, IR_SET_KEY, 3 );
+            }
+            else
+            {
+                ir_operand object = visit( value );
+                assign( qname, object );
+            }
         }
 
         return { IR_O_NONE };
@@ -804,26 +816,7 @@ ir_operand ir_build::visit( ast_node_index node )
 
     case AST_DEF_FUNCTION:
     {
-        ast_function* function = node->leaf_function().function;
-
-        unsigned ocount = 1;
-        _o.push_back( { IR_O_FUNCTION, function->index } );
-
-        for ( unsigned i = 0; i < function->outenvs.size(); ++i )
-        {
-            const ast_outenv& outenv = function->outenvs[ i ];
-            if ( outenv.outer_outenv )
-            {
-                _o.push_back( { IR_O_OUTENV, outenv.outer_index } );
-            }
-            else
-            {
-                _o.push_back( use( node->sloc, outenv.outer_index ) );
-            }
-            ocount += 1;
-        }
-
-        return emit( node->sloc, IR_NEW_FUNCTION, ocount );
+        return def_function( node, { IR_O_NONE } );
     }
 
     case AST_DEF_OBJECT:
@@ -856,7 +849,15 @@ ir_operand ir_build::visit( ast_node_index node )
             assert( name->kind == AST_OBJKEY_DECL );
             _o.push_back( object );
             _o.push_back( selector_operand( name ) );
-            _o.push_back( visit( value ) );
+
+            if ( value->kind == AST_DEF_FUNCTION && child->kind == AST_DECL_DEF )
+            {
+                _o.push_back( def_function( value, object ) );
+            }
+            else
+            {
+                _o.push_back( visit( value ) );
+            }
             emit( child->sloc, IR_SET_KEY, 3 );
         }
 
@@ -894,16 +895,14 @@ ir_operand ir_build::visit( ast_node_index node )
     }
 
     case AST_LOCAL_NAME:
-    case AST_SUPER_NAME:
     {
         unsigned local_index = node->leaf_index().index;
-        ir_operand value = use( node->sloc, local_index );
-        if ( node->kind == AST_SUPER_NAME )
-        {
-            _o.push_back( value );
-            value = emit( node->sloc, IR_SUPER, 1 );
-        }
-        return value;
+        return use( node->sloc, local_index );
+    }
+
+    case AST_SUPER_NAME:
+    {
+        return emit( node->sloc, IR_SUPER, 0 );
     }
 
     case AST_OUTENV_NAME:
@@ -923,6 +922,32 @@ ir_operand ir_build::visit( ast_node_index node )
     }
 
     return { IR_O_NONE };
+}
+
+ir_operand ir_build::def_function( ast_node_index node, ir_operand omethod )
+{
+    assert( node->kind == AST_DEF_FUNCTION );
+    ast_function* function = node->leaf_function().function;
+
+    unsigned ocount = 2;
+    _o.push_back( { IR_O_FUNCTION, function->index } );
+    _o.push_back( omethod );
+
+    for ( unsigned i = 0; i < function->outenvs.size(); ++i )
+    {
+        const ast_outenv& outenv = function->outenvs[ i ];
+        if ( outenv.outer_outenv )
+        {
+            _o.push_back( { IR_O_OUTENV, outenv.outer_index } );
+        }
+        else
+        {
+            _o.push_back( use( node->sloc, outenv.outer_index ) );
+        }
+        ocount += 1;
+    }
+
+    return emit( node->sloc, IR_NEW_FUNCTION, ocount );
 }
 
 void ir_build::block_varenv( ast_node_index node )
@@ -1545,11 +1570,23 @@ ir_operand ir_build::call_op( ast_node_index node, ir_opcode opcode )
         // Pass self parameter to method calls.
         if ( arg->kind == AST_EXPR_KEY )
         {
-            ir_operand self = visit( ast_child_node( _f->ast, arg ) );
+            ast_node_index object = ast_child_node( _f->ast, arg );
+            ir_operand self = visit( object );
+
             _o.push_back( self );
             _o.push_back( selector_operand( arg ) );
             _o.push_back( emit( arg->sloc, IR_GET_KEY, 2 ) );
-            _o.push_back( self );
+
+            if ( object->kind == AST_SUPER_NAME )
+            {
+                unsigned local_index = object->leaf_index().index;
+                _o.push_back( use( object->sloc, local_index ) );
+            }
+            else
+            {
+                _o.push_back( self );
+            }
+
             ocount += 2;
         }
         else

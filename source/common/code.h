@@ -111,10 +111,11 @@ enum opcode : uint8_t
     OP_FOR_EACH,        // r:b = generate a:2       | F | r | a | b || J | - |   j   |
     OP_FOR_STEP,        // r = for step a:3         | F | r | a | - || J | - |   j   |
 
-    OP_SUPER,           // r = super a              | G | r | a | - |
+    OP_SUPER,           // r = super                | G | r | - | - |
     OP_THROW,           // throw r                  | J | r | - | - |
 
     OP_FUNCTION,        // r = close function       | N | r |   c   |
+    OP_F_METHOD,        // r.omethod = a            | N | r | a | - |
     OP_F_VARENV,        // r.out[ %a ] = b          | G | r | a | b |
     OP_F_OUTENV,        // r.out[ %a ] = out[b]     | G | r | a | b |
 };

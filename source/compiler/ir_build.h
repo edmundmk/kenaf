@@ -60,6 +60,7 @@ private:
 
     // Visiting AST.
     ir_operand visit( ast_node_index node );
+    ir_operand def_function( ast_node_index node, ir_operand omethod );
     void block_varenv( ast_node_index node );
     void visit_children( ast_node_index node );
 

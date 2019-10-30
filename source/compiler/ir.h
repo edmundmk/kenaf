@@ -190,8 +190,8 @@ enum ir_opcode : uint8_t
     IR_NEW_OBJECT,              // def
     IR_NEW_ARRAY,               // []
     IR_NEW_TABLE,               // {}
-    IR_NEW_FUNCTION,            // function, varenv/outenv_index*
-    IR_SUPER,                   // super( self ), performs late binding.
+    IR_NEW_FUNCTION,            // function, omethod, varenv/outenv_index*
+    IR_SUPER,                   // super, based on omethod of the function
     IR_APPEND,                  // a.append( b )
 
     // Stack top instructions.  If rcount is >1 then results must be selected.

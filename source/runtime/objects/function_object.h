@@ -71,6 +71,7 @@ struct program_object : public object
 struct function_object : public object
 {
     ref< program_object > program;
+    ref< lookup_object > omethod;
     ref< vslots_object > outenvs[];
 };
 
