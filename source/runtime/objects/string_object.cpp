@@ -59,5 +59,17 @@ string_object* string_key( vm_context* vm, const char* text, size_t size )
     return string;
 }
 
+string_object* string_getindex( vm_context* vm, string_object* string, size_t index )
+{
+    if ( index < string->size )
+    {
+        return string_new( vm, string->text + index, 1 );
+    }
+    else
+    {
+        throw std::out_of_range( "string" );
+    }
+}
+
 }
 

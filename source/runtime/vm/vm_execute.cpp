@@ -692,7 +692,9 @@ void vm_execute( vm_context* vm )
         }
         else if ( is_string( u ) )
         {
-            // TODO.
+            string_object* string = as_string( u );
+            r[ op.r ] = object_value( string_getindex( vm, string, (size_t)(int64_t)as_number( v ) ) );
+            break;
         }
         goto type_error;
     }
@@ -718,7 +720,9 @@ void vm_execute( vm_context* vm )
         }
         else if ( is_string( u ) )
         {
-            // TODO.
+            string_object* string = as_string( u );
+            r[ op.r ] = object_value( string_getindex( vm, string, op.b ) );
+            break;
         }
         goto type_error;
     }
@@ -964,7 +968,7 @@ void vm_execute( vm_context* vm )
         }
         else if ( is_string( u ) )
         {
-            r[ op.r + 1 ] = { 0 };
+            r[ op.r + 1 ] = { ~(uint64_t)0 };
             break;
         }
         goto type_error;
@@ -998,6 +1002,12 @@ void vm_execute( vm_context* vm )
         */
         value g = r[ op.a + 0 ];
         struct op jop = ops[ ip++ ];
+        size_t rp = op.r;
+        xp = op.b;
+        if ( xp == OP_STACK_MARK )
+        {
+            r = vm_ensure_stack( vm, xp = rp + 2 );
+        }
         if ( is_object( g ) )
         {
             type_code type = header( as_object( g ) )->type;
@@ -1007,12 +1017,6 @@ void vm_execute( vm_context* vm )
                 size_t i = ~r[ op.a + 1 ].v;
                 if ( i < array->length )
                 {
-                    size_t rp = op.r;
-                    xp = op.b;
-                    if ( xp == OP_STACK_MARK )
-                    {
-                        r = vm_ensure_stack( vm, xp = rp + 2 );
-                    }
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
                     if ( rp < xp ) r[ rp++ ] = number_value( i );
                     while ( rp < xp )
@@ -1034,12 +1038,6 @@ void vm_execute( vm_context* vm )
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
-                    size_t rp = op.r;
-                    xp = op.b;
-                    if ( xp == OP_STACK_MARK )
-                    {
-                        r = vm_ensure_stack( vm, xp = rp + 2 );
-                    }
                     if ( rp < xp ) r[ rp++ ] = keyval.k;
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
                     while ( rp < xp )
@@ -1061,7 +1059,22 @@ void vm_execute( vm_context* vm )
         }
         else if ( is_string( g ) )
         {
-            // TODO.
+            string_object* string = as_string( g );
+            size_t i = ~r[ op.a + 1 ].v;
+            if ( i < string->size )
+            {
+                if ( rp < xp ) r[ rp++ ] = object_value( string_getindex( vm, string, i++ ) );
+                while ( rp < xp )
+                {
+                    r[ rp++ ] = null_value;
+                    r[ op.a + 1 ] = { ~(uint64_t)i };
+                }
+            }
+            else
+            {
+                ip += jop.j;
+            }
+            break;
         }
         goto type_error;
     }
@@ -1104,7 +1117,8 @@ void vm_execute( vm_context* vm )
 
     case OP_SUPER:
     {
-        // TODO.
+        lookup_object* omethod = read( function->omethod );
+        r[ op.r ] = object_value( lookup_prototype( vm, omethod ) );
         break;
     }
 

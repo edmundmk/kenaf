@@ -64,6 +64,7 @@ string_object* string_new( vm_context* vm, const char* text, size_t size );
 size_t string_hash( vm_context* vm, string_object* string );
 string_object* string_key( vm_context* vm, string_object* string );
 string_object* string_key( vm_context* vm, const char* text, size_t size );
+string_object* string_getindex( vm_context* vm, string_object* string, size_t index );
 
 /*
     Inline functions.
