@@ -1,6 +1,6 @@
 # Kenaf Bytecode Reference
 
-**Kenaf** scripts are compiled to bytecode that can be executed on a virtual
+Kenaf scripts are compiled to bytecode that can be executed on a virtual
 machine.
 
 This manual describes the design of this virtual machine and the instruction
@@ -83,7 +83,6 @@ encode one of the following:
 Jump offsets are encoded as signed displacements relative to the instruction
 following the jump, counting in instructions.
 
-
 ## Data Transfer
 
     AB  [        - |        a |        r |      MOV ]   MOV r, a
@@ -91,7 +90,6 @@ following the jump, counting in instructions.
 
 The `MOV` instruction copies the value from register `a` into register `r`.
 The `SWP` instruction swaps the values in the two registers.
-
 
 ## Constant Loading
 
@@ -102,14 +100,11 @@ Loads a constant value into register `r`.  For `LDK`, the constant is loaded
 from the program's constant pool, indexed by `c`.  For `LDV`, the constant is
 one of the following fixed values, depending on `c`:
 
-  * 0 : `null`.
-  * 1 : `false`.
-  * 2 : `true`.
+  * `0` : `null`.
+  * `1` : `false`.
+  * `2` : `true`.
 
-
-## Unary
-
-### Arithmetic
+## Unary Arithmetic
 
     AB  [        - |        a |        r |      NEG ]   NEG r, a
     AB  [        - |        a |        r |      POS ]   POS r, a
@@ -123,7 +118,7 @@ the result to register `r`.  If the value is not a number, throws a
 and resulting in an unsigned integer.  The exact process used for bitwise
 operations is described in a later section.
 
-### Logical
+## Unary Bitwise
 
     AB  [        - |        a |        r |      NOT ]   NOT r, a
 
@@ -131,7 +126,7 @@ Writes either `true` or `false` into register `r` depending on the result of
 testing the value in register `a`.  `null`, `false`, `+0.0` and `-0.0` test
 false.  All other values test true.
 
-### Length
+## Length
 
     AB  [        - |        a |        r |      LEN ]   LEN r, a
 
@@ -144,10 +139,7 @@ register `r`.
 
 Any other value throws a `type_error`.
 
-
-## Binary with Constant
-
-### Arithmetic
+## Binary Arithmetic with Constant
 
     AB  [        b |        a |        r |      ADD ]   ADD r, a, b
     AB  [        b |        a |        r |     ADDN ]   ADDN r, a, #b
@@ -169,7 +161,7 @@ For `SUB` and `SUBN`, the order of the operands is swapped - the number in
 register `a` is subtracted from the second operand.  Subtraction of a constant
 can expressed using the `ADDN` instruction with a negated second operand.
 
-### Concatenation
+## Concatenation
 
     AB  [        b |        a |        r |   CONCAT ]   CONCAT r, a, b
     AB  [        b |        a |        r |  CONCATS ]   CONCATS r, a, #b
@@ -184,7 +176,6 @@ operand.  `RCONCATS` similarly uses a string from the constant pool as the
 second operand, and also swaps the two operands, concatenating the constant
 indexed by `b` with the string in register `a`.
 
-
 ## Binary Arithmetic
 
     AB  [        b |        a |        r |      DIV ]   DIV r, a, b
@@ -194,7 +185,6 @@ indexed by `b` with the string in register `a`.
 Performs an arithmetic operation on the numbers in registers `a` and `b`, and
 writes the result to register `r`.  If either operand is not a number, throws
 `type_error`.
-
 
 ## Bitwise Instructions
 
@@ -232,13 +222,10 @@ considering the low 32 bits and treating them as an unsigned integer.  The
 result of a bitwise operation is always in the range `0 <= result <
 0xFFFFFFFF`.
 
-
 ## Prototype Check
 
-## Jump and Test
+## Jump
 
-### Jump
+## Test
 
-### Test
-
-### Comparisons
+## Comparisons

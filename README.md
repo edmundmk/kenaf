@@ -1,6 +1,6 @@
 # Kenaf
 
-**Kenaf** is a scripting language designed to be embedded in C++ applications.
+Kenaf is a scripting language designed to be embedded in C++ applications.
 Kenaf provides you with:
 
   * Simple, readable syntax.
@@ -10,8 +10,7 @@ Kenaf provides you with:
   * A concurrent garbage collector that minimizes stalls.
 
 Kenaf owes a great deal to [Lua](https://lua.org) and
-[Python](https://www.python.orgpython.org).  These languages get an awful lot
-right, and where they do so, Kenaf follows their lead.
+[Python](https://www.python.orgpython.org).
 
 Since Kenaf is most similar to Lua, it is useful for readers familiar with Lua
 to illustrate some of the differences between the two languages:
