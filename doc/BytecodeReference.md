@@ -119,6 +119,10 @@ Performs a unary arithmetic operation on the number in register `a` and writes
 the result to register `r`.  If the value is not a number, throws a
 `type_error`.
 
+`BITNOT` is a bitwise operation, truncating its operand to a 32-bit bit pattern
+and resulting in an unsigned integer.  The exact process used for bitwise
+operations is described in a later section.
+
 ### Logical
 
     AB  [        - |        a |        r |      NOT ]   NOT r, a
@@ -194,10 +198,47 @@ writes the result to register `r`.  If either operand is not a number, throws
 
 ## Bitwise Instructions
 
-    AB  [        b |        a |        r |   LSHIFT ]   DIV r, a, b
-    AB  [        b |        a |        r |   RSHIFT ]   INTDIV r, a, b
-    AB  [        b |        a |        r |   ASHIFT ]   MOD r, a, b
-    AB  [        b |        a |        r |   BITAND ]   MOD r, a, b
-    AB  [        b |        a |        r |   BITXOR ]   MOD r, a, b
-    AB  [        b |        a |        r |    BITOR ]   MOD r, a, b
+    AB  [        b |        a |        r |   LSHIFT ]   LSHIFT r, a, b
+    AB  [        b |        a |        r |   RSHIFT ]   RSHIFT r, a, b
+    AB  [        b |        a |        r |   ASHIFT ]   ASHIFT r, a, b
+    AB  [        b |        a |        r |   BITAND ]   BITAND r, a, b
+    AB  [        b |        a |        r |   BITXOR ]   BITXOR r, a, b
+    AB  [        b |        a |        r |    BITOR ]   BITOR r, a, b
 
+Performs a 32-bit bitwise operands on the numbers in registers `a` and `b`, and
+writes the result to register `r`.  If either operand is not a number, throws
+`type_error`.
+
+The operations are:
+
+  * `LSHIFT` performs a left shift.
+  * `RSHIFT` performs a logical right shift.
+  * `ASHIFT` preforms an arithmetic right shift.
+  * `BITAND` performs logical conjuction on each pair of bits.
+  * `BITXOR` performs exclusive disjunction on each pair of bits.
+  * `BITOR` performs logical disjunction on each pair of bits.
+
+Numbers are converted to bit patterns using the following process:
+
+  * The number is truncated towards zero.
+  * Ignoring the sign bit, the truncated value of the number is represented
+    as an unsigned integer with as many bits as is required.
+  * If the number is negative, take the two's-complement of the bit pattern.
+    This causes the high bits of the number to become `1`.
+  * Use only the low 32 bits of the resulting bit pattern.
+
+After the operation, the resulting bit pattern is converted back to a number by
+considering the low 32 bits and treating them as an unsigned integer.  The
+result of a bitwise operation is always in the range `0 <= result <
+0xFFFFFFFF`.
+
+
+## Prototype Check
+
+## Jump and Test
+
+### Jump
+
+### Test
+
+### Comparisons
