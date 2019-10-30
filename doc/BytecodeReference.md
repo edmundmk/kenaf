@@ -13,12 +13,9 @@ set that runs on it.
 
 The virtual machine deals with values.  A value can be one of the following:
 
-  * `null`
-  * `true`
-  * `false`
+  * `null`, `true`, or `false`.
   * A number.  All numbers are IEEE 754 double-precision floating-point.
-  * A reference to a UTF-8 string, stored with its length.  Strings are not
-    null terminated.
+  * A reference to a UTF-8 string.
   * A reference to an object.
 
 Strings and other objects are allocated from a garbage-collected heap.  Objects
@@ -28,8 +25,37 @@ are stored along with their type, which is one of the following:
   * An array, which stores values indexed by integers.  Arrays can be resized.
   * A table, which associates values with keys of other values.
   * An environment record, which is a fixed-length tuple of values.
-  * A function closure, which references a program and environment records.
-  * A cothread.
+  * A function, which references a program and outenv environment records.
+  * A cothread, containing call frame and execution stacks.
+
+
+## Programs
+
+The virtual machine runs bytecode programs.  Each program consists of:
+
+  * Bytecode instructions.
+  * An array of constant values.
+  * An array of selectors, which reference strings used as keys.
+  * An array of references to programs used by function closures.
+  * A count of the number of outenv environments required by the function.
+  * A count of the number of parameters expected by the function.
+  * A flag indicating if the function has a variable argument parameter.
+  * A flag indicating if the function is a generator.
+
+
+## Cothreads
+
+The virtual machine has a stack of cothreads.  Each cothread can be suspended
+and resumed independently of the state of other cothreads.  To achieve this,
+each cothread has its own execution and call stack.
+
+The *execution stack* is an array of values.  Each function operates on some
+number of registers.  These registers are actually values on the call stack.
+Each call frame establishes a register window on the call stack starting at the
+current frame pointer.
+
+The *call stack* is an array of call frames.  As functions are called, new
+call frames are pushed onto the call stack, providing base and frame pointers.
 
 
 # Instructions
@@ -60,40 +86,48 @@ following the jump, counting in instructions.
 
 ## Data Transfer
 
-### MOV
-
     AB  [        - |        a |        r |      MOV ]   MOV r, a
-
-Copies the value from register `a` into register `r`.
-
-### SWP
-
     AB  [        - |        a |        r |      SWP ]   SWP r, a
 
-Swaps the values in registers `r` and `a`.
+The `MOV` instruction copies the value from register `a` into register `r`.
+The `SWP` instruction swaps the values of the two registers.
+
 
 ## Constant Loading
 
-### LDV
+    AC  [                   c |        r |      LDK ]   LDK r, #c
+    AC  [                   c |        r |      LDV ]   LDV r, #c
 
-    AB  [                   c |        r |      LDV ]   LDV r, #c
-
-Loads a value into register `r` based on `c`:
+Loads a constant value into register `r`.  For `LDK`, the constant is loaded
+from the program's constant pool, indexed by `c`.  For `LDV`, the constant is
+one of the following fixed values, depending on `c`:
 
   * 0 : `null`.
   * 1 : `false`.
   * 2 : `true`.
 
-### LDK
 
-    AC  [                   c |        r |      LDK ]   LDK r, #c
+## Unary
 
-Loads a value from the function's constant pool, indexed by `c`, into the
-destination register `r`.
+### Arithmetic
 
-## Arithmetic
+    AB  [        - |        a |        r |      NEG ]   NEG r, a
+    AB  [        - |        a |        r |      POS ]   POS r, a
+    AB  [        - |        a |        r |   BITNOT ]   BITNOT r, a
 
-### LEN
+Performs a unary arithmetic operation on the number in register `a` and writes
+the result to register `r`.  If the value is not a number, throws a
+`type_error`.
+
+### Logical
+
+    AB  [        - |        a |        r |      NOT ]   NOT r, a
+
+Writes either `true` or `false` into register `r` depending on the result of
+testing the value in register `a`.  `null`, `false`, `+0.0` and `-0.0` test
+false.  All other values test true.
+
+### Length
 
     AB  [        - |        a |        r |      LEN ]   LEN r, a
 
@@ -106,64 +140,32 @@ register `r`.
 
 Any other value throws a `type_error`.
 
-### NEG
 
-    AB  [        - |        a |        r |      NEG ]   NEG r, a
+## Binary with Constant
 
-Calculates the additive inverse of the number in register `a` and writes the
-result to register `r`.  If the value is not a number, throws a `type_error`.
-
-### POS
-
-    AB  [        - |        a |        r |      POS ]   POS r, a
-
-Performs unary plus.  Takes the number in register `a` and writes it to
-register `r`.   If the value is not a number, throws a `type_error`.
-
-### BITNOT
-
-    AB  [        - |        a |        r |   BITNOT ]   BITNOT r, a
-
-Calculates the one's complement of the number (treated as a 32-bit integer)
-in register `a` and writes the result to register `r`.  If the value is not a
-number, throws `type_error`.
-
-### NOT
-
-    AB  [        - |        a |        r |      NOT ]   NOT r, a
-
-Writes the logical negation of the value in register `a` to register `r`.  If
-the value tests true, the result is `false`, otherwise the result is `true`.
-
-### ADD
+### Arithmetic
 
     AB  [        b |        a |        r |      ADD ]   ADD r, a, b
     AB  [        b |        a |        r |     ADDN ]   ADDN r, a, #b
-
-There are three forms of the `ADD` instruction, which differ in the treatment
-of the second operand.  `ADDN` uses a number from the constant pool, indexed by
-`b`.
-
-Adds the number in register `a` to the second operand and writes the result to
-register `r`.  If either operand is not a number, throws `type_error`.
-
-### SUB
-
     AB  [        b |        a |        r |      SUB ]   SUB r, a, b
     AB  [        b |        a |        r |     SUBN ]   SUBN r, a, #b
-
-Performs a subtraction, with the same forms as the `ADD` instruction.  The
-order of the operands is swapped - the number in register `a` is subtracted
-from the second operand.
-
-### MUL
-
     AB  [        b |        a |        r |      MUL ]   MUL r, a, b
     AB  [        b |        a |        r |     MULN ]   MULN r, a, #b
 
-Performs a multiplication, with the same forms as the `ADD` instruction.
+There are two forms of each of these arithmetic instructions, which differ in
+the treatment of the second operand.  The `N` forms of the instructions load
+a value from the program's constant pool, indexed by `b`.  The normal forms
+of the instruction use the value in register `b`.
 
-### CONCAT
+Performs an arithmetic operation using the number in register `a` and the
+number loaded by the second operand, and writes the result to register `r`.
+If either operand is not a number, throws `type_error`.
+
+For `SUB` and `SUBN`, the order of the operands is swapped - the number in
+register `a` is subtracted from the second operand.  Subtraction of a constant
+can expressed using the `ADDN` instruction with a negated second operand.
+
+### Concatenation
 
     AB  [        b |        a |        r |   CONCAT ]   CONCAT r, a, b
     AB  [        b |        a |        r |  CONCATS ]   CONCATS r, a, #b
@@ -174,24 +176,28 @@ stores the result in register `r`.  If either operand is not a string, throws
 `type_error`.
 
 `CONCATS` uses a string from the constant pool, indexed by `b` as the second
-operand.  `RCONCATS` also uses one operand from a register, and one from the
-constant pool, but the order in which the strings are concatenated is swapped.
+operand.  `RCONCATS` similarly uses a string from the constant pool as the
+second operand, but additionally the order in which the strings are
+concatenated is swapped.
 
-### DIV
+
+## Binary Arithmetic
 
     AB  [        b |        a |        r |      DIV ]   DIV r, a, b
-
-Performs a division between the number in register `a` and the number in
-register `b`, and stores the result in register `r`.
-
-### INTDIV
-
-    AB [         b |        a |        r |   INTDIV ]   INTDIV r, a, b
-
-Performs a floored division `⌊a÷b⌋` between the number in register `a` and the
-number in register `b`, and stores the result in register `r`.
-
-### MOD
-
+    AB  [        b |        a |        r |   INTDIV ]   INTDIV r, a, b
     AB  [        b |        a |        r |      MOD ]   MOD r, a, b
+
+Performs an arithmetic operation on the numbers in registers `a` and `b`, and
+writes the result to register `r`.  If either operand is not a number, throws
+`type_error`.
+
+
+## Bitwise Instructions
+
+    AB  [        b |        a |        r |   LSHIFT ]   DIV r, a, b
+    AB  [        b |        a |        r |   RSHIFT ]   INTDIV r, a, b
+    AB  [        b |        a |        r |   ASHIFT ]   MOD r, a, b
+    AB  [        b |        a |        r |   BITAND ]   MOD r, a, b
+    AB  [        b |        a |        r |   BITXOR ]   MOD r, a, b
+    AB  [        b |        a |        r |    BITOR ]   MOD r, a, b
 
