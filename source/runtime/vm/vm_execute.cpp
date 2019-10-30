@@ -22,6 +22,8 @@
 namespace kf
 {
 
+const uint64_t INDEX_VALUE = 0xFFFF'0000'0000'0000;
+
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
@@ -948,12 +950,13 @@ void vm_execute( vm_context* vm )
             type_code type = header( as_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r + 1 ] = { 0 };
+                r[ op.r + 1 ] = { INDEX_VALUE | 0 };
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                r[ op.r + 1 ] = { (uint64_t)table_iterate( vm, (table_object*)as_object( u ) ) };
+                uint64_t index = table_iterate( vm, (table_object*)as_object( u ) );
+                r[ op.r + 1 ] = { INDEX_VALUE | index };
                 break;
             }
             else if ( type == COTHREAD_OBJECT )
@@ -1003,7 +1006,7 @@ void vm_execute( vm_context* vm )
             if ( type == ARRAY_OBJECT )
             {
                 array_object* array = (array_object*)as_object( g );
-                size_t i = r[ op.a + 1 ].v;
+                size_t i = r[ op.a + 1 ].v & ~INDEX_VALUE;
                 if ( i < array->length )
                 {
                     size_t rp = op.r;
@@ -1018,7 +1021,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { (uint64_t)i };
+                    r[ op.a + 1 ] = { INDEX_VALUE | (uint64_t)i };
                 }
                 else
                 {
@@ -1029,7 +1032,7 @@ void vm_execute( vm_context* vm )
             else if ( type == TABLE_OBJECT )
             {
                 table_object* table = (table_object*)as_object( g );
-                size_t i = r[ op.a + 1 ].v;
+                size_t i = r[ op.a + 1 ].v & ~INDEX_VALUE;
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
@@ -1045,7 +1048,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { (uint64_t)i };
+                    r[ op.a + 1 ] = { INDEX_VALUE | (uint64_t)i };
                 }
                 else
                 {
@@ -1121,7 +1124,14 @@ void vm_execute( vm_context* vm )
         while ( true )
         {
             struct op vop = ops[ ip ];
-            if ( vop.opcode == OP_F_VARENV )
+            if ( vop.opcode == OP_F_METHOD )
+            {
+                assert( vop.r == op.r );
+                value omethod = r[ op.b ];
+                if ( ! is_object( omethod ) || header( as_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
+                winit( closure->omethod, (lookup_object*)as_object( r[ op.b ] ) );
+            }
+            else if ( vop.opcode == OP_F_VARENV )
             {
                 assert( vop.r == op.r );
                 winit( closure->outenvs[ op.a ], (vslots_object*)as_object( r[ op.b ] ) );
@@ -1139,6 +1149,7 @@ void vm_execute( vm_context* vm )
         }
     }
 
+    case OP_F_METHOD:
     case OP_F_VARENV:
     case OP_F_OUTENV:
         assert( ! "orphan environment op" );

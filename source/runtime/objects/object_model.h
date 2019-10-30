@@ -53,6 +53,16 @@ struct object {};
     String objects are tagged using a high bit in the boxed bit pattern,
     because the VM frequently needs to check if an object is a string when
     doing comparisons.
+
+    For-each loops over arrays, tables, and strings store an index value
+    directly on the value stack.  To differentiate indexes from pointers, the
+    index value is stored as:
+
+          FFFF XXXX XXXX XXXX   index
+
+    This overlaps with the encoding of subnormal numbers, but the compiler
+    knows not to use a register containing an index as an operand to an
+    instruction that requires a number.
 */
 
 struct value { uint64_t v; };
