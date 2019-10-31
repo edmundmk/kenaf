@@ -85,6 +85,9 @@ inline string_object* as_string( value v )      { return (string_object*)( v.v &
 inline value number_value( double n )           { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
 inline double as_number( value v )              { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
 
+inline value index_value( size_t i )            { return { ~(uint64_t)i }; }
+inline size_t as_index( value v )               { return ~v.v; }
+
 /*
     References that are read by the garbage collector must be atomic.  Writes
     to GC references must use a write barrier.

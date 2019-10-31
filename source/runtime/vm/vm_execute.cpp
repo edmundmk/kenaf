@@ -1083,13 +1083,13 @@ void vm_execute( vm_context* vm )
             type_code type = header( as_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r + 1 ] = { ~(uint64_t)0 };
+                r[ op.r + 1 ] = index_value( 0 );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
                 uint64_t index = table_iterate( vm, (table_object*)as_object( u ) );
-                r[ op.r + 1 ] = { ~index };
+                r[ op.r + 1 ] = index_value( index );
                 break;
             }
             else if ( type == COTHREAD_OBJECT )
@@ -1099,7 +1099,7 @@ void vm_execute( vm_context* vm )
         }
         else if ( is_string( u ) )
         {
-            r[ op.r + 1 ] = { ~(uint64_t)0 };
+            r[ op.r + 1 ] = index_value( 0 );
             break;
         }
         goto type_error;
@@ -1145,7 +1145,7 @@ void vm_execute( vm_context* vm )
             if ( type == ARRAY_OBJECT )
             {
                 array_object* array = (array_object*)as_object( g );
-                size_t i = ~r[ op.a + 1 ].v;
+                size_t i = as_index( r[ op.a + 1 ] );
                 if ( i < array->length )
                 {
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
@@ -1154,7 +1154,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { ~(uint64_t)i };
+                    r[ op.a + 1 ] = index_value( i );
                 }
                 else
                 {
@@ -1165,7 +1165,7 @@ void vm_execute( vm_context* vm )
             else if ( type == TABLE_OBJECT )
             {
                 table_object* table = (table_object*)as_object( g );
-                size_t i = ~r[ op.a + 1 ].v;
+                size_t i = as_index( r[ op.a + 1 ] );
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
@@ -1175,7 +1175,7 @@ void vm_execute( vm_context* vm )
                     {
                         r[ rp++ ] = null_value;
                     }
-                    r[ op.a + 1 ] = { ~(uint64_t)i };
+                    r[ op.a + 1 ] = index_value( i );
                 }
                 else
                 {
@@ -1191,14 +1191,14 @@ void vm_execute( vm_context* vm )
         else if ( is_string( g ) )
         {
             string_object* string = as_string( g );
-            size_t i = ~r[ op.a + 1 ].v;
+            size_t i = as_index( r[ op.a + 1 ] );
             if ( i < string->size )
             {
                 if ( rp < xp ) r[ rp++ ] = object_value( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
                     r[ rp++ ] = null_value;
-                    r[ op.a + 1 ] = { ~(uint64_t)i };
+                    r[ op.a + 1 ] = index_value( i );
                 }
             }
             else

@@ -44,7 +44,7 @@ value* vm_resize_stack( vm_context* vm, unsigned xp )
     // Increase stack size.
     if ( xp > cothread->stack.size() )
     {
-        size_t size = xp + 31u & ~(size_t)31u;
+        size_t size = ( xp + 31u ) & ~(size_t)31u;
         cothread->stack.resize( size );
     }
 
