@@ -37,6 +37,7 @@ struct value;
 
 enum vm_stack_call : uint8_t
 {
+    VM_ACTIVE,          // function is active
     VM_CALL,            // function is at a call op
     VM_CONSTRUCT,       // function is at a call to a constructor
     VM_FOR_EACH,        // function is at a call to a generator.

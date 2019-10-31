@@ -918,7 +918,7 @@ void vm_execute( vm_context* vm )
         {
             function_object* call_function = (function_object*)as_object( w );
             program_object* call_program = read( call_function->program );
-            if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_FLAGS_GENERATOR ) == 0 )
+            if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_GENERATOR ) == 0 )
             {
                 state = vm_call( vm, call_function, rp, xp );
             }

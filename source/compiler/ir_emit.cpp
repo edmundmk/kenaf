@@ -106,9 +106,14 @@ void ir_emit::emit( ir_function* function )
     _u->function.stack_size = 0;
     _u->function.code_flags = 0;
     if ( _f->ast->is_varargs )
-        _u->function.code_flags |= CODE_FLAGS_VARARGS;
+    {
+        _u->function.code_flags |= CODE_VARARGS;
+        _u->function.param_count -= 1;
+    }
     if ( _f->ast->is_generator )
-        _u->function.code_flags |= CODE_FLAGS_GENERATOR;
+    {
+        _u->function.code_flags |= CODE_GENERATOR;
+    }
     _u->debug.function_name = _unit->debug_heap.size();
     _unit->debug_heap.insert( _unit->debug_heap.end(), _f->ast->name.begin(), _f->ast->name.end() );
     _unit->debug_heap.push_back( '\0' );
@@ -117,7 +122,7 @@ void ir_emit::emit( ir_function* function )
     assemble();
     fixup_jumps();
 
-    _max_r = std::max( _max_r, _f->ast->parameter_count + 1 );
+    _max_r = std::max( _max_r, _u->function.param_count + 1u );
     _u->function.stack_size = _max_r + 1;
     _fixups.clear();
     _labels.clear();

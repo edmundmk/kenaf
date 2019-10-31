@@ -33,9 +33,8 @@ vm_stack_frame* vm_active_frame( vm_context* vm )
     return &vm->cothreads.back()->stack_frames.back();
 }
 
-value* vm_resize_stack( vm_context* vm, unsigned xp )
+static value* vm_resize_stack( cothread_object* cothread, unsigned xp )
 {
-    cothread_object* cothread = vm->cothreads.back();
     const vm_stack_frame& stack_frame = cothread->stack_frames.back();
 
     // xp is relative to current frame pointer.
@@ -52,10 +51,91 @@ value* vm_resize_stack( vm_context* vm, unsigned xp )
     return cothread->stack.data() + stack_frame.fp;
 }
 
+value* vm_resize_stack( vm_context* vm, unsigned xp )
+{
+    return vm_resize_stack( vm->cothreads.back(), xp );
+}
+
 value* vm_entire_stack( vm_context* vm )
 {
     cothread_object* cothread = vm->cothreads.back();
     return cothread->stack.data();
+}
+
+vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp )
+{
+    cothread_object* cothread = vm->cothreads.back();
+    program_object* program = read( function->program );
+
+    unsigned call_fp = cothread->stack_frames.back().fp;
+    value* r = cothread->stack.data();
+    rp += call_fp;
+    xp += call_fp;
+
+    cothread->stack_frames.push_back( { function, rp, rp, 0, VM_ACTIVE, 0, 0, 0 } );
+    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+
+    rp += 1;
+    unsigned argument_count = xp - rp;
+    if ( argument_count < program->param_count )
+    {
+        throw std::exception();
+    }
+
+    if ( ( program->code_flags & CODE_VARARGS ) != 0 )
+    {
+        /*
+            Arguments are in memory in this order:
+
+                        function
+                bp  ->  arg0
+                        arg1
+                        vararg0
+                fp  ->  vararg1
+                        vararg2
+                xp  ->
+
+            We want to reorder them so that they're in this order:
+
+                        function
+                bp  ->  vararg0
+                        vararg1
+                        vararg2
+                fp  ->  arg0
+                        arg1
+                xp  ->
+
+        */
+
+        unsigned reverse_ap = stack_frame->bp + program->param_count;
+        std::reverse( r + stack_frame->bp, r + reverse_ap );
+        std::reverse( r + reverse_ap, r + xp );
+        std::reverse( r + stack_frame->bp, r + xp );
+        stack_frame->fp = stack_frame->bp + argument_count - program->param_count;
+    }
+
+    r = vm_resize_stack( cothread, stack_frame->fp + program->stack_size );
+    return { stack_frame->function, r, stack_frame->ip, 0 };
+}
+
+vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
+{
+    return {};
+}
+
+vm_stack_state vm_generate( vm_context* vm, function_object* function, unsigned rp, unsigned xp )
+{
+    return {};
+}
+
+vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp )
+{
+    return {};
+}
+
+vm_stack_state vm_yield( vm_context* vm, unsigned rp, unsigned xp )
+{
+    return {};
 }
 
 

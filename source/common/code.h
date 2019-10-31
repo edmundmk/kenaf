@@ -169,9 +169,9 @@ struct code_script
 
 enum
 {
-    CODE_FLAGS_NONE         = 0,
-    CODE_FLAGS_VARARGS      = 1 << 0,
-    CODE_FLAGS_GENERATOR    = 1 << 1,
+    CODE_NONE         = 0,
+    CODE_VARARGS      = 1 << 0,
+    CODE_GENERATOR    = 1 << 1,
 };
 
 struct code_function
