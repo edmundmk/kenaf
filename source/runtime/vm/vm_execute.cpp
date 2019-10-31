@@ -10,6 +10,7 @@
 
 #include "vm_execute.h"
 #include "vm_context.h"
+#include "vm_call_stack.h"
 #include "../../common/code.h"
 #include "../../common/imath.h"
 #include "../objects/lookup_object.h"
@@ -106,17 +107,16 @@ static bool value_is( vm_context* vm, value u, value v )
 
 void vm_execute( vm_context* vm )
 {
-    vm_stack_frame stack_frame;
-    value* r = vm_active_stack( vm, &stack_frame );
+    vm_stack_state state = vm_active_state( vm );
 
-    function_object* function = stack_frame.function;
-    program_object* program = read( function->program );
-    const op* ops = program->ops;
-    ref_value* k = program->constants;
-    key_selector* s = program->selectors;
+    function_object* function = state.function;
+    const op* ops = read( function->program )->ops;
+    ref_value* k = read( function->program )->constants;
+    key_selector* s = read( function->program )->selectors;
 
-    unsigned ip = stack_frame.ip;
-    unsigned xp = stack_frame.xp;
+    value* r = state.r;
+    unsigned ip = state.ip;
+    unsigned xp = state.xp;
 
     while ( true )
     {
@@ -852,36 +852,167 @@ void vm_execute( vm_context* vm )
     case OP_CALLR:
     case OP_YCALL:
     {
+        /*
+            Object types that you can call:
+                Lookup Objects  Get self method and pass a new object to it plus parameters.
+                Functions       Construct call frame for function, continue.
+                Generators      Create cothread for generator, assign initial parameters.
+                Cothreads       Push cothread on stack, resume yielded cothread.
+        */
 
+        // First determine rp:xp for arguments.
+        unsigned rp = op.r;
+        if ( op.a != OP_STACK_MARK )
+        {
+            r = vm_resize_stack( vm, xp = op.a );
+        }
 
+        // Store ip, xr:xb in current stack frame.
+        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame->ip = ip;
+        stack_frame->xr = op.r;
+        stack_frame->xb = op.opcode != OP_CALLR ? op.b : op.r + 1;
+        stack_frame->rr = op.r;
+        stack_frame->construct = false;
 
+        // Find called object.
+        value w = r[ op.r ];
+        if ( ! is_object( w ) ) goto type_error;
+        type_code type = header( as_object( w ) )->type;
+
+        if ( type == LOOKUP_OBJECT )
+        {
+            // Lookup w.self.
+            lookup_object* class_object = (lookup_object*)as_object( w );
+            value method = lookup_getkey( vm, class_object, read( vm->selector_self.key ), &vm->selector_self.sel );
+            if ( ! is_object( method ) ) goto type_error;
+
+            // Construct new object.
+            lookup_object* self = lookup_new( vm, class_object );
+
+            // Rearrange stack.
+            r = vm_resize_stack( vm, xp + 2 );
+            memcpy( r + rp, r + rp + 2, sizeof( value ) * ( xp - rp ) );
+            r[ rp + 0 ] = object_value( self );
+            r[ rp + 1 ] = method;
+            r[ rp + 2 ] = object_value( self );
+            rp += 1;
+            xp += 2;
+
+            // Continue adjusted call.
+            w = method;
+            stack_frame->construct = true;
+            type = header( as_object( w ) )->type;
+        }
+
+        vm_stack_state state;
+        if ( type == FUNCTION_OBJECT )
+        {
+            function_object* call_function = (function_object*)as_object( w );
+            program_object* call_program = read( call_function->program );
+            if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_FLAGS_GENERATOR ) == 0 )
+            {
+                state = vm_call_function( vm, call_function, rp, xp );
+            }
+            else
+            {
+                state = vm_create_cothread( vm, call_function, rp, xp );
+            }
+        }
+        else if ( type == COTHREAD_OBJECT )
+        {
+            // Resume yielded cothread.
+            cothread_object* cothread = (cothread_object*)as_object( w );
+            state = vm_resume_cothread( vm, cothread, rp, xp );
+        }
+
+        function = state.function;
+        ops = read( function->program )->ops;
+        k = read( function->program )->constants;
+        s = read( function->program )->selectors;
+        r = state.r;
+        ip = state.ip;
+        xp = state.xp;
+        break;
     }
 
     case OP_YIELD:
     {
+        // First determine rp:xp for arguments.
+        unsigned rp = op.r;
+        if ( op.a != OP_STACK_MARK )
+        {
+            r = vm_resize_stack( vm, xp = op.a );
+        }
+
+        // Store ip, xr:xb in current stack frame.
+        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame->ip = ip;
+        stack_frame->xr = op.r;
+        stack_frame->xb = op.b;
+        stack_frame->rr = op.r;
+        stack_frame->construct = false;
+
+        // Yield.
+        vm_stack_state state = vm_yield_cothread( vm, rp, xp );
+
+        if ( ! state.function )
+        {
+            return;
+        }
+
+        function = state.function;
+        ops = read( function->program )->ops;
+        k = read( function->program )->constants;
+        s = read( function->program )->selectors;
+        r = state.r;
+        ip = state.ip;
+        xp = state.xp;
+        break;
     }
 
     case OP_RETURN:
     {
+        // Determine rp:xp for arguments.
+        unsigned rp = op.r;
+        if ( op.a != OP_STACK_MARK )
+        {
+            r = vm_resize_stack( vm, xp = op.a );
+        }
 
+        // Return.
+        vm_stack_state state = vm_return_function( vm, rp, xp );
+
+        if ( ! state.function )
+        {
+            return;
+        }
+
+        function = state.function;
+        ops = read( function->program )->ops;
+        k = read( function->program )->constants;
+        s = read( function->program )->selectors;
+        r = state.r;
+        ip = state.ip;
+        xp = state.xp;
+        break;
     }
 
     case OP_VARARG:
     {
         // Unpack varargs into r:b.
-        vm_stack_frame stack_frame;
-        vm_active_stack( vm, &stack_frame );
-        size_t rp = op.r;
+        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        unsigned rp = op.r;
         xp = op.b;
         if ( xp == OP_STACK_MARK )
         {
-            r = vm_ensure_stack( vm, xp = rp + stack_frame.fp - stack_frame.bp );
+            r = vm_resize_stack( vm, xp = rp + stack_frame->fp - stack_frame->bp );
         }
-        value* stack = vm_entire_stack( vm, &stack_frame );
-        size_t ap = stack_frame.bp;
+        value* stack = vm_entire_stack( vm );
+        size_t ap = stack_frame->bp;
         while ( rp < xp )
         {
-            if ( ap < stack_frame.fp )
+            if ( ap < stack_frame->fp )
                 r[ rp++ ] = stack[ ap++ ];
             else
                 r[ rp++ ] = null_value;
@@ -895,11 +1026,11 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         if ( ! is_object( u ) || header( as_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
         array_object* array = (array_object*)as_object( u );
-        size_t rp = op.r;
+        unsigned rp = op.r;
         xp = op.b;
         if ( xp == OP_STACK_MARK )
         {
-            r = vm_ensure_stack( vm, xp = rp + array->length );
+            r = vm_resize_stack( vm, xp = rp + array->length );
         }
         size_t i = 0;
         while ( rp < xp )
@@ -918,10 +1049,10 @@ void vm_execute( vm_context* vm )
         value v = r[ op.b ];
         if ( ! is_object( v ) || header( as_object( v ) )->type != ARRAY_OBJECT ) goto type_error;
         array_object* array = (array_object*)as_object( v );
-        size_t rp = op.r;
+        unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
-            xp = op.a;
+            r = vm_resize_stack( vm, xp = op.a );
         }
         assert( rp <= xp );
         array_extend( vm, array, r + rp, xp - rp );
@@ -1002,11 +1133,11 @@ void vm_execute( vm_context* vm )
         */
         value g = r[ op.a + 0 ];
         struct op jop = ops[ ip++ ];
-        size_t rp = op.r;
+        unsigned rp = op.r;
         xp = op.b;
         if ( xp == OP_STACK_MARK )
         {
-            r = vm_ensure_stack( vm, xp = rp + 2 );
+            r = vm_resize_stack( vm, xp = rp + 2 );
         }
         if ( is_object( g ) )
         {

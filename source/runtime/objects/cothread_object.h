@@ -36,6 +36,7 @@ struct cothread_object : public object
 
     std::vector< value > stack;
     std::vector< vm_stack_frame > stack_frames;
+    unsigned xp;
 };
 
 /*

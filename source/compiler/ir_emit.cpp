@@ -117,6 +117,7 @@ void ir_emit::emit( ir_function* function )
     assemble();
     fixup_jumps();
 
+    _max_r = std::max( _max_r, _f->ast->parameter_count + 1 );
     _u->function.stack_size = _max_r + 1;
     _fixups.clear();
     _labels.clear();
