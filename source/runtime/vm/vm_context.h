@@ -60,7 +60,9 @@ struct vm_context
                 argument 0
                 argument 1
 
-    fp:xp is the range of results requested.
+    rp:xp is relative to fp, and tells us where on our stack the results of a
+    call need to be placed.  A call frame without a function object means to
+    return to native code.
 */
 
 const unsigned VM_STACK_MARK = ~(unsigned)0;
@@ -71,7 +73,8 @@ struct vm_stack_frame
     unsigned ip;
     unsigned bp;
     unsigned fp;
-    unsigned xp;
+    unsigned rp : 8;
+    unsigned xp : 24;
 };
 
 value* vm_active_stack( vm_context* vm, vm_stack_frame* out_frame );
