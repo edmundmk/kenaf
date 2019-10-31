@@ -35,7 +35,13 @@ struct function_object;
 struct cothread_object;
 struct value;
 
-const unsigned VM_STACK_MARK = ~(unsigned)0;
+enum vm_stack_call : uint8_t
+{
+    VM_CALL,            // function is at a call op
+    VM_CONSTRUCT,       // function is at a call to a constructor
+    VM_FOR_EACH,        // function is at a call to a generator.
+    VM_YIELD,           // function has yielded
+};
 
 struct vm_stack_frame
 {
@@ -45,10 +51,10 @@ struct vm_stack_frame
     unsigned fp;        // frame pointer
     unsigned ip;        // instruction pointer
 
+    vm_stack_call call; // call kind.
     uint8_t xr;         // lower index of call/yield results
     uint8_t xb;         // upper index of call/yield results
     uint8_t rr;         // callr result register
-    uint8_t construct;  // called into a constructor
 };
 
 struct vm_stack_state
@@ -64,11 +70,12 @@ vm_stack_frame* vm_active_frame( vm_context* vm );
 value* vm_resize_stack( vm_context* vm, unsigned xp );
 value* vm_entire_stack( vm_context* vm );
 
-vm_stack_state vm_call_function( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_stack_state vm_create_cothread( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_stack_state vm_resume_cothread( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp );
-vm_stack_state vm_yield_cothread( vm_context* vm, unsigned rp, unsigned xp );
-vm_stack_state vm_return_function( vm_context* vm, unsigned rp, unsigned xp );
+vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
+vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp );
+
+vm_stack_state vm_generate( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
+vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp );
+vm_stack_state vm_yield( vm_context* vm, unsigned rp, unsigned xp );
 
 }
 

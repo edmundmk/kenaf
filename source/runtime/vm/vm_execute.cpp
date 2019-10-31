@@ -870,10 +870,18 @@ void vm_execute( vm_context* vm )
         // Store ip, xr:xb in current stack frame.
         vm_stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
+        stack_frame->call = VM_CALL;
         stack_frame->xr = op.r;
-        stack_frame->xb = op.opcode != OP_CALLR ? op.b : op.r + 1;
-        stack_frame->rr = op.r;
-        stack_frame->construct = false;
+        if ( op.opcode == OP_CALLR )
+        {
+            stack_frame->xb = op.r + 1;
+            stack_frame->rr = op.b;
+        }
+        else
+        {
+            stack_frame->xb = op.b;
+            stack_frame->rr = op.r;
+        }
 
         // Find called object.
         value w = r[ op.r ];
@@ -901,7 +909,7 @@ void vm_execute( vm_context* vm )
 
             // Continue adjusted call.
             w = method;
-            stack_frame->construct = true;
+            stack_frame->call = VM_CONSTRUCT;
             type = header( as_object( w ) )->type;
         }
 
@@ -912,18 +920,18 @@ void vm_execute( vm_context* vm )
             program_object* call_program = read( call_function->program );
             if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_FLAGS_GENERATOR ) == 0 )
             {
-                state = vm_call_function( vm, call_function, rp, xp );
+                state = vm_call( vm, call_function, rp, xp );
             }
             else
             {
-                state = vm_create_cothread( vm, call_function, rp, xp );
+                state = vm_generate( vm, call_function, rp, xp );
             }
         }
         else if ( type == COTHREAD_OBJECT )
         {
             // Resume yielded cothread.
             cothread_object* cothread = (cothread_object*)as_object( w );
-            state = vm_resume_cothread( vm, cothread, rp, xp );
+            state = vm_resume( vm, cothread, rp, xp );
         }
 
         function = state.function;
@@ -948,13 +956,13 @@ void vm_execute( vm_context* vm )
         // Store ip, xr:xb in current stack frame.
         vm_stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
+        stack_frame->call = VM_YIELD;
         stack_frame->xr = op.r;
         stack_frame->xb = op.b;
         stack_frame->rr = op.r;
-        stack_frame->construct = false;
 
         // Yield.
-        vm_stack_state state = vm_yield_cothread( vm, rp, xp );
+        vm_stack_state state = vm_yield( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -981,7 +989,7 @@ void vm_execute( vm_context* vm )
         }
 
         // Return.
-        vm_stack_state state = vm_return_function( vm, rp, xp );
+        vm_stack_state state = vm_return( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -1003,11 +1011,8 @@ void vm_execute( vm_context* vm )
         // Unpack varargs into r:b.
         vm_stack_frame* stack_frame = vm_active_frame( vm );
         unsigned rp = op.r;
-        xp = op.b;
-        if ( xp == OP_STACK_MARK )
-        {
-            r = vm_resize_stack( vm, xp = rp + stack_frame->fp - stack_frame->bp );
-        }
+        xp = op.b != OP_STACK_MARK ? op.b : rp + stack_frame->fp - stack_frame->bp;
+        r = vm_resize_stack( vm, xp );
         value* stack = vm_entire_stack( vm );
         size_t ap = stack_frame->bp;
         while ( rp < xp )
@@ -1027,11 +1032,8 @@ void vm_execute( vm_context* vm )
         if ( ! is_object( u ) || header( as_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
         array_object* array = (array_object*)as_object( u );
         unsigned rp = op.r;
-        xp = op.b;
-        if ( xp == OP_STACK_MARK )
-        {
-            r = vm_resize_stack( vm, xp = rp + array->length );
-        }
+        xp = op.b != OP_STACK_MARK ? op.b : rp + array->length;
+        r = vm_resize_stack( vm, xp );
         size_t i = 0;
         while ( rp < xp )
         {
@@ -1134,11 +1136,6 @@ void vm_execute( vm_context* vm )
         value g = r[ op.a + 0 ];
         struct op jop = ops[ ip++ ];
         unsigned rp = op.r;
-        xp = op.b;
-        if ( xp == OP_STACK_MARK )
-        {
-            r = vm_resize_stack( vm, xp = rp + 2 );
-        }
         if ( is_object( g ) )
         {
             type_code type = header( as_object( g ) )->type;
@@ -1148,6 +1145,8 @@ void vm_execute( vm_context* vm )
                 size_t i = as_index( r[ op.a + 1 ] );
                 if ( i < array->length )
                 {
+                    xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
+                    r = vm_resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
                     if ( rp < xp ) r[ rp++ ] = number_value( i );
                     while ( rp < xp )
@@ -1169,6 +1168,8 @@ void vm_execute( vm_context* vm )
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
+                    xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
+                    r = vm_resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = keyval.k;
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
                     while ( rp < xp )
@@ -1185,7 +1186,26 @@ void vm_execute( vm_context* vm )
             }
             else if ( type == COTHREAD_OBJECT )
             {
-                // TODO.
+                // Resume generator with no arguments.
+                cothread_object* cothread = (cothread_object*)as_object( g );
+
+                vm_stack_frame* stack_frame = vm_active_frame( vm );
+                stack_frame->ip = ip;
+                stack_frame->call = VM_FOR_EACH;
+                stack_frame->xr = op.r;
+                stack_frame->xb = op.b;
+                stack_frame->rr = op.r;
+
+                vm_stack_state state = vm_resume( vm, cothread, rp, rp );
+
+                function = state.function;
+                ops = read( function->program )->ops;
+                k = read( function->program )->constants;
+                s = read( function->program )->selectors;
+                r = state.r;
+                ip = state.ip;
+                xp = state.xp;
+                break;
             }
         }
         else if ( is_string( g ) )
@@ -1194,6 +1214,8 @@ void vm_execute( vm_context* vm )
             size_t i = as_index( r[ op.a + 1 ] );
             if ( i < string->size )
             {
+                xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
+                r = vm_resize_stack( vm, xp );
                 if ( rp < xp ) r[ rp++ ] = object_value( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
