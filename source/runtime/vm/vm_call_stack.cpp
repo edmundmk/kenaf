@@ -103,9 +103,7 @@ vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, 
                 fp  ->  function
                         arg0
                 xp  ->
-
         */
-
         unsigned reverse_ap = stack_frame->bp + ( program->param_count + 1 );
         std::reverse( r + stack_frame->bp, r + reverse_ap );
         std::reverse( r + reverse_ap, r + xp );
@@ -182,6 +180,20 @@ vm_stack_state vm_generate( vm_context* vm, function_object* function, unsigned 
 
 vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp )
 {
+    assert( xp > rp );
+
+    // Get current stack.
+    cothread_object* caller_cothread = vm->cothreads.back();
+    value* caller_r = caller_cothread->stack.data();
+    unsigned caller_fp = caller_cothread->stack_frames.back().fp;
+    rp += caller_fp;
+    xp += caller_fp;
+
+    // Get stack frame we are resuming into.
+    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    assert( stack_frame->call == VM_YIELD );
+
+
     return {};
 }
 
