@@ -31,13 +31,15 @@ struct cothread_object;
     Global VM state.
 */
 
+typedef std::vector< cothread_object* > vm_cothread_stack;
+
 struct vm_context
 {
     vm_context();
     ~vm_context();
 
     // Context state.
-    std::vector< cothread_object* > cothreads;
+    vm_cothread_stack* cothreads;
     lookup_object* global_object;
 
     // Object model support.

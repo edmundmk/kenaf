@@ -17,7 +17,7 @@ namespace kf
 
 vm_stack_state vm_active_state( vm_context* vm )
 {
-    cothread_object* cothread = vm->cothreads.back();
+    cothread_object* cothread = vm->cothreads->back();
     const vm_stack_frame& stack_frame = cothread->stack_frames.back();
     return
     {
@@ -30,7 +30,7 @@ vm_stack_state vm_active_state( vm_context* vm )
 
 vm_stack_frame* vm_active_frame( vm_context* vm )
 {
-    return &vm->cothreads.back()->stack_frames.back();
+    return &vm->cothreads->back()->stack_frames.back();
 }
 
 static value* vm_resize_stack( cothread_object* cothread, const vm_stack_frame* stack_frame, unsigned xp )
@@ -51,13 +51,13 @@ static value* vm_resize_stack( cothread_object* cothread, const vm_stack_frame* 
 
 value* vm_resize_stack( vm_context* vm, unsigned xp )
 {
-    cothread_object* cothread = vm->cothreads.back();
-    return vm_resize_stack( vm->cothreads.back(), &cothread->stack_frames.back(), xp );
+    cothread_object* cothread = vm->cothreads->back();
+    return vm_resize_stack( vm->cothreads->back(), &cothread->stack_frames.back(), xp );
 }
 
 value* vm_entire_stack( vm_context* vm )
 {
-    cothread_object* cothread = vm->cothreads.back();
+    cothread_object* cothread = vm->cothreads->back();
     return cothread->stack.data();
 }
 
@@ -67,7 +67,7 @@ vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, 
     program_object* program = read( function->program );
     bool is_varargs = ( program->code_flags & CODE_VARARGS ) != 0;
 
-    cothread_object* cothread = vm->cothreads.back();
+    cothread_object* cothread = vm->cothreads->back();
     value* r = cothread->stack.data() + cothread->stack_frames.back().fp;
 
     cothread->stack_frames.push_back( { function, rp, rp, 0, VM_ACTIVE, 0, 0, 0 } );
@@ -145,7 +145,7 @@ vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
     assert( rp <= xp );
 
     // Get current stack.
-    cothread_object* cothread = vm->cothreads.back();
+    cothread_object* cothread = vm->cothreads->back();
     vm_stack_frame return_frame = cothread->stack_frames.back();
 
     if ( cothread->stack_frames.size() )
@@ -196,15 +196,15 @@ vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
     {
         // Complete cothread.
         cothread_object* return_cothread = cothread;
-        vm->cothreads.pop_back();
+        vm->cothreads->pop_back();
 
-        assert( ! vm->cothreads.empty() );
-        cothread = vm->cothreads.back();
+        assert( ! vm->cothreads->empty() );
+        cothread = vm->cothreads->back();
         vm_stack_frame* stack_frame = &cothread->stack_frames.back();
 
         if ( stack_frame->call != VM_FOR_EACH )
         {
-            // Return across cothreads.
+            // Return across cothreads->
             value* yield_r = return_cothread->stack.data() + return_frame.fp;
             return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
         }
@@ -227,7 +227,7 @@ vm_stack_state vm_generate( vm_context* vm, function_object* function, unsigned 
     cothread_object* generator_cothread = cothread_new( vm );
 
     // Get current stack.
-    cothread_object* caller_cothread = vm->cothreads.back();
+    cothread_object* caller_cothread = vm->cothreads->back();
     value* caller_r = caller_cothread->stack.data() + caller_cothread->stack_frames.back().fp;
 
     // Insert stack frame in new cothread.
@@ -278,7 +278,7 @@ vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp
     assert( rp <= xp );
 
     // Get current stack.
-    cothread_object* caller_cothread = vm->cothreads.back();
+    cothread_object* caller_cothread = vm->cothreads->back();
     if ( caller_cothread->stack_frames.empty() )
     {
         // Cothread has completed.
@@ -304,7 +304,7 @@ vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp
     }
 
     // Continue with new cothread.
-    vm->cothreads.push_back( cothread );
+    vm->cothreads->push_back( cothread );
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
@@ -313,16 +313,16 @@ vm_stack_state vm_yield( vm_context* vm, unsigned rp, unsigned xp )
     assert( rp >= xp );
 
     // Get current stack.
-    cothread_object* yield_cothread = vm->cothreads.back();
+    cothread_object* yield_cothread = vm->cothreads->back();
     value* yield_r = yield_cothread->stack.data() + yield_cothread->stack_frames.back().fp;
-    vm->cothreads.pop_back();
+    vm->cothreads->pop_back();
 
     // Get cothread we are yielding into.
-    assert( vm->cothreads.size() );
-    cothread_object* cothread = vm->cothreads.back();
+    assert( vm->cothreads->size() );
+    cothread_object* cothread = vm->cothreads->back();
     vm_stack_frame* stack_frame = &cothread->stack_frames.back();
 
-    // Return across cothreads.
+    // Return across cothreads->
     return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
 }
 

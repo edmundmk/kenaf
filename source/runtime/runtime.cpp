@@ -35,7 +35,7 @@ struct context
 {
     intptr_t refcount;
     struct runtime* runtime;
-    std::vector< cothread_object* > cothreads;
+    vm_cothread_stack cothreads;
     lookup_object* global_object;
 };
 
@@ -103,8 +103,9 @@ context* make_current( context* c )
     if ( current_runtime )
     {
         prev = current_runtime->current_context;
-        std::swap( current_runtime->vm.cothreads, prev->cothreads );
+        assert( current_runtime->vm.cothreads == &prev->cothreads );
         assert( current_runtime->vm.global_object == prev->global_object );
+        current_runtime->vm.cothreads = nullptr;
         current_runtime->vm.global_object = nullptr;
         current_runtime->current_context = nullptr;
         current_runtime = nullptr;
@@ -113,7 +114,7 @@ context* make_current( context* c )
     if ( c )
     {
         current_runtime = c->runtime;
-        std::swap( current_runtime->vm.cothreads, c->cothreads );
+        current_runtime->vm.cothreads = &c->cothreads;
         current_runtime->vm.global_object = c->global_object;
         current_runtime->current_context = c;
     }
@@ -275,7 +276,6 @@ double get_number( value v )
     if ( ! is_number( v ) ) throw std::exception();
     return unbox_number( v );
 }
-
 
 
 
