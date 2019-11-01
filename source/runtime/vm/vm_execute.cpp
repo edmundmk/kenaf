@@ -931,7 +931,7 @@ void vm_execute( vm_context* vm )
         {
             // Resume yielded cothread.
             cothread_object* cothread = (cothread_object*)as_object( w );
-            state = vm_resume( vm, cothread, rp, xp );
+            state = vm_resume( vm, cothread, rp + 1, xp );
         }
 
         function = state.function;
@@ -1015,12 +1015,10 @@ void vm_execute( vm_context* vm )
         r = vm_resize_stack( vm, xp );
         value* stack = vm_entire_stack( vm );
         size_t ap = stack_frame->bp;
+        size_t fp = stack_frame->fp;
         while ( rp < xp )
         {
-            if ( ap < stack_frame->fp )
-                r[ rp++ ] = stack[ ap++ ];
-            else
-                r[ rp++ ] = null_value;
+            r[ rp++ ] = ap < fp ? stack[ ap++ ] : null_value;
         }
         break;
     }
@@ -1037,10 +1035,7 @@ void vm_execute( vm_context* vm )
         size_t i = 0;
         while ( rp < xp )
         {
-            if ( i < array->length )
-                r[ rp++ ] = array_getindex( vm, array, i++ );
-            else
-                r[ rp++ ] = null_value;
+            r[ rp++ ] = i < array->length ? array_getindex( vm, array, i++ ) : null_value;
         }
         break;
     }
