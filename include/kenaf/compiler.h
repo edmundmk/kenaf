@@ -65,7 +65,7 @@ public:
 
     explicit operator bool () const;
 
-    const void* data() const;
+    const void* code() const;
     size_t size() const;
 
     size_t diagnostic_count() const;
@@ -75,12 +75,12 @@ private:
 
     friend compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print );
 
-    explicit compile_result( const void* data, std::vector< struct diagnostic >&& diagnostics );
+    explicit compile_result( const void* code, std::vector< struct diagnostic >&& diagnostics );
     explicit compile_result( std::vector< struct diagnostic >&& diagnostics );
     compile_result( const compile_result& ) = delete;
     compile_result& operator = ( const compile_result& ) = delete;
 
-    const void* _data;
+    const void* _code;
     std::vector< struct diagnostic > _diagnostics;
 
 };

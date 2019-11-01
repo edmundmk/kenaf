@@ -25,57 +25,57 @@ namespace kf
 {
 
 compile_result::compile_result()
-    :   _data( nullptr )
+    :   _code( nullptr )
 {
 }
 
-compile_result::compile_result( const void* data, std::vector< struct diagnostic >&& diagnostics )
-    :   _data( data )
+compile_result::compile_result( const void* code, std::vector< struct diagnostic >&& diagnostics )
+    :   _code( code )
     ,   _diagnostics( std::move( diagnostics ) )
 {
 }
 
 compile_result::compile_result( std::vector< struct diagnostic >&& diagnostics )
-    :   _data( nullptr )
+    :   _code( nullptr )
     ,   _diagnostics( std::move( diagnostics ) )
 {
 }
 
 compile_result::compile_result( compile_result&& r )
-    :   _data( nullptr )
+    :   _code( nullptr )
 {
-    std::swap( _data, r._data );
+    std::swap( _code, r._code );
     std::swap( _diagnostics, r._diagnostics );
 }
 
 compile_result& compile_result::operator = ( compile_result&& r )
 {
-    free( (void*)_data );
-    _data = nullptr;
+    free( (void*)_code );
+    _code = nullptr;
     _diagnostics.clear();
-    std::swap( _data, r._data );
+    std::swap( _code, r._code );
     std::swap( _diagnostics, r._diagnostics );
     return *this;
 }
 
 compile_result::~compile_result()
 {
-    free( (void*)_data );
+    free( (void*)_code );
 }
 
 compile_result::operator bool () const
 {
-    return _data != nullptr;
+    return _code != nullptr;
 }
 
-const void* compile_result::data() const
+const void* compile_result::code() const
 {
-    return _data;
+    return _code;
 }
 
 size_t compile_result::size() const
 {
-    return ( (const code_script*)_data )->code_size;
+    return ( (const code_script*)_code )->code_size;
 }
 
 size_t compile_result::diagnostic_count() const
@@ -176,7 +176,7 @@ compile_result compile( std::string_view filename, std::string_view text, unsign
 
         compile_result result( unit.pack(), std::move( source.diagnostics ) );
         if ( debug_print & PRINT_CODE )
-            ( (const code_script*)result.data() )->debug_print();
+            ( (const code_script*)result.code() )->debug_print();
 
         return result;
 
