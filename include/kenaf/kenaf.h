@@ -12,6 +12,7 @@
 #define KENAF_H
 
 #include <stdint.h>
+#include <exception>
 #include <string_view>
 
 namespace kf
