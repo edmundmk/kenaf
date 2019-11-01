@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <string.h>
-//#include "kenaf/kenaf.h"
+#include "kenaf/kenaf.h"
 #include "../datatypes/atomic_load_store.h"
 
 namespace kf
@@ -63,8 +63,6 @@ struct object {};
     use a register containing an index as an operand to an instruction that
     requires a number.
 */
-
-struct value { uint64_t v; };
 
 const value boxed_null  = { 0 };
 const value boxed_false = { 1 };

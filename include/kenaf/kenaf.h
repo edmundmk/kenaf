@@ -30,8 +30,8 @@ enum value_kind
     FUNCTION,
     COTHREAD,
     NUMBER,
-    BOOL,
-    NULL,
+    BOOL_VALUE,
+    NULL_VALUE,
 };
 
 struct value { uint64_t v; };

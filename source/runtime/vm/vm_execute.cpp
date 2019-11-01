@@ -23,7 +23,7 @@
 namespace kf
 {
 
-static inline bool test( value u )
+static inline bool value_test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
     return u.v > 1 && u.v != box_number( +0.0 ).v && u.v != box_number( -0.0 ).v;
@@ -218,7 +218,7 @@ void vm_execute( vm_context* vm )
     case OP_NOT:
     {
         value u = r[ op.a ];
-        r[ op.r ] = test( u ) ? boxed_false : boxed_true;
+        r[ op.r ] = value_test( u ) ? boxed_false : boxed_true;
         break;
     }
 
@@ -477,7 +477,7 @@ void vm_execute( vm_context* vm )
 
     case OP_JT:
     {
-        if ( test( r[ op.r ] ) )
+        if ( value_test( r[ op.r ] ) )
         {
             ip += op.j;
         }
@@ -486,7 +486,7 @@ void vm_execute( vm_context* vm )
 
     case OP_JF:
     {
-        if ( ! test( r[ op.r ] ) )
+        if ( ! value_test( r[ op.r ] ) )
         {
             ip += op.j;
         }
