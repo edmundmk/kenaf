@@ -11,18 +11,48 @@
 #ifndef KENAF_COMPILER_H
 #define KENAF_COMPILER_H
 
-/*
-    Compiles a script.
-*/
-
-#include <vector>
-#include <string>
 #include <string_view>
 
 namespace kf
 {
 
-class compile_result;
+/*
+    Warnings and errors from compilation.
+*/
+
+enum diagnostic_kind
+{
+    ERROR,
+    WARNING,
+};
+
+struct diagnostic
+{
+    diagnostic_kind kind;
+    unsigned line;
+    unsigned column;
+    std::string_view message;
+};
+
+/*
+    The result of compiling script source.  The bytecode is a block of bytes
+    which can be freely copied around or serialized.
+*/
+
+struct compilation;
+struct code_view { const void* code; size_t size; };
+
+compilation* compilation_retain( compilation* cn );
+void compilation_release( compilation* cn );
+
+bool compilation_success( compilation* cn );
+code_view compilation_code( compilation* cn );
+size_t compilation_diagnostic_count( compilation* cn );
+diagnostic compilation_diagnostic( compilation* cn, size_t index );
+
+/*
+    Compile source text.
+*/
 
 enum
 {
@@ -38,52 +68,13 @@ enum
     PRINT_CODE          = 1 << 8,
 };
 
-enum diagnostic_kind
-{
-    ERROR,
-    WARNING,
-};
+compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print = PRINT_NONE );
 
-struct diagnostic
-{
-    diagnostic_kind kind;
-    unsigned line;
-    unsigned column;
-    std::string message;
-};
+/*
+    Print bytecode
+*/
 
-compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print = PRINT_NONE );
-
-class compile_result
-{
-public:
-
-    compile_result();
-    compile_result( compile_result&& r );
-    compile_result& operator = ( compile_result&& r );
-    ~compile_result();
-
-    explicit operator bool () const;
-
-    const void* code() const;
-    size_t size() const;
-
-    size_t diagnostic_count() const;
-    const struct diagnostic& diagnostic( size_t index ) const;
-
-private:
-
-    friend compile_result compile( std::string_view filename, std::string_view text, unsigned debug_print );
-
-    explicit compile_result( const void* code, std::vector< struct diagnostic >&& diagnostics );
-    explicit compile_result( std::vector< struct diagnostic >&& diagnostics );
-    compile_result( const compile_result& ) = delete;
-    compile_result& operator = ( const compile_result& ) = delete;
-
-    const void* _code;
-    std::vector< struct diagnostic > _diagnostics;
-
-};
+void debug_print_code( const void* code, size_t size );
 
 }
 

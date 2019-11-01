@@ -29,7 +29,7 @@ code_function_unit::~code_function_unit()
 {
 }
 
-const code_script* code_unit::pack() const
+code_script_ptr code_unit::pack() const
 {
     size_t code_size = 0;
     for ( const auto& funit : functions )
@@ -52,7 +52,7 @@ const code_script* code_unit::pack() const
     code_size += sizeof( uint32_t ) * debug_newlines.size();
     code_size += debug_heap.size();
 
-    code_script* s = (code_script*)malloc( code_size );
+    code_script_ptr s( (code_script*)malloc( code_size ) );
     s->magic = CODE_MAGIC;
     s->code_size = code_size;
     s->function_size = function_size;
@@ -62,7 +62,7 @@ const code_script* code_unit::pack() const
     s->debug_newline_count = debug_newlines.size();
     s->debug_heap_size = debug_heap.size();
 
-    code_function* f = (code_function*)( s + 1 );
+    code_function* f = (code_function*)( s.get() + 1 );
     for ( const auto& funit : functions )
     {
         uint32_t code_size = sizeof( code_function );

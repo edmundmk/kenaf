@@ -9,6 +9,7 @@
 //
 
 #include <stdlib.h>
+#include <vector>
 #include <kenaf/compiler.h>
 
 int main( int argc, char* argv[] )
@@ -32,24 +33,33 @@ int main( int argc, char* argv[] )
     fread( text.data(), 1, text.size(), file );
     fclose( file );
 
-    unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC | kf::PRINT_CODE;
-    kf::compile_result result = kf::compile( argv[ 1 ], std::string_view( text.data(), text.size() ), debug_print );
+    unsigned debug_print = kf::PRINT_AST_RESOLVED | kf::PRINT_IR_ALLOC;
+    kf::compilation* compilation = kf::compile( argv[ 1 ], std::string_view( text.data(), text.size() ), debug_print );
 
-    for ( size_t i = 0; i < result.diagnostic_count(); ++i )
+    size_t diagnostic_count = kf::compilation_diagnostic_count( compilation );
+    for ( size_t i = 0; i < diagnostic_count; ++i )
     {
-        const kf::diagnostic& d = result.diagnostic( i );
+        kf::diagnostic d = compilation_diagnostic( compilation, i );
         fprintf
         (
             stderr,
-            "%s:%u:%u: %s: %s\n",
+            "%s:%u:%u: %s: %.*s\n",
             argv[ 1 ],
             d.line,
             d.column,
             d.kind == kf::ERROR ? "error" : "warning",
-            d.message.c_str()
+            (int)d.message.size(), d.message.data()
         );
     }
 
-    return result ? EXIT_SUCCESS : EXIT_FAILURE;
+    if ( ! kf::compilation_success( compilation ) )
+    {
+        return EXIT_FAILURE;
+    }
+
+    kf::code_view code = compilation_code( compilation );
+    kf::debug_print_code( code.code, code.size );
+
+    return EXIT_SUCCESS;
 }
 

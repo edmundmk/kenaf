@@ -48,6 +48,17 @@ struct source_string
 };
 
 /*
+    Diagnostics.
+*/
+
+struct source_diagnostic
+{
+    diagnostic_kind kind;
+    source_location location;
+    std::string message;
+};
+
+/*
     Computers are not hurting for memory.  A source object holds:
 
       - The entire source text of a script.
@@ -85,7 +96,7 @@ struct source
     std::vector< char > text;
     std::vector< srcloc > newlines;
     std::vector< source_string* > strings;
-    std::vector< struct diagnostic > diagnostics;
+    std::vector< source_diagnostic > diagnostics;
     bool has_error;
 
 };

@@ -39,9 +39,9 @@ struct vm_context
     // Context state.
     std::vector< cothread_object* > cothreads;
     lookup_object* global_object;
-    lookup_object* prototypes[ TYPE_COUNT ];
 
-    // Selectors.
+    // Object model support.
+    lookup_object* prototypes[ TYPE_COUNT ];
     key_selector selector_self;
 
     // Lookup object tables.

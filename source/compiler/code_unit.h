@@ -25,6 +25,9 @@ namespace kf
 struct code_unit;
 struct code_function_unit;
 
+struct code_script_deleter { void operator () ( void* p ) const { free( p ); } };
+typedef std::unique_ptr< code_script, code_script_deleter > code_script_ptr;
+
 struct code_unit
 {
     code_unit();
@@ -36,7 +39,7 @@ struct code_unit
     std::vector< uint32_t > debug_newlines;
     std::vector< char > debug_heap;
 
-    const code_script* pack() const;
+    code_script_ptr pack() const;
 };
 
 struct code_function_unit
