@@ -201,7 +201,7 @@ void code_function::debug_print( const code_script* script ) const
     {
         const code_constant& k = constants[ i ];
         if ( k.text == ~(uint32_t)0 )
-            printf( "    %u : %f\n", i, k.n );
+            printf( "    %u : %f\n", i, k.n() );
         else
             printf( "    %u : \"%.*s\"\n", i, (int)k.size, heap + k.text );
     }
@@ -296,7 +296,7 @@ void code_function::debug_print( const code_script* script ) const
                 {
                     const code_constant& k = constants[ v ];
                     if ( k.text == ~(uint32_t)0 )
-                        printf( "%f", k.n );
+                        printf( "%f", k.n() );
                     else
                         printf( "\"%.*s\"", (int)k.size, heap + k.text );
                     break;

@@ -198,9 +198,17 @@ struct code_function
 
 struct code_constant
 {
+    code_constant() : code_constant( 0.0 ) {}
+    code_constant( double n ) : text( ~(uint32_t)0 ) { memcpy( ndata, &n, sizeof( ndata ) ); }
+    explicit code_constant( uint32_t text, uint32_t size ) : text( text ), size( size ) {}
+    double n() const { double n; memcpy( &n, ndata, sizeof( n ) ); return n; }
+
     uint32_t text;
-    uint32_t size;
-    double n;
+    union
+    {
+        uint32_t size;
+        char ndata[ sizeof( double ) ];
+    };
 };
 
 struct code_selector

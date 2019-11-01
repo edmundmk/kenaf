@@ -139,12 +139,12 @@ void ir_emit::emit_constants()
         code_constant kk;
         if ( k.text )
         {
-            kk = { (uint32_t)_unit->heap.size(), (uint32_t)k.size, 0.0 };
+            kk = code_constant( (uint32_t)_unit->heap.size(), (uint32_t)k.size );
             _unit->heap.insert( _unit->heap.end(), k.text, k.text + k.size );
         }
         else
         {
-            kk = { ~(uint32_t)0, ~(uint32_t)0, k.n };
+            kk = code_constant( k.n );
         }
         _u->constants.push_back( kk );
     }

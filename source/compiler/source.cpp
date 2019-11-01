@@ -115,7 +115,7 @@ void source::diagnostic( diagnostic_kind kind, srcloc sloc, const char* message,
 
     text.pop_back();
     source_location l = location( sloc );
-    diagnostics.push_back( { kind, l.line, l.column, std::move( text ) } );
+    diagnostics.push_back( { kind, { l.line, l.column }, std::move( text ) } );
     has_error = has_error || kind == ERROR;
 }
 

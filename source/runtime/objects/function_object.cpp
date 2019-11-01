@@ -109,7 +109,7 @@ program_object* program_new( vm_context* vm, void* data, size_t size )
             const code_constant& k = constants[ i ];
             if ( k.text == ~(uint32_t)0 )
             {
-                winit( program->constants[ i ], box_number( k.n ) );
+                winit( program->constants[ i ], box_number( k.n() ) );
             }
             else
             {
