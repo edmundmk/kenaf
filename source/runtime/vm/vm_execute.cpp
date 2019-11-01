@@ -71,7 +71,10 @@ static lookup_object* keyer_of( vm_context* vm, value u )
     {
         return vm->prototypes[ BOOL_OBJECT ];
     }
-    return nullptr;
+    else
+    {
+        return vm->prototypes[ NULL_OBJECT ];
+    }
 }
 
 static bool value_is( vm_context* vm, value u, value v )

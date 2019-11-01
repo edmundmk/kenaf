@@ -117,6 +117,7 @@ enum type_code : uint8_t
     COTHREAD_OBJECT,
     NUMBER_OBJECT,
     BOOL_OBJECT,
+    NULL_OBJECT,
     LAYOUT_OBJECT,
     VSLOTS_OBJECT,
     KVSLOTS_OBJECT,
