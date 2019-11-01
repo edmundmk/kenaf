@@ -14,5 +14,13 @@
 namespace kf
 {
 
+vm_context::vm_context()
+{
+}
+
+vm_context::~vm_context()
+{
+}
+
 }
 

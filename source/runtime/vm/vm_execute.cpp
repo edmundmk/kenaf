@@ -87,6 +87,10 @@ static bool value_is( vm_context* vm, value u, value v )
     {
         return true;
     }
+    else if ( box_is_string( v ) )
+    {
+        return box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( v ) );
+    }
     else if ( box_is_object( v ) )
     {
         type_code type = header( unbox_object( v ) )->type;
@@ -100,10 +104,6 @@ static bool value_is( vm_context* vm, value u, value v )
                 uo = lookup_prototype( vm, uo );
             }
         }
-    }
-    else if ( box_is_string( v ) )
-    {
-        return box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( v ) );
     }
     return false;
 }
@@ -814,13 +814,13 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         lookup_object* prototype;
-        if ( box_is_null( u ) )
-        {
-            prototype = vm->prototypes[ LOOKUP_OBJECT ];
-        }
-        else if ( box_is_object( u ) && header( unbox_object( u ) )->type == LOOKUP_OBJECT )
+        if ( box_is_object( u ) && header( unbox_object( u ) )->type == LOOKUP_OBJECT )
         {
             prototype = (lookup_object*)unbox_object( u );
+        }
+        else if ( box_is_null( u ) )
+        {
+            prototype = vm->prototypes[ LOOKUP_OBJECT ];
         }
         else
         {

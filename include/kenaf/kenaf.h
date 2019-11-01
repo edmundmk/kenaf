@@ -50,17 +50,18 @@ bool is_number( value v );
 bool is_bool( value v );
 bool is_null( value v );
 
-value superof( value v );
-bool test( value v );
-
 value null_value();
 value true_value();
 value false_value();
+
+value superof( value v );
+bool test( value v );
 
 value number_value( double n );
 double get_number( value v );
 
 value create_lookup();
+value create_instance( value prototype );
 value get_key( value lookup, std::string_view k );
 void set_key( value lookup, std::string_view k, value v );
 bool has_key( value lookup, std::string_view k );
@@ -100,8 +101,8 @@ value create_function( const void* code, size_t size );
 struct runtime;
 
 runtime* create_runtime();
-runtime* retain_runtime( runtime* runtime );
-void release_runtime( runtime* runtime );
+runtime* retain_runtime( runtime* r );
+void release_runtime( runtime* r );
 
 /*
     A context consists of a runtime and a global object.  Contexts on the same
@@ -110,11 +111,11 @@ void release_runtime( runtime* runtime );
 
 struct context;
 
-context* create_context( runtime* runtime );
-context* retain_context( context* context );
-void release_context( context* context );
+context* create_context( runtime* r );
+context* retain_context( context* c );
+void release_context( context* c );
 
-context* make_current( context* context );
+context* make_current( context* c );
 value global_object();
 
 /*

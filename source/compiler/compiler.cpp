@@ -33,6 +33,7 @@ struct compilation
 
 compilation* compilation_retain( compilation* cn )
 {
+    assert( cn->refcount >= 1 );
     cn->refcount += 1;
     return cn;
 }
@@ -73,6 +74,7 @@ diagnostic compilation_diagnostic( compilation* cn, size_t index )
 compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print )
 {
     std::unique_ptr< compilation > cn = std::make_unique< compilation >();
+    cn->refcount = 1;
 
     source source;
     try
