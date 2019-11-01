@@ -128,7 +128,7 @@ static vm_stack_state vm_yield_return( vm_context* vm, cothread_object* cothread
     value* r = vm_resize_stack( cothread, stack_frame, xb );
     while ( xr < xb )
     {
-        r[ xr++ ] = rp < xp ? yield_r[ rp++ ] : null_value;
+        r[ xr++ ] = rp < xp ? yield_r[ rp++ ] : boxed_null;
     }
 
     if ( stack_frame->rr != stack_frame->xr )
@@ -181,7 +181,7 @@ vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
 
         while ( xr < xb )
         {
-            r[ xr++ ] = null_value;
+            r[ xr++ ] = boxed_null;
         }
 
         if ( stack_frame->rr != stack_frame->xr )
@@ -300,7 +300,7 @@ vm_stack_state vm_resume( vm_context* vm, cothread_object* cothread, unsigned rp
     // Copy parameters into cothread.
     while ( xr < xb )
     {
-        r[ xr++ ] = rp < xp ? caller_r[ rp++ ] : null_value;
+        r[ xr++ ] = rp < xp ? caller_r[ rp++ ] : boxed_null;
     }
 
     // Continue with new cothread.

@@ -109,11 +109,11 @@ program_object* program_new( vm_context* vm, void* data, size_t size )
             const code_constant& k = constants[ i ];
             if ( k.text == ~(uint32_t)0 )
             {
-                winit( program->constants[ i ], number_value( k.n ) );
+                winit( program->constants[ i ], box_number( k.n ) );
             }
             else
             {
-                winit( program->constants[ i ], string_value( string_new( vm, heap + k.text, k.size ) ) );
+                winit( program->constants[ i ], box_string( string_new( vm, heap + k.text, k.size ) ) );
             }
         }
 

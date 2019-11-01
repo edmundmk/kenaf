@@ -26,7 +26,7 @@ namespace kf
 static inline bool test( value u )
 {
     // All values test true except null, false, -0.0, and +0.0.
-    return u.v > 1 && u.v != number_value( +0.0 ).v && u.v != number_value( -0.0 ).v;
+    return u.v > 1 && u.v != box_number( +0.0 ).v && u.v != box_number( -0.0 ).v;
 }
 
 static inline bool string_equal( string_object* us, string_object* vs )
@@ -47,27 +47,27 @@ static inline int string_compare( string_object* us, string_object* vs )
 
 static lookup_object* keyer_of( vm_context* vm, value u )
 {
-    if ( is_number( u ) )
+    if ( box_is_number( u ) )
     {
         return vm->prototypes[ NUMBER_OBJECT ];
     }
-    else if ( is_string( u ) )
+    else if ( box_is_string( u ) )
     {
         return vm->prototypes[ STRING_OBJECT ];
     }
-    else if ( is_object( u ) )
+    else if ( box_is_object( u ) )
     {
-        type_code type = header( as_object( u ) )->type;
+        type_code type = header( unbox_object( u ) )->type;
         if ( type == LOOKUP_OBJECT )
         {
-            return (lookup_object*)as_object( u );
+            return (lookup_object*)unbox_object( u );
         }
         else
         {
             return vm->prototypes[ type ];
         }
     }
-    else if ( is_bool( u ) )
+    else if ( box_is_bool( u ) )
     {
         return vm->prototypes[ BOOL_OBJECT ];
     }
@@ -79,20 +79,20 @@ static lookup_object* keyer_of( vm_context* vm, value u )
 
 static bool value_is( vm_context* vm, value u, value v )
 {
-    if ( is_number( v ) )
+    if ( box_is_number( v ) )
     {
-        return is_number( u ) && as_number( u ) == as_number( v );
+        return box_is_number( u ) && unbox_number( u ) == unbox_number( v );
     }
     else if ( u.v == v.v )
     {
         return true;
     }
-    else if ( is_object( v ) )
+    else if ( box_is_object( v ) )
     {
-        type_code type = header( as_object( v ) )->type;
+        type_code type = header( unbox_object( v ) )->type;
         if ( type == LOOKUP_OBJECT )
         {
-            lookup_object* vo = (lookup_object*)as_object( v );
+            lookup_object* vo = (lookup_object*)unbox_object( v );
             lookup_object* uo = keyer_of( vm, u );
             while ( uo )
             {
@@ -101,9 +101,9 @@ static bool value_is( vm_context* vm, value u, value v )
             }
         }
     }
-    else if ( is_string( v ) )
+    else if ( box_is_string( v ) )
     {
-        return is_string( u ) && string_equal( as_string( u ), as_string( v ) );
+        return box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( v ) );
     }
     return false;
 }
@@ -160,23 +160,23 @@ void vm_execute( vm_context* vm )
     case OP_LEN:
     {
         value u = r[ op.a ];
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r ] = number_value( ( (array_object*)as_object( u ) )->length );
+                r[ op.r ] = box_number( ( (array_object*)unbox_object( u ) )->length );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                r[ op.r ] = number_value( ( (table_object*)as_object( u ) )->length );
+                r[ op.r ] = box_number( ( (table_object*)unbox_object( u ) )->length );
                 break;
             }
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            r[ op.r ] = number_value( as_string( u )->size );
+            r[ op.r ] = box_number( unbox_string( u )->size );
             break;
         }
         goto type_error;
@@ -185,9 +185,9 @@ void vm_execute( vm_context* vm )
     case OP_NEG:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( -as_number( u ) );
+            r[ op.r ] = box_number( -unbox_number( u ) );
             break;
         }
         goto type_error;
@@ -196,9 +196,9 @@ void vm_execute( vm_context* vm )
     case OP_POS:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( +as_number( u ) );
+            r[ op.r ] = box_number( +unbox_number( u ) );
             break;
         }
         goto type_error;
@@ -207,9 +207,9 @@ void vm_execute( vm_context* vm )
     case OP_BITNOT:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( ibitnot( as_number( u ) ) );
+            r[ op.r ] = box_number( ibitnot( unbox_number( u ) ) );
             break;
         }
         goto type_error;
@@ -218,16 +218,16 @@ void vm_execute( vm_context* vm )
     case OP_NOT:
     {
         value u = r[ op.a ];
-        r[ op.r ] = test( u ) ? false_value : true_value;
+        r[ op.r ] = test( u ) ? boxed_false : boxed_true;
         break;
     }
 
     op_add:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( as_number( u ) + n );
+            r[ op.r ] = box_number( unbox_number( u ) + n );
             break;
         }
         goto type_error;
@@ -236,9 +236,9 @@ void vm_execute( vm_context* vm )
     case OP_ADD:
     {
         value v = r[ op.b ];
-        if ( is_number( v ) )
+        if ( box_is_number( v ) )
         {
-            n = as_number( v );
+            n = unbox_number( v );
             goto op_add;
         }
         goto type_error;
@@ -246,16 +246,16 @@ void vm_execute( vm_context* vm )
 
     case OP_ADDN:
     {
-        n = as_number( read( k[ op.b ] ) );
+        n = unbox_number( read( k[ op.b ] ) );
         goto op_add;
     }
 
     op_sub:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( n - as_number( u ) );
+            r[ op.r ] = box_number( n - unbox_number( u ) );
             break;
         }
         goto type_error;
@@ -264,9 +264,9 @@ void vm_execute( vm_context* vm )
     case OP_SUB:
     {
         value v = r[ op.b ];
-        if ( is_number( v ) )
+        if ( box_is_number( v ) )
         {
-            n = as_number( v );
+            n = unbox_number( v );
             goto op_sub;
         }
         goto type_error;
@@ -274,16 +274,16 @@ void vm_execute( vm_context* vm )
 
     case OP_SUBN:
     {
-        n = as_number( read( k[ op.b ] ) );
+        n = unbox_number( read( k[ op.b ] ) );
         goto op_sub;
     }
 
     op_mul:
     {
         value u = r[ op.a ];
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            r[ op.r ] = number_value( as_number( u ) * n );
+            r[ op.r ] = box_number( unbox_number( u ) * n );
             break;
         }
         goto type_error;
@@ -292,9 +292,9 @@ void vm_execute( vm_context* vm )
     case OP_MUL:
     {
         value v = r[ op.b ];
-        if ( is_number( v ) )
+        if ( box_is_number( v ) )
         {
-            n = as_number( v );
+            n = unbox_number( v );
             goto op_mul;
         }
         goto type_error;
@@ -302,7 +302,7 @@ void vm_execute( vm_context* vm )
 
     case OP_MULN:
     {
-        n = as_number( read( k[ op.b ] ) );
+        n = unbox_number( read( k[ op.b ] ) );
         goto op_mul;
     }
 
@@ -311,16 +311,16 @@ void vm_execute( vm_context* vm )
         string_object* s = string_new( vm, nullptr, us->size + vs->size );
         memcpy( s->text, us->text, us->size );
         memcpy( s->text + us->size, vs->text, vs->size );
-        r[ op.r ] = string_value( s );
+        r[ op.r ] = box_string( s );
         break;
     }
 
     op_concatu:
     {
         value u = r[ op.a ];
-        if ( is_string( u ) )
+        if ( box_is_string( u ) )
         {
-            us = as_string( u );
+            us = unbox_string( u );
             goto op_concat;
         }
         goto type_error;
@@ -329,9 +329,9 @@ void vm_execute( vm_context* vm )
     case OP_CONCAT:
     {
         value v = r[ op.b ];
-        if ( is_string( v ) )
+        if ( box_is_string( v ) )
         {
-            vs = as_string( v );
+            vs = unbox_string( v );
             goto op_concatu;
         }
         goto type_error;
@@ -339,17 +339,17 @@ void vm_execute( vm_context* vm )
 
     case OP_CONCATS:
     {
-        vs = as_string( read( k[ op.b ] ) );
+        vs = unbox_string( read( k[ op.b ] ) );
         goto op_concatu;
     }
 
     case OP_RCONCATS:
     {
         value v = r[ op.a ];
-        us = as_string( read( k[ op.b ] ) );
-        if ( is_string( v ) )
+        us = unbox_string( read( k[ op.b ] ) );
+        if ( box_is_string( v ) )
         {
-            vs = as_string( v );
+            vs = unbox_string( v );
             goto op_concat;
         }
         goto type_error;
@@ -359,9 +359,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( as_number( u ) / as_number( v ) );
+            r[ op.r ] = box_number( unbox_number( u ) / unbox_number( v ) );
             break;
         }
         goto type_error;
@@ -371,9 +371,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ifloordiv( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ifloordiv( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -383,9 +383,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ifloormod( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ifloormod( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -395,9 +395,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ilshift( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ilshift( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -407,9 +407,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( irshift( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( irshift( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -419,9 +419,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( iashift( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( iashift( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -431,9 +431,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ibitand( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ibitand( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -443,9 +443,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ibitxor( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ibitxor( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -455,9 +455,9 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_number( u ) && is_number( v ) )
+        if ( box_is_number( u ) && box_is_number( v ) )
         {
-            r[ op.r ] = number_value( ibitor( as_number( u ), as_number( v ) ) );
+            r[ op.r ] = box_number( ibitor( unbox_number( u ), unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -465,7 +465,7 @@ void vm_execute( vm_context* vm )
 
     case OP_IS:
     {
-        r[ op.r ] = value_is( vm, r[ op.a ], r[ op.b ] ) ? true_value : false_value;
+        r[ op.r ] = value_is( vm, r[ op.a ], r[ op.b ] ) ? boxed_true : boxed_false;
         break;
     }
 
@@ -498,17 +498,17 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         value v = r[ op.b ];
         bool test = false;
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            test = is_number( v ) && as_number( u ) == as_number( v );
+            test = box_is_number( v ) && unbox_number( u ) == unbox_number( v );
         }
         else if ( u.v == v.v )
         {
             test = true;
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            test = is_string( v ) && string_equal( as_string( u ), as_string( v ) );
+            test = box_is_string( v ) && string_equal( unbox_string( u ), unbox_string( v ) );
         }
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
@@ -521,7 +521,7 @@ void vm_execute( vm_context* vm )
     case OP_JEQN:
     {
         value u = r[ op.a ];
-        bool test = is_number( u ) && as_number( u ) == as_number( read( k[ op.b ] ) );
+        bool test = box_is_number( u ) && unbox_number( u ) == unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -533,7 +533,7 @@ void vm_execute( vm_context* vm )
     case OP_JEQS:
     {
         value u = r[ op.a ];
-        bool test = is_string( u ) && string_equal( as_string( u ), as_string( read( k[ op.b ] ) ) );
+        bool test = box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( read( k[ op.b ] ) ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -547,15 +547,15 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         value v = r[ op.b ];
         bool test = false;
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            if ( ! is_number( v ) ) goto type_error;
-            test = as_number( u ) < as_number( v );
+            if ( ! box_is_number( v ) ) goto type_error;
+            test = unbox_number( u ) < unbox_number( v );
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            if ( ! is_string( v ) ) goto type_error;
-            test = string_compare( as_string( u ), as_string( v ) ) < 0;
+            if ( ! box_is_string( v ) ) goto type_error;
+            test = string_compare( unbox_string( u ), unbox_string( v ) ) < 0;
         }
         else
         {
@@ -572,8 +572,8 @@ void vm_execute( vm_context* vm )
     case OP_JLTN:
     {
         value u = r[ op.a ];
-        if ( ! is_number( u ) ) goto type_error;
-        bool test = as_number( u ) < as_number( read( k[ op.b ] ) );
+        if ( ! box_is_number( u ) ) goto type_error;
+        bool test = unbox_number( u ) < unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -585,8 +585,8 @@ void vm_execute( vm_context* vm )
     case OP_JGTN:
     {
         value u = r[ op.a ];
-        if ( ! is_number( u ) ) goto type_error;
-        bool test = as_number( u ) > as_number( read( k[ op.b ] ) );
+        if ( ! box_is_number( u ) ) goto type_error;
+        bool test = unbox_number( u ) > unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -600,15 +600,15 @@ void vm_execute( vm_context* vm )
         value u = r[ op.a ];
         value v = r[ op.b ];
         bool test = false;
-        if ( is_number( u ) )
+        if ( box_is_number( u ) )
         {
-            if ( ! is_number( v ) ) goto type_error;
-            test = as_number( u ) <= as_number( v );
+            if ( ! box_is_number( v ) ) goto type_error;
+            test = unbox_number( u ) <= unbox_number( v );
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            if ( ! is_string( v ) ) goto type_error;
-            test = string_compare( as_string( u ), as_string( v ) ) <= 0;
+            if ( ! box_is_string( v ) ) goto type_error;
+            test = string_compare( unbox_string( u ), unbox_string( v ) ) <= 0;
         }
         else
         {
@@ -625,8 +625,8 @@ void vm_execute( vm_context* vm )
     case OP_JLEN:
     {
         value u = r[ op.a ];
-        if ( ! is_number( u ) ) goto type_error;
-        bool test = as_number( u ) <= as_number( read( k[ op.b ] ) );
+        if ( ! box_is_number( u ) ) goto type_error;
+        bool test = unbox_number( u ) <= unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -638,8 +638,8 @@ void vm_execute( vm_context* vm )
     case OP_JGEN:
     {
         value u = r[ op.a ];
-        if ( ! is_number( u ) ) goto type_error;
-        bool test = as_number( u ) >= as_number( read( k[ op.b ] ) );
+        if ( ! box_is_number( u ) ) goto type_error;
+        bool test = unbox_number( u ) >= unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
         if ( test == op.r )
         {
@@ -667,8 +667,8 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         key_selector* ks = s + op.b;
-        if ( ! is_object( u ) || header( as_object( u ) )->type != LOOKUP_OBJECT ) goto type_error;
-        lookup_setkey( vm, (lookup_object*)as_object( u ), read( ks->key ), &ks->sel, r[ op.r ] );
+        if ( ! box_is_object( u ) || header( unbox_object( u ) )->type != LOOKUP_OBJECT ) goto type_error;
+        lookup_setkey( vm, (lookup_object*)unbox_object( u ), read( ks->key ), &ks->sel, r[ op.r ] );
         break;
     }
 
@@ -676,27 +676,27 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                array_object* array = (array_object*)as_object( u );
-                if ( ! is_number( v ) ) goto type_error;
-                r[ op.r ] = array_getindex( vm, array, (size_t)(int64_t)as_number( v ) );
+                array_object* array = (array_object*)unbox_object( u );
+                if ( ! box_is_number( v ) ) goto type_error;
+                r[ op.r ] = array_getindex( vm, array, (size_t)(int64_t)unbox_number( v ) );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                table_object* table = (table_object*)as_object( u );
+                table_object* table = (table_object*)unbox_object( u );
                 r[ op.r ] = table_getindex( vm, table, v );
                 break;
             }
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            string_object* string = as_string( u );
-            r[ op.r ] = object_value( string_getindex( vm, string, (size_t)(int64_t)as_number( v ) ) );
+            string_object* string = unbox_string( u );
+            r[ op.r ] = box_object( string_getindex( vm, string, (size_t)(int64_t)unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -705,26 +705,26 @@ void vm_execute( vm_context* vm )
     case OP_GET_INDEXI:
     {
         value u = r[ op.a ];
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                array_object* array = (array_object*)as_object( u );
+                array_object* array = (array_object*)unbox_object( u );
                 r[ op.r ] = array_getindex( vm, array, op.b );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                table_object* table = (table_object*)as_object( u );
-                r[ op.r ] = table_getindex( vm, table, number_value( op.b ) );
+                table_object* table = (table_object*)unbox_object( u );
+                r[ op.r ] = table_getindex( vm, table, box_number( op.b ) );
                 break;
             }
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            string_object* string = as_string( u );
-            r[ op.r ] = object_value( string_getindex( vm, string, op.b ) );
+            string_object* string = unbox_string( u );
+            r[ op.r ] = box_object( string_getindex( vm, string, op.b ) );
             break;
         }
         goto type_error;
@@ -734,19 +734,19 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         value v = r[ op.b ];
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                array_object* array = (array_object*)as_object( u );
-                if ( ! is_number( v ) ) goto type_error;
-                array_setindex( vm, array, (size_t)(int64_t)as_number( v ), r[ op.r ] );
+                array_object* array = (array_object*)unbox_object( u );
+                if ( ! box_is_number( v ) ) goto type_error;
+                array_setindex( vm, array, (size_t)(int64_t)unbox_number( v ), r[ op.r ] );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                table_object* table = (table_object*)as_object( u );
+                table_object* table = (table_object*)unbox_object( u );
                 table_setindex( vm, table, v, r[ op.r ] );
                 break;
             }
@@ -757,19 +757,19 @@ void vm_execute( vm_context* vm )
     case OP_SET_INDEXI:
     {
         value u = r[ op.a ];
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                array_object* array = (array_object*)as_object( u );
+                array_object* array = (array_object*)unbox_object( u );
                 array_setindex( vm, array, op.b, r[ op.r ] );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                table_object* table = (table_object*)as_object( u );
-                table_setindex( vm, table, number_value( op.b ), r[ op.r ] );
+                table_object* table = (table_object*)unbox_object( u );
+                table_setindex( vm, table, box_number( op.b ), r[ op.r ] );
                 break;
             }
         }
@@ -778,20 +778,20 @@ void vm_execute( vm_context* vm )
 
     case OP_NEW_ENV:
     {
-        r[ op.r ] = object_value( vslots_new( vm, op.c ) );
+        r[ op.r ] = box_object( vslots_new( vm, op.c ) );
         break;
     }
 
     case OP_GET_VARENV:
     {
-        vslots_object* varenv = (vslots_object*)as_object( r[ op.a ] );
+        vslots_object* varenv = (vslots_object*)unbox_object( r[ op.a ] );
         r[ op.r ] = read( varenv->slots[ op.b ] );
         break;
     }
 
     case OP_SET_VARENV:
     {
-        vslots_object* varenv = (vslots_object*)as_object( r[ op.a ] );
+        vslots_object* varenv = (vslots_object*)unbox_object( r[ op.a ] );
         write( vm, varenv->slots[ op.b ], r[ op.r ] );
         break;
     }
@@ -814,39 +814,39 @@ void vm_execute( vm_context* vm )
     {
         value u = r[ op.a ];
         lookup_object* prototype;
-        if ( is_null( u ) )
+        if ( box_is_null( u ) )
         {
             prototype = vm->prototypes[ LOOKUP_OBJECT ];
         }
-        else if ( is_object( u ) && header( as_object( u ) )->type == LOOKUP_OBJECT )
+        else if ( box_is_object( u ) && header( unbox_object( u ) )->type == LOOKUP_OBJECT )
         {
-            prototype = (lookup_object*)as_object( u );
+            prototype = (lookup_object*)unbox_object( u );
         }
         else
         {
             goto type_error;
         }
-        r[ op.r ] = object_value( lookup_new( vm, prototype ) );
+        r[ op.r ] = box_object( lookup_new( vm, prototype ) );
         break;
     }
 
     case OP_NEW_ARRAY:
     {
-        r[ op.r ] = object_value( array_new( vm, op.c ) );
+        r[ op.r ] = box_object( array_new( vm, op.c ) );
         break;
     }
 
     case OP_NEW_TABLE:
     {
-        r[ op.r ] = object_value( table_new( vm, op.c ) );
+        r[ op.r ] = box_object( table_new( vm, op.c ) );
         break;
     }
 
     case OP_APPEND:
     {
         value w = r[ op.r ];
-        if ( ! is_object( w ) || header( as_object( w ) )->type != ARRAY_OBJECT ) goto type_error;
-        array_object* array = (array_object*)as_object( w );
+        if ( ! box_is_object( w ) || header( unbox_object( w ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)unbox_object( w );
         array_append( vm, array, r[ op.a ] );
         break;
     }
@@ -888,15 +888,15 @@ void vm_execute( vm_context* vm )
 
         // Find called object.
         value w = r[ op.r ];
-        if ( ! is_object( w ) ) goto type_error;
-        type_code type = header( as_object( w ) )->type;
+        if ( ! box_is_object( w ) ) goto type_error;
+        type_code type = header( unbox_object( w ) )->type;
 
         if ( type == LOOKUP_OBJECT )
         {
             // Lookup w.self.
-            lookup_object* class_object = (lookup_object*)as_object( w );
+            lookup_object* class_object = (lookup_object*)unbox_object( w );
             value method = lookup_getkey( vm, class_object, read( vm->selector_self.key ), &vm->selector_self.sel );
-            if ( ! is_object( method ) ) goto type_error;
+            if ( ! box_is_object( method ) ) goto type_error;
 
             // Construct new object.
             lookup_object* self = lookup_new( vm, class_object );
@@ -904,22 +904,22 @@ void vm_execute( vm_context* vm )
             // Rearrange stack.
             r = vm_resize_stack( vm, xp + 2 );
             memcpy( r + rp, r + rp + 2, sizeof( value ) * ( xp - rp ) );
-            r[ rp + 0 ] = object_value( self );
+            r[ rp + 0 ] = box_object( self );
             r[ rp + 1 ] = method;
-            r[ rp + 2 ] = object_value( self );
+            r[ rp + 2 ] = box_object( self );
             rp += 1;
             xp += 2;
 
             // Continue adjusted call.
             w = method;
             stack_frame->call = VM_CONSTRUCT;
-            type = header( as_object( w ) )->type;
+            type = header( unbox_object( w ) )->type;
         }
 
         vm_stack_state state;
         if ( type == FUNCTION_OBJECT )
         {
-            function_object* call_function = (function_object*)as_object( w );
+            function_object* call_function = (function_object*)unbox_object( w );
             program_object* call_program = read( call_function->program );
             if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_GENERATOR ) == 0 )
             {
@@ -933,7 +933,7 @@ void vm_execute( vm_context* vm )
         else if ( type == COTHREAD_OBJECT )
         {
             // Resume yielded cothread.
-            cothread_object* cothread = (cothread_object*)as_object( w );
+            cothread_object* cothread = (cothread_object*)unbox_object( w );
             state = vm_resume( vm, cothread, rp + 1, xp );
         }
 
@@ -1021,7 +1021,7 @@ void vm_execute( vm_context* vm )
         size_t fp = stack_frame->fp;
         while ( rp < xp )
         {
-            r[ rp++ ] = ap < fp ? stack[ ap++ ] : null_value;
+            r[ rp++ ] = ap < fp ? stack[ ap++ ] : boxed_null;
         }
         break;
     }
@@ -1030,15 +1030,15 @@ void vm_execute( vm_context* vm )
     {
         // Unpack array elements from a into r:b.
         value u = r[ op.a ];
-        if ( ! is_object( u ) || header( as_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
-        array_object* array = (array_object*)as_object( u );
+        if ( ! box_is_object( u ) || header( unbox_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)unbox_object( u );
         unsigned rp = op.r;
         xp = op.b != OP_STACK_MARK ? op.b : rp + array->length;
         r = vm_resize_stack( vm, xp );
         size_t i = 0;
         while ( rp < xp )
         {
-            r[ rp++ ] = i < array->length ? array_getindex( vm, array, i++ ) : null_value;
+            r[ rp++ ] = i < array->length ? array_getindex( vm, array, i++ ) : boxed_null;
         }
         break;
     }
@@ -1047,8 +1047,8 @@ void vm_execute( vm_context* vm )
     {
         // Extend array in b with values in r:a.
         value v = r[ op.b ];
-        if ( ! is_object( v ) || header( as_object( v ) )->type != ARRAY_OBJECT ) goto type_error;
-        array_object* array = (array_object*)as_object( v );
+        if ( ! box_is_object( v ) || header( unbox_object( v ) )->type != ARRAY_OBJECT ) goto type_error;
+        array_object* array = (array_object*)unbox_object( v );
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
@@ -1078,18 +1078,18 @@ void vm_execute( vm_context* vm )
         */
         value u = r[ op.a ];
         r[ op.r + 0 ] = u;
-        if ( is_object( u ) )
+        if ( box_is_object( u ) )
         {
-            type_code type = header( as_object( u ) )->type;
+            type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r + 1 ] = index_value( 0 );
+                r[ op.r + 1 ] = box_index( 0 );
                 break;
             }
             else if ( type == TABLE_OBJECT )
             {
-                uint64_t index = table_iterate( vm, (table_object*)as_object( u ) );
-                r[ op.r + 1 ] = index_value( index );
+                uint64_t index = table_iterate( vm, (table_object*)unbox_object( u ) );
+                r[ op.r + 1 ] = box_index( index );
                 break;
             }
             else if ( type == COTHREAD_OBJECT )
@@ -1097,9 +1097,9 @@ void vm_execute( vm_context* vm )
                 break;
             }
         }
-        else if ( is_string( u ) )
+        else if ( box_is_string( u ) )
         {
-            r[ op.r + 1 ] = index_value( 0 );
+            r[ op.r + 1 ] = box_index( 0 );
             break;
         }
         goto type_error;
@@ -1134,24 +1134,24 @@ void vm_execute( vm_context* vm )
         value g = r[ op.a + 0 ];
         struct op jop = ops[ ip++ ];
         unsigned rp = op.r;
-        if ( is_object( g ) )
+        if ( box_is_object( g ) )
         {
-            type_code type = header( as_object( g ) )->type;
+            type_code type = header( unbox_object( g ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                array_object* array = (array_object*)as_object( g );
-                size_t i = as_index( r[ op.a + 1 ] );
+                array_object* array = (array_object*)unbox_object( g );
+                size_t i = unbox_index( r[ op.a + 1 ] );
                 if ( i < array->length )
                 {
                     xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
                     r = vm_resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
-                    if ( rp < xp ) r[ rp++ ] = number_value( i );
+                    if ( rp < xp ) r[ rp++ ] = box_number( i );
                     while ( rp < xp )
                     {
-                        r[ rp++ ] = null_value;
+                        r[ rp++ ] = boxed_null;
                     }
-                    r[ op.a + 1 ] = index_value( i );
+                    r[ op.a + 1 ] = box_index( i );
                 }
                 else
                 {
@@ -1161,8 +1161,8 @@ void vm_execute( vm_context* vm )
             }
             else if ( type == TABLE_OBJECT )
             {
-                table_object* table = (table_object*)as_object( g );
-                size_t i = as_index( r[ op.a + 1 ] );
+                table_object* table = (table_object*)unbox_object( g );
+                size_t i = unbox_index( r[ op.a + 1 ] );
                 table_keyval keyval;
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
@@ -1172,9 +1172,9 @@ void vm_execute( vm_context* vm )
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
                     while ( rp < xp )
                     {
-                        r[ rp++ ] = null_value;
+                        r[ rp++ ] = boxed_null;
                     }
-                    r[ op.a + 1 ] = index_value( i );
+                    r[ op.a + 1 ] = box_index( i );
                 }
                 else
                 {
@@ -1185,7 +1185,7 @@ void vm_execute( vm_context* vm )
             else if ( type == COTHREAD_OBJECT )
             {
                 // Resume generator with no arguments.
-                cothread_object* cothread = (cothread_object*)as_object( g );
+                cothread_object* cothread = (cothread_object*)unbox_object( g );
 
                 vm_stack_frame* stack_frame = vm_active_frame( vm );
                 stack_frame->ip = ip;
@@ -1206,19 +1206,19 @@ void vm_execute( vm_context* vm )
                 break;
             }
         }
-        else if ( is_string( g ) )
+        else if ( box_is_string( g ) )
         {
-            string_object* string = as_string( g );
-            size_t i = as_index( r[ op.a + 1 ] );
+            string_object* string = unbox_string( g );
+            size_t i = unbox_index( r[ op.a + 1 ] );
             if ( i < string->size )
             {
                 xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
                 r = vm_resize_stack( vm, xp );
-                if ( rp < xp ) r[ rp++ ] = object_value( string_getindex( vm, string, i++ ) );
+                if ( rp < xp ) r[ rp++ ] = box_object( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
-                    r[ rp++ ] = null_value;
-                    r[ op.a + 1 ] = index_value( i );
+                    r[ rp++ ] = boxed_null;
+                    r[ op.a + 1 ] = box_index( i );
                 }
             }
             else
@@ -1247,17 +1247,17 @@ void vm_execute( vm_context* vm )
         value v0 = r[ op.a + 0 ];
         value v1 = r[ op.a + 1 ];
         value v2 = r[ op.a + 2 ];
-        if ( ! is_number( v0 ) ) goto type_error;
-        if ( ! is_number( v1 ) ) goto type_error;
-        if ( ! is_number( v2 ) ) goto type_error;
-        double i = as_number( v0 );
-        double limit = as_number( v1 );
-        double step = as_number( v2 );
+        if ( ! box_is_number( v0 ) ) goto type_error;
+        if ( ! box_is_number( v1 ) ) goto type_error;
+        if ( ! box_is_number( v2 ) ) goto type_error;
+        double i = unbox_number( v0 );
+        double limit = unbox_number( v1 );
+        double step = unbox_number( v2 );
         struct op jop = ops[ ip++ ];
         if ( step >= 0.0 ? i < limit : i > limit )
         {
-            r[ op.r ] = number_value( i );
-            r[ op.a ] = number_value( i + step );
+            r[ op.r ] = box_number( i );
+            r[ op.a ] = box_number( i + step );
         }
         else
         {
@@ -1269,7 +1269,7 @@ void vm_execute( vm_context* vm )
     case OP_SUPER:
     {
         lookup_object* omethod = read( function->omethod );
-        r[ op.r ] = object_value( lookup_prototype( vm, omethod ) );
+        r[ op.r ] = box_object( lookup_prototype( vm, omethod ) );
         break;
     }
 
@@ -1283,7 +1283,7 @@ void vm_execute( vm_context* vm )
     {
         program_object* program = read( read( function->program )->functions[ op.c ] );
         function_object* closure = function_new( vm, program );
-        r[ op.r ] = object_value( closure );
+        r[ op.r ] = box_object( closure );
         while ( true )
         {
             struct op vop = ops[ ip ];
@@ -1291,13 +1291,13 @@ void vm_execute( vm_context* vm )
             {
                 assert( vop.r == op.r );
                 value omethod = r[ op.b ];
-                if ( ! is_object( omethod ) || header( as_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
-                winit( closure->omethod, (lookup_object*)as_object( r[ op.b ] ) );
+                if ( ! box_is_object( omethod ) || header( unbox_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
+                winit( closure->omethod, (lookup_object*)unbox_object( r[ op.b ] ) );
             }
             else if ( vop.opcode == OP_F_VARENV )
             {
                 assert( vop.r == op.r );
-                winit( closure->outenvs[ op.a ], (vslots_object*)as_object( r[ op.b ] ) );
+                winit( closure->outenvs[ op.a ], (vslots_object*)unbox_object( r[ op.b ] ) );
             }
             else if ( vop.opcode == OP_F_OUTENV )
             {

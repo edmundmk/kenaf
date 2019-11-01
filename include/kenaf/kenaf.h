@@ -71,9 +71,9 @@ value create_string_buffer( size_t size );
 value update_string_buffer( value value, size_t index, const char* text, size_t size );
 std::string_view get_text( value string );
 
-value new_array();
+value create_array();
+value create_array_with_capacity( size_t capacity );
 size_t array_length( value array );
-void array_reserve( value array, size_t capacity );
 void array_resize( value array, size_t length );
 void array_append( value array, value v );
 void array_clear( value array );
@@ -82,8 +82,9 @@ value get_index( value array, size_t index );
 void set_index( value array, size_t index, value v );
 
 value create_table();
+value create_table_with_capacity( size_t capacity );
 size_t table_length( value table );
-void table_reserve( value table, size_t capacity );
+void table_clear( value table );
 
 value get_index( value table, value k );
 void set_index( value table, value k, value v );

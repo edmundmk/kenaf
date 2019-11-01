@@ -32,7 +32,7 @@ void array_resize( vm_context* vm, array_object* array, size_t length )
     {
         for ( size_t i = length; i < array_length; ++i )
         {
-            write( vm, aslots->slots[ i ], null_value );
+            write( vm, aslots->slots[ i ], boxed_null );
         }
     }
     else
