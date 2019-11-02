@@ -15,6 +15,11 @@ namespace kf
 {
 
 vm_context::vm_context()
+    :   cothreads( nullptr )
+    ,   global_object( nullptr )
+    ,   prototypes{}
+    ,   selector_self{ {}, {} }
+    ,   next_cookie( 0 )
 {
 }
 

@@ -12,6 +12,7 @@
 #include "vm/vm_context.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
+#include "objects/cothread_object.h"
 
 namespace kf
 {
@@ -268,6 +269,17 @@ bool test( value v )
     return v.v > 1 && v.v != box_number( +0.0 ).v && v.v != box_number( -0.0 ).v;
 }
 
+value bool_value( bool b )
+{
+    return b ? boxed_true : boxed_false;
+}
+
+bool get_bool( value v )
+{
+    if ( ! is_bool( v ) ) throw std::exception();
+    return v.v == boxed_true.v;
+}
+
 value number_value( double n )
 {
     return box_number( n );
@@ -488,6 +500,52 @@ value create_function( const void* code, size_t size )
     vm_context* vm = current();
     program_object* program = program_new( vm, code, size );
     return box_object( function_new( vm, program ) );
+}
+
+value create_function( native_function native, void* cookie, unsigned param_count, unsigned flags )
+{
+    return box_object( native_function_new( current(), native, cookie, param_count, flags ) );
+}
+
+void stack_frame( stack* stack )
+{
+    vm_context* vm = current();
+    stack->sp = vm->cothreads->back();
+    stack->fp = vm->cothreads->back()->xp;
+}
+
+void stack_close( stack* stack )
+{
+}
+
+value* arguments( stack* stack, size_t count )
+{
+    return nullptr;
+}
+
+value* results( stack* stack )
+{
+    return nullptr;
+}
+
+value* arguments( stack* stack )
+{
+    return nullptr;
+}
+
+value* results( stack* stack, size_t count )
+{
+    return nullptr;
+}
+
+size_t result( stack* stack, value v )
+{
+    return 1;
+}
+
+size_t call( stack* stack, value function, size_t argc )
+{
+    return 0;
 }
 
 }

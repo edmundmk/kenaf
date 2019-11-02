@@ -37,12 +37,6 @@ struct native_function_object;
 struct cothread_object;
 struct value;
 
-struct stack
-{
-    cothread_object* cothread;
-    size_t fp;
-};
-
 enum vm_stack_call : uint8_t
 {
     VM_ACTIVE,          // function is active

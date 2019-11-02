@@ -65,10 +65,13 @@ vslots_object* vslots_new( vm_context* vm, size_t count )
 lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
 {
     // Seal prototype.
-    object_header* prototype_header = header( prototype );
-    if ( ( prototype_header->flags & FLAG_SEALED ) == 0 )
+    if ( prototype )
     {
-        prototype_header->flags |= FLAG_SEALED;
+        object_header* prototype_header = header( prototype );
+        if ( ( prototype_header->flags & FLAG_SEALED ) == 0 )
+        {
+            prototype_header->flags |= FLAG_SEALED;
+        }
     }
 
     // Locate instance layout.

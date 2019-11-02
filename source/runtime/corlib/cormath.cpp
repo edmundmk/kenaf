@@ -17,6 +17,8 @@
 namespace kf
 {
 
+const double PI = 0x3.243F6A8885A30p0;
+
 static size_t abs( void* cookie, stack* stack, value* argv, size_t argc )
 {
     return result( stack, number_value( std::abs( get_number( argv[ 0 ] ) ) ) );
@@ -174,6 +176,7 @@ static size_t ctz( void* cookie, stack* stack, value* argv, size_t argc )
 void expose_cormath()
 {
     value global = global_object();
+
     set_key( global, "abs", create_function( abs, nullptr, 1 ) );
     set_key( global, "min", create_function( min, nullptr, 1, PARAM_VARARG ) );
     set_key( global, "max", create_function( max, nullptr, 1, PARAM_VARARG ) );
@@ -199,6 +202,11 @@ void expose_cormath()
     set_key( global, "exp", create_function( exp, nullptr, 1 ) );
     set_key( global, "clz", create_function( clz, nullptr, 1 ) );
     set_key( global, "ctz", create_function( ctz, nullptr, 1 ) );
+
+    set_key( global, "pi", number_value( PI ) );
+    set_key( global, "tau", number_value( PI * 2.0 ) );
+    set_key( global, "nan", number_value( NAN ) );
+    set_key( global, "infinity", number_value( INFINITY ) );
 }
 
 }
