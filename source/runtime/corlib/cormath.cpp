@@ -12,6 +12,7 @@
 #include <cmath>
 #include <algorithm>
 #include "kenaf/kenaf.h"
+#include "../../common/imath.h"
 
 namespace kf
 {
@@ -158,14 +159,16 @@ static size_t exp( void* cookie, stack* stack, value* argv, size_t argc )
 
 static size_t clz( void* cookie, stack* stack, value* argv, size_t argc )
 {
-    // todo.
-    return 0;
+    uint32_t i = ibitint( get_number( argv[ 0 ] ) );
+    i = i ? __builtin_clz( i ) : 0;
+    return result( stack, number_value( i ) );
 }
 
 static size_t ctz( void* cookie, stack* stack, value* argv, size_t argc )
 {
-    // todo.
-    return 0;
+    uint32_t i = ibitint( get_number( argv[ 0 ] ) );
+    i = i ? __builtin_ctz( i ) : 0;
+    return result( stack, number_value( i ) );
 }
 
 void expose_cormath()
