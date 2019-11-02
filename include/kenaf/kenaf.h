@@ -62,7 +62,7 @@ value number_value( double n );
 double get_number( value v );
 
 value create_lookup();
-value create_instance( value prototype );
+value create_lookup( value prototype );
 value get_key( value lookup, std::string_view k );
 void set_key( value lookup, std::string_view k, value v );
 bool has_key( value lookup, std::string_view k );
@@ -74,7 +74,7 @@ value update_string_buffer( value value, size_t index, const char* text, size_t 
 std::string_view get_text( value string );
 
 value create_array();
-value create_array_with_capacity( size_t capacity );
+value create_array( size_t capacity );
 size_t array_length( value array );
 void array_resize( value array, size_t length );
 void array_append( value array, value v );
@@ -84,7 +84,7 @@ value get_index( value array, size_t index );
 void set_index( value array, size_t index, value v );
 
 value create_table();
-value create_table_with_capacity( size_t capacity );
+value create_table( size_t capacity );
 size_t table_length( value table );
 void table_clear( value table );
 
