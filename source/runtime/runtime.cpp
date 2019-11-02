@@ -483,5 +483,12 @@ void del_index( value table, value k )
     table_delindex( current(), (table_object*)unbox_object( table ), k );
 }
 
+value create_function( const void* code, size_t size )
+{
+    vm_context* vm = current();
+    program_object* program = program_new( vm, code, size );
+    return box_object( function_new( vm, program ) );
+}
+
 }
 

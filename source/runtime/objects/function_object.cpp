@@ -15,7 +15,7 @@
 namespace kf
 {
 
-script_object* script_new( vm_context* vm, code_script* code )
+script_object* script_new( vm_context* vm, const code_script* code )
 {
     const char* name = code->debug_heap() + code->debug_script_name;
     script_object* script = new ( object_new( vm, SCRIPT_OBJECT, sizeof( script_object ) + sizeof( uint32_t ) * code->debug_newline_count + strlen( name ) ) ) script_object();
@@ -32,12 +32,12 @@ std::string_view script_name( vm_context* vm, script_object* script )
     return std::string_view( text, script->name_size );
 }
 
-static code_script* validate_code( void* data, size_t size )
+static const code_script* validate_code( const void* data, size_t size )
 {
     if ( size < sizeof( code_script ) )
         return nullptr;
 
-    code_script* code = (code_script*)data;
+    const code_script* code = (const code_script*)data;
     if ( code->magic != CODE_MAGIC )
         return nullptr;
 
@@ -47,10 +47,10 @@ static code_script* validate_code( void* data, size_t size )
     return code;
 }
 
-program_object* program_new( vm_context* vm, void* data, size_t size )
+program_object* program_new( vm_context* vm, const void* data, size_t size )
 {
     // Get code.
-    code_script* code = validate_code( data, size );
+    const code_script* code = validate_code( data, size );
     if ( ! code )
     {
         throw std::runtime_error( "invalid code" );

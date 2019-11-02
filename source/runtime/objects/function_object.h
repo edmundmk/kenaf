@@ -79,10 +79,10 @@ struct function_object : public object
     Functions.
 */
 
-script_object* script_new( vm_context* vm, code_script* code );
+script_object* script_new( vm_context* vm, const code_script* code );
 std::string_view script_name( vm_context* vm, script_object* script );
 
-program_object* program_new( vm_context* vm, void* code, size_t size );
+program_object* program_new( vm_context* vm, const void* data, size_t size );
 std::string_view program_name( vm_context* vm, program_object* program );
 source_location program_source_location( vm_context* vm, program_object* program, unsigned ip );
 
