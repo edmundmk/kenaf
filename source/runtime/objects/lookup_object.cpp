@@ -237,7 +237,7 @@ bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key )
     return false;
 }
 
-bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
+void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 {
     assert( header( key )->flags & FLAG_KEY );
 
@@ -258,7 +258,7 @@ bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
         string_object* layout_key = read( layout->key );
         if ( ! layout_key )
         {
-            return false;
+            return;
         }
 
         uint32_t sindex = layout->sindex;
@@ -282,7 +282,6 @@ bool lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
 
     // Update layout.
     write( vm, object->layout, layout );
-    return true;
 }
 
 }

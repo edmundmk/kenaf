@@ -66,11 +66,11 @@ value create_lookup( value prototype );
 value get_key( value lookup, std::string_view k );
 void set_key( value lookup, std::string_view k, value v );
 bool has_key( value lookup, std::string_view k );
-bool del_key( value lookup, std::string_view k );
+void del_key( value lookup, std::string_view k );
 
 value create_string( std::string_view text );
 value create_string_buffer( size_t size );
-value update_string_buffer( value value, size_t index, const char* text, size_t size );
+value update_string_buffer( value string, size_t index, const char* text, size_t size );
 std::string_view get_text( value string );
 
 value create_array();

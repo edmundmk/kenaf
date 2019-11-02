@@ -88,5 +88,10 @@ void array_extend( vm_context* vm, array_object* array, value* values, size_t vc
     array->length = array_length + vcount;
 }
 
+void array_clear( vm_context* vm, array_object* array )
+{
+    array->length = 0;
+}
+
 }
 

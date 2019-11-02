@@ -10,6 +10,7 @@
 
 #include "kenaf/kenaf.h"
 #include "vm/vm_context.h"
+#include "objects/array_object.h"
 
 namespace kf
 {
@@ -277,8 +278,112 @@ double get_number( value v )
     return unbox_number( v );
 }
 
+value create_lookup()
+{
+    vm_context* vm = current();
+    return box_object( lookup_new( vm, vm->prototypes[ LOOKUP_OBJECT ] ) );
+}
 
+value create_lookup( value prototype )
+{
+    if ( ! is_lookup( prototype ) ) throw std::exception();
+    return box_object( lookup_new( current(), (lookup_object*)unbox_object( prototype ) ) );
+}
 
+value get_key( value lookup, std::string_view k )
+{
+    selector sel = {};
+    vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) throw std::exception();
+    string_object* key = string_key( vm, k.data(), k.size() );
+    return lookup_getkey( vm, (lookup_object*)unbox_object( lookup ), key, &sel );
+}
+
+void set_key( value lookup, std::string_view k, value v )
+{
+    selector sel = {};
+    vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) throw std::exception();
+    string_object* key = string_key( vm, k.data(), k.size() );
+    lookup_setkey( vm, (lookup_object*)unbox_object( lookup ), key, &sel, v );
+}
+
+bool has_key( value lookup, std::string_view k )
+{
+    vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) throw std::exception();
+    string_object* key = string_key( vm, k.data(), k.size() );
+    return lookup_haskey( vm, (lookup_object*)unbox_object( lookup ), key );
+}
+
+void del_key( value lookup, std::string_view k )
+{
+    vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) throw std::exception();
+    string_object* key = string_key( vm, k.data(), k.size() );
+    lookup_delkey( vm, (lookup_object*)unbox_object( lookup ), key );
+}
+
+value create_string( std::string_view text )
+{
+    return box_string( string_new( current(), text.data(), text.size() ) );
+}
+
+value create_string_buffer( size_t size )
+{
+    return box_string( string_new( current(), nullptr, size ) );
+}
+
+value update_string_buffer( value string, size_t index, const char* text, size_t size )
+{
+    if ( ! is_string( string ) ) throw std::exception();
+    string_object* s = (string_object*)unbox_object( string );
+    if ( index + size > s->size ) throw std::out_of_range( "string" );
+    memcpy( s->text + index, text, size );
+    return string;
+}
+
+std::string_view get_text( value string )
+{
+    if ( ! is_string( string ) ) throw std::exception();
+    string_object* s = (string_object*)unbox_object( string );
+    return std::string_view( s->text, s->size );
+}
+
+value create_array()
+{
+    return box_object( array_new( current(), 0 ) );
+}
+
+value create_array( size_t capacity )
+{
+    return box_object( array_new( current(), capacity ) );
+}
+
+size_t array_length( value array )
+{
+    if ( ! is_array( array ) ) throw std::exception();
+    array_object* a = (array_object*)unbox_object( array );
+    return a->length;
+}
+
+void array_resize( value array, size_t length )
+{
+    if ( ! is_array( array ) ) throw std::exception();
+    array_resize( current(), (array_object*)unbox_object( array ), length );
+}
+
+void array_append( value array, value v )
+{
+    if ( ! is_array( array ) ) throw std::exception();
+    array_append( current(), (array_object*)unbox_object( array ), v );
+}
+
+void array_clear( value array )
+{
+    if ( ! is_array( array ) ) throw std::exception();
+    array_clear( current(), (array_object*)unbox_object( array ) );
+}
 
 }
 
