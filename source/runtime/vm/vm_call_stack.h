@@ -32,6 +32,7 @@ namespace kf
 
 struct vm_context;
 struct function_object;
+struct native_function_object;
 struct cothread_object;
 struct value;
 
@@ -72,6 +73,7 @@ value* vm_resize_stack( vm_context* vm, unsigned xp );
 value* vm_entire_stack( vm_context* vm );
 
 vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
+vm_stack_state vm_call_native( vm_context* vm, native_function_object* function, unsigned rp, unsigned xp );
 vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp );
 
 vm_stack_state vm_generate( vm_context* vm, function_object* function, unsigned rp, unsigned xp );

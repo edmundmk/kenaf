@@ -119,11 +119,36 @@ context* make_current( context* c );
 value global_object();
 
 /*
-    Call stack.  This is how native code interacts with script code.
+    Native interface.
 */
 
+struct stack { void* sp; size_t fp; };
 
+stack stack_frame();
+void stack_close( stack stack );
+value* arguments( stack stack, size_t count );
+value* results( stack stack );
+value* arguments( stack stack );
+value* results( stack stack, size_t count );
+size_t result( stack stack, value v );
 
+size_t call( stack stack, value function, size_t argc );
+typedef size_t (*native_function)( void* cookie, stack stack, value* argv, size_t argc );
+
+const size_t PARAM_VARARG = ~(size_t)0;
+value create_function( native_function native, void* cookie, size_t param_count );
+
+/*
+    Call helpers.
+*/
+
+value call( value function, const value* argv, size_t argc );
+value call( value function, std::initializer_list< value > argv );
+
+template < typename ... A > value call( value function, A ... argvalues )
+{
+    return call( function, { std::forward< A >( argvalues ) ... } );
+}
 
 /*
     Exception thrown from script code.

@@ -930,6 +930,11 @@ void vm_execute( vm_context* vm )
                 state = vm_generate( vm, call_function, rp, xp );
             }
         }
+        else if ( type == NATIVE_FUNCTION_OBJECT )
+        {
+            native_function_object* call_function = (native_function_object*)unbox_object( w );
+            state = vm_call_native( vm, call_function, rp, xp );
+        }
         else if ( type == COTHREAD_OBJECT )
         {
             // Resume yielded cothread.

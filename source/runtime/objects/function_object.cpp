@@ -177,5 +177,14 @@ function_object* function_new( vm_context* vm, program_object* program )
     return function;
 }
 
+native_function_object* native_function_new( vm_context* vm, native_function native, void* cookie, size_t param_count )
+{
+    native_function_object* function = new ( object_new( vm, NATIVE_FUNCTION_OBJECT, sizeof( native_function_object ) ) ) native_function_object();
+    function->native = native;
+    function->cookie = cookie;
+    function->param_count = param_count;
+    return function;
+}
+
 }
 
