@@ -138,15 +138,9 @@ vm_stack_state vm_call_native( vm_context* vm, native_function_object* function,
     unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + result_count;
     value* r = vm_resize_stack( cothread, stack_frame, xb );
 
-    if ( stack_frame->call != VM_CONSTRUCT )
-    {
-        assert( xr == rp );
-        xr += result_count;
-    }
-    else
+    if ( stack_frame->call == VM_CONSTRUCT && result_count == 0 )
     {
         xr += 1;
-        assert( xr == rp );
     }
 
     while ( xr < xb )
@@ -166,22 +160,15 @@ static vm_stack_state vm_yield_return( vm_context* vm, cothread_object* cothread
 {
     assert( rp <= xp );
 
-    // Determine number of results.
-    size_t result_count = rp - xp;
-    if ( stack_frame->call == VM_CONSTRUCT )
-    {
-        result_count = 0;
-    }
-
     // Copy results.
+    size_t result_count = rp - xp;
     unsigned xr = stack_frame->xr;
     unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + result_count;
     value* r = vm_resize_stack( cothread, stack_frame, xb );
 
-    if ( stack_frame->call == VM_CONSTRUCT )
+    if ( stack_frame->call == VM_CONSTRUCT && result_count == 0 )
     {
         xr += 1;
-        xp = rp;
     }
 
     while ( xr < xb )
@@ -211,11 +198,6 @@ vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
         // Normal return.
         vm_stack_frame* stack_frame = &cothread->stack_frames.back();
         size_t result_count = rp - xp;
-        if ( stack_frame->call == VM_CONSTRUCT )
-        {
-            result_count = 0;
-        }
-
         unsigned xr = stack_frame->xr;
         unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + result_count;
 
@@ -228,20 +210,17 @@ vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp )
         assert( r + xr <= return_r + rp );
         assert( stack_frame->fp + xb <= cothread->stack.size() );
 
-        if ( stack_frame->call != VM_CONSTRUCT )
-        {
-            // Move results.
-            unsigned result_count = std::min( result_count, xb - xr );
-            if ( r + xr < return_r + rp )
-            {
-                memmove( r + xr, return_r + rp, result_count + sizeof( value ) );
-            }
-            xr += std::min( result_count, xb - xr );
-        }
-        else
+        if ( stack_frame->call == VM_CONSTRUCT && result_count == 0 )
         {
             xr += 1;
         }
+
+        size_t value_count = std::min< size_t >( result_count, xb - xr );
+        if ( r + xr < return_r + rp )
+        {
+            memmove( r + xr, return_r + rp, value_count + sizeof( value ) );
+        }
+        xr += value_count;
 
         while ( xr < xb )
         {
