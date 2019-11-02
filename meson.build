@@ -32,6 +32,7 @@ sources = [
     'source/compiler/lexer.cpp',
     'source/compiler/source.cpp',
     'source/compiler/parser.cpp',
+    'source/runtime/corlib/cormath.cpp',
     'source/runtime/objects/array_object.cpp',
     'source/runtime/objects/cothread_object.cpp',
     'source/runtime/objects/function_object.cpp',

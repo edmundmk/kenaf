@@ -1,0 +1,202 @@
+//
+//  cormath.cpp
+//
+//  Created by Edmund Kapusniak on 02/11/2019.
+//  Copyright © 2019 Edmund Kapusniak.
+//
+//  Licensed under the MIT License. See LICENSE file in the project root for
+//  full license information.
+//
+
+#include "cormath.h"
+#include <cmath>
+#include <algorithm>
+#include "kenaf/kenaf.h"
+
+namespace kf
+{
+
+static size_t abs( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::abs( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t min( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    double n = get_number( argv[ 0 ] );
+    for ( size_t i = 1; i < argc; ++i )
+    {
+        n = std::min( n, get_number( argv[ i ] ) );
+    }
+    return result( stack, number_value( n ) );
+}
+
+static size_t max( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    double n = get_number( argv[ 0 ] );
+    for ( size_t i = 1; i < argc; ++i )
+    {
+        n = std::max( n, get_number( argv[ i ] ) );
+    }
+    return result( stack, number_value( n ) );
+}
+
+static size_t pow( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    double a = get_number( argv[ 0 ] );
+    double b = get_number( argv[ 1 ] );
+    return result( stack, number_value( std::pow( a, b ) ) );
+}
+
+static size_t sqrt( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::sqrt( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t sin( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::sin( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t tan( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::tan( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t cos( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::cos( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t asin( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::asin( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t acos( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::acos( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t atan( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    if ( argc == 1 )
+    {
+        return result( stack, number_value( std::atan( get_number( argv[ 0 ] ) ) ) );
+    }
+    else if ( argc == 2 )
+    {
+        return result( stack, number_value( std::atan2( get_number( argv[ 0 ] ), get_number( argv[ 1 ] ) ) ) );
+    }
+    else
+    {
+        throw std::exception();
+    }
+}
+
+static size_t ceil( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::ceil( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t floor( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::floor( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t round( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::round( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t trunc( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, number_value( std::trunc( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t isnan( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::isnan( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t isinf( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::isinf( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t isfinite( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::isfinite( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t fmod( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    double a = get_number( argv[ 0 ] );
+    double b = get_number( argv[ 1 ] );
+    return result( stack, number_value( std::fmod( a, b ) ) );
+}
+
+static size_t log2( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::log2( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t exp2( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::exp2( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t log( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::log( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t exp( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    return result( stack, bool_value( std::exp( get_number( argv[ 0 ] ) ) ) );
+}
+
+static size_t clz( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    // todo.
+    return 0;
+}
+
+static size_t ctz( void* cookie, stack* stack, value* argv, size_t argc )
+{
+    // todo.
+    return 0;
+}
+
+void expose_cormath()
+{
+    value global = global_object();
+    set_key( global, "abs", create_function( abs, nullptr, 1 ) );
+    set_key( global, "min", create_function( min, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "max", create_function( max, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "pow", create_function( pow, nullptr, 2 ) );
+    set_key( global, "sqrt", create_function( sqrt, nullptr, 1 ) );
+    set_key( global, "sin", create_function( sin, nullptr, 1 ) );
+    set_key( global, "tan", create_function( tan, nullptr, 1 ) );
+    set_key( global, "cos", create_function( cos, nullptr, 1 ) );
+    set_key( global, "asin", create_function( asin, nullptr, 1 ) );
+    set_key( global, "acos", create_function( acos, nullptr, 1 ) );
+    set_key( global, "atan", create_function( atan, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "ceil", create_function( ceil, nullptr, 1 ) );
+    set_key( global, "floor", create_function( floor, nullptr, 1 ) );
+    set_key( global, "round", create_function( round, nullptr, 1 ) );
+    set_key( global, "trunc", create_function( trunc, nullptr, 1 ) );
+    set_key( global, "isnan", create_function( isnan, nullptr, 1 ) );
+    set_key( global, "isinf", create_function( isinf, nullptr, 1 ) );
+    set_key( global, "isfinite", create_function( isfinite, nullptr, 1 ) );
+    set_key( global, "fmod", create_function( fmod, nullptr, 2 ) );
+    set_key( global, "log2", create_function( log2, nullptr, 1 ) );
+    set_key( global, "exp2", create_function( exp2, nullptr, 1 ) );
+    set_key( global, "log", create_function( log, nullptr, 1 ) );
+    set_key( global, "exp", create_function( exp, nullptr, 1 ) );
+    set_key( global, "clz", create_function( clz, nullptr, 1 ) );
+    set_key( global, "ctz", create_function( ctz, nullptr, 1 ) );
+}
+
+}
+

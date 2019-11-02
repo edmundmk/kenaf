@@ -58,6 +58,8 @@ value false_value();
 value superof( value v );
 bool test( value v );
 
+value bool_value( bool b );
+
 value number_value( double n );
 double get_number( value v );
 
@@ -122,21 +124,21 @@ value global_object();
     Native interface.
 */
 
-struct stack { void* sp; size_t fp; };
+struct stack;
 
-stack stack_frame();
-void stack_close( stack stack );
-value* arguments( stack stack, size_t count );
-value* results( stack stack );
-value* arguments( stack stack );
-value* results( stack stack, size_t count );
-size_t result( stack stack, value v );
+stack* stack_frame();
+void stack_close( stack* stack );
+value* arguments( stack* stack, size_t count );
+value* results( stack* stack );
+value* arguments( stack* stack );
+value* results( stack* stack, size_t count );
+size_t result( stack* stack, value v );
 
-size_t call( stack stack, value function, size_t argc );
-typedef size_t (*native_function)( void* cookie, stack stack, value* argv, size_t argc );
+size_t call( stack* stack, value function, size_t argc );
+typedef size_t (*native_function)( void* cookie, stack* stack, value* argv, size_t argc );
 
-const size_t PARAM_VARARG = ~(size_t)0;
-value create_function( native_function native, void* cookie, size_t param_count );
+enum { PARAM_VARARG = 1 << 0 };
+value create_function( native_function native, void* cookie, unsigned param_count, unsigned flags = 0 );
 
 /*
     Call helpers.

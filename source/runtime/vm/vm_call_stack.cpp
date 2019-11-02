@@ -119,13 +119,14 @@ vm_stack_state vm_call_native( vm_context* vm, native_function_object* function,
     stack stack = { cothread, stack_frame->fp + rp };
 
     unsigned argument_count = xp - ( rp + 1 );
-    if ( argument_count != function->param_count && function->param_count != PARAM_VARARG )
+    bool is_varargs = ( function->code_flags & CODE_VARARGS ) != 0;
+    if ( argument_count < function->param_count || ( argument_count > function->param_count && ! is_varargs ) )
     {
         throw std::exception();
     }
 
     value* argv = cothread->stack.data() + stack.fp + 1;
-    size_t result_count = function->native( function->cookie, stack, argv, argument_count );
+    size_t result_count = function->native( function->cookie, &stack, argv, argument_count );
 
     if ( stack_frame->call == VM_CONSTRUCT )
     {

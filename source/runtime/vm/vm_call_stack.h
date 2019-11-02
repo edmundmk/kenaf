@@ -25,6 +25,7 @@
     means to return to native code.
 */
 
+#include <stddef.h>
 #include <stdint.h>
 
 namespace kf
@@ -35,6 +36,12 @@ struct function_object;
 struct native_function_object;
 struct cothread_object;
 struct value;
+
+struct stack
+{
+    cothread_object* cothread;
+    size_t fp;
+};
 
 enum vm_stack_call : uint8_t
 {
