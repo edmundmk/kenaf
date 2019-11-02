@@ -11,6 +11,7 @@
 #include "kenaf/kenaf.h"
 #include "vm/vm_context.h"
 #include "objects/array_object.h"
+#include "objects/table_object.h"
 
 namespace kf
 {
@@ -383,6 +384,103 @@ void array_clear( value array )
 {
     if ( ! is_array( array ) ) throw std::exception();
     array_clear( current(), (array_object*)unbox_object( array ) );
+}
+
+value create_table()
+{
+    return box_object( table_new( current(), 0 ) );
+}
+
+value create_table( size_t capacity )
+{
+    return box_object( table_new( current(), capacity ) );
+}
+
+size_t table_length( value table )
+{
+    if ( ! is_table( table ) ) throw std::exception();
+    table_object* t = (table_object*)unbox_object( table );
+    return t->length;
+}
+
+void table_clear( value table )
+{
+    if ( ! is_table( table ) ) throw std::exception();
+    table_clear( current(), (table_object*)unbox_object( table ) );
+}
+
+value get_index( value table, value k )
+{
+    if ( is_table( table ) )
+    {
+        return table_getindex( current(), (table_object*)unbox_object( table ), k );
+    }
+    else if ( is_array( table ) )
+    {
+        if ( ! is_number( k ) ) throw std::exception();
+        size_t index = (size_t)(uint64_t)unbox_number( k );
+        return array_getindex( current(), (array_object*)unbox_object( table ), index );
+    }
+    else
+    {
+        throw std::exception();
+    }
+}
+
+value get_index( value array, size_t index )
+{
+    if ( is_array( array ) )
+    {
+        return array_getindex( current(), (array_object*)unbox_object( array ), index );
+    }
+    else if ( is_table( array ) )
+    {
+        return table_getindex( current(), (table_object*)unbox_object( array ), box_number( (double)index ) );
+    }
+    else
+    {
+        throw std::exception();
+    }
+}
+
+void set_index( value table, value k, value v )
+{
+    if ( is_table( table ) )
+    {
+        table_setindex( current(), (table_object*)unbox_object( table ), k, v );
+    }
+    else if ( is_array( table ) )
+    {
+        if ( ! is_number( k ) ) throw std::exception();
+        size_t index = (size_t)(uint64_t)unbox_number( k );
+        array_setindex( current(), (array_object*)unbox_object( table ), index, v );
+    }
+    else
+    {
+        throw std::exception();
+    }
+}
+
+void set_index( value array, size_t index, value v )
+{
+    if ( is_array( array ) )
+    {
+        array_setindex( current(), (array_object*)unbox_object( array ), index, v );
+    }
+    else if ( is_table( array ) )
+    {
+        table_setindex( current(), (table_object*)unbox_object( array ), box_number( (double)index ), v );
+    }
+    else
+    {
+        throw std::exception();
+    }
+}
+
+void del_index( value table, value k )
+{
+    if ( ! is_table( table ) ) throw std::exception();
+    table_delindex( current(), (table_object*)unbox_object( table ), k );
 }
 
 }

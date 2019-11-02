@@ -80,16 +80,15 @@ void array_resize( value array, size_t length );
 void array_append( value array, value v );
 void array_clear( value array );
 
-value get_index( value array, size_t index );
-void set_index( value array, size_t index, value v );
-
 value create_table();
 value create_table( size_t capacity );
 size_t table_length( value table );
 void table_clear( value table );
 
 value get_index( value table, value k );
+value get_index( value array, size_t index );
 void set_index( value table, value k, value v );
+void set_index( value array, size_t index, value v );
 void del_index( value table, value k );
 
 value create_function( const void* code, size_t size );
