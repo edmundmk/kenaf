@@ -1,5 +1,5 @@
 //
-//  corobjects.cpp
+//  prototypes.h
 //
 //  Created by Edmund Kapusniak on 03/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,15 +8,17 @@
 //  full license information.
 //
 
-#include "corobjects.h"
+#ifndef KF_PROTOTYPES_H
+#define KF_PROTOTYPES_H
 
 namespace kf
 {
 
-void expose_corobjects()
-{
+struct vm_context;
+
+void expose_prototypes( vm_context* vm );
 
 }
 
-}
+#endif
 
