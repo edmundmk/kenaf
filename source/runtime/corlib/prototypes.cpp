@@ -13,6 +13,7 @@
 #include <cmath>
 #include "kenaf/runtime.h"
 #include "../objects/array_object.h"
+#include "../objects/cothread_object.h"
 #include "../vm/vm_context.h"
 
 namespace kf
@@ -198,6 +199,10 @@ static size_t table_del( void* cookie, frame* frame, const value* arguments, siz
 
 static size_t cothread_done( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value c = arguments[ 0 ];
+    if ( ! is_cothread( c ) ) throw std::exception();
+    cothread_object* cothread = (cothread_object*)unbox_object( c );
+    return result( frame, bool_value( cothread->stack_frames.empty() ) );
 }
 
 void expose_prototypes( vm_context* vm )
