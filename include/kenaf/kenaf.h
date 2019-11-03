@@ -122,25 +122,33 @@ context* make_current( context* c );
 value global_object();
 
 /*
-    Native interface.
+    Native function interface.
 */
 
-struct stack { void* sp; size_t fp; };
+struct frame;
 
-typedef size_t (*native_function)( void* cookie, stack* stack, value* argv, size_t argc );
+typedef size_t (*native_function)( void* cookie, value* arguments, size_t argcount );
 
-enum { PARAM_VARARG = 1 << 0 };
-value create_function( native_function native, void* cookie, unsigned param_count, unsigned flags = 0 );
+enum
+{
+    PARAM_VARARG = 1 << 0,
+};
 
-void stack_frame( stack* stack );
-void stack_close( stack* stack );
-value* arguments( stack* stack, size_t count );
-value* results( stack* stack );
-value* arguments( stack* stack );
-value* results( stack* stack, size_t count );
-size_t result( stack* stack, value v );
+value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
-size_t call( stack* stack, value function, size_t argc );
+value* arguments();
+value* results( size_t count );
+size_t result( value v );
+
+/*
+    Calling functions from native code.
+*/
+
+struct stack_values { value* values; size_t count; };
+
+stack_values stack_push( size_t count );
+stack_values stack_call( value function );
+void stack_pop();
 
 /*
     Call helpers.

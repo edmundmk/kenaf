@@ -873,7 +873,7 @@ void vm_execute( vm_context* vm )
         // Store ip, xr:xb in current stack frame.
         vm_stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
-        stack_frame->call = VM_CALL;
+        stack_frame->resume = RESUME_CALL;
         stack_frame->xr = op.r;
         if ( op.opcode == OP_CALLR )
         {
@@ -912,7 +912,7 @@ void vm_execute( vm_context* vm )
 
             // Continue adjusted call.
             w = method;
-            stack_frame->call = VM_CONSTRUCT;
+            stack_frame->resume = RESUME_CONSTRUCT;
             type = header( unbox_object( w ) )->type;
         }
 
@@ -927,7 +927,7 @@ void vm_execute( vm_context* vm )
             }
             else
             {
-                state = vm_generate( vm, call_function, rp, xp );
+                state = vm_call_generator( vm, call_function, rp, xp );
             }
         }
         else if ( type == NATIVE_FUNCTION_OBJECT )
@@ -939,7 +939,7 @@ void vm_execute( vm_context* vm )
         {
             // Resume yielded cothread.
             cothread_object* cothread = (cothread_object*)unbox_object( w );
-            state = vm_resume( vm, cothread, rp + 1, xp );
+            state = vm_call_cothread( vm, cothread, rp + 1, xp );
         }
 
         function = state.function;
@@ -964,7 +964,7 @@ void vm_execute( vm_context* vm )
         // Store ip, xr:xb in current stack frame.
         vm_stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
-        stack_frame->call = VM_YIELD;
+        stack_frame->resume = RESUME_YIELD;
         stack_frame->xr = op.r;
         stack_frame->xb = op.b;
         stack_frame->rr = op.r;
@@ -1194,12 +1194,12 @@ void vm_execute( vm_context* vm )
 
                 vm_stack_frame* stack_frame = vm_active_frame( vm );
                 stack_frame->ip = ip;
-                stack_frame->call = VM_FOR_EACH;
+                stack_frame->resume = RESUME_FOR_EACH;
                 stack_frame->xr = op.r;
                 stack_frame->xb = op.b;
                 stack_frame->rr = op.r;
 
-                vm_stack_state state = vm_resume( vm, cothread, rp, rp );
+                vm_stack_state state = vm_call_cothread( vm, cothread, rp, rp );
 
                 function = state.function;
                 ops = read( function->program )->ops;
