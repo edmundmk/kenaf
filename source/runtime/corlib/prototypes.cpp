@@ -66,6 +66,8 @@ namespace kf
 
 */
 
+vm_context* current_context();
+
 static size_t superof( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     return result( frame, superof( arguments[ 0 ] ) );
@@ -150,8 +152,6 @@ static size_t string_self( void* cookie, frame* frame, const value* arguments, s
     }
     return result( frame, v );
 }
-
-vm_context* current_context();
 
 static size_t array_resize( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
@@ -245,8 +245,10 @@ static size_t cothread_done( void* cookie, frame* frame, const value* arguments,
     return result( frame, bool_value( cothread->stack_frames.empty() ) );
 }
 
-void expose_prototypes( vm_context* vm )
+void expose_prototypes()
 {
+    vm_context* vm = current_context();
+
     value global = global_object();
     set_key( global, "global", global );
 

@@ -16,7 +16,7 @@ namespace kf
 
 struct vm_context;
 
-void expose_prototypes( vm_context* vm );
+void expose_prototypes();
 
 }
 

@@ -14,6 +14,8 @@
 #include "objects/cothread_object.h"
 #include "vm/vm_context.h"
 #include "vm/vm_execute.h"
+#include "corlib/prototypes.h"
+#include "corlib/cormath.h"
 
 namespace kf
 {
@@ -78,6 +80,10 @@ context* create_context( runtime* r )
     c->refcount = 1;
     c->runtime = r;
     c->global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
+    context* prev = make_current( c );
+    expose_prototypes();
+    expose_cormath();
+    make_current( prev );
     return c;
 }
 
