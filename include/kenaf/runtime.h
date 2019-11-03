@@ -143,7 +143,7 @@ value create_function( native_function native, void* cookie, unsigned param_coun
 value* arguments( frame* frame );
 value* results( frame* frame, size_t count );
 size_t result( frame* frame, value v );
-size_t result( frame* frame );
+size_t rvoid( frame* frame );
 
 /*
     Calling functions from native code.

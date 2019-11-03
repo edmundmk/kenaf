@@ -61,22 +61,33 @@ namespace kf
 
 static size_t superof( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    return result( frame, superof( arguments[ 0 ] ) );
 }
 
 static size_t getkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    extern value get_key( value lookup, value key );
+    return result( frame, get_key( arguments[ 0 ], arguments[ 1 ] ) );
 }
 
 static size_t setkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    extern void set_key( value lookup, value key, value v );
+    set_key( arguments[ 0 ], arguments[ 1 ], arguments[ 2 ] );
+    return rvoid( frame );
 }
 
 static size_t haskey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    extern bool has_key( value lookup, value key );
+    return result( frame, bool_value( has_key( arguments[ 0 ], arguments[ 1 ] ) ) );
 }
 
 static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    extern void del_key( value lookup, value key );
+    del_key( arguments[ 0 ], arguments[ 1 ] );
+    return rvoid( frame );
 }
 
 static size_t number_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -126,9 +137,9 @@ void expose_prototypes( vm_context* vm )
 
     set_key( global, "superof", create_function( superof, nullptr, 1 ) );
     set_key( global, "getkey", create_function( getkey, nullptr, 2 ) );
-    set_key( global, "setkey", create_function( getkey, nullptr, 2 ) );
-    set_key( global, "haskey", create_function( getkey, nullptr, 2 ) );
-    set_key( global, "delkey", create_function( getkey, nullptr, 2 ) );
+    set_key( global, "setkey", create_function( setkey, nullptr, 3 ) );
+    set_key( global, "haskey", create_function( haskey, nullptr, 2 ) );
+    set_key( global, "delkey", create_function( delkey, nullptr, 2 ) );
 
     lookup_object* proto_object = vm->prototypes[ LOOKUP_OBJECT ];
     set_key( global, "object", box_object( proto_object ) );
