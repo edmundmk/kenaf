@@ -67,6 +67,10 @@ namespace kf
 */
 
 vm_context* current_context();
+value get_key( value lookup, value key );
+void set_key( value lookup, value key, value v );
+bool has_key( value lookup, value key );
+void del_key( value lookup, value key );
 
 static size_t superof( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
@@ -75,26 +79,22 @@ static size_t superof( void* cookie, frame* frame, const value* arguments, size_
 
 static size_t getkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    extern value get_key( value lookup, value key );
     return result( frame, get_key( arguments[ 0 ], arguments[ 1 ] ) );
 }
 
 static size_t setkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    extern void set_key( value lookup, value key, value v );
     set_key( arguments[ 0 ], arguments[ 1 ], arguments[ 2 ] );
     return rvoid( frame );
 }
 
 static size_t haskey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    extern bool has_key( value lookup, value key );
     return result( frame, bool_value( has_key( arguments[ 0 ], arguments[ 1 ] ) ) );
 }
 
 static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    extern void del_key( value lookup, value key );
     del_key( arguments[ 0 ], arguments[ 1 ] );
     return rvoid( frame );
 }
