@@ -9,10 +9,11 @@
 //
 
 #include "kenaf/kenaf.h"
-#include "vm/vm_context.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
 #include "objects/cothread_object.h"
+#include "vm/vm_context.h"
+#include "vm/vm_call_stack.h"
 
 namespace kf
 {
@@ -21,7 +22,7 @@ namespace kf
     Thread-local VM state.
 */
 
-static thread_local runtime* current_runtime;
+static thread_local runtime* current_runtime = nullptr;
 
 /*
     Runtime and context.
@@ -502,10 +503,61 @@ value create_function( const void* code, size_t size )
     return box_object( function_new( vm, program ) );
 }
 
+/*
+    Native function interface.
+*/
+
 value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags )
 {
     return box_object( native_function_new( current(), native, cookie, param_count, code_flags ) );
 }
+
+value* arguments( frame* frame )
+{
+    vm_native_frame* native_frame = (vm_native_frame*)frame;
+    assert( current()->cothreads->back() == native_frame->cothread );
+    return native_frame->cothread->stack.data() + native_frame->fp + 1;
+}
+
+value* results( frame* frame, size_t count )
+{
+    vm_native_frame* native_frame = (vm_native_frame*)frame;
+    assert( current()->cothreads->back() == native_frame->cothread );
+    return vm_resize_stack( native_frame->cothread, native_frame->fp, native_frame->fp + count );
+}
+
+size_t result( frame* frame, value v )
+{
+    value* r = results( frame, 1 );
+    r[ 0 ] = v;
+    return 1;
+}
+
+size_t result( frame* frame )
+{
+    results( frame, 0 );
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+    Function calls.
+*/
+
+
 /*
 value* stack_frame( stack* stack, size_t argc )
 {

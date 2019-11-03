@@ -59,6 +59,12 @@ struct vm_stack_frame
     uint8_t rr;         // callr result register
 };
 
+struct vm_native_frame
+{
+    cothread_object* cothread;
+    unsigned fp;
+};
+
 struct vm_stack_state
 {
     function_object* function;
@@ -70,6 +76,7 @@ struct vm_stack_state
 vm_stack_state vm_active_state( vm_context* vm );
 vm_stack_frame* vm_active_frame( vm_context* vm );
 value* vm_resize_stack( vm_context* vm, unsigned xp );
+value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp );
 value* vm_entire_stack( vm_context* vm );
 
 vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );

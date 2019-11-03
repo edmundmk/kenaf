@@ -15,7 +15,6 @@
 namespace kf
 {
 
-static value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp );
 static vm_stack_state vm_yield_return( vm_context* vm, cothread_object* cothread, const vm_stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
 
 vm_stack_state vm_active_state( vm_context* vm )
@@ -42,7 +41,7 @@ value* vm_resize_stack( vm_context* vm, unsigned xp )
     return vm_resize_stack( vm->cothreads->back(), cothread->stack_frames.back().fp, xp );
 }
 
-static value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
+value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
 {
     // xp is relative to current frame pointer.
     xp += fp;
@@ -119,6 +118,7 @@ vm_stack_state vm_call_native( vm_context* vm, native_function_object* function,
     assert( rp < xp );
     cothread_object* cothread = vm->cothreads->back();
     vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    size_t stack_frame_count = cothread->stack_frames.size();
 
     unsigned argument_count = xp - ( rp + 1 );
     bool is_varargs = ( function->code_flags & CODE_VARARGS ) != 0;
@@ -127,8 +127,12 @@ vm_stack_state vm_call_native( vm_context* vm, native_function_object* function,
         throw std::exception();
     }
 
-    value* arguments = cothread->stack.data() + stack_frame->fp + rp + 1;
-    size_t result_count = function->native( function->cookie, arguments, argument_count );
+    vm_native_frame native_frame = { cothread, stack_frame->fp + rp };
+    value* arguments = cothread->stack.data() + native_frame.fp;
+    size_t result_count = function->native( function->cookie, (frame*)&native_frame, arguments, argument_count );
+    assert( vm->cothreads->back() == cothread );
+    assert( cothread->stack_frames.size() == stack_frame_count );
+
     return vm_return( vm, rp, rp + result_count );
 }
 

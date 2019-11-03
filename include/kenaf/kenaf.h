@@ -19,6 +19,37 @@ namespace kf
 {
 
 /*
+    Value structure.
+*/
+
+struct value { uint64_t v; };
+
+/*
+    A runtime manages the global state of a virtual machine, including the
+    garbage collected heap.  Only one thread can be using a runtime at a time.
+*/
+
+struct runtime;
+
+runtime* create_runtime();
+runtime* retain_runtime( runtime* r );
+void release_runtime( runtime* r );
+
+/*
+    A context consists of a runtime and a global object.  Contexts on the same
+    runtime can share values.
+*/
+
+struct context;
+
+context* create_context( runtime* r );
+context* retain_context( context* c );
+void release_context( context* c );
+
+context* make_current( context* c );
+value global_object();
+
+/*
     Values.
 */
 
@@ -34,8 +65,6 @@ enum value_kind
     BOOL_VALUE,
     NULL_VALUE,
 };
-
-struct value { uint64_t v; };
 
 value retain( value v );
 void release( value v );
@@ -97,37 +126,12 @@ void del_index( value table, value k );
 value create_function( const void* code, size_t size );
 
 /*
-    A runtime manages the global state of a virtual machine, including the
-    garbage collected heap.  Only one thread can be using a runtime at a time.
-*/
-
-struct runtime;
-
-runtime* create_runtime();
-runtime* retain_runtime( runtime* r );
-void release_runtime( runtime* r );
-
-/*
-    A context consists of a runtime and a global object.  Contexts on the same
-    runtime can share values.
-*/
-
-struct context;
-
-context* create_context( runtime* r );
-context* retain_context( context* c );
-void release_context( context* c );
-
-context* make_current( context* c );
-value global_object();
-
-/*
     Native function interface.
 */
 
 struct frame;
 
-typedef size_t (*native_function)( void* cookie, value* arguments, size_t argcount );
+typedef size_t (*native_function)( void* cookie, frame* frame, value* arguments, size_t argcount );
 
 enum
 {
@@ -136,9 +140,10 @@ enum
 
 value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
-value* arguments();
-value* results( size_t count );
-size_t result( value v );
+value* arguments( frame* frame );
+value* results( frame* frame, size_t count );
+size_t result( frame* frame, value v );
+size_t result( frame* frame );
 
 /*
     Calling functions from native code.
@@ -149,10 +154,6 @@ struct stack_values { value* values; size_t count; };
 stack_values stack_push( size_t count );
 stack_values stack_call( value function );
 void stack_pop();
-
-/*
-    Call helpers.
-*/
 
 value call( value function, const value* argv, size_t argc );
 value call( value function, std::initializer_list< value > argv );
