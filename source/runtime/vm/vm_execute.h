@@ -19,8 +19,9 @@ namespace kf
 {
 
 struct vm_context;
+struct vm_exstate;
 
-void vm_execute( vm_context* vm );
+void vm_execute( vm_context* vm, vm_exstate state );
 
 }
 

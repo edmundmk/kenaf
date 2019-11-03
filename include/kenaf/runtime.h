@@ -131,7 +131,7 @@ value create_function( const void* code, size_t size );
 
 struct frame;
 
-typedef size_t (*native_function)( void* cookie, frame* frame, value* arguments, size_t argcount );
+typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
 enum
 {
@@ -155,8 +155,8 @@ stack_values stack_push( size_t count );
 stack_values stack_call( value function );
 void stack_pop();
 
-value call( value function, const value* argv, size_t argc );
-value call( value function, std::initializer_list< value > argv );
+value call( value function, const value* arguments, size_t argcount );
+value call( value function, std::initializer_list< value > arguments );
 
 template < typename ... A > value call( value function, A ... argvalues )
 {

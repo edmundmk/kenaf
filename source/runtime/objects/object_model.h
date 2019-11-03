@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <string.h>
-#include "kenaf/kenaf.h"
+#include "kenaf/runtime.h"
 #include "../datatypes/atomic_load_store.h"
 
 namespace kf

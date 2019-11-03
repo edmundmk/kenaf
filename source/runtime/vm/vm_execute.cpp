@@ -108,10 +108,8 @@ static bool value_is( vm_context* vm, value u, value v )
     return false;
 }
 
-void vm_execute( vm_context* vm )
+void vm_execute( vm_context* vm, vm_exstate state )
 {
-    vm_stack_state state = vm_active_state( vm );
-
     function_object* function = state.function;
     const op* ops = read( function->program )->ops;
     ref_value* k = read( function->program )->constants;
@@ -916,7 +914,7 @@ void vm_execute( vm_context* vm )
             type = header( unbox_object( w ) )->type;
         }
 
-        vm_stack_state state;
+        vm_exstate state;
         if ( type == FUNCTION_OBJECT )
         {
             function_object* call_function = (function_object*)unbox_object( w );
@@ -970,7 +968,7 @@ void vm_execute( vm_context* vm )
         stack_frame->rr = op.r;
 
         // Yield.
-        vm_stack_state state = vm_yield( vm, rp, xp );
+        vm_exstate state = vm_yield( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -997,7 +995,7 @@ void vm_execute( vm_context* vm )
         }
 
         // Return.
-        vm_stack_state state = vm_return( vm, rp, xp );
+        vm_exstate state = vm_return( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -1199,7 +1197,7 @@ void vm_execute( vm_context* vm )
                 stack_frame->xb = op.b;
                 stack_frame->rr = op.r;
 
-                vm_stack_state state = vm_call_cothread( vm, cothread, rp, rp );
+                vm_exstate state = vm_call_cothread( vm, cothread, rp, rp );
 
                 function = state.function;
                 ops = read( function->program )->ops;

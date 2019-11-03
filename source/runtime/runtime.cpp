@@ -8,12 +8,13 @@
 //  full license information.
 //
 
-#include "kenaf/kenaf.h"
+#include "kenaf/runtime.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
 #include "objects/cothread_object.h"
 #include "vm/vm_context.h"
 #include "vm/vm_call_stack.h"
+#include "vm/vm_execute.h"
 
 namespace kf
 {
@@ -539,9 +540,95 @@ size_t result( frame* frame )
     return 0;
 }
 
+/*
+    Function calls.
+*/
 
+stack_values stack_push( size_t count )
+{
+    vm_context* vm = current();
+    cothread_object* cothread = vm->cothreads->back();
+    unsigned fp = cothread->xp;
+    cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
+    return { vm_resize_stack( cothread, fp, fp + 1 + count ) + 1, count };
+}
 
+stack_values stack_call( value function )
+{
+    vm_context* vm = current();
+    cothread_object* cothread = vm->cothreads->back();
+    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
 
+    assert( ! stack_frame->function );
+    assert( stack_frame->fp < cothread->xp );
+    unsigned xp = cothread->xp - stack_frame->fp;
+    value* r = cothread->stack.data() + stack_frame->fp;
+    r[ 0 ] = function;
+
+    if ( ! box_is_object( function ) ) throw std::exception();
+    type_code type = header( unbox_object( function ) )->type;
+    if ( type == FUNCTION_OBJECT )
+    {
+        function_object* call_function = (function_object*)unbox_object( function );
+        program_object* call_program = read( call_function->program );
+        if ( ( call_program->code_flags & CODE_GENERATOR ) == 0 )
+        {
+            vm_exstate state = vm_call( vm, call_function, 0, xp );
+            vm_execute( vm, state );
+        }
+        else
+        {
+            vm_exstate state = vm_call_generator( vm, call_function, 0, xp );
+            assert( state.function == nullptr );
+        }
+    }
+    else if ( type == NATIVE_FUNCTION_OBJECT )
+    {
+        native_function_object* call_function = (native_function_object*)unbox_object( function );
+        vm_exstate state = vm_call_native( vm, call_function, 0, xp );
+        assert( state.function == nullptr );
+    }
+    else if ( type == COTHREAD_OBJECT )
+    {
+        cothread_object* call_cothread = (cothread_object*)unbox_object( function );
+        vm_exstate state = vm_call_cothread( vm, call_cothread, 0, xp );
+        vm_execute( vm, state );
+    }
+    else
+    {
+        throw std::exception();
+    }
+
+    assert( vm->cothreads->back() == cothread );
+    assert( stack_frame->fp <= cothread->xp );
+    return { cothread->stack.data() + stack_frame->fp, cothread->xp - stack_frame->fp };
+}
+
+void stack_pop()
+{
+    vm_context* vm = current();
+    cothread_object* cothread = vm->cothreads->back();
+    vm_stack_frame call_frame = cothread->stack_frames.back();
+    assert( ! call_frame.function );
+    assert( cothread->xp >= call_frame.fp );
+    cothread->stack_frames.pop_back();
+    cothread->xp = call_frame.fp;
+}
+
+value call( value function, const value* arguments, size_t argcount )
+{
+    stack_values argstack = stack_push( argcount );
+    memcpy( argstack.values, arguments, argcount * sizeof( value ) );
+    stack_values valstack = stack_call( function );
+    value result = valstack.count ? valstack.values[ 0 ] : boxed_null;
+    stack_pop();
+    return result;
+}
+
+value call( value function, std::initializer_list< value > arguments )
+{
+    return call( function, arguments.begin(), arguments.size() );
+}
 
 
 

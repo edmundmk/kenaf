@@ -65,7 +65,7 @@ struct vm_native_frame
     unsigned fp;
 };
 
-struct vm_stack_state
+struct vm_exstate
 {
     function_object* function;
     value* r;
@@ -73,19 +73,18 @@ struct vm_stack_state
     unsigned xp;
 };
 
-vm_stack_state vm_active_state( vm_context* vm );
 vm_stack_frame* vm_active_frame( vm_context* vm );
 value* vm_resize_stack( vm_context* vm, unsigned xp );
 value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp );
 value* vm_entire_stack( vm_context* vm );
 
-vm_stack_state vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_stack_state vm_call_native( vm_context* vm, native_function_object* function, unsigned rp, unsigned xp );
-vm_stack_state vm_call_generator( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_stack_state vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp );
+vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_native( vm_context* vm, native_function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp );
 
-vm_stack_state vm_return( vm_context* vm, unsigned rp, unsigned xp );
-vm_stack_state vm_yield( vm_context* vm, unsigned rp, unsigned xp );
+vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp );
+vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp );
 
 }
 
