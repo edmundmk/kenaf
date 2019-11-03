@@ -14,8 +14,6 @@
 namespace kf
 {
 
-struct vm_context;
-
 void expose_prototypes();
 
 }
