@@ -48,7 +48,8 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
     }
     else
     {
-        assert( header( parent )->flags & FLAG_SEALED );
+        assert( header( parent )->type == LOOKUP_OBJECT );
+        assert( ! lookup_sealed( vm, (lookup_object*)parent ) );
         layout->sindex = (uint32_t)-1;
         vm->instance_layouts.insert_or_assign( (lookup_object*)parent, layout );
     }
@@ -67,11 +68,7 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
     // Seal prototype.
     if ( prototype )
     {
-        object_header* prototype_header = header( prototype );
-        if ( ( prototype_header->flags & FLAG_SEALED ) == 0 )
-        {
-            prototype_header->flags |= FLAG_SEALED;
-        }
+        lookup_seal( vm, prototype );
     }
 
     // Locate instance layout.
@@ -105,6 +102,20 @@ lookup_object* lookup_prototype( vm_context* vm, lookup_object* object )
     }
 
     return (lookup_object*)read( layout->parent );
+}
+
+void lookup_seal( vm_context* vm, lookup_object* object )
+{
+    object_header* object_header = header( object );
+    if ( ( object_header->flags & FLAG_SEALED ) == 0 )
+    {
+        object_header->flags |= FLAG_SEALED;
+    }
+}
+
+bool lookup_sealed( vm_context* vm, lookup_object* object )
+{
+    return ( header( object )->flags & FLAG_SEALED ) != 0;
 }
 
 bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
@@ -188,7 +199,7 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     }
 
     // Check if object is sealed.
-    if ( header( object )->flags & FLAG_SEALED )
+    if ( lookup_sealed( vm, object ) )
     {
         throw std::out_of_range( "sealed object" );
     }
@@ -245,7 +256,7 @@ void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
     assert( header( key )->flags & FLAG_KEY );
 
     // Check if object is sealed.
-    if ( header( object )->flags & FLAG_SEALED )
+    if ( lookup_sealed( vm, object ) )
     {
         throw std::out_of_range( "sealed object" );
     }

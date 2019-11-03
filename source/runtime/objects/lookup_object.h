@@ -117,6 +117,8 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key );
 vslots_object* vslots_new( vm_context* vm, size_t count );
 lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
 lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
+void lookup_seal( vm_context* vm, lookup_object* object );
+bool lookup_sealed( vm_context* vm, lookup_object* object );
 value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
 void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value );
 bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key );
