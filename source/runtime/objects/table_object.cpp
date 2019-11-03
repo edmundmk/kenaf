@@ -105,6 +105,19 @@ table_object* table_new( vm_context* vm, size_t capacity )
 
 value table_getindex( vm_context* vm, table_object* table, value key )
 {
+    value v;
+    if ( table_tryindex( vm, table, key, &v ) )
+    {
+        return v;
+    }
+    else
+    {
+        throw std::out_of_range( "table" );
+    }
+}
+
+bool table_tryindex( vm_context* vm, table_object* table, value key, value* out_value )
+{
     kvslots_object* kvslots = read( table->kvslots );
     if ( kvslots->count )
     {
@@ -114,13 +127,17 @@ value table_getindex( vm_context* vm, table_object* table, value key )
         {
             if ( key_equal( read( slot->k ), key ) )
             {
-                return read( slot->v );
+                if ( out_value )
+                {
+                    *out_value = read( slot->v );
+                }
+                return true;
             }
             slot = slot->next;
         }
         while ( slot != (kvslot*)-1 );
     }
-    throw std::out_of_range( "table" );
+    return false;
 }
 
 static kvslot* table_insert( vm_context* vm, kvslots_object* kvslots, size_t kvcount, value key, kvslot* main_slot )

@@ -13,6 +13,7 @@
 #include <cmath>
 #include "kenaf/runtime.h"
 #include "../objects/array_object.h"
+#include "../objects/table_object.h"
 #include "../objects/cothread_object.h"
 #include "../vm/vm_context.h"
 
@@ -47,12 +48,14 @@ namespace kf
         def append( n ) end
         def extend( x ... ) end
         def pop() end
+        def clear() end
     end
 
     def table is object
         def has( k ) end
         def get( k, default/null ) end
         def del( k ) end
+        def clear() end
     end
 
     def function is object end
@@ -185,16 +188,53 @@ static size_t array_pop( void* cookie, frame* frame, const value* arguments, siz
     return result( frame, read( read( array->aslots )->slots[ --array->length ] ) );
 }
 
+static size_t array_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
+{
+    value a = arguments[ 0 ];
+    if ( ! is_array( a ) ) throw std::exception();
+    array_object* array = (array_object*)unbox_object( a );
+    array_clear( current_context(), array );
+    return rvoid( frame );
+}
+
 static size_t table_has( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value t = arguments[ 0 ];
+    if ( ! is_table( t ) ) throw std::exception();
+    table_object* table = (table_object*)unbox_object( t );
+    return result( frame, bool_value( table_tryindex( current_context(), table, arguments[ 1 ], nullptr ) ) );
 }
 
 static size_t table_get( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value t = arguments[ 0 ];
+    if ( argcount > 3 ) throw std::exception();
+    if ( ! is_table( t ) ) throw std::exception();
+    value v;
+    table_object* table = (table_object*)unbox_object( t );
+    if ( ! table_tryindex( current_context(), table, arguments[ 1 ], &v ) )
+    {
+        v = argcount >= 2 ? arguments[ 2 ] : boxed_null;
+    }
+    return result( frame, v );
 }
 
 static size_t table_del( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value t = arguments[ 0 ];
+    if ( ! is_table( t ) ) throw std::exception();
+    table_object* table = (table_object*)unbox_object( t );
+    table_delindex( current_context(), table, arguments[ 1 ] );
+    return rvoid( frame );
+}
+
+static size_t table_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
+{
+    value t = arguments[ 0 ];
+    if ( ! is_table( t ) ) throw std::exception();
+    table_object* table = (table_object*)unbox_object( t );
+    table_clear( current_context(), table );
+    return rvoid( frame );
 }
 
 static size_t cothread_done( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -254,6 +294,7 @@ void expose_prototypes( vm_context* vm )
         set_key( box_object( proto_array ), "append", create_function( array_append, nullptr, 2 ) );
         set_key( box_object( proto_array ), "extend", create_function( array_extend, nullptr, 1, PARAM_VARARG ) );
         set_key( box_object( proto_array ), "pop", create_function( array_pop, nullptr, 1 ) );
+        set_key( box_object( proto_array ), "clear", create_function( array_clear, nullptr, 1 ) );
         lookup_seal( vm, proto_array );
     }
 
@@ -264,6 +305,7 @@ void expose_prototypes( vm_context* vm )
         set_key( box_object( proto_table ), "has", create_function( table_has, nullptr, 2 ) );
         set_key( box_object( proto_table ), "get", create_function( table_get, nullptr, 2, PARAM_VARARG ) );
         set_key( box_object( proto_table ), "del", create_function( table_del, nullptr, 2 ) );
+        set_key( box_object( proto_table ), "clear", create_function( table_clear, nullptr, 1 ) );
         lookup_seal( vm, proto_table );
     }
 
