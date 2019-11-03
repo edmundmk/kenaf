@@ -937,7 +937,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         {
             // Resume yielded cothread.
             cothread_object* cothread = (cothread_object*)unbox_object( w );
-            state = vm_call_cothread( vm, cothread, rp + 1, xp );
+            state = vm_call_cothread( vm, cothread, rp, xp );
         }
 
         function = state.function;
@@ -1197,7 +1197,8 @@ void vm_execute( vm_context* vm, vm_exstate state )
                 stack_frame->xb = op.b;
                 stack_frame->rr = op.r;
 
-                vm_exstate state = vm_call_cothread( vm, cothread, rp, rp );
+                r[ rp ] = g;
+                vm_exstate state = vm_call_cothread( vm, cothread, rp, rp + 1 );
 
                 function = state.function;
                 ops = read( function->program )->ops;
