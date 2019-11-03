@@ -138,6 +138,8 @@ value global_object()
 
 inline vm_context* current() { return &current_runtime->vm; }
 
+vm_context* current_context() { return current(); }
+
 value retain( value v )
 {
     // TODO
@@ -425,18 +427,11 @@ value create_string( std::string_view text )
     return box_string( string_new( current(), text.data(), text.size() ) );
 }
 
-value create_string_buffer( size_t size )
+value create_string_buffer( size_t size, char** out_text )
 {
-    return box_string( string_new( current(), nullptr, size ) );
-}
-
-value update_string_buffer( value string, size_t index, const char* text, size_t size )
-{
-    if ( ! is_string( string ) ) throw std::exception();
-    string_object* s = (string_object*)unbox_object( string );
-    if ( index + size > s->size ) throw std::out_of_range( "string" );
-    memcpy( s->text + index, text, size );
-    return string;
+    string_object* s = string_new( current(), nullptr, size );
+    *out_text = s->text;
+    return box_string( s );
 }
 
 std::string_view get_text( value string )

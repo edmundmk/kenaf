@@ -9,7 +9,10 @@
 //
 
 #include "prototypes.h"
+#include <stdlib.h>
+#include <cmath>
 #include "kenaf/runtime.h"
+#include "../objects/array_object.h"
 #include "../vm/vm_context.h"
 
 namespace kf
@@ -92,26 +95,93 @@ static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t
 
 static size_t number_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value v = arguments[ 0 ];
+    if ( ! is_number( v ) )
+    {
+        if ( is_string( v ) )
+        {
+            std::string_view text = get_text( v );
+            char* endptr = nullptr;
+            double n = strtod( text.data(), &endptr );
+            if ( *endptr != '\0' ) throw std::exception();
+            if ( n != n ) n = NAN;
+            v = number_value( n );
+        }
+        else if ( is_bool( v ) )
+        {
+            v = number_value( get_bool( v ) ? 1.0 : 0.0 );
+        }
+        else
+        {
+            throw std::exception();
+        }
+    }
+    return result( frame, v );
 }
 
 static size_t string_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value v = arguments[ 0 ];
+    if ( ! is_string( v ) )
+    {
+        if ( is_number( v ) )
+        {
+            double n = get_number( v );
+            int size = snprintf( nullptr, 0, "%f", n );
+            char* text = nullptr;
+            v = create_string_buffer( size, &text );
+            snprintf( text, size, "%f", n );
+        }
+        else if ( is_bool( v ) )
+        {
+            if ( get_bool( v ) )
+                v = create_string( "true" );
+            else
+                v = create_string( "false" );
+        }
+        else
+        {
+            throw std::exception();
+        }
+    }
+    return result( frame, v );
 }
+
+vm_context* current_context();
 
 static size_t array_resize( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value a = arguments[ 0 ];
+    value n = arguments[ 1 ];
+    if ( ! is_array( a ) ) throw std::exception();
+    if ( ! is_number( n ) ) throw std::exception();
+    array_resize( current_context(), (array_object*)unbox_object( a ), (size_t)(uint64_t)get_number( n ) );
+    return rvoid( frame );
 }
 
 static size_t array_append( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value a = arguments[ 0 ];
+    if ( ! is_array( a ) ) throw std::exception();
+    array_append( current_context(), (array_object*)unbox_object( a ), arguments[ 1 ] );
+    return rvoid( frame );
 }
 
 static size_t array_extend( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value a = arguments[ 0 ];
+    if ( ! is_array( a ) ) throw std::exception();
+    array_extend( current_context(), (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
+    return rvoid( frame );
 }
 
 static size_t array_pop( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    value a = arguments[ 0 ];
+    if ( ! is_array( a ) ) throw std::exception();
+    array_object* array = (array_object*)unbox_object( a );
+    if ( array->length == 0 ) throw std::exception();
+    return result( frame, read( read( array->aslots )->slots[ --array->length ] ) );
 }
 
 static size_t table_has( void* cookie, frame* frame, const value* arguments, size_t argcount )

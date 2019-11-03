@@ -40,7 +40,7 @@ value array_getindex( vm_context* vm, array_object* array, size_t index );
 void array_setindex( vm_context* vm, array_object* array, size_t index, value value );
 void array_resize( vm_context* vm, array_object* array, size_t length );
 void array_append( vm_context* vm, array_object* array, value value );
-void array_extend( vm_context* vm, array_object* array, value* values, size_t vcount );
+void array_extend( vm_context* vm, array_object* array, const value* values, size_t vcount );
 void array_clear( vm_context* vm, array_object* array );
 
 /*

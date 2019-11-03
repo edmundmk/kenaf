@@ -58,7 +58,7 @@ void array_append( vm_context* vm, array_object* array, value value )
     array_extend( vm, array, &value, 1 );
 }
 
-void array_extend( vm_context* vm, array_object* array, value* values, size_t vcount )
+void array_extend( vm_context* vm, array_object* array, const value* values, size_t vcount )
 {
     vslots_object* aslots = read( array->aslots );
     size_t aslots_count = aslots ? object_size( vm, aslots ) / sizeof( ref_value ) : 0;
