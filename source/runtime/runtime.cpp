@@ -13,7 +13,6 @@
 #include "objects/table_object.h"
 #include "objects/cothread_object.h"
 #include "vm/vm_context.h"
-#include "vm/vm_call_stack.h"
 #include "vm/vm_execute.h"
 
 namespace kf
@@ -630,81 +629,5 @@ value call( value function, std::initializer_list< value > arguments )
     return call( function, arguments.begin(), arguments.size() );
 }
 
-
-
-
-
-
-
-
-
-
-
-/*
-    Function calls.
-*/
-
-
-/*
-value* stack_frame( stack* stack, size_t argc )
-{
-    vm_context* vm = current();
-    cothread_object* cothread = vm->cothreads->back();
-    unsigned fp = cothread->xp;
-    stack->sp = cothread;
-    stack->fp = fp;
-    cothread->stack_frames.push_back( { nullptr, fp, fp, 0, VM_CALL, fp, OP_STACK_MARK, fp } );
-    return vm_resize_stack( vm, argc + 1 ) + 1;
-}
-
-size_t stack_call( stack* stack, value function )
-{
-}
-
-value* stack_results( stack* stack )
-{
-    cothread_object* cothread = (cothread_object*)stack->sp;
-    assert( current()->cothreads->back() == cothread );
-    return cothread->stack.data() + stack->fp;
-}
-
-void stack_close( stack* stack )
-{
-    cothread_object* cothread = (cothread_object*)stack->sp);
-    assert( current()->cothreads->back() == cothread );
-    assert( ! cothread->stack_frames.back().function );
-    assert( cothread->xp >= stack->fp );
-    cothread->stack_frames.pop_back();
-    cothread->xp == stack->fp;
-}
-
-value* arguments( stack* stack )
-{
-    cothread_object* cothread = (cothread_object*)stack->sp;
-    assert( current()->cothreads->back() == cothread );
-    return cothread->stack.data() + stack->fp + 1;
-}
-
-value* results( stack* stack, size_t count )
-{
-    vm_context* vm = current();
-    cothread_object* cothread = (cothread_object*)stack->sp;
-    assert( vm->cothreads->back() == cothread );
-    return vm_resize_stack( vm, count );
-}
-
-size_t result( stack* stack, value v )
-{
-    value* r = results( stack, 1 );
-    r[ 0 ] = v;
-    return 1;
-}
-
-size_t call( stack* stack, value function, size_t argc )
-{
-
-    return 0;
-}
-*/
 }
 

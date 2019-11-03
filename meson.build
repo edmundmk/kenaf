@@ -41,7 +41,6 @@ sources = [
     'source/runtime/objects/object_model.cpp',
     'source/runtime/objects/string_object.cpp',
     'source/runtime/objects/table_object.cpp',
-    'source/runtime/vm/vm_call_stack.cpp',
     'source/runtime/vm/vm_context.cpp',
     'source/runtime/vm/vm_execute.cpp',
     'source/runtime/heap.cpp',

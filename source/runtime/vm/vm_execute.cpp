@@ -10,7 +10,6 @@
 
 #include "vm_execute.h"
 #include "vm_context.h"
-#include "vm_call_stack.h"
 #include "../../common/code.h"
 #include "../../common/imath.h"
 #include "../objects/lookup_object.h"
