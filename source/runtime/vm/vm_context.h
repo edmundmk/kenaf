@@ -45,7 +45,8 @@ struct vm_context
 
     // Object model support.
     lookup_object* prototypes[ TYPE_COUNT ];
-    key_selector selector_self;
+    string_object* self_key;
+    selector self_sel;
 
     // Lookup object tables.
     hash_table< string_hashkey, string_object* > keys;
@@ -56,6 +57,8 @@ struct vm_context
     // List of root objects.
     hash_table< object*, size_t > roots;
 };
+
+void vm_setup_object_model( vm_context* vm );
 
 /*
     Execute state, required to execute bytecode.

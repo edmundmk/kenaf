@@ -48,6 +48,7 @@ runtime* create_runtime()
     runtime* r = new runtime();
     r->refcount = 1;
     r->current_context = nullptr;
+    vm_setup_object_model( &r->vm );
     return r;
 }
 

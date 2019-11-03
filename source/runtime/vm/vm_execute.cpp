@@ -892,7 +892,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         {
             // Lookup w.self.
             lookup_object* class_object = (lookup_object*)unbox_object( w );
-            value method = lookup_getkey( vm, class_object, read( vm->selector_self.key ), &vm->selector_self.sel );
+            value method = lookup_getkey( vm, class_object, vm->self_key, &vm->self_sel );
             if ( ! box_is_object( method ) ) goto type_error;
 
             // Construct new object.

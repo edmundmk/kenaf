@@ -12,5 +12,11 @@
 
 namespace kf
 {
+
+void expose_corobjects()
+{
+
+}
+
 }
 

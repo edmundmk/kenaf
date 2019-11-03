@@ -21,13 +21,33 @@ vm_context::vm_context()
     :   cothreads( nullptr )
     ,   global_object( nullptr )
     ,   prototypes{}
-    ,   selector_self{ {}, {} }
+    ,   self_key( nullptr )
+    ,   self_sel{}
     ,   next_cookie( 0 )
 {
 }
 
 vm_context::~vm_context()
 {
+}
+
+void vm_setup_object_model( vm_context* vm )
+{
+    // Prototype objects.
+    lookup_object* object = lookup_new( vm, nullptr );
+    vm->prototypes[ LOOKUP_OBJECT ] = object;
+    vm->prototypes[ STRING_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ ARRAY_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ TABLE_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ FUNCTION_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ NATIVE_FUNCTION_OBJECT ] = vm->prototypes[ FUNCTION_OBJECT ];
+    vm->prototypes[ COTHREAD_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ NUMBER_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ BOOL_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ NULL_OBJECT ] = lookup_new( vm, object );
+
+    // 'self' key.
+    vm->self_key = string_key( vm, "self", 4 );
 }
 
 vm_stack_frame* vm_active_frame( vm_context* vm )
