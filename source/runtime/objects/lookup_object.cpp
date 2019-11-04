@@ -32,7 +32,7 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
         assert( header( key )->flags & FLAG_KEY );
         layout_object* parent_layout = (layout_object*)parent;
         layout->sindex = parent_layout->sindex + 1;
-        if ( layout->sindex == 0 )
+        if ( layout->sindex == (uint32_t)-1 )
         {
             throw std::out_of_range( "too many object slots" );
         }
@@ -160,19 +160,23 @@ bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, s
 
 static layout_object* next_layout( vm_context* vm, layout_object* layout, string_object* key )
 {
+    // Check if we can follow the next layout chain.
     layout_object* next_layout = layout->next;
-
-    if ( read( next_layout->key ) != key )
+    if ( next_layout && read( next_layout->key ) == key )
     {
-        auto i = vm->splitkey_layouts.find( { layout, key } );
-        if ( i != vm->splitkey_layouts.end() )
-        {
-            next_layout = i->second;
-        }
-        else
-        {
-            next_layout = layout_new( vm, layout, key );
-        }
+        assert( next_layout->sindex == layout->sindex + 1 );
+        return next_layout;
+    }
+
+    // Otherwise, this is a split.  Might already exist.
+    auto i = vm->splitkey_layouts.find( { layout, key } );
+    if ( i != vm->splitkey_layouts.end() )
+    {
+        next_layout = i->second;
+    }
+    else
+    {
+        next_layout = layout_new( vm, layout, key );
     }
 
     assert( next_layout->sindex == layout->sindex + 1 );
