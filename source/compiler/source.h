@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "kenaf/compiler.h"
+#include "kenaf/compile.h"
 
 #if defined( __GNUC__ )
 #define PRINTF_FORMAT( x, y ) __attribute__(( format( printf, x, y ) ))

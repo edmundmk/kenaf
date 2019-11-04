@@ -20,7 +20,7 @@ sources = [
     'source/compiler/ast.cpp',
     'source/compiler/ast_resolve.cpp',
     'source/compiler/code_unit.cpp',
-    'source/compiler/compiler.cpp',
+    'source/compiler/compile.cpp',
     'source/compiler/ir.cpp',
     'source/compiler/ir_alloc.cpp',
     'source/compiler/ir_build.cpp',
