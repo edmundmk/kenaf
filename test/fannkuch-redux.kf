@@ -72,7 +72,7 @@ def fannkuch( n )
 
                 s[ i ] = i
                 var t = p[ 0 ]
-                for j = 0 : i do
+                for j = 0 : i + 1 do
                     p[ j ] = p[ j + 1 ]
                 end
                 p[ i + 1 ] = t
