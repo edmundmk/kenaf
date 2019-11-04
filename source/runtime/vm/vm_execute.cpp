@@ -617,7 +617,6 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         program_object* program = read( read( function->program )->functions[ op.c ] );
         function_object* closure = function_new( vm, program );
-        r[ op.r ] = box_object( closure );
         while ( true )
         {
             struct op vop = ops[ ip ];
@@ -644,6 +643,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
             }
             ++ip;
         }
+        r[ op.r ] = box_object( closure );
         break;
     }
 
