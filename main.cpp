@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <vector>
 #include <kenaf/compile.h>
 #include <kenaf/runtime.h>
@@ -150,6 +151,6 @@ int main( int argc, char* argv[] )
 
     kf::pop_frame( &frame );
 
-    return EXIT_SUCCESS;
+    return result;
 }
 

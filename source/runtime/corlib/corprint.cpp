@@ -10,6 +10,7 @@
 
 #include "cormath.h"
 #include <stdio.h>
+#include <assert.h>
 #include <vector>
 #include <exception>
 #include "kenaf/runtime.h"
