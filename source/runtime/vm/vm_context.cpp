@@ -192,7 +192,7 @@ vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigne
 
     // Create new cothread.
     cothread_object* generator_cothread = cothread_new( vm );
-    generator_cothread->stack_frames.push_back( { function, 0, 0, 0, RESUME_CALL, 0, 0, 0 } );
+    generator_cothread->stack_frames.push_back( { function, 0, 0, 0, RESUME_YIELD, 0, 0, 0 } );
     vm_stack_frame* generator_frame = &generator_cothread->stack_frames.back();
 
     /*
