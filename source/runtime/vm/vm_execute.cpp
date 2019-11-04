@@ -499,7 +499,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         else if ( box_is_string( u ) )
         {
             string_object* string = unbox_string( u );
-            r[ op.r ] = box_object( string_getindex( vm, string, (size_t)(int64_t)unbox_number( v ) ) );
+            r[ op.r ] = box_string( string_getindex( vm, string, (size_t)(int64_t)unbox_number( v ) ) );
             break;
         }
         goto type_error;
@@ -527,7 +527,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         else if ( box_is_string( u ) )
         {
             string_object* string = unbox_string( u );
-            r[ op.r ] = box_object( string_getindex( vm, string, op.b ) );
+            r[ op.r ] = box_string( string_getindex( vm, string, op.b ) );
             break;
         }
         goto type_error;
@@ -1056,7 +1056,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
             {
                 xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
                 r = vm_resize_stack( vm, xp );
-                if ( rp < xp ) r[ rp++ ] = box_object( string_getindex( vm, string, i++ ) );
+                if ( rp < xp ) r[ rp++ ] = box_string( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
                     r[ rp++ ] = boxed_null;

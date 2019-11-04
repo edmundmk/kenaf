@@ -87,6 +87,8 @@ inline double unbox_number( value v )           { double n; uint64_t i = ~v.v; m
 inline value box_index( size_t i )              { return { ~(uint64_t)i }; }
 inline size_t unbox_index( value v )            { return ~v.v; }
 
+value box_object( string_object* p ) = delete;  // Prohibit boxing strings as objects.
+
 /*
     References that are read by the garbage collector must be atomic.  Writes
     to GC references must use a write barrier.

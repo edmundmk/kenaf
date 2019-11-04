@@ -113,20 +113,20 @@ static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t
 static size_t number_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value v = arguments[ 0 ];
-    if ( ! is_number( v ) )
+    if ( ! box_is_number( v ) )
     {
-        if ( is_string( v ) )
+        if ( box_is_string( v ) )
         {
-            std::string_view text = get_text( v );
+            string_object* s = unbox_string( v );
             char* endptr = nullptr;
-            double n = strtod( text.data(), &endptr );
+            double n = strtod( s->text, &endptr );
             if ( *endptr != '\0' ) throw std::exception();
             if ( n != n ) n = NAN;
-            v = number_value( n );
+            v = box_number( n );
         }
-        else if ( is_bool( v ) )
+        else if ( box_is_bool( v ) )
         {
-            v = number_value( get_bool( v ) ? 1.0 : 0.0 );
+            v = box_number( v.v != boxed_false.v ? 1.0 : 0.0 );
         }
         else
         {
@@ -138,23 +138,22 @@ static size_t number_self( void* cookie, frame* frame, const value* arguments, s
 
 static size_t string_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
+    vm_context* vm = (vm_context*)cookie;
     value v = arguments[ 0 ];
-    if ( ! is_string( v ) )
+    if ( ! box_is_string( v ) )
     {
-        if ( is_number( v ) )
+        if ( box_is_number( v ) )
         {
-            double n = get_number( v );
+            double n = unbox_number( v );
             int size = snprintf( nullptr, 0, "%f", n );
-            char* text = nullptr;
-            v = create_string_buffer( size, &text );
-            snprintf( text, size, "%f", n );
+            string_object* s = string_new( vm, nullptr, size );
+            snprintf( s->text, s->size, "%f", n );
+            v = box_string( s );
         }
-        else if ( is_bool( v ) )
+        else if ( box_is_bool( v ) )
         {
-            if ( get_bool( v ) )
-                v = create_string( "true" );
-            else
-                v = create_string( "false" );
+            std::string_view s = v.v != boxed_false.v ? "true" : "false";
+            v = box_string( string_new( vm, s.data(), s.size() ) );
         }
         else
         {
@@ -251,7 +250,7 @@ static size_t table_clear( void* cookie, frame* frame, const value* arguments, s
 static size_t cothread_done( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value c = arguments[ 0 ];
-    if ( ! is_cothread( c ) ) throw std::exception();
+    if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) throw std::exception();
     cothread_object* cothread = (cothread_object*)unbox_object( c );
     return result( frame, cothread->stack_frames.empty() ? boxed_true : boxed_false );
 }
