@@ -470,7 +470,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         value u = r[ op.a ];
         key_selector* ks = s + op.b;
-        if ( ! box_is_object( u ) || header( unbox_object( u ) )->type != LOOKUP_OBJECT ) goto type_error;
+        if ( ! box_is_object_type( u, LOOKUP_OBJECT ) ) goto type_error;
         lookup_setkey( vm, (lookup_object*)unbox_object( u ), read( ks->key ), &ks->sel, r[ op.r ] );
         break;
     }
@@ -681,10 +681,10 @@ void vm_execute( vm_context* vm, vm_exstate state )
 
     case OP_APPEND:
     {
-        value w = r[ op.r ];
-        if ( ! box_is_object( w ) || header( unbox_object( w ) )->type != ARRAY_OBJECT ) goto type_error;
-        array_object* array = (array_object*)unbox_object( w );
-        array_append( vm, array, r[ op.a ] );
+        value u = r[ op.a ];
+        if ( ! box_is_object_type( u, ARRAY_OBJECT ) ) goto type_error;
+        array_object* array = (array_object*)unbox_object( u );
+        array_append( vm, array, r[ op.b ] );
         break;
     }
 
@@ -872,7 +872,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         // Unpack array elements from a into r:b.
         value u = r[ op.a ];
-        if ( ! box_is_object( u ) || header( unbox_object( u ) )->type != ARRAY_OBJECT ) goto type_error;
+        if ( ! box_is_object_type( u, ARRAY_OBJECT ) ) goto type_error;
         array_object* array = (array_object*)unbox_object( u );
         unsigned rp = op.r;
         xp = op.b != OP_STACK_MARK ? op.b : rp + array->length;
@@ -889,7 +889,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         // Extend array in b with values in r:a.
         value v = r[ op.b ];
-        if ( ! box_is_object( v ) || header( unbox_object( v ) )->type != ARRAY_OBJECT ) goto type_error;
+        if ( ! box_is_object_type( v, ARRAY_OBJECT ) ) goto type_error;
         array_object* array = (array_object*)unbox_object( v );
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )

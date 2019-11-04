@@ -84,7 +84,7 @@ enum opcode : uint8_t
     OP_NEW_OBJECT,      // r = object proto         | N | r | a | - |
     OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
     OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
-    OP_APPEND,          // r.append( a )            | G | r | a | - |
+    OP_APPEND,          // a.append( b )            | G | - | a | b |
 
     OP_CALL,            // r:b = call( r:a )        | X | r | a | b |
     OP_CALLR,           // b = call( r:a )          | X | r | a | b |
