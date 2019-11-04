@@ -5,36 +5,35 @@
 --
 
 def A( i, j )
-    return 1.0 / ( ( i + j ) * ( 1 + j + 1 ) * 0.5 + i + 1 )
+    var ij = i + j
+    return 1.0 / ( ( ij + 1 ) * ij * 0.5 + i + 1 )
 end
 
-def multiplyAv( n, v, Av )
+def multiplyAv( n, u, v )
     for i = 0 : n do
         var x = 0.0
-        for j = 0 : n do x += A( i, j ) * v[ j ] end
-        Av[ i ] = x
+        for j = 0 : n do x += u[ j ] * A( i, j ) end
+        v[ i ] = x
     end
 end
 
-def multiplyAtv( n, v, Atv )
+def multiplyAtv( n, u, v )
     for i = 0 : n do
         var x = 0.0
-        for j = 0 : n do x += A( j, i ) * v[ j ] end
-        Atv[ i ] = x
+        for j = 0 : n do x += u[ j ] * A( j, i ) end
+        v[ i ] = x
     end
 end
 
-var x = []
-
-def multiplyAtAv( n, v, AtAv )
-    multiplyAv( n, v, x )
-    multiplyAtv( n, x, AtAv )
+def multiplyAtAv( n, u, v, x )
+    multiplyAv( n, u, x )
+    multiplyAtv( n, x, v )
 end
 
 var _, n = args ...
 n = if n then number( n ) else 100 end
 
-var u, v = [], []
+var u, v, x = [], [], []
 u.resize( n )
 v.resize( n )
 x.resize( n )
@@ -44,8 +43,8 @@ for i = 0 : n do u[ i ] = 1.0 end
 
 -- 20 steps of the power method.
 for i = 0 : 10 do
-    multiplyAtAv( n, u, v )
-    multiplyAtAv( n, v, u )
+    multiplyAtAv( n, u, v, x )
+    multiplyAtAv( n, v, u, x )
 end
 
 -- B=AtA A multiplied by A transposed
@@ -56,5 +55,5 @@ for i = 0 : n do
     vv  += v[ i ] * v[ i ]
 end
 
-print( "%f\n", sqrt( vBv / vv ) )
+print( "%.9f\n", sqrt( vBv / vv ) )
 
