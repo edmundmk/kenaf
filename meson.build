@@ -17,21 +17,21 @@ lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
 sources = [
     'source/common/code.cpp',
     'source/common/imath.cpp',
-    'source/compiler/ast.cpp',
-    'source/compiler/ast_resolve.cpp',
-    'source/compiler/code_unit.cpp',
-    'source/compiler/compile.cpp',
-    'source/compiler/ir.cpp',
-    'source/compiler/ir_alloc.cpp',
-    'source/compiler/ir_build.cpp',
-    'source/compiler/ir_emit.cpp',
-    'source/compiler/ir_fold.cpp',
-    'source/compiler/ir_foldk.cpp',
-    'source/compiler/ir_live.cpp',
-    'source/compiler/ir_regmap.cpp',
-    'source/compiler/lexer.cpp',
-    'source/compiler/source.cpp',
-    'source/compiler/parser.cpp',
+    'source/compile/ast.cpp',
+    'source/compile/ast_resolve.cpp',
+    'source/compile/code_unit.cpp',
+    'source/compile/compile.cpp',
+    'source/compile/ir.cpp',
+    'source/compile/ir_alloc.cpp',
+    'source/compile/ir_build.cpp',
+    'source/compile/ir_emit.cpp',
+    'source/compile/ir_fold.cpp',
+    'source/compile/ir_foldk.cpp',
+    'source/compile/ir_live.cpp',
+    'source/compile/ir_regmap.cpp',
+    'source/compile/lexer.cpp',
+    'source/compile/source.cpp',
+    'source/compile/parser.cpp',
     'source/runtime/corlib/cormath.cpp',
     'source/runtime/corlib/corobjects.cpp',
     'source/runtime/corlib/corprint.cpp',
@@ -48,11 +48,11 @@ sources = [
     'source/runtime/runtime.cpp',
 ]
 
-sources += lemon.process( 'source/compiler/grammar.lemon' )
+sources += lemon.process( 'source/compile/grammar.lemon' )
 
 libkenaf = library(
     'kenaf',
-    include_directories : include_directories( 'include', 'source/compiler' ),
+    include_directories : include_directories( 'include', 'source/compile' ),
     sources : sources,
     install : true
 )
