@@ -138,9 +138,14 @@ bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, s
     }
 
     // Search prototypes.
-    while ( object )
+    while ( true )
     {
         object = (lookup_object*)read( layout->parent );
+        if ( ! object )
+        {
+            break;
+        }
+
         layout = read( object->layout );
         while ( string_object* layout_key = read( layout->key ) )
         {
