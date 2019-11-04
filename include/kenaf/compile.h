@@ -23,7 +23,6 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
-
 #ifndef KENAF_COMPILE_H
 #define KENAF_COMPILE_H
 

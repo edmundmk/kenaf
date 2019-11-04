@@ -23,7 +23,6 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
-
 #ifndef KENAF_RUNTIME_H
 #define KENAF_RUNTIME_H
 
