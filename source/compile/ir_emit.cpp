@@ -79,7 +79,7 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_NEW_TABLE,     1, { IR_O_IMMEDIATE                     },  OP_NEW_TABLE,   C       },
     { IR_APPEND,        2, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
 
-    { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB      },
+    { IR_JUMP_THROW,    1, { IR_O_OP                            },  OP_THROW,       AB_NO_R },
 
     { IR_OP_INVALID,    0, {                                    },  OP_MOV,         AB      },
 };

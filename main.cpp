@@ -105,7 +105,7 @@ int main( int argc, char* argv[] )
         (
             stderr,
             "%s:%u:%u: %s: %.*s\n",
-            argv[ 1 ],
+            filename,
             d.line,
             d.column,
             d.kind == kf::ERROR ? "error" : "warning",

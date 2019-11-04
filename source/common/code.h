@@ -115,7 +115,7 @@ enum opcode : uint8_t
     OP_IS,              // r = a is b               | A | r | a | b |
     OP_SUPER,           // r = super                | G | r | - | - |
 
-    OP_THROW,           // throw r                  | J | r | - | - |
+    OP_THROW,           // throw r                  | J | - | a | - |
 
     OP_F_METHOD,        // r.omethod = a            | N | r | a | - |
     OP_F_VARENV,        // r.out[ %a ] = b          | G | r | a | b |
