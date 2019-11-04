@@ -1,5 +1,5 @@
 //
-//  kenaf.h
+//  runtime.h
 //
 //  Created by Edmund Kapusniak on 01/11/2019
 //  Copyright © 2019 Edmund Kapusniak.
@@ -24,8 +24,8 @@
 //
 
 
-#ifndef KENAF_H
-#define KENAF_H
+#ifndef KENAF_RUNTIME_H
+#define KENAF_RUNTIME_H
 
 #include <stdint.h>
 #include <exception>
