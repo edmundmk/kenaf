@@ -740,7 +740,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
 
             // Rearrange stack.
             r = vm_resize_stack( vm, xp + 2 );
-            memcpy( r + rp, r + rp + 2, sizeof( value ) * ( xp - rp ) );
+            memcpy( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
             r[ rp + 0 ] = box_object( self );
             r[ rp + 1 ] = method;
             r[ rp + 2 ] = box_object( self );
