@@ -122,9 +122,9 @@ end
 var _, n = args ...
 n = if n then number( n ) else 1000 end
 offset_momentum( bodies )
-print( string( energy( bodies ) ) ~ "\n" )
+print( "%f\n", energy( bodies ) )
 for i = 0 : n do
     advance( bodies, 0.01 )
 end
-print( string( energy( bodies ) ) ~ "\n" )
+print( "%f\n", energy( bodies ) )
 

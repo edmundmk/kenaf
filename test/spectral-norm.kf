@@ -56,5 +56,5 @@ for i = 0 : n do
     vv  += v[ i ] * v[ i ]
 end
 
-print( string( sqrt( vBv / vv ) ) ~ "\n" )
+print( "%f\n", sqrt( vBv / vv ) )
 

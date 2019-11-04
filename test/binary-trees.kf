@@ -38,7 +38,7 @@ var max_depth = max( min_depth + 2, if n then number( n ) else 0 end )
 var stretch_depth = max_depth + 1
 
 var check = bottom_up_tree( stretch_depth ).check()
-print( "stretch tree of depth " ~ string( stretch_depth ) ~ "\t check: " ~ string( check ) )
+print( "stretch tree of depth %d\t check: %d\n", stretch_depth, check );
 
 var long_lived_tree = bottom_up_tree( max_depth )
 
@@ -48,8 +48,7 @@ for depth = min_depth : max_depth + 1 : 2 do
     for i = 0 : iterations do
         check += bottom_up_tree( depth ).check()
     end
-    print( string( iterations ) ~ "\t trees of depth " + string( depth ) + "\t check: " + string( check ) )
+    print( "%d\t trees of depth %d\t check: %d\n", iterations, depth, check );
 end
 
-print( "long lived tree of depth " + string( max_depth ) + "\t check: " + long_lived_tree.check() )
-
+print( "long lived tree of depth %d\t check: %d", max_depth, long_lived_tree.check() );

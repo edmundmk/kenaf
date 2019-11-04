@@ -19,5 +19,5 @@ def primes( n )
     return count
 end
 
-print( "primes: " ~ string( primes( 200000 ) ) )
+print( "primes: %d\n", primes( 200000 ) )
 
