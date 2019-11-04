@@ -9,7 +9,7 @@ def fibr( n )
     return fibr( n - 1 ) + fibr( n - 2 )
 end
 
-print( "%d\n", fibi( 34 ) )
+print( "%d\n", fibr( 34 ) )
 
 def fibi( n )
     var last, curr = 0, 1
@@ -18,7 +18,7 @@ def fibi( n )
         n -= 1
         last, curr = curr, last + curr
     end
-    return cur
+    return curr
 end
 
 print( "%d\n", fibi( 34 ) )
