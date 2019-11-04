@@ -624,19 +624,19 @@ void vm_execute( vm_context* vm, vm_exstate state )
             if ( vop.opcode == OP_F_METHOD )
             {
                 assert( vop.r == op.r );
-                value omethod = r[ op.b ];
-                if ( ! box_is_object( omethod ) || header( unbox_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
-                winit( closure->omethod, (lookup_object*)unbox_object( r[ op.b ] ) );
+                value omethod = r[ vop.a ];
+                if ( ! box_is_object_type( omethod, LOOKUP_OBJECT ) ) goto type_error;
+                winit( closure->omethod, (lookup_object*)unbox_object( omethod ) );
             }
             else if ( vop.opcode == OP_F_VARENV )
             {
                 assert( vop.r == op.r );
-                winit( closure->outenvs[ op.a ], (vslots_object*)unbox_object( r[ op.b ] ) );
+                winit( closure->outenvs[ vop.a ], (vslots_object*)unbox_object( r[ vop.b ] ) );
             }
             else if ( vop.opcode == OP_F_OUTENV )
             {
                 assert( vop.r == op.r );
-                winit( closure->outenvs[ op.a ], read( function->outenvs[ op.b ] ) );
+                winit( closure->outenvs[ vop.a ], read( function->outenvs[ vop.b ] ) );
             }
             else
             {
