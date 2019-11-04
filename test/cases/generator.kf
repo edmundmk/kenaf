@@ -1,0 +1,10 @@
+
+def yield generator( start, stop )
+    for i = start : stop do
+        yield i
+    end
+end
+
+for i : generator( 32, 44 ) do
+    print( "%d\n", i )
+end
