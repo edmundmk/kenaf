@@ -15,6 +15,7 @@
 #include "vm/vm_context.h"
 #include "vm/vm_execute.h"
 #include "corlib/corobjects.h"
+#include "corlib/corprint.h"
 #include "corlib/cormath.h"
 
 namespace kf
@@ -82,6 +83,7 @@ context* create_context( runtime* r )
     c->global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
     context* prev = make_current( c );
     expose_corobjects( &r->vm );
+    expose_corprint();
     expose_cormath();
     make_current( prev );
     return c;

@@ -34,6 +34,7 @@ sources = [
     'source/compiler/parser.cpp',
     'source/runtime/corlib/cormath.cpp',
     'source/runtime/corlib/corobjects.cpp',
+    'source/runtime/corlib/corprint.cpp',
     'source/runtime/objects/array_object.cpp',
     'source/runtime/objects/cothread_object.cpp',
     'source/runtime/objects/function_object.cpp',
