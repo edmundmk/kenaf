@@ -76,37 +76,6 @@ static lookup_object* keyer_of( vm_context* vm, value u )
     }
 }
 
-static bool value_is( vm_context* vm, value u, value v )
-{
-    if ( box_is_number( v ) )
-    {
-        return box_is_number( u ) && unbox_number( u ) == unbox_number( v );
-    }
-    else if ( u.v == v.v )
-    {
-        return true;
-    }
-    else if ( box_is_string( v ) )
-    {
-        return box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( v ) );
-    }
-    else if ( box_is_object( v ) )
-    {
-        type_code type = header( unbox_object( v ) )->type;
-        if ( type == LOOKUP_OBJECT )
-        {
-            lookup_object* vo = (lookup_object*)unbox_object( v );
-            lookup_object* uo = keyer_of( vm, u );
-            while ( uo )
-            {
-                if ( uo == vo ) return true;
-                uo = lookup_prototype( vm, uo );
-            }
-        }
-    }
-    return false;
-}
-
 void vm_execute( vm_context* vm, vm_exstate state )
 {
     function_object* function = state.function;
@@ -154,31 +123,6 @@ void vm_execute( vm_context* vm, vm_exstate state )
         break;
     }
 
-    case OP_LEN:
-    {
-        value u = r[ op.a ];
-        if ( box_is_object( u ) )
-        {
-            type_code type = header( unbox_object( u ) )->type;
-            if ( type == ARRAY_OBJECT )
-            {
-                r[ op.r ] = box_number( ( (array_object*)unbox_object( u ) )->length );
-                break;
-            }
-            else if ( type == TABLE_OBJECT )
-            {
-                r[ op.r ] = box_number( ( (table_object*)unbox_object( u ) )->length );
-                break;
-            }
-        }
-        else if ( box_is_string( u ) )
-        {
-            r[ op.r ] = box_number( unbox_string( u )->size );
-            break;
-        }
-        goto type_error;
-    }
-
     case OP_NEG:
     {
         value u = r[ op.a ];
@@ -199,24 +143,6 @@ void vm_execute( vm_context* vm, vm_exstate state )
             break;
         }
         goto type_error;
-    }
-
-    case OP_BITNOT:
-    {
-        value u = r[ op.a ];
-        if ( box_is_number( u ) )
-        {
-            r[ op.r ] = box_number( ibitnot( unbox_number( u ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_NOT:
-    {
-        value u = r[ op.a ];
-        r[ op.r ] = value_test( u ) ? boxed_false : boxed_true;
-        break;
     }
 
     op_add:
@@ -303,55 +229,6 @@ void vm_execute( vm_context* vm, vm_exstate state )
         goto op_mul;
     }
 
-    op_concat:
-    {
-        string_object* s = string_new( vm, nullptr, us->size + vs->size );
-        memcpy( s->text, us->text, us->size );
-        memcpy( s->text + us->size, vs->text, vs->size );
-        r[ op.r ] = box_string( s );
-        break;
-    }
-
-    op_concatu:
-    {
-        value u = r[ op.a ];
-        if ( box_is_string( u ) )
-        {
-            us = unbox_string( u );
-            goto op_concat;
-        }
-        goto type_error;
-    }
-
-    case OP_CONCAT:
-    {
-        value v = r[ op.b ];
-        if ( box_is_string( v ) )
-        {
-            vs = unbox_string( v );
-            goto op_concatu;
-        }
-        goto type_error;
-    }
-
-    case OP_CONCATS:
-    {
-        vs = unbox_string( read( k[ op.b ] ) );
-        goto op_concatu;
-    }
-
-    case OP_RCONCATS:
-    {
-        value v = r[ op.a ];
-        us = unbox_string( read( k[ op.b ] ) );
-        if ( box_is_string( v ) )
-        {
-            vs = unbox_string( v );
-            goto op_concat;
-        }
-        goto type_error;
-    }
-
     case OP_DIV:
     {
         value u = r[ op.a ];
@@ -388,81 +265,10 @@ void vm_execute( vm_context* vm, vm_exstate state )
         goto type_error;
     }
 
-    case OP_LSHIFT:
+    case OP_NOT:
     {
         value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( ilshift( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_RSHIFT:
-    {
-        value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( irshift( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_ASHIFT:
-    {
-        value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( iashift( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_BITAND:
-    {
-        value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( ibitand( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_BITXOR:
-    {
-        value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( ibitxor( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_BITOR:
-    {
-        value u = r[ op.a ];
-        value v = r[ op.b ];
-        if ( box_is_number( u ) && box_is_number( v ) )
-        {
-            r[ op.r ] = box_number( ibitor( unbox_number( u ), unbox_number( v ) ) );
-            break;
-        }
-        goto type_error;
-    }
-
-    case OP_IS:
-    {
-        r[ op.r ] = value_is( vm, r[ op.a ], r[ op.b ] ) ? boxed_true : boxed_false;
+        r[ op.r ] = value_test( u ) ? boxed_false : boxed_true;
         break;
     }
 
@@ -805,6 +611,39 @@ void vm_execute( vm_context* vm, vm_exstate state )
         vslots_object* outenv = read( function->outenvs[ op.a ] );
         write( vm, outenv->slots[ op.b ], r[ op.r ] );
         break;
+    }
+
+    case OP_FUNCTION:
+    {
+        program_object* program = read( read( function->program )->functions[ op.c ] );
+        function_object* closure = function_new( vm, program );
+        r[ op.r ] = box_object( closure );
+        while ( true )
+        {
+            struct op vop = ops[ ip ];
+            if ( vop.opcode == OP_F_METHOD )
+            {
+                assert( vop.r == op.r );
+                value omethod = r[ op.b ];
+                if ( ! box_is_object( omethod ) || header( unbox_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
+                winit( closure->omethod, (lookup_object*)unbox_object( r[ op.b ] ) );
+            }
+            else if ( vop.opcode == OP_F_VARENV )
+            {
+                assert( vop.r == op.r );
+                winit( closure->outenvs[ op.a ], (vslots_object*)unbox_object( r[ op.b ] ) );
+            }
+            else if ( vop.opcode == OP_F_OUTENV )
+            {
+                assert( vop.r == op.r );
+                winit( closure->outenvs[ op.a ], read( function->outenvs[ op.b ] ) );
+            }
+            else
+            {
+                break;
+            }
+            ++ip;
+        }
     }
 
     case OP_NEW_OBJECT:
@@ -1269,6 +1108,202 @@ void vm_execute( vm_context* vm, vm_exstate state )
         break;
     }
 
+    op_concat:
+    {
+        string_object* s = string_new( vm, nullptr, us->size + vs->size );
+        memcpy( s->text, us->text, us->size );
+        memcpy( s->text + us->size, vs->text, vs->size );
+        r[ op.r ] = box_string( s );
+        break;
+    }
+
+    op_concatu:
+    {
+        value u = r[ op.a ];
+        if ( box_is_string( u ) )
+        {
+            us = unbox_string( u );
+            goto op_concat;
+        }
+        goto type_error;
+    }
+
+    case OP_CONCAT:
+    {
+        value v = r[ op.b ];
+        if ( box_is_string( v ) )
+        {
+            vs = unbox_string( v );
+            goto op_concatu;
+        }
+        goto type_error;
+    }
+
+    case OP_CONCATS:
+    {
+        vs = unbox_string( read( k[ op.b ] ) );
+        goto op_concatu;
+    }
+
+    case OP_RCONCATS:
+    {
+        value v = r[ op.a ];
+        us = unbox_string( read( k[ op.b ] ) );
+        if ( box_is_string( v ) )
+        {
+            vs = unbox_string( v );
+            goto op_concat;
+        }
+        goto type_error;
+    }
+
+    case OP_BITNOT:
+    {
+        value u = r[ op.a ];
+        if ( box_is_number( u ) )
+        {
+            r[ op.r ] = box_number( ibitnot( unbox_number( u ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_LSHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( ilshift( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_RSHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( irshift( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_ASHIFT:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( iashift( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITAND:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( ibitand( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITXOR:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( ibitxor( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_BITOR:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        if ( box_is_number( u ) && box_is_number( v ) )
+        {
+            r[ op.r ] = box_number( ibitor( unbox_number( u ), unbox_number( v ) ) );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_LEN:
+    {
+        value u = r[ op.a ];
+        if ( box_is_object( u ) )
+        {
+            type_code type = header( unbox_object( u ) )->type;
+            if ( type == ARRAY_OBJECT )
+            {
+                r[ op.r ] = box_number( ( (array_object*)unbox_object( u ) )->length );
+                break;
+            }
+            else if ( type == TABLE_OBJECT )
+            {
+                r[ op.r ] = box_number( ( (table_object*)unbox_object( u ) )->length );
+                break;
+            }
+        }
+        else if ( box_is_string( u ) )
+        {
+            r[ op.r ] = box_number( unbox_string( u )->size );
+            break;
+        }
+        goto type_error;
+    }
+
+    case OP_IS:
+    {
+        value u = r[ op.a ];
+        value v = r[ op.b ];
+        bool test = false;
+        if ( box_is_number( v ) )
+        {
+            test = box_is_number( u ) && unbox_number( u ) == unbox_number( v );
+        }
+        else if ( u.v == v.v )
+        {
+            test = true;
+        }
+        else if ( box_is_string( v ) )
+        {
+            test = box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( v ) );
+        }
+        else if ( box_is_object( v ) )
+        {
+            type_code type = header( unbox_object( v ) )->type;
+            if ( type == LOOKUP_OBJECT )
+            {
+                lookup_object* vo = (lookup_object*)unbox_object( v );
+                lookup_object* uo = keyer_of( vm, u );
+                while ( uo )
+                {
+                    if ( uo == vo )
+                    {
+                        test = true;
+                        break;
+                    }
+                    uo = lookup_prototype( vm, uo );
+                }
+            }
+        }
+        r[ op.r ] = test ? boxed_true : boxed_false;
+        break;
+    }
+
     case OP_SUPER:
     {
         lookup_object* omethod = read( function->omethod );
@@ -1280,39 +1315,6 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         // TODO.
         throw std::exception();
-    }
-
-    case OP_FUNCTION:
-    {
-        program_object* program = read( read( function->program )->functions[ op.c ] );
-        function_object* closure = function_new( vm, program );
-        r[ op.r ] = box_object( closure );
-        while ( true )
-        {
-            struct op vop = ops[ ip ];
-            if ( vop.opcode == OP_F_METHOD )
-            {
-                assert( vop.r == op.r );
-                value omethod = r[ op.b ];
-                if ( ! box_is_object( omethod ) || header( unbox_object( omethod ) )->type != LOOKUP_OBJECT ) goto type_error;
-                winit( closure->omethod, (lookup_object*)unbox_object( r[ op.b ] ) );
-            }
-            else if ( vop.opcode == OP_F_VARENV )
-            {
-                assert( vop.r == op.r );
-                winit( closure->outenvs[ op.a ], (vslots_object*)unbox_object( r[ op.b ] ) );
-            }
-            else if ( vop.opcode == OP_F_OUTENV )
-            {
-                assert( vop.r == op.r );
-                winit( closure->outenvs[ op.a ], read( function->outenvs[ op.b ] ) );
-            }
-            else
-            {
-                break;
-            }
-            ++ip;
-        }
     }
 
     case OP_F_METHOD:

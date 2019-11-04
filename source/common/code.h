@@ -39,32 +39,19 @@ enum opcode : uint8_t
     OP_LDV,             // r = null / true / false  | L | r |   c   |
     OP_LDK,             // r = k[c]                 | L | r |   c   |
 
-    OP_LEN,             // r = #a                   | A | r | a | - |
     OP_NEG,             // r = -a                   | A | r | a | - |
     OP_POS,             // r = +a                   | A | r | a | - |
-    OP_BITNOT,          // r = ~a                   | A | r | a | - |
-    OP_NOT,             // r = not a                | A | r | a | - |
-
     OP_ADD,             // r = a + b                | A | r | a | b |
     OP_ADDN,            // r = a + k[b]             | A | r | a | b |
     OP_SUB,             // r = b - a                | A | r | a | b |
     OP_SUBN,            // r = k[b] - a             | A | r | a | b |
     OP_MUL,             // r = a * b                | A | r | a | b |
     OP_MULN,            // r = a * k[b]             | A | r | a | b |
-    OP_CONCAT,          // r = a ~ b                | A | r | a | b |
-    OP_CONCATS,         // r = a ~ k[b]             | A | r | a | b |
-    OP_RCONCATS,        // r = k[b] ~ a             | A | r | a | b |
     OP_DIV,             // r = a / b                | A | r | a | b |
     OP_INTDIV,          // r = a // b               | A | r | a | b |
     OP_MOD,             // r = a % b                | A | r | a | b |
-    OP_LSHIFT,          // r = a << b               | A | r | a | b |
-    OP_RSHIFT,          // r = a >> b               | A | r | a | b |
-    OP_ASHIFT,          // r = a ~>> b              | A | r | a | b |
-    OP_BITAND,          // r = a & b                | A | r | a | b |
-    OP_BITXOR,          // r = a ^ b                | A | r | a | b |
-    OP_BITOR,           // r = a | b                | A | r | a | b |
 
-    OP_IS,              // r = a is b               | A | r | a | b |
+    OP_NOT,             // r = not a                | A | r | a | - |
 
     OP_JMP,             // jump                     | J | - |   j   |
     OP_JT,              // if r then jump           | T | r |   j   |
@@ -93,6 +80,7 @@ enum opcode : uint8_t
     OP_GET_OUTENV,      // r = out[a][ %b ]         | G | r | a | b |
     OP_SET_OUTENV,      // out[a][ %b ] = r         | G | r | a | b |
 
+    OP_FUNCTION,        // r = close function       | N | r |   c   |
     OP_NEW_OBJECT,      // r = object proto         | N | r | a | - |
     OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
     OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
@@ -111,10 +99,24 @@ enum opcode : uint8_t
     OP_FOR_EACH,        // r:b = generate a:2       | F | r | a | b || J | - |   j   |
     OP_FOR_STEP,        // r = for step a:3         | F | r | a | - || J | - |   j   |
 
+    OP_CONCAT,          // r = a ~ b                | A | r | a | b |
+    OP_CONCATS,         // r = a ~ k[b]             | A | r | a | b |
+    OP_RCONCATS,        // r = k[b] ~ a             | A | r | a | b |
+
+    OP_BITNOT,          // r = ~a                   | A | r | a | - |
+    OP_LSHIFT,          // r = a << b               | A | r | a | b |
+    OP_RSHIFT,          // r = a >> b               | A | r | a | b |
+    OP_ASHIFT,          // r = a ~>> b              | A | r | a | b |
+    OP_BITAND,          // r = a & b                | A | r | a | b |
+    OP_BITXOR,          // r = a ^ b                | A | r | a | b |
+    OP_BITOR,           // r = a | b                | A | r | a | b |
+
+    OP_LEN,             // r = #a                   | A | r | a | - |
+    OP_IS,              // r = a is b               | A | r | a | b |
     OP_SUPER,           // r = super                | G | r | - | - |
+
     OP_THROW,           // throw r                  | J | r | - | - |
 
-    OP_FUNCTION,        // r = close function       | N | r |   c   |
     OP_F_METHOD,        // r.omethod = a            | N | r | a | - |
     OP_F_VARENV,        // r.out[ %a ] = b          | G | r | a | b |
     OP_F_OUTENV,        // r.out[ %a ] = out[b]     | G | r | a | b |
