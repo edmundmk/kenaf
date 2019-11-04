@@ -206,5 +206,13 @@ std::string parser::qual_name_string( unsigned index )
     }
 }
 
+void parser::check_generator( srcloc sloc )
+{
+    if ( ! _fstack.back()->is_generator )
+    {
+        _source->error( sloc, "cannot yield from a non-generator function" );
+    }
+}
+
 }
 

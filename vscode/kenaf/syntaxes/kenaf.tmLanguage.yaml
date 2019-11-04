@@ -105,7 +105,7 @@ repository:
   scopes:
     patterns:
     - name: 'meta.def.function.kenaf'
-      begin: '\b(def)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)*([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()'
+      begin: '\b(def|def\b\s*\byield)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)*([A-Za-z_][A-Za-z0-9_]*)(?=\s*\()'
       beginCaptures:
         '1': { name: 'storage.type.def.kenaf' }
         '2': { name: 'entity.name.function.kenaf' }

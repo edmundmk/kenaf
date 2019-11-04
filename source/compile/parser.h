@@ -47,6 +47,8 @@ public:
 
     std::string qual_name_string( unsigned index );
 
+    void check_generator( srcloc sloc );
+
 private:
 
     source* _source;
