@@ -644,6 +644,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
             }
             ++ip;
         }
+        break;
     }
 
     case OP_NEW_OBJECT:

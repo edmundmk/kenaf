@@ -232,7 +232,7 @@ ir_operand ir_build::visit( ast_node_index node )
             }
         }
 
-        def( expr->sloc, local_index, visit( expr ) );
+        def( expr->sloc, local_index, visit( next ) );
         end_block( emit_jump( node->sloc, IR_JUMP, 0, &goto_endif ) );
         goto_block( &goto_endif );
 

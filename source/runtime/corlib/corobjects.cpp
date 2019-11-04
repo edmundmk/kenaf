@@ -112,7 +112,7 @@ static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t
 
 static size_t number_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    value v = arguments[ 0 ];
+    value v = arguments[ 1 ];
     if ( ! box_is_number( v ) )
     {
         if ( box_is_string( v ) )
@@ -139,7 +139,7 @@ static size_t number_self( void* cookie, frame* frame, const value* arguments, s
 static size_t string_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vm_context* vm = (vm_context*)cookie;
-    value v = arguments[ 0 ];
+    value v = arguments[ 1 ];
     if ( ! box_is_string( v ) )
     {
         if ( box_is_number( v ) )
