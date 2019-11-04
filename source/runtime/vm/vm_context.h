@@ -98,12 +98,6 @@ struct vm_stack_frame
     uint8_t rr;         // callr result register
 };
 
-struct vm_native_frame
-{
-    cothread_object* cothread;
-    unsigned fp;
-};
-
 /*
     Functions for manipulating the register stack.
 */

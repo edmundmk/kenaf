@@ -144,7 +144,7 @@ value create_function( const void* code, size_t size );
     Native function interface.
 */
 
-struct frame;
+struct frame { void* sp; size_t fp; };
 
 typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
@@ -165,10 +165,9 @@ size_t rvoid( frame* frame );
 */
 
 struct stack_values { value* values; size_t count; };
-
-stack_values stack_push( size_t count );
-stack_values stack_call( value function );
-void stack_pop();
+stack_values push_frame( frame* frame, size_t argcount );
+stack_values call_frame( frame* frame, value function );
+void pop_frame( frame* frame );
 
 value call( value function, const value* arguments, size_t argcount );
 value call( value function, std::initializer_list< value > arguments );

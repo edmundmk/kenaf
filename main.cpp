@@ -27,7 +27,8 @@ int main( int argc, char* argv[] )
     const char* filename = nullptr;
     unsigned debug_print = kf::PRINT_NONE;
 
-    for ( int i = 1; i < argc; ++i )
+    int i = 1;
+    for ( ; i < argc; ++i )
     {
         if ( argv[ i ][ 0 ] == '-' )
         {
@@ -71,8 +72,8 @@ int main( int argc, char* argv[] )
         }
         else
         {
-            if ( filename ) return print_usage();
             filename = argv[ i ];
+            break;
         }
     }
 
@@ -130,6 +131,24 @@ int main( int argc, char* argv[] )
     kf::code_view code = kf::get_code( compilation.get() );
     kf::value main = kf::create_function( code.code, code.size );
     compilation.reset();
+
+    // Executes script, passing remaining command line arguments.
+    kf::frame frame;
+    kf::stack_values arguments = kf::push_frame( &frame, argc - i );
+    size_t argindex = 0;
+    while ( i < argc )
+    {
+        arguments.values[ argindex++ ] = kf::create_string( argv[ i++ ] );
+    }
+
+    kf::stack_values results = kf::call_frame( &frame, main );
+    int result = EXIT_SUCCESS;
+    if ( results.count && is_number( results.values[ 0 ] ) )
+    {
+        result = (int)get_number( results.values[ 0 ] );
+    }
+
+    kf::pop_frame( &frame );
 
     return EXIT_SUCCESS;
 }

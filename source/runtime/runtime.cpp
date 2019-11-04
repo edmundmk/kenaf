@@ -80,6 +80,7 @@ context* create_context( runtime* r )
     context* c = new context();
     c->refcount = 1;
     c->runtime = r;
+    c->cothreads.push_back( cothread_new( &r->vm ) );
     c->global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
     context* prev = make_current( c );
     expose_corobjects( &r->vm );
@@ -488,16 +489,16 @@ value create_function( native_function native, void* cookie, unsigned param_coun
 
 value* arguments( frame* frame )
 {
-    vm_native_frame* native_frame = (vm_native_frame*)frame;
-    assert( current()->cothreads->back() == native_frame->cothread );
-    return native_frame->cothread->stack.data() + native_frame->fp + 1;
+    cothread_object* cothread = (cothread_object*)frame->sp;
+    assert( current()->cothreads->back() == frame->sp );
+    return cothread->stack.data() + frame->fp + 1;
 }
 
 value* results( frame* frame, size_t count )
 {
-    vm_native_frame* native_frame = (vm_native_frame*)frame;
-    assert( current()->cothreads->back() == native_frame->cothread );
-    return vm_resize_stack( native_frame->cothread, native_frame->fp, native_frame->fp + count );
+    cothread_object* cothread = (cothread_object*)frame->sp;
+    assert( current()->cothreads->back() ==cothread );
+    return vm_resize_stack( cothread, frame->fp, frame->fp + count );
 }
 
 size_t result( frame* frame, value v )
@@ -517,25 +518,29 @@ size_t rvoid( frame* frame )
     Function calls.
 */
 
-stack_values stack_push( size_t count )
+stack_values push_frame( frame* frame, size_t argcount )
 {
     vm_context* vm = current();
     cothread_object* cothread = vm->cothreads->back();
     unsigned fp = cothread->xp;
     cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
-    return { vm_resize_stack( cothread, fp, fp + 1 + count ) + 1, count };
+    frame->sp = vm;
+    frame->fp = fp;
+    return { vm_resize_stack( cothread, fp, 1 + argcount ) + 1, argcount };
 }
 
-stack_values stack_call( value function )
+stack_values call_frame( frame* frame, value function )
 {
-    vm_context* vm = current();
+    vm_context* vm = (vm_context*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
-    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
 
+    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
+    assert( stack_frame->fp == frame->fp );
     assert( stack_frame->fp < cothread->xp );
-    unsigned xp = cothread->xp - stack_frame->fp;
-    value* r = cothread->stack.data() + stack_frame->fp;
+
+    unsigned xp = cothread->xp - frame->fp;
+    value* r = cothread->stack.data() + frame->fp;
     r[ 0 ] = function;
 
     if ( ! box_is_object( function ) ) throw std::exception();
@@ -573,28 +578,38 @@ stack_values stack_call( value function )
     }
 
     assert( vm->cothreads->back() == cothread );
-    assert( stack_frame->fp <= cothread->xp );
-    return { cothread->stack.data() + stack_frame->fp, cothread->xp - stack_frame->fp };
+    assert( frame->fp <= cothread->xp );
+    return { cothread->stack.data() + frame->fp, cothread->xp - frame->fp };
 }
 
-void stack_pop()
+void pop_frame( frame* frame )
 {
-    vm_context* vm = current();
+    vm_context* vm = (vm_context*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
-    vm_stack_frame call_frame = cothread->stack_frames.back();
-    assert( ! call_frame.function );
-    assert( cothread->xp >= call_frame.fp );
+
+    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    assert( ! stack_frame->function );
+    assert( stack_frame->fp == frame->fp );
+    assert( stack_frame->fp <= cothread->xp );
+
     cothread->stack_frames.pop_back();
-    cothread->xp = call_frame.fp;
+    cothread->xp = frame->fp;
+    frame->sp = nullptr;
 }
 
 value call( value function, const value* arguments, size_t argcount )
 {
-    stack_values argstack = stack_push( argcount );
-    memcpy( argstack.values, arguments, argcount * sizeof( value ) );
-    stack_values valstack = stack_call( function );
-    value result = valstack.count ? valstack.values[ 0 ] : boxed_null;
-    stack_pop();
+    struct scope_frame : public frame
+    {
+        scope_frame() : frame{ nullptr, 0 } {}
+        ~scope_frame() { if ( sp ) { pop_frame( this ); } }
+    };
+
+    scope_frame frame;
+    stack_values argframe = push_frame( &frame, argcount );
+    memcpy( argframe.values, arguments, argcount * sizeof( value ) );
+    stack_values resframe = call_frame( &frame, function );
+    value result = resframe.count ? resframe.values[ 0 ] : boxed_null;
     return result;
 }
 

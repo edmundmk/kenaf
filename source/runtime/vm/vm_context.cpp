@@ -64,12 +64,12 @@ value* vm_resize_stack( vm_context* vm, unsigned xp )
 value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
 {
     // xp is relative to current frame pointer.
-    xp += fp;
+    cothread->xp = fp + xp;
 
     // Increase stack size.
-    if ( xp > cothread->stack.size() )
+    if ( cothread->xp > cothread->stack.size() )
     {
-        size_t size = ( xp + 31u ) & ~(size_t)31u;
+        size_t size = ( cothread->xp + 31u ) & ~(size_t)31u;
         cothread->stack.resize( size );
     }
 
@@ -157,7 +157,7 @@ vm_exstate vm_call_native( vm_context* vm, native_function_object* function, uns
     size_t frame_count = cothread->stack_frames.size();
     unsigned bp = cothread->stack_frames.back().fp + rp;
 
-    vm_native_frame native_frame = { cothread, bp };
+    frame native_frame = { cothread, bp };
     value* arguments = cothread->stack.data() + bp + 1;
     size_t result_count = function->native( function->cookie, (frame*)&native_frame, arguments, argument_count );
 
