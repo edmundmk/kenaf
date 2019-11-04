@@ -13,6 +13,7 @@
 #include <vector>
 #include <kenaf/compile.h>
 #include <kenaf/runtime.h>
+#include <kenaf/handles.h>
 
 int print_usage()
 {
@@ -92,12 +93,12 @@ int main( int argc, char* argv[] )
     fclose( file );
 
     // Compile script.
-    kf::compilation* compilation = kf::compile( filename, std::string_view( text.data(), text.size() ), debug_print );
+    kf::compilation_handle compilation( kf::compile( filename, std::string_view( text.data(), text.size() ), debug_print ) );
 
-    size_t diagnostic_count = kf::compilation_diagnostic_count( compilation );
+    size_t diagnostic_count = kf::diagnostic_count( compilation.get() );
     for ( size_t i = 0; i < diagnostic_count; ++i )
     {
-        kf::diagnostic d = compilation_diagnostic( compilation, i );
+        kf::diagnostic d = kf::get_diagnostic( compilation.get(), i );
         fprintf
         (
             stderr,
@@ -110,7 +111,7 @@ int main( int argc, char* argv[] )
         );
     }
 
-    if ( ! kf::compilation_success( compilation ) )
+    if ( ! kf::success( compilation.get() ) )
     {
         return EXIT_FAILURE;
     }
@@ -122,8 +123,13 @@ int main( int argc, char* argv[] )
     }
 
     // Execute script.
+    kf::runtime_handle runtime = kf::make_runtime();
+    kf::context_handle context = kf::make_context( runtime.get() );
+    kf::make_current( context.get() );
 
-
+    kf::code_view code = kf::get_code( compilation.get() );
+    kf::value main = kf::create_function( code.code, code.size );
+    compilation.reset();
 
     return EXIT_SUCCESS;
 }

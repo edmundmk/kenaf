@@ -4,9 +4,25 @@
 //  Created by Edmund Kapusniak on 19/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
 //
-//  Licensed under the MIT License. See LICENSE file in the project root for
-//  full license information.
+//  Permission is hereby granted, free of charge, to any person obtaining a
+//  copy of this software and associated documentation files (the "Software"),
+//  to deal in the Software without restriction, including without limitation
+//  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+//  and/or sell copies of the Software, and to permit persons to whom the
+//  Software is furnished to do so, subject to the following conditions:
 //
+//  The above copyright notice and this permission notice shall be included in
+//  all copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+//  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+//  DEALINGS IN THE SOFTWARE.
+//
+
 
 #ifndef KENAF_COMPILE_H
 #define KENAF_COMPILE_H
@@ -42,13 +58,13 @@ struct diagnostic
 struct compilation;
 struct code_view { const void* code; size_t size; };
 
-compilation* compilation_retain( compilation* cn );
-void compilation_release( compilation* cn );
+compilation* retain_compilation( compilation* cn );
+void release_compilation( compilation* cn );
 
-bool compilation_success( compilation* cn );
-code_view compilation_code( compilation* cn );
-size_t compilation_diagnostic_count( compilation* cn );
-diagnostic compilation_diagnostic( compilation* cn, size_t index );
+bool success( compilation* cn );
+code_view get_code( compilation* cn );
+size_t diagnostic_count( compilation* cn );
+diagnostic get_diagnostic( compilation* cn, size_t index );
 
 /*
     Compile source text.

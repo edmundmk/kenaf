@@ -48,8 +48,8 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
     }
     else
     {
-        assert( header( parent )->type == LOOKUP_OBJECT );
-        assert( ! lookup_sealed( vm, (lookup_object*)parent ) );
+        assert( ! parent || header( parent )->type == LOOKUP_OBJECT );
+        assert( ! parent || lookup_sealed( vm, (lookup_object*)parent ) );
         layout->sindex = (uint32_t)-1;
         vm->instance_layouts.insert_or_assign( (lookup_object*)parent, layout );
     }

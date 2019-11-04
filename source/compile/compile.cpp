@@ -31,14 +31,14 @@ struct compilation
     std::vector< source_diagnostic > diagnostics;
 };
 
-compilation* compilation_retain( compilation* cn )
+compilation* retain_compilation( compilation* cn )
 {
     assert( cn->refcount >= 1 );
     cn->refcount += 1;
     return cn;
 }
 
-void compilation_release( compilation* cn )
+void release_compilation( compilation* cn )
 {
     assert( cn->refcount >= 1 );
     if ( --cn->refcount == 0 )
@@ -47,12 +47,12 @@ void compilation_release( compilation* cn )
     }
 }
 
-bool compilation_success( compilation* cn )
+bool success( compilation* cn )
 {
     return cn->code != nullptr;
 }
 
-code_view compilation_code( compilation* cn )
+code_view get_code( compilation* cn )
 {
     if ( cn->code )
         return { cn->code.get(), cn->code->code_size };
@@ -60,12 +60,12 @@ code_view compilation_code( compilation* cn )
         return { nullptr, 0 };
 }
 
-size_t compilation_diagnostic_count( compilation* cn )
+size_t diagnostic_count( compilation* cn )
 {
     return cn->diagnostics.size();
 }
 
-diagnostic compilation_diagnostic( compilation* cn, size_t index )
+diagnostic get_diagnostic( compilation* cn, size_t index )
 {
     const source_diagnostic& d = cn->diagnostics.at( index );
     return { d.kind, d.location.line, d.location.column, d.message };
