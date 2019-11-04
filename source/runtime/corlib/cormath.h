@@ -11,8 +11,6 @@
 #ifndef KF_CORMATH_H
 #define KF_CORMATH_H
 
-#include <cmath>
-
 namespace kf
 {
 
