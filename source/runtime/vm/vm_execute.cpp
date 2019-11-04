@@ -650,7 +650,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
     {
         value u = r[ op.a ];
         lookup_object* prototype;
-        if ( box_is_object( u ) && header( unbox_object( u ) )->type == LOOKUP_OBJECT )
+        if ( box_is_object_type( u, LOOKUP_OBJECT ) )
         {
             prototype = (lookup_object*)unbox_object( u );
         }

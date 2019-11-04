@@ -14,7 +14,7 @@
 #include "objects/cothread_object.h"
 #include "vm/vm_context.h"
 #include "vm/vm_execute.h"
-#include "corlib/prototypes.h"
+#include "corlib/corobjects.h"
 #include "corlib/cormath.h"
 
 namespace kf
@@ -81,7 +81,7 @@ context* create_context( runtime* r )
     c->runtime = r;
     c->global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
     context* prev = make_current( c );
-    expose_prototypes();
+    expose_corobjects( &r->vm );
     expose_cormath();
     make_current( prev );
     return c;
@@ -144,8 +144,6 @@ value global_object()
 
 inline vm_context* current() { return &current_runtime->vm; }
 
-vm_context* current_context() { return current(); }
-
 value retain( value v )
 {
     // TODO
@@ -183,7 +181,7 @@ value_kind kindof( value v )
 
 bool is_lookup( value v )
 {
-    return box_is_object( v ) && header( unbox_object( v ) )->type == LOOKUP_OBJECT;
+    return box_is_object_type( v, LOOKUP_OBJECT );
 }
 
 bool is_string( value v )
@@ -193,22 +191,22 @@ bool is_string( value v )
 
 bool is_array( value v )
 {
-    return box_is_object( v ) && header( unbox_object( v ) )->type == ARRAY_OBJECT;
+    return box_is_object_type( v, ARRAY_OBJECT );
 }
 
 bool is_table( value v )
 {
-    return box_is_object( v ) && header( unbox_object( v ) )->type == TABLE_OBJECT;
+    return box_is_object_type( v, TABLE_OBJECT );
 }
 
 bool is_function( value v )
 {
-    return box_is_object( v ) && header( unbox_object( v ) )->type == FUNCTION_OBJECT;
+    return box_is_object_type( v, FUNCTION_OBJECT ) || box_is_object_type( v, NATIVE_FUNCTION_OBJECT );
 }
 
 bool is_cothread( value v )
 {
-    return box_is_object( v ) && header( unbox_object( v ) )->type == COTHREAD_OBJECT;
+    return box_is_object_type( v, COTHREAD_OBJECT );
 }
 
 bool is_number( value v )
@@ -244,34 +242,7 @@ value false_value()
 value superof( value v )
 {
     vm_context* vm = current();
-    if ( box_is_number( v ) )
-    {
-        return box_object( vm->prototypes[ NUMBER_OBJECT ] );
-    }
-    else if ( box_is_string( v ) )
-    {
-        return box_object( vm->prototypes[ STRING_OBJECT ] );
-    }
-    else if ( box_is_object( v ) )
-    {
-        type_code type = header( unbox_object( v ) )->type;
-        if ( type == LOOKUP_OBJECT )
-        {
-            return box_object( lookup_prototype( vm, (lookup_object*)unbox_object( v ) ) );
-        }
-        else
-        {
-            return box_object( vm->prototypes[ type ] );
-        }
-    }
-    else if ( box_is_bool( v ) )
-    {
-        return box_object( vm->prototypes[ BOOL_OBJECT ] );
-    }
-    else
-    {
-        return box_object( vm->prototypes[ NULL_OBJECT ] );
-    }
+    return box_object( vm_superof( vm, v ) );
 }
 
 bool test( value v )
@@ -313,119 +284,37 @@ value create_lookup( value prototype )
     return box_object( lookup_new( current(), (lookup_object*)unbox_object( prototype ) ) );
 }
 
-static value get_key( vm_context* vm, value lookup, string_object* skey )
-{
-    lookup_object* object = nullptr;
-    if ( box_is_number( lookup ) )
-    {
-        object = vm->prototypes[ NUMBER_OBJECT ];
-    }
-    else if ( box_is_string( lookup ) )
-    {
-        object = vm->prototypes[ STRING_OBJECT ];
-    }
-    else if ( box_is_object( lookup ) )
-    {
-        type_code type = header( unbox_object( lookup ) )->type;
-        if ( type == LOOKUP_OBJECT )
-        {
-            object = (lookup_object*)unbox_object( lookup );
-        }
-        else
-        {
-            object = vm->prototypes[ type ];
-        }
-    }
-    else if ( box_is_bool( lookup ) )
-    {
-        object = vm->prototypes[ BOOL_OBJECT ];
-    }
-    else
-    {
-        object = vm->prototypes[ NULL_OBJECT ];
-    }
-
-    selector sel = {};
-    return lookup_getkey( vm, object, skey, &sel );
-}
-
 value get_key( value lookup, std::string_view k )
 {
     vm_context* vm = current();
-    string_object* skey = string_key( vm, k.data(), k.size() );
-    return get_key( vm, lookup, skey );
-}
-
-value get_key( value lookup, value key )
-{
-    vm_context* vm = current();
-    if ( ! is_string( key ) ) throw std::exception();
-    string_object* skey = string_key( vm, (string_object*)unbox_object( key ) );
-    return get_key( vm, lookup, skey );
-}
-
-static void set_key( vm_context* vm, value lookup, string_object* skey, value v )
-{
     selector sel = {};
-    if ( ! is_lookup( lookup ) ) throw std::exception();
-    lookup_setkey( vm, (lookup_object*)unbox_object( lookup ), skey, &sel, v );
+    string_object* skey = string_key( vm, k.data(), k.size() );
+    return lookup_getkey( vm, vm_keyerof( vm, lookup ), skey, &sel );
 }
 
 void set_key( value lookup, std::string_view k, value v )
 {
     vm_context* vm = current();
+    selector sel = {};
+    if ( ! is_lookup( lookup ) ) throw std::exception();
     string_object* skey = string_key( vm, k.data(), k.size() );
-    set_key( vm, lookup, skey, v );
-}
-
-void set_key( value lookup, value key, value v )
-{
-    vm_context* vm = current();
-    if ( ! is_string( key ) ) throw std::exception();
-    string_object* skey = string_key( vm, (string_object*)unbox_object( key ) );
-    set_key( vm, lookup, skey, v );
-}
-
-static bool has_key( vm_context* vm, value lookup, string_object* skey )
-{
-    if ( ! is_lookup( lookup ) ) return false;
-    return lookup_haskey( vm, (lookup_object*)unbox_object( lookup ), skey );
+    lookup_setkey( vm, (lookup_object*)unbox_object( lookup ), skey, &sel, v );
 }
 
 bool has_key( value lookup, std::string_view k )
 {
     vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) return false;
     string_object* skey = string_key( vm, k.data(), k.size() );
-    return has_key( vm, lookup, skey );
-}
-
-bool has_key( value lookup, value key )
-{
-    vm_context* vm = current();
-    if ( ! is_string( key ) ) throw std::exception();
-    string_object* skey = string_key( vm, (string_object*)unbox_object( key ) );
-    return has_key( vm, lookup, skey );
-}
-
-static void del_key( vm_context* vm, value lookup, string_object* skey )
-{
-    if ( ! is_lookup( lookup ) ) return;
-     lookup_delkey( vm, (lookup_object*)unbox_object( lookup ), skey );
+    return lookup_haskey( vm, (lookup_object*)unbox_object( lookup ), skey );
 }
 
 void del_key( value lookup, std::string_view k )
 {
     vm_context* vm = current();
+    if ( ! is_lookup( lookup ) ) return;
     string_object* skey = string_key( vm, k.data(), k.size() );
-    del_key( vm, lookup, skey );
-}
-
-void del_key( value lookup, value key )
-{
-    vm_context* vm = current();
-    if ( ! is_string( key ) ) throw std::exception();
-    string_object* skey = string_key( vm, (string_object*)unbox_object( key ) );
-    del_key( vm, lookup, skey );
+    lookup_delkey( vm, (lookup_object*)unbox_object( lookup ), skey );
 }
 
 value create_string( std::string_view text )
@@ -443,7 +332,7 @@ value create_string_buffer( size_t size, char** out_text )
 std::string_view get_text( value string )
 {
     if ( ! is_string( string ) ) throw std::exception();
-    string_object* s = (string_object*)unbox_object( string );
+    string_object* s = unbox_string( string );
     return std::string_view( s->text, s->size );
 }
 

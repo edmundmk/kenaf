@@ -151,6 +151,12 @@ struct object_header
 
 object_header* header( object* object );
 
+inline bool box_is_object_type( value v, type_code type )
+{
+    return box_is_object( v ) && header( unbox_object( v ) )->type == type;
+}
+
+
 /*
     Object functions.
 */

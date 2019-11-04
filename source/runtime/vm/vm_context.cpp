@@ -395,5 +395,70 @@ static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, co
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
+lookup_object* vm_keyerof( vm_context* vm, value v )
+{
+    if ( box_is_number( v ) )
+    {
+        return vm->prototypes[ NUMBER_OBJECT ];
+    }
+    else if ( box_is_string( v ) )
+    {
+        return vm->prototypes[ STRING_OBJECT ];
+    }
+    else if ( box_is_object( v ) )
+    {
+        type_code type = header( unbox_object( v ) )->type;
+        if ( type == LOOKUP_OBJECT )
+        {
+            return (lookup_object*)unbox_object( v );
+        }
+        else
+        {
+            return vm->prototypes[ type ];
+        }
+    }
+    else if ( box_is_bool( v ) )
+    {
+        return vm->prototypes[ BOOL_OBJECT ];
+    }
+    else
+    {
+        return vm->prototypes[ NULL_OBJECT ];
+    }
+}
+
+lookup_object* vm_superof( vm_context* vm, value v )
+{
+    if ( box_is_number( v ) )
+    {
+        return vm->prototypes[ NUMBER_OBJECT ];
+    }
+    else if ( box_is_string( v ) )
+    {
+
+        return vm->prototypes[ STRING_OBJECT ];
+    }
+    else if ( box_is_object( v ) )
+    {
+        type_code type = header( unbox_object( v ) )->type;
+        if ( type == LOOKUP_OBJECT )
+        {
+            return lookup_prototype( vm, (lookup_object*)unbox_object( v ) );
+        }
+        else
+        {
+            return vm->prototypes[ type ];
+        }
+    }
+    else if ( box_is_bool( v ) )
+    {
+        return vm->prototypes[ BOOL_OBJECT ];
+    }
+    else
+    {
+        return vm->prototypes[ NULL_OBJECT ];
+    }
+}
+
 }
 

@@ -1,5 +1,5 @@
 //
-//  prototypes.cpp
+//  corobjects.cpp
 //
 //  Created by Edmund Kapusniak on 03/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,10 +8,9 @@
 //  full license information.
 //
 
-#include "prototypes.h"
+#include "corobjects.h"
 #include <stdlib.h>
 #include <cmath>
-#include "kenaf/runtime.h"
 #include "../objects/array_object.h"
 #include "../objects/table_object.h"
 #include "../objects/cothread_object.h"
@@ -66,36 +65,48 @@ namespace kf
 
 */
 
-vm_context* current_context();
-value get_key( value lookup, value key );
-void set_key( value lookup, value key, value v );
-bool has_key( value lookup, value key );
-void del_key( value lookup, value key );
-
 static size_t superof( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, superof( arguments[ 0 ] ) );
+    vm_context* vm = (vm_context*)cookie;
+    return result( frame, box_object( vm_superof( vm, arguments[ 0 ] ) ) );
 }
 
 static size_t getkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, get_key( arguments[ 0 ], arguments[ 1 ] ) );
+    vm_context* vm = (vm_context*)cookie;
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    selector sel = {};
+    string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
+    return result( frame, lookup_getkey( vm, vm_keyerof( vm, arguments[ 0 ] ), key, &sel ) );
 }
 
 static size_t setkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    set_key( arguments[ 0 ], arguments[ 1 ], arguments[ 2 ] );
+    vm_context* vm = (vm_context*)cookie;
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) throw std::exception();
+    selector sel = {};
+    string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
+    lookup_setkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key, &sel, arguments[ 2 ] );
     return rvoid( frame );
 }
 
 static size_t haskey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( has_key( arguments[ 0 ], arguments[ 1 ] ) ) );
+    vm_context* vm = (vm_context*)cookie;
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return result( frame, boxed_false );
+    string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
+    return result( frame, lookup_haskey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key ) ? boxed_true : boxed_false );
 }
 
 static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    del_key( arguments[ 0 ], arguments[ 1 ] );
+    vm_context* vm = (vm_context*)cookie;
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return rvoid( frame );
+    string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
+    lookup_delkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key );
     return rvoid( frame );
 }
 
@@ -157,32 +168,32 @@ static size_t array_resize( void* cookie, frame* frame, const value* arguments, 
 {
     value a = arguments[ 0 ];
     value n = arguments[ 1 ];
-    if ( ! is_array( a ) ) throw std::exception();
-    if ( ! is_number( n ) ) throw std::exception();
-    array_resize( current_context(), (array_object*)unbox_object( a ), (size_t)(uint64_t)get_number( n ) );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    if ( ! box_is_number( n ) ) throw std::exception();
+    array_resize( (vm_context*)cookie, (array_object*)unbox_object( a ), (size_t)(uint64_t)get_number( n ) );
     return rvoid( frame );
 }
 
 static size_t array_append( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! is_array( a ) ) throw std::exception();
-    array_append( current_context(), (array_object*)unbox_object( a ), arguments[ 1 ] );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    array_append( (vm_context*)cookie, (array_object*)unbox_object( a ), arguments[ 1 ] );
     return rvoid( frame );
 }
 
 static size_t array_extend( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! is_array( a ) ) throw std::exception();
-    array_extend( current_context(), (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    array_extend( (vm_context*)cookie, (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
     return rvoid( frame );
 }
 
 static size_t array_pop( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! is_array( a ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
     array_object* array = (array_object*)unbox_object( a );
     if ( array->length == 0 ) throw std::exception();
     return result( frame, read( read( array->aslots )->slots[ --array->length ] ) );
@@ -191,28 +202,28 @@ static size_t array_pop( void* cookie, frame* frame, const value* arguments, siz
 static size_t array_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! is_array( a ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
     array_object* array = (array_object*)unbox_object( a );
-    array_clear( current_context(), array );
+    array_clear( (vm_context*)cookie, array );
     return rvoid( frame );
 }
 
 static size_t table_has( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! is_table( t ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
     table_object* table = (table_object*)unbox_object( t );
-    return result( frame, bool_value( table_tryindex( current_context(), table, arguments[ 1 ], nullptr ) ) );
+    return result( frame, bool_value( table_tryindex( (vm_context*)cookie, table, arguments[ 1 ], nullptr ) ) );
 }
 
 static size_t table_get( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
     if ( argcount > 3 ) throw std::exception();
-    if ( ! is_table( t ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
     value v;
     table_object* table = (table_object*)unbox_object( t );
-    if ( ! table_tryindex( current_context(), table, arguments[ 1 ], &v ) )
+    if ( ! table_tryindex( (vm_context*)cookie, table, arguments[ 1 ], &v ) )
     {
         v = argcount >= 2 ? arguments[ 2 ] : boxed_null;
     }
@@ -222,18 +233,18 @@ static size_t table_get( void* cookie, frame* frame, const value* arguments, siz
 static size_t table_del( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! is_table( t ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
     table_object* table = (table_object*)unbox_object( t );
-    table_delindex( current_context(), table, arguments[ 1 ] );
+    table_delindex( (vm_context*)cookie, table, arguments[ 1 ] );
     return rvoid( frame );
 }
 
 static size_t table_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! is_table( t ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
     table_object* table = (table_object*)unbox_object( t );
-    table_clear( current_context(), table );
+    table_clear( (vm_context*)cookie, table );
     return rvoid( frame );
 }
 
@@ -242,21 +253,19 @@ static size_t cothread_done( void* cookie, frame* frame, const value* arguments,
     value c = arguments[ 0 ];
     if ( ! is_cothread( c ) ) throw std::exception();
     cothread_object* cothread = (cothread_object*)unbox_object( c );
-    return result( frame, bool_value( cothread->stack_frames.empty() ) );
+    return result( frame, cothread->stack_frames.empty() ? boxed_true : boxed_false );
 }
 
-void expose_prototypes()
+void expose_corobjects( vm_context* vm )
 {
-    vm_context* vm = current_context();
-
     value global = global_object();
     set_key( global, "global", global );
 
-    set_key( global, "superof", create_function( superof, nullptr, 1 ) );
-    set_key( global, "getkey", create_function( getkey, nullptr, 2 ) );
-    set_key( global, "setkey", create_function( setkey, nullptr, 3 ) );
-    set_key( global, "haskey", create_function( haskey, nullptr, 2 ) );
-    set_key( global, "delkey", create_function( delkey, nullptr, 2 ) );
+    set_key( global, "superof", create_function( superof, vm, 1 ) );
+    set_key( global, "getkey", create_function( getkey, vm, 2 ) );
+    set_key( global, "setkey", create_function( setkey, vm, 3 ) );
+    set_key( global, "haskey", create_function( haskey, vm, 2 ) );
+    set_key( global, "delkey", create_function( delkey, vm, 2 ) );
 
     lookup_object* proto_object = vm->prototypes[ LOOKUP_OBJECT ];
     set_key( global, "object", box_object( proto_object ) );
@@ -276,7 +285,7 @@ void expose_prototypes()
     set_key( global, "number", box_object( proto_number ) );
     if ( ! lookup_sealed( vm, proto_number ) )
     {
-        set_key( box_object( proto_number ), "self", create_function( number_self, nullptr, 2 ) );
+        set_key( box_object( proto_number ), "self", create_function( number_self, vm, 2 ) );
         lookup_seal( vm, proto_number );
     }
 
@@ -284,7 +293,7 @@ void expose_prototypes()
     set_key( global, "string", box_object( proto_string ) );
     if ( ! lookup_sealed( vm, proto_string ) )
     {
-        set_key( box_object( proto_string ), "self", create_function( string_self, nullptr, 2 ) );
+        set_key( box_object( proto_string ), "self", create_function( string_self, vm, 2 ) );
         lookup_seal( vm, proto_string );
     }
 
@@ -292,11 +301,11 @@ void expose_prototypes()
     set_key( global, "array", box_object( proto_array ) );
     if ( ! lookup_sealed( vm, proto_array ) )
     {
-        set_key( box_object( proto_array ), "resize", create_function( array_resize, nullptr, 2 ) );
-        set_key( box_object( proto_array ), "append", create_function( array_append, nullptr, 2 ) );
-        set_key( box_object( proto_array ), "extend", create_function( array_extend, nullptr, 1, PARAM_VARARG ) );
-        set_key( box_object( proto_array ), "pop", create_function( array_pop, nullptr, 1 ) );
-        set_key( box_object( proto_array ), "clear", create_function( array_clear, nullptr, 1 ) );
+        set_key( box_object( proto_array ), "resize", create_function( array_resize, vm, 2 ) );
+        set_key( box_object( proto_array ), "append", create_function( array_append, vm, 2 ) );
+        set_key( box_object( proto_array ), "extend", create_function( array_extend, vm, 1, PARAM_VARARG ) );
+        set_key( box_object( proto_array ), "pop", create_function( array_pop, vm, 1 ) );
+        set_key( box_object( proto_array ), "clear", create_function( array_clear, vm, 1 ) );
         lookup_seal( vm, proto_array );
     }
 
@@ -304,10 +313,10 @@ void expose_prototypes()
     set_key( global, "table", box_object( proto_table ) );
     if ( ! lookup_sealed( vm, proto_table ) )
     {
-        set_key( box_object( proto_table ), "has", create_function( table_has, nullptr, 2 ) );
-        set_key( box_object( proto_table ), "get", create_function( table_get, nullptr, 2, PARAM_VARARG ) );
-        set_key( box_object( proto_table ), "del", create_function( table_del, nullptr, 2 ) );
-        set_key( box_object( proto_table ), "clear", create_function( table_clear, nullptr, 1 ) );
+        set_key( box_object( proto_table ), "has", create_function( table_has, vm, 2 ) );
+        set_key( box_object( proto_table ), "get", create_function( table_get, vm, 2, PARAM_VARARG ) );
+        set_key( box_object( proto_table ), "del", create_function( table_del, vm, 2 ) );
+        set_key( box_object( proto_table ), "clear", create_function( table_clear, vm, 1 ) );
         lookup_seal( vm, proto_table );
     }
 
@@ -322,7 +331,7 @@ void expose_prototypes()
     set_key( global, "cothread", box_object( proto_cothread ) );
     if ( ! lookup_sealed( vm, proto_cothread ) )
     {
-        set_key( box_object( proto_cothread ), "done", create_function( cothread_done, nullptr, 1 ) );
+        set_key( box_object( proto_cothread ), "done", create_function( cothread_done, vm, 1 ) );
         lookup_sealed( vm, proto_cothread );
     }
 }

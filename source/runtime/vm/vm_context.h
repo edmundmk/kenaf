@@ -125,6 +125,13 @@ vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned
 vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp );
 vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp );
 
+/*
+    Common object model operations.
+*/
+
+lookup_object* vm_keyerof( vm_context* vm, value object );
+lookup_object* vm_superof( vm_context* vm, value object );
+
 }
 
 #endif
