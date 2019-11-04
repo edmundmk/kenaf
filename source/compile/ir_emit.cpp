@@ -1064,12 +1064,12 @@ void ir_emit::move( srcloc sloc, unsigned target, unsigned source )
     }
 }
 
-bool ir_emit::move_is_target( unsigned source )
+bool ir_emit::move_is_source( unsigned target )
 {
     // Do a linear search since the number of moves is likely to be tiny.
     for ( const move_entry& move : _moves )
     {
-        if ( move.target == source )
+        if ( move.source == target )
         {
             return true;
         }
@@ -1087,13 +1087,13 @@ void ir_emit::move_emit()
         []( const move_entry& a, const move_entry& b ) { return a.target < b.target; }
     );
 
-    // Perform moves where the source register is not itself a target.
+    // Perform moves where the target register is not used elsewhere.
     while ( true )
     {
         unsigned i = 0;
         for ( ; i < _moves.size(); ++i )
         {
-            if ( ! move_is_target( _moves[ i ].source ) )
+            if ( ! move_is_source( _moves[ i ].target ) )
             {
                 break;
             }

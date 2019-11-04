@@ -77,7 +77,7 @@ private:
     bool match_operands( const ir_op* iop, const emit_shape* shape );
 
     void move( srcloc sloc, unsigned target, unsigned source );
-    bool move_is_target( unsigned source );
+    bool move_is_source( unsigned source );
     void move_emit();
 
     void emit( srcloc sloc, op op );
