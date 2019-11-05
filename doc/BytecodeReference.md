@@ -68,8 +68,8 @@ formats, which divide the instruction into sub-fields.
 
           31    24   23    16   15     8   7      0
     AB  [        b |        a |        r |   opcode ]
-    AC  [                   c |        r |   opcode ]
-    AJ  [                   j |        r |   opcode ]
+    RC  [                   c |        r |   opcode ]
+    RJ  [                   j |        r |   opcode ]
 
 The low byte of each instruction contains the opcode.  The remaining fields
 encode one of the following:
@@ -87,7 +87,7 @@ instruction encoded in AB format *must* be immediately followed by a `JMP`
 instruction encoded in AJ format:
 
     AB  [        b |        a |        r |   opcode ]
-    AJ  [                   j |        - |      JMP ]
+    RJ  [                   j |        - |      JMP ]
 
 The virtual machine treats these instruction pairs as a single operation.
 
@@ -101,8 +101,8 @@ The `SWP` instruction swaps the values in the two registers.
 
 ## Constant Loading
 
-    AC  [                   c |        r |      LDK ]   LDK r, #c
-    AC  [                   c |        r |      LDV ]   LDV r, #c
+    RC  [                   c |        r |      LDK ]   LDK r, #c
+    RC  [                   c |        r |      LDV ]   LDV r, #c
 
 Loads a constant value into register `r`.  For `LDK`, the constant is loaded
 from the program's constant pool, indexed by `c`.  For `LDV`, the constant is
@@ -148,9 +148,9 @@ false.  All other values test true.
 
 ## Jump and Test
 
-    AJ  [                   j |        - |      JMP ]   JMP :addr
-    AJ  [                   j |        r |       JT ]   JT r, :addr
-    AJ  [                   j |        r |       JF ]   JF r, :addr
+    RJ  [                   j |        - |      JMP ]   JMP :addr
+    RJ  [                   j |        r |       JT ]   JT r, :addr
+    RJ  [                   j |        r |       JF ]   JF r, :addr
 
 Jumps by adding a signed 16-bit displacement `j` to the instruction pointer.
 The instruction pointer counts in units of one instruction, and is incremented
@@ -228,6 +228,34 @@ the presence of NaNs.
 
 To negate a comparison and branch when the condition is `false`, simply swap
 the `r` field.
+
+## Environment
+
+    RC  [                   c |        r |  NEW_ENV ]   NEW_ENV r, #c
+    AB  [        b |        a |        r | GET_VENV ]   GET_VARENV r, a, #b
+    AB  [        b |        a |        r | SET_VENV ]   SET_VARENV r, a, #b
+    AB  [        b |        a |        r | GET_OENV ]   GET_OUTENV r, ^a, #b
+    AB  [        b |        a |        r | GET_OENV ]   GET_OUTENV r, ^a, #b
+
+Function closures are implemented using environment records.  An environment
+record is a fixed-length tuple of values.  When a function is created it is
+initialized with a tuple of environment records containing the variables it
+captures, called its *outenv*.
+
+Captured variables are not stored in registers, but rather in an environment
+record, even in the function where they are declared.
+
+`NEW_ENV` creates a new environment record with length `c` and stores it in
+register `r`.
+
+`GET_VARENV` and `SET_VARENV` index values from the environment record stored
+in register `a` using index `b`.
+
+`GET_OUTENV` and `SET_OUTENV` index values from an environment record from the
+current function's *outenv*, using `a` to index an environment record from the
+function's outenv, and `b` to index a value from that record.
+
+`r` is either the destination register, or contains the value to assign.
 
 ## Concatenation
 
