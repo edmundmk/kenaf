@@ -50,9 +50,9 @@ and resumed independently of the state of other cothreads.  To achieve this,
 each cothread has its own execution and call stack.
 
 The *execution stack* is an array of values.  Each function operates on a bank
-of numbered registers.  These registers are actually values on the call stack.
-Each call frame establishes a register window on the call stack starting at the
-current frame pointer.
+of numbered registers.  These registers are actually values on the execution
+stack.  Each call frame establishes a register window on the call stack
+starting at the current frame pointer.
 
 The *call stack* is an array of call frames.  As functions are called, new
 call frames are pushed onto the call stack, providing a new frame pointer for
@@ -198,9 +198,10 @@ these instructions throw a type error.  `JLTN`, `JGTN`, `JLEN` and `JGEN`
 compare a number in register `r` with a constant number.  If the register
 operand is not a number, throws a type error.
 
-String comparisons compare successive pairs of coding units until the reaching
-a pair which does not compare equal, or reaching the length of the shortest
-string, in which case the shorter string compares less than the longer one.
+String comparisons compare successive pairs of coding units until either
+reaching a pair which does not compare equal, or reaching the length of the
+shortest string, in which case the shorter string compares less than the longer
+one.
 
 This set of instructions is sufficient to encode numeric comparisons, even in
 the presence of NaNs.
