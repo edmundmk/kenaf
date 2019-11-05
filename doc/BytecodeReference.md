@@ -248,12 +248,12 @@ record, even in the function where they are declared.
 `NEW_ENV` creates a new environment record with length `c` and stores it in
 register `r`.
 
-`GET_VARENV` and `SET_VARENV` index values from the environment record stored
-in register `a` using index `b`.
+`GET_VARENV` and `SET_VARENV` index a value using `b` from the environment
+record stored in register `a`.
 
-`GET_OUTENV` and `SET_OUTENV` index values from an environment record from the
-current function's *outenv*, using `a` to index an environment record from the
-function's outenv, and `b` to index a value from that record.
+`GET_OUTENV` and `SET_OUTENV` index values from the current function's outenv,
+using `a` to select an environment record from the outenv, and `b` to index a
+value from that environment record.
 
 `r` is either the destination register, or contains the value to assign.
 
