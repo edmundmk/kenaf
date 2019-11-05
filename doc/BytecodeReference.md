@@ -198,7 +198,9 @@ these instructions throw a type error.  `JLTN`, `JGTN`, `JLEN` and `JGEN`
 compare a number in register `r` with a constant number.  If the register
 operand is not a number, throws a type error.
 
-String comparisons compare successive coding units.
+String comparisons compare successive pairs of coding units until the reaching
+a pair which does not compare equal, or reaching the length of the shortest
+string, in which case the shorter string compares less than the longer one.
 
 This set of instructions is sufficient to encode numeric comparisons, even in
 the presence of NaNs.
