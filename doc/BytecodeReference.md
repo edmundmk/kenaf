@@ -49,25 +49,25 @@ The virtual machine has a stack of cothreads.  Each cothread can be suspended
 and resumed independently of the state of other cothreads.  To achieve this,
 each cothread has its own execution and call stack.
 
-The *execution stack* is an array of values.  Each function operates on some
-number of registers.  These registers are actually values on the call stack.
+The *execution stack* is an array of values.  Each function operates on a bank
+of numbered registers.  These registers are actually values on the call stack.
 Each call frame establishes a register window on the call stack starting at the
 current frame pointer.
 
 The *call stack* is an array of call frames.  As functions are called, new
-call frames are pushed onto the call stack, providing base and frame pointers.
+call frames are pushed onto the call stack, providing a new frame pointer for
+the called function.
 
 
 # Instructions
 
 ## Instruction Formats
 
-Each instruction is encoded in 32 bits.  There are four different instruction
+Each instruction is encoded in 32 bits.  There are three different instruction
 formats, which divide the instruction into sub-fields.
 
           31    24   23    16   15     8   7      0
     AB  [        b |        a |        r |   opcode ]
-    AI  [        i |        a |        r |   opcode ]
     AC  [                   c |        r |   opcode ]
     AJ  [                   j |        r |   opcode ]
 
@@ -82,6 +82,15 @@ encode one of the following:
 
 Jump offsets are encoded as signed displacements relative to the instruction
 following the jump, counting in instructions.
+
+The ABJ format is used for comparison and loop instructions.  In this case, an
+instruction encoded in AB format *must* be immediately followed by a `JMP`
+instruction encoded in AJ format:
+
+    AB  [        b |        a |        r |   opcode ]
+    AJ  [                   j |        - |      JMP ]
+
+The virtual machine treats these instruction pairs as a single operation.
 
 ## Data Transfer
 
@@ -104,21 +113,33 @@ one of the following fixed values, depending on `c`:
   * `1` : `false`.
   * `2` : `true`.
 
-## Unary Arithmetic
+## Arithmetic
 
     AB  [        - |        a |        r |      NEG ]   NEG r, a
     AB  [        - |        a |        r |      POS ]   POS r, a
-    AB  [        - |        a |        r |   BITNOT ]   BITNOT r, a
+    AB  [        b |        a |        r |      ADD ]   ADD r, a, b
+    AB  [        b |        a |        r |     ADDN ]   ADDN r, a, #b
+    AB  [        b |        a |        r |      SUB ]   SUB r, a, b
+    AB  [        b |        a |        r |     SUBN ]   SUBN r, a, #b
+    AB  [        b |        a |        r |      MUL ]   MUL r, a, b
+    AB  [        b |        a |        r |     MULN ]   MULN r, a, #b
+    AB  [        b |        a |        r |      DIV ]   DIV r, a, b
+    AB  [        b |        a |        r |   INTDIV ]   INTDIV r, a, b
+    AB  [        b |        a |        r |      MOD ]   MOD r, a, b
 
-Performs a unary arithmetic operation on the number in register `a` and writes
-the result to register `r`.  If the value is not a number, throws a
-`type_error`.
+These instructions perform arithmetic.  The first operand is the number in
+register `a`.  The second operand, if present, is either the number in register
+`b`, or (for `N` variants), a number loaded from the current program's constant
+array, indexed by `b`.
 
-`BITNOT` is a bitwise operation, truncating its operand to a 32-bit bit pattern
-and resulting in an unsigned integer.  The exact process used for bitwise
-operations is described in a later section.
+The interpreter assumes that constant values references by these instructions
+are numbers.  If either register operand is not a number, throws a type error.
 
-## Unary Bitwise
+The `SUB` and `SUBN` instructions swap their operands, i.e. they perform
+`b - a`.  Subtraction of a constant can be can expressed using the `ADDN`
+instruction with a negated second operand.
+
+## Logical Not
 
     AB  [        - |        a |        r |      NOT ]   NOT r, a
 
@@ -126,40 +147,85 @@ Writes either `true` or `false` into register `r` depending on the result of
 testing the value in register `a`.  `null`, `false`, `+0.0` and `-0.0` test
 false.  All other values test true.
 
-## Length
+## Jump and Test
 
-    AB  [        - |        a |        r |      LEN ]   LEN r, a
+    AJ  [                   j |        - |      JMP ]   JMP :addr
+    AJ  [                   j |        r |       JT ]   JT r, :addr
+    AJ  [                   j |        r |       JF ]   JF r, :addr
 
-Queries the length of the value in register `a` and writes the result to
-register `r`.
+Jumps by adding a signed 16-bit displacement `j` to the instruction pointer.
+The instruction pointer counts in units of one instruction, and is incremented
+after each instruction is read.  Displacements are relative to the index of the
+instruction following the jump.
 
-  * The length of a string is the number of UTF-8 encoding units.
-  * The length of an array is the number of elements.
-  * The length of a table is the number of entries.
+`JT` jumps only if the value in register `r` tests true.  `JF` jumps only if
+the value in register `r` tests false.
 
-Any other value throws a `type_error`.
+## Comparisons
 
-## Binary Arithmetic with Constant
+    ABJ [        b |        a |        r |      JEQ ][ JMP ]    JEQT/JEQF a, b, :addr
+    ABJ [        b |        a |        r |     JEQN ][ JMP ]    JEQTN/JEQFN a, #b, :addr
+    ABJ [        b |        a |        r |     JEQS ][ JMP ]    JEQTS/JEQFS a, #b, :addr
+    ABJ [        b |        a |        r |      JLT ][ JMP ]    JLTT/JLTF a, b, :addr
+    ABJ [        b |        a |        r |     JLTN ][ JMP ]    JLTTN/JLTFN a, #b, :addr
+    ABJ [        b |        a |        r |     JGTN ][ JMP ]    JGTTN/JGTFN a, #b, :addr
+    ABJ [        b |        a |        r |      JLE ][ JMP ]    JLET/JLEF a, b, :addr
+    ABJ [        b |        a |        r |     JLEN ][ JMP ]    JLETN/JLEFN a, #b, :addr
+    ABJ [        b |        a |        r |     JGEN ][ JMP ]    JGETN/JGEFN a, #b, :addr
 
-    AB  [        b |        a |        r |      ADD ]   ADD r, a, b
-    AB  [        b |        a |        r |     ADDN ]   ADDN r, a, #b
-    AB  [        b |        a |        r |      SUB ]   SUB r, a, b
-    AB  [        b |        a |        r |     SUBN ]   SUBN r, a, #b
-    AB  [        b |        a |        r |      MUL ]   MUL r, a, b
-    AB  [        b |        a |        r |     MULN ]   MULN r, a, #b
+Performs a comparison and the jumps depending on the result.  The first operand
+is the value in register `a`.  The second operand is either the value in
+register `b`, or a value loaded from the current program's constant array,
+indexed by `b`.  `N` variants treat the constant as a number.  `S` variants
+treat the constant as a string.
 
-Performs an arithmetic operation using the number in register `a` and the
-number loaded by the second operand, and writes the result to register `r`.
-If either operand is not a number, throws `type_error`.
+The interpreter assumes that constants are of the correct type.
 
-There are two forms of each of these arithmetic instructions, which differ in
-the treatment of the second operand.  The `N` forms of the instructions load
-a value from the program's constant pool, indexed by `b`.  The normal forms
-of the instruction use the value in register `b`.
+Each instruction has two mnemonics.  `T` variants are encoded with the `r`
+field set to `1`, and branch when the condition is `true`.  `F` variants are
+encoded with the `r` field set to `0`, and branch when the condition is
+`false`.
 
-For `SUB` and `SUBN`, the order of the operands is swapped - the number in
-register `a` is subtracted from the second operand.  Subtraction of a constant
-can expressed using the `ADDN` instruction with a negated second operand.
+`JEQ`, `JEQN`, and `JEQS` check two values for equality.  Two numbers compare
+equal using the normal rules for floating-point equality.  Two strings compare
+equal if they have the same characters.  Other values compare equal only if
+they are the same value.  An equality comparison between two values of
+different types always results in `false`.
+
+The remaining instructions perform ordering comparisons.  `JLT` and `JLE`
+compare either numbers or strings.  If the operands are of different types,
+these instructions throw a type error.  `JLTN`, `JGTN`, `JLEN` and `JGEN`
+compare a number in register `r` with a constant number.  If the register
+operand is not a number, throws a type error.
+
+String comparisons compare successive coding units.
+
+This set of instructions is sufficient to encode numeric comparisons, even in
+the presence of NaNs.
+
+    u == v      JEQT u, v
+    u != v      JEQF u, v       -- not
+    u < v       JLTT u, v
+    u <= v      JLET u, v
+    u > v       JLTT v, u       -- swapped
+    u >= v      JLET v, u       -- swapped
+
+    u == 1.0    JEQTN u, #1.0
+    u != 1.0    JEQFN u, #1.0   -- not
+    u < 1.0     JLTTN u, #1.0
+    u <= 1.0    JLETN u, #1.0
+    u > 1.0     JGTTN u, #1.0
+    u >= 1.0    JGETN u, #1.0
+
+    1.0 == u    JEQTN u, #1.0
+    1.0 != u    JEQFN u, #1.0   -- not
+    1.0 < u     JGTTN u, #1.0   -- swapped
+    1.0 <= u    JGETN u, #1.0   -- swapped
+    1.0 > u     JLTTN u, #1.0   -- swapped
+    1.0 >= u    JLETN u, #1.0   -- swapped
+
+To negate a comparison and branch when the condition is `false`, simply swap
+the `r` field.
 
 ## Concatenation
 
@@ -169,25 +235,18 @@ can expressed using the `ADDN` instruction with a negated second operand.
 
 Concatenates the string in register `a` with the string in register `b`, and
 stores the result in register `r`.  If either operand is not a string, throws
-`type_error`.
+a type error.
 
 `CONCATS` uses a string from the constant pool, indexed by `b` as the second
 operand.  `RCONCATS` similarly uses a string from the constant pool as the
 second operand, and also swaps the two operands, concatenating the constant
 indexed by `b` with the string in register `a`.
 
-## Binary Arithmetic
-
-    AB  [        b |        a |        r |      DIV ]   DIV r, a, b
-    AB  [        b |        a |        r |   INTDIV ]   INTDIV r, a, b
-    AB  [        b |        a |        r |      MOD ]   MOD r, a, b
-
-Performs an arithmetic operation on the numbers in registers `a` and `b`, and
-writes the result to register `r`.  If either operand is not a number, throws
-`type_error`.
+The interpreter assumes that constants are valid strings.
 
 ## Bitwise Instructions
 
+    AB  [        - |        a |        r |   BITNOT ]   BITNOT r, a
     AB  [        b |        a |        r |   LSHIFT ]   LSHIFT r, a, b
     AB  [        b |        a |        r |   RSHIFT ]   RSHIFT r, a, b
     AB  [        b |        a |        r |   ASHIFT ]   ASHIFT r, a, b
@@ -195,12 +254,13 @@ writes the result to register `r`.  If either operand is not a number, throws
     AB  [        b |        a |        r |   BITXOR ]   BITXOR r, a, b
     AB  [        b |        a |        r |    BITOR ]   BITOR r, a, b
 
-Performs a 32-bit bitwise operands on the numbers in registers `a` and `b`, and
-writes the result to register `r`.  If either operand is not a number, throws
-`type_error`.
+Performs a 32-bit bitwise operation on the numbers in registers `a` and `b`,
+and writes the result to register `r`.  If either operand is not a number,
+throws a type error.
 
 The operations are:
 
+  * `BITNOT` performs bitwise not.  Has only a single operand.
   * `LSHIFT` performs a left shift.
   * `RSHIFT` performs a logical right shift.
   * `ASHIFT` preforms an arithmetic right shift.
@@ -222,10 +282,16 @@ considering the low 32 bits and treating them as an unsigned integer.  The
 result of a bitwise operation is always in the range `0 <= result <
 0xFFFFFFFF`.
 
-## Prototype Check
+## Length
 
-## Jump
+    AB  [        - |        a |        r |      LEN ]   LEN r, a
 
-## Test
+Queries the length of the value in register `a` and writes the result to
+register `r`.
 
-## Comparisons
+  * The length of a string is the number of UTF-8 encoding units.
+  * The length of an array is the number of elements.
+  * The length of a table is the number of entries.
+
+Any other value throws a type error.
+
