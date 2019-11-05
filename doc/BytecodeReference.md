@@ -77,7 +77,6 @@ encode one of the following:
   * `r`, `a`, and `b` are unsigned 8-bit register numbers, indexes, or
     immediates.
   * `c` is an unsigned 16-bit index or immediate.
-  * `i` is a signed 8-bit immediate.
   * `j` is a signed 16-bit jump offset or immediate.
 
 Jump offsets are encoded as signed displacements relative to the instruction
