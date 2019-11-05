@@ -134,22 +134,22 @@ int main( int argc, char* argv[] )
     compilation.reset();
 
     // Executes script, passing remaining command line arguments.
-    kf::frame frame;
-    kf::stack_values arguments = kf::push_frame( &frame, argc - i );
+    kf::stack_frame frame;
+    kf::stack_values arguments = kf::push_frame( frame, argc - i );
     size_t argindex = 0;
     while ( i < argc )
     {
         arguments.values[ argindex++ ] = kf::create_string( argv[ i++ ] );
     }
 
-    kf::stack_values results = kf::call_frame( &frame, main );
+    kf::stack_values results = kf::call_frame( frame, main );
     int result = EXIT_SUCCESS;
     if ( results.count && is_number( results.values[ 0 ] ) )
     {
         result = (int)get_number( results.values[ 0 ] );
     }
 
-    kf::pop_frame( &frame );
+    kf::pop_frame( frame );
 
     return result;
 }
