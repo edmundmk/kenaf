@@ -68,24 +68,26 @@ const value boxed_null  = { 0 };
 const value boxed_false = { 1 };
 const value boxed_true  = { 2 };
 
-inline bool box_is_null( value v )              { return v.v == boxed_null.v; }
-inline bool box_is_false( value v )             { return v.v == boxed_false.v; }
-inline bool box_is_true( value v )              { return v.v == boxed_true.v; }
-inline bool box_is_bool( value v )              { return v.v >= 1 && v.v < 3; }
-inline bool box_is_object( value v )            { return v.v >= 3 && v.v < UINT64_C( 0x0004'0000'0000'0000 ); }
-inline bool box_is_string( value v )            { return v.v >= UINT64_C( 0x0004'0000'0000'0000 ) && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
-inline bool box_is_number( value v )            { return v.v >= UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool box_is_null( value v )                  { return v.v == boxed_null.v; }
+inline bool box_is_false( value v )                 { return v.v == boxed_false.v; }
+inline bool box_is_true( value v )                  { return v.v == boxed_true.v; }
+inline bool box_is_bool( value v )                  { return v.v >= 1 && v.v < 3; }
+inline bool box_is_object( value v )                { return v.v >= 3 && v.v < UINT64_C( 0x0004'0000'0000'0000 ); }
+inline bool box_is_string( value v )                { return v.v >= UINT64_C( 0x0004'0000'0000'0000 ) && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool box_is_number( value v )                { return v.v >= UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool box_is_object_or_string( value v )      { return v.v >= 3 && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
 
-inline value box_object( object* p )            { return { (uint64_t)p }; }
-inline value box_string( string_object* s )     { return { (uint64_t)s | UINT64_C( 0x0004'0000'0000'0000 ) }; }
-inline object* unbox_object( value v )          { return (object*)v.v; }
-inline string_object* unbox_string( value v )   { return (string_object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
+inline value box_object( object* p )                { return { (uint64_t)p }; }
+inline value box_string( string_object* s )         { return { (uint64_t)s | UINT64_C( 0x0004'0000'0000'0000 ) }; }
+inline object* unbox_object( value v )              { return (object*)v.v; }
+inline string_object* unbox_string( value v )       { return (string_object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
+inline object* unbox_object_or_string( value v )    { return (object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
 
-inline value box_number( double n )             { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
-inline double unbox_number( value v )           { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
+inline value box_number( double n )                 { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
+inline double unbox_number( value v )               { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
 
-inline value box_index( size_t i )              { return { ~(uint64_t)i }; }
-inline size_t unbox_index( value v )            { return ~v.v; }
+inline value box_index( size_t i )                  { return { ~(uint64_t)i }; }
+inline size_t unbox_index( value v )                { return ~v.v; }
 
 value box_object( string_object* p ) = delete;  // Prohibit boxing strings as objects.
 

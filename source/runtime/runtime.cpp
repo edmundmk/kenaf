@@ -149,13 +149,52 @@ inline vm_context* current() { return &current_runtime->vm; }
 
 value retain( value v )
 {
-    // TODO
+    if ( box_is_object_or_string( v ) )
+    {
+        object* o = unbox_object_or_string( v );
+        object_header* h = header( o );
+        if ( h->refcount == 0 )
+        {
+            vm_context* vm = current();
+            assert( ! vm->roots.contains( o ) );
+            vm->roots.insert_or_assign( o, 0 );
+        }
+        if ( ++h->refcount == 0 )
+        {
+            vm_context* vm = current();
+            vm->roots.at( o ) += 1;
+            h->refcount = 255;
+        }
+    }
     return v;
 }
 
 void release( value v )
 {
-    // TODO
+    if ( box_is_object_or_string( v ) )
+    {
+        object* o = unbox_object_or_string( v );
+        object_header* h = header( o );
+        assert( h->refcount > 0 );
+        if ( h->refcount == 255 )
+        {
+            vm_context* vm = current();
+            size_t& refcount = vm->roots.at( o );
+            if ( refcount > 0 )
+            {
+                refcount -= 1;
+            }
+            else
+            {
+                h->refcount -= 1;
+            }
+        }
+        else if ( --h->refcount == 0 )
+        {
+            vm_context* vm = current();
+            vm->roots.erase( o );
+        }
+    }
 }
 
 value_kind kindof( value v )
