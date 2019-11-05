@@ -52,6 +52,8 @@ sources += lemon.process( 'source/compile/grammar.lemon' )
 
 libkenaf = library(
     'kenaf',
+    gnu_symbol_visibility : 'hidden',
+    cpp_args : [ '-DKF_BUILD' ],
     include_directories : include_directories( 'include', 'source/compile' ),
     sources : sources,
     install : true

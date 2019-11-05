@@ -27,6 +27,7 @@
 #define KENAF_COMPILE_H
 
 #include <string_view>
+#include "defines.h"
 
 namespace kf
 {
@@ -35,13 +36,13 @@ namespace kf
     Warnings and errors from compilation.
 */
 
-enum diagnostic_kind
+enum KF_API diagnostic_kind
 {
     ERROR,
     WARNING,
 };
 
-struct diagnostic
+struct KF_API diagnostic
 {
     diagnostic_kind kind;
     unsigned line;
@@ -55,21 +56,21 @@ struct diagnostic
 */
 
 struct compilation;
-struct code_view { const void* code; size_t size; };
+struct KF_API code_view { const void* code; size_t size; };
 
-compilation* retain_compilation( compilation* cn );
-void release_compilation( compilation* cn );
+KF_API compilation* retain_compilation( compilation* cn );
+KF_API void release_compilation( compilation* cn );
 
-bool success( compilation* cn );
-code_view get_code( compilation* cn );
-size_t diagnostic_count( compilation* cn );
-diagnostic get_diagnostic( compilation* cn, size_t index );
+KF_API bool success( compilation* cn );
+KF_API code_view get_code( compilation* cn );
+KF_API size_t diagnostic_count( compilation* cn );
+KF_API diagnostic get_diagnostic( compilation* cn, size_t index );
 
 /*
     Compile source text.
 */
 
-enum
+enum KF_API
 {
     PRINT_NONE          = 0,
     PRINT_AST_PARSED    = 1 << 0,
@@ -83,13 +84,13 @@ enum
     PRINT_CODE          = 1 << 8,
 };
 
-compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print = PRINT_NONE );
+KF_API compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print = PRINT_NONE );
 
 /*
     Print bytecode
 */
 
-void debug_print_code( const void* code, size_t size );
+KF_API void debug_print_code( const void* code, size_t size );
 
 }
 

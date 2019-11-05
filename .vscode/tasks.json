@@ -36,7 +36,7 @@
         {
             "label": "release build",
             "type": "shell",
-            "command": "if [ ! -e rbuild/build/build.ninja ]; then meson --buildtype debugoptimized --prefix $(pwd)/rbuild rbuild/build; fi; meson install -C rbuild/build --only-changed",
+            "command": "if [ ! -e rbuild/build/build.ninja ]; then meson -Db_lto=true --buildtype debugoptimized --prefix $(pwd)/rbuild rbuild/build; fi; meson install -C rbuild/build --only-changed",
             "group": "build",
             "presentation": {
                 "echo": true,

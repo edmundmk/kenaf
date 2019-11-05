@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <exception>
 #include <string_view>
+#include "defines.h"
 
 namespace kf
 {
@@ -37,7 +38,7 @@ namespace kf
     Value structure.
 */
 
-struct value { uint64_t v; };
+struct KF_API value { uint64_t v; };
 
 /*
     A runtime manages the global state of a virtual machine, including the
@@ -46,9 +47,9 @@ struct value { uint64_t v; };
 
 struct runtime;
 
-runtime* create_runtime();
-runtime* retain_runtime( runtime* r );
-void release_runtime( runtime* r );
+KF_API runtime* create_runtime();
+KF_API runtime* retain_runtime( runtime* r );
+KF_API void release_runtime( runtime* r );
 
 /*
     A context consists of a runtime and a global object.  Contexts on the same
@@ -57,18 +58,18 @@ void release_runtime( runtime* r );
 
 struct context;
 
-context* create_context( runtime* r );
-context* retain_context( context* c );
-void release_context( context* c );
+KF_API context* create_context( runtime* r );
+KF_API context* retain_context( context* c );
+KF_API void release_context( context* c );
 
-context* make_current( context* c );
-value global_object();
+KF_API context* make_current( context* c );
+KF_API value global_object();
 
 /*
     Values.
 */
 
-enum value_kind
+enum KF_API value_kind
 {
     LOOKUP,
     STRING,
@@ -81,95 +82,95 @@ enum value_kind
     NULL_VALUE,
 };
 
-value retain( value v );
-void release( value v );
+KF_API value retain( value v );
+KF_API void release( value v );
 
-value_kind kindof( value v );
-bool is_lookup( value v );
-bool is_string( value v );
-bool is_array( value v );
-bool is_table( value v );
-bool is_function( value v );
-bool is_cothread( value v );
-bool is_number( value v );
-bool is_bool( value v );
-bool is_null( value v );
+KF_API value_kind kindof( value v );
+KF_API bool is_lookup( value v );
+KF_API bool is_string( value v );
+KF_API bool is_array( value v );
+KF_API bool is_table( value v );
+KF_API bool is_function( value v );
+KF_API bool is_cothread( value v );
+KF_API bool is_number( value v );
+KF_API bool is_bool( value v );
+KF_API bool is_null( value v );
 
-value null_value();
-value true_value();
-value false_value();
+KF_API value null_value();
+KF_API value true_value();
+KF_API value false_value();
 
-value superof( value v );
-bool test( value v );
+KF_API value superof( value v );
+KF_API bool test( value v );
 
-value bool_value( bool b );
-bool get_bool( value v );
+KF_API value bool_value( bool b );
+KF_API bool get_bool( value v );
 
-value number_value( double n );
-double get_number( value v );
+KF_API value number_value( double n );
+KF_API double get_number( value v );
 
-value create_lookup();
-value create_lookup( value prototype );
-value get_key( value lookup, std::string_view k );
-void set_key( value lookup, std::string_view k, value v );
-bool has_key( value lookup, std::string_view k );
-void del_key( value lookup, std::string_view k );
+KF_API value create_lookup();
+KF_API value create_lookup( value prototype );
+KF_API value get_key( value lookup, std::string_view k );
+KF_API void set_key( value lookup, std::string_view k, value v );
+KF_API bool has_key( value lookup, std::string_view k );
+KF_API void del_key( value lookup, std::string_view k );
 
-value create_string( std::string_view text );
-value create_string_buffer( size_t size, char** out_text );
-std::string_view get_text( value string );
+KF_API value create_string( std::string_view text );
+KF_API value create_string_buffer( size_t size, char** out_text );
+KF_API std::string_view get_text( value string );
 
-value create_array();
-value create_array( size_t capacity );
-size_t array_length( value array );
-void array_resize( value array, size_t length );
-void array_append( value array, value v );
-void array_clear( value array );
+KF_API value create_array();
+KF_API value create_array( size_t capacity );
+KF_API size_t array_length( value array );
+KF_API void array_resize( value array, size_t length );
+KF_API void array_append( value array, value v );
+KF_API void array_clear( value array );
 
-value create_table();
-value create_table( size_t capacity );
-size_t table_length( value table );
-void table_clear( value table );
+KF_API value create_table();
+KF_API value create_table( size_t capacity );
+KF_API size_t table_length( value table );
+KF_API void table_clear( value table );
 
-value get_index( value table, value k );
-value get_index( value array, size_t index );
-void set_index( value table, value k, value v );
-void set_index( value array, size_t index, value v );
-void del_index( value table, value k );
+KF_API value get_index( value table, value k );
+KF_API value get_index( value array, size_t index );
+KF_API void set_index( value table, value k, value v );
+KF_API void set_index( value array, size_t index, value v );
+KF_API void del_index( value table, value k );
 
-value create_function( const void* code, size_t size );
+KF_API value create_function( const void* code, size_t size );
 
 /*
     Native function interface.
 */
 
-struct frame { void* sp; size_t fp; };
+struct KF_API frame { void* sp; size_t fp; };
 
 typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
-enum
+enum KF_API
 {
     PARAM_VARARG = 1 << 0,
 };
 
-value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
+KF_API value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
-value* arguments( frame* frame );
-value* results( frame* frame, size_t count );
-size_t result( frame* frame, value v );
-size_t rvoid( frame* frame );
+KF_API value* arguments( frame* frame );
+KF_API value* results( frame* frame, size_t count );
+KF_API size_t result( frame* frame, value v );
+KF_API size_t rvoid( frame* frame );
 
 /*
     Calling functions from native code.
 */
 
-struct stack_values { value* values; size_t count; };
-stack_values push_frame( frame* frame, size_t argcount );
-stack_values call_frame( frame* frame, value function );
-void pop_frame( frame* frame );
+struct KF_API stack_values { value* values; size_t count; };
+KF_API stack_values push_frame( frame* frame, size_t argcount );
+KF_API stack_values call_frame( frame* frame, value function );
+KF_API void pop_frame( frame* frame );
 
-value call( value function, const value* arguments, size_t argcount );
-value call( value function, std::initializer_list< value > arguments );
+KF_API value call( value function, const value* arguments, size_t argcount );
+KF_API value call( value function, std::initializer_list< value > arguments );
 
 template < typename ... A > value call( value function, A ... argvalues )
 {
@@ -180,7 +181,7 @@ template < typename ... A > value call( value function, A ... argvalues )
     Exception thrown from script code.
 */
 
-class exception : public std::exception
+class KF_API exception : public std::exception
 {
 };
 
