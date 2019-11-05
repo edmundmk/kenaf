@@ -127,7 +127,6 @@ const uint8_t OP_STACK_MARK = 0xFF;
 struct op
 {
     static op op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b );
-    static op op_ai( enum opcode opcode, uint8_t r, uint8_t a, int8_t i );
     static op op_c( enum opcode opcode, uint8_t r, uint16_t c );
     static op op_j( enum opcode opcode, uint8_t r, int16_t j );
 
@@ -135,14 +134,13 @@ struct op
     uint8_t r;
     union
     {
-        struct { uint8_t a; union { uint8_t b; int8_t i; }; };
+        struct { uint8_t a; uint8_t b; };
         uint16_t c;
         int16_t j;
     };
 };
 
 inline op op::op_ab( enum opcode opcode, uint8_t r, uint8_t a, uint8_t b ) { op o; o.opcode = opcode; o.r = r; o.a = a; o.b = b; return o; }
-inline op op::op_ai( enum opcode opcode, uint8_t r, uint8_t a, int8_t i ) { op o; o.opcode = opcode; o.r = r; o.a = a; o.i = i; return o; }
 inline op op::op_c( enum opcode opcode, uint8_t r, uint16_t c ) { op o; o.opcode = opcode; o.r = r; o.c = c; return o; }
 inline op op::op_j( enum opcode opcode, uint8_t r, int16_t j ) { op o; o.opcode = opcode; o.r = r; o.j = j; return o; }
 

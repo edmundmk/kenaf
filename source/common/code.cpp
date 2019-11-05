@@ -116,9 +116,9 @@ const char* const OPCODE_PRINT[] =
     [ OP_GET_KEY    ] = "GET_KEY %$r, %$a, #$Sb",
     [ OP_SET_KEY    ] = "SET_KEY %$r, %$a, #$Sb",
     [ OP_GET_INDEX  ] = "GET_INDEX %$r, %$a, %$b",
-    [ OP_GET_INDEXI ] = "GET_INDEXI %$r, %$a, #$i",
+    [ OP_GET_INDEXI ] = "GET_INDEXI %$r, %$a, #$b",
     [ OP_SET_INDEX  ] = "SET_INDEX %$r, %$a, %$b",
-    [ OP_SET_INDEXI ] = "SET_INDEXI %$r, %$a, #$i",
+    [ OP_SET_INDEXI ] = "SET_INDEXI %$r, %$a, #$b",
     [ OP_NEW_ENV    ] = "NEW_ENV %$r, #$c",
     [ OP_GET_VARENV ] = "GET_VARENV %$r, %$a, #$b",
     [ OP_SET_VARENV ] = "SET_VARENV %$r, %$a, #$b",
@@ -261,7 +261,6 @@ void code_function::debug_print( const code_script* script ) const
                 case 'a': v = pop.a; break;
                 case 'b': v = pop.b; break;
                 case 'c': v = pop.c; break;
-                case 'i': v = pop.i; break;
                 case 'j': v = pop.j; break;
                 }
 

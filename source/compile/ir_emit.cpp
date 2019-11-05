@@ -66,9 +66,9 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_GET_KEY,       2, { IR_O_OP, IR_O_SELECTOR             },  OP_GET_KEY,     AB      },
     { IR_SET_KEY,       3, { IR_O_OP, IR_O_SELECTOR, IR_O_OP    },  OP_SET_KEY,     AB      },
     { IR_GET_INDEX,     2, { IR_O_OP, IR_O_OP                   },  OP_GET_INDEX,   AB      },
-    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_GET_INDEXI,  AI      },
+    { IR_GET_INDEX,     2, { IR_O_OP, IR_O_IMMEDIATE            },  OP_GET_INDEXI,  AB      },
     { IR_SET_INDEX,     3, { IR_O_OP, IR_O_OP, IR_O_OP          },  OP_SET_INDEX,   AB      },
-    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_IMMEDIATE, IR_O_OP   },  OP_SET_INDEXI,  AI      },
+    { IR_SET_INDEX,     3, { IR_O_OP, IR_O_IMMEDIATE, IR_O_OP   },  OP_SET_INDEXI,  AB      },
     { IR_NEW_ENV,       1, { IR_O_IMMEDIATE                     },  OP_NEW_ENV,     C       },
     { IR_GET_ENV,       2, { IR_O_OP, IR_O_ENVSLOT              },  OP_GET_VARENV,  AB      },
     { IR_GET_ENV,       2, { IR_O_OUTENV, IR_O_ENVSLOT          },  OP_GET_OUTENV,  AB      },
@@ -451,7 +451,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
 
     // Get operands.
     uint8_t r = 0;
-    if ( shape->kind == AB || shape->kind == AB_SWAP || shape->kind == AI || shape->kind == AI_SWAP || shape->kind == C || shape->kind == J )
+    if ( shape->kind == AB || shape->kind == AB_SWAP || shape->kind == C || shape->kind == J )
     {
         if ( shape->ocount < 3 )
         {
@@ -513,7 +513,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
     ir_operand u = _f->operands[ iop->oindex + 0 ];
     ir_operand v = shape->ocount >= 2 ? _f->operands[ iop->oindex + 1 ] : ir_operand{ IR_O_NONE };
 
-    if ( shape->kind == AB_SWAP || shape->kind == AI_SWAP || shape->kind == J_SWAP )
+    if ( shape->kind == AB_SWAP || shape->kind == J_SWAP )
     {
         std::swap( u, v );
     }
@@ -537,33 +537,24 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
     }
 
     op op;
-    if ( shape->kind == AI || shape->kind == AI_SWAP )
+    uint8_t b = 0;
+    if ( v.kind == IR_O_OP )
     {
-        assert( v.kind == IR_O_IMMEDIATE );
-        int8_t i = (int8_t)v.index;
-        op = op::op_ai( shape->copcode, r, a, i );
+        const ir_op* vop = &_f->ops[ v.index ];
+        if ( vop->r == IR_INVALID_REGISTER )
+        {
+            _source->error( iop->sloc, "internal: no allocated b register" );
+            return op_index;
+        }
+
+        b = vop->r;
     }
     else
     {
-        uint8_t b = 0;
-        if ( v.kind == IR_O_OP )
-        {
-            const ir_op* vop = &_f->ops[ v.index ];
-            if ( vop->r == IR_INVALID_REGISTER )
-            {
-                _source->error( iop->sloc, "internal: no allocated b register" );
-                return op_index;
-            }
-
-            b = vop->r;
-        }
-        else
-        {
-            b = v.index;
-        }
-
-        op = op::op_ab( shape->copcode, r, a, b );
+        b = v.index;
     }
+
+    op = op::op_ab( shape->copcode, r, a, b );
 
     if ( shape->kind == JUMP || shape->kind == J_SWAP )
     {

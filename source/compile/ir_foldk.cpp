@@ -69,8 +69,8 @@ void ir_foldk::inline_operands()
             LT n, v; JUMP       ->  JGTTN v, n
             LE v, n; JUMP       ->  JLETN v, n
             LE n, v; JUMP       ->  JGETN v, n
-            GET_INDEX v, i      ->  GET_INDEXI v, i
-            SET_INDEX v, i, u   ->  SET_INDEXI v, i, u
+            GET_INDEX v, b      ->  GET_INDEXI v, b
+            SET_INDEX v, b, u   ->  SET_INDEXI v, b, u
 
         Except of course that we can only inline the first 255 constants.
     */
@@ -216,7 +216,7 @@ void ir_foldk::inline_operands()
 
             if ( fold_i.kind == IR_O_NUMBER )
             {
-                *i = i_immediate( fold_i );
+                *i = b_immediate( fold_i );
             }
 
             break;
@@ -278,12 +278,12 @@ void ir_foldk::alloc_constants()
     }
 }
 
-ir_operand ir_foldk::i_immediate( ir_operand operand )
+ir_operand ir_foldk::b_immediate( ir_operand operand )
 {
     if ( operand.kind == IR_O_NUMBER )
     {
         double number = _f->constants[ operand.index ].n;
-        int8_t imm8 = (int8_t)number;
+        uint8_t imm8 = (uint8_t)number;
         if ( (double)imm8 == number )
         {
             return { IR_O_IMMEDIATE, (unsigned)imm8 };
