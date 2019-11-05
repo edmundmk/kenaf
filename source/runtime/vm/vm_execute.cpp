@@ -37,11 +37,7 @@ static inline int string_compare( string_object* us, string_object* vs )
 {
     if ( us == vs ) return 0;
     size_t size = std::min( us->size, vs->size );
-    int order = memcmp( us->text, vs->text, size );
-    if ( order != 0 ) return order;
-    if ( us->size < vs->size ) return -1;
-    if ( us->size > vs->size ) return +1;
-    return 0;
+    return memcmp( us->text, vs->text, size + 1 );
 }
 
 static lookup_object* keyer_of( vm_context* vm, value u )
