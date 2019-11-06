@@ -28,7 +28,7 @@ public:
     std::unique_ptr< ast_script > parse();
 
     void syntax_error( token token );
-    void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
+    void error( srcloc sloc, const char* message, ... ) KF_PRINTF_FORMAT( 3, 4 );
 
     ast_function* push_function( srcloc sloc );
     void pop_function();

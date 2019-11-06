@@ -27,6 +27,12 @@
 #define KF_DEFINES_H
 
 #if defined( __GNUC__ )
+#define KF_PRINTF_FORMAT( x, y ) __attribute__(( format( printf, x, y ) ))
+#else
+#define KF_PRINTF_FORMAT( x, y )
+#endif
+
+#if defined( __GNUC__ )
 #define KF_EXPORT __attribute__(( visibility( "default" ) ))
 #define KF_IMPORT __attribute__(( visibility( "default" ) ))
 #elif defined( _MSC_VER )

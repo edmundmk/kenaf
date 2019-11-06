@@ -19,12 +19,6 @@
 #include <memory>
 #include "kenaf/compile.h"
 
-#if defined( __GNUC__ )
-#define PRINTF_FORMAT( x, y ) __attribute__(( format( printf, x, y ) ))
-#else
-#define PRINTF_FORMAT( x, y )
-#endif
-
 namespace kf
 {
 
@@ -86,9 +80,9 @@ struct source
     const source_string* new_string( const char* text, size_t size );
     const source_string* new_string( const char* atext, size_t asize, const char* btext, size_t bsize );
 
-    void error( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
+    void error( srcloc sloc, const char* message, ... ) KF_PRINTF_FORMAT( 3, 4 );
     void error( srcloc sloc, const char* message, va_list ap );
-    void warning( srcloc sloc, const char* message, ... ) PRINTF_FORMAT( 3, 4 );
+    void warning( srcloc sloc, const char* message, ... ) KF_PRINTF_FORMAT( 3, 4 );
     void warning( srcloc sloc, const char* message, va_list ap );
     void diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap );
 

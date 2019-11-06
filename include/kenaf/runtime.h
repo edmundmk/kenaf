@@ -178,11 +178,40 @@ template < typename ... A > value call( value function, A ... argvalues )
 }
 
 /*
-    Exception thrown from script code.
+    Exceptions thrown from script code.
 */
 
 class KF_API exception : public std::exception
 {
+public:
+
+    exception( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+    exception( const exception& e );
+    exception& operator = ( const exception& e );
+    ~exception() override;
+    const char* what() const noexcept override;
+
+protected:
+
+    exception();
+    char* _message;
+
+};
+
+class KF_API script_error : public exception
+{
+public:
+
+    explicit script_error( value v );
+    script_error( const script_error& e );
+    script_error& operator = ( const script_error& e );
+    ~script_error() override;
+    struct value value() const noexcept;
+
+protected:
+
+    struct value _value;
+
 };
 
 }
