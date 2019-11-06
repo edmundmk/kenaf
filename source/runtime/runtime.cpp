@@ -657,6 +657,10 @@ value call( value function, std::initializer_list< value > arguments )
     return call( function, arguments.begin(), arguments.size() );
 }
 
+/*
+    Exceptions.
+*/
+
 static char* format_message( const char* format, va_list ap )
 {
     va_list aq;
@@ -785,6 +789,29 @@ script_error::~script_error()
 value script_error::value() const noexcept
 {
     return _value;
+}
+
+type_error::type_error( const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    _message = format_message( format, ap );
+    va_end( ap );
+}
+
+type_error::type_error( const type_error& e )
+    :   exception( e )
+{
+}
+
+type_error& type_error::operator = ( const type_error& e )
+{
+    exception::operator = ( e );
+    return *this;
+}
+
+type_error::~type_error()
+{
 }
 
 }

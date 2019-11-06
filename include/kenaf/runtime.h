@@ -214,6 +214,17 @@ protected:
 
 };
 
+class KF_API type_error : public exception
+{
+public:
+
+    type_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+    type_error( const type_error& e );
+    type_error& operator = ( const type_error& e );
+    ~type_error() override;
+
+};
+
 }
 
 #endif

@@ -126,6 +126,13 @@ vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp );
 lookup_object* vm_keyerof( vm_context* vm, value object );
 lookup_object* vm_superof( vm_context* vm, value object );
 
+/*
+    Throwing of exceptions from execute loop.
+*/
+
+[[noreturn]] void vm_throw( value v );
+[[noreturn]] void vm_type_error( value v, const char* expected );
+
 }
 
 #endif
