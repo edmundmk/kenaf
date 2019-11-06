@@ -97,7 +97,7 @@ vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsi
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {
-        throw std::exception();
+        throw argument_error( "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
     }
 
     cothread_object* cothread = vm->cothreads->back();
@@ -151,7 +151,7 @@ vm_exstate vm_call_native( vm_context* vm, native_function_object* function, uns
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < function->param_count || ( argument_count > function->param_count && ! is_varargs ) )
     {
-        throw std::exception();
+        throw argument_error( "incorrect argument count, expected %u, got %u", function->param_count, argument_count );
     }
 
     cothread_object* cothread = vm->cothreads->back();
@@ -182,7 +182,7 @@ vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigne
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {
-        throw std::exception();
+        throw argument_error( "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
     }
 
     // Get current stack.

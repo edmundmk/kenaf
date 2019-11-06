@@ -12,6 +12,7 @@
 #include <cmath>
 #include <algorithm>
 #include "kenaf/runtime.h"
+#include "kenaf/exception.h"
 #include "../../common/imath.h"
 
 namespace kf
@@ -93,7 +94,7 @@ static size_t atan( void* cookie, frame* frame, const value* arguments, size_t a
     }
     else
     {
-        throw std::exception();
+        throw argument_error( "too few arguments, expected 1 or 2, not %zu", argcount );
     }
 }
 

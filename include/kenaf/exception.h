@@ -103,6 +103,17 @@ public:
 
 };
 
+class KF_API argument_error : public exception
+{
+public:
+
+    argument_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+    argument_error( const argument_error& e );
+    argument_error& operator = ( const argument_error& e );
+    ~argument_error() override;
+
+};
+
 }
 
 #endif

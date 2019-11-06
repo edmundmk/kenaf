@@ -268,5 +268,28 @@ index_error::~index_error()
 {
 }
 
+argument_error::argument_error( const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    _message = format_message( format, ap );
+    va_end( ap );
+}
+
+argument_error::argument_error( const argument_error& e )
+    :   exception( e )
+{
+}
+
+argument_error& argument_error::operator = ( const argument_error& e )
+{
+    exception::operator = ( e );
+    return *this;
+}
+
+argument_error::~argument_error()
+{
+}
+
 }
 

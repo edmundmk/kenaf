@@ -219,7 +219,7 @@ static size_t table_has( void* cookie, frame* frame, const value* arguments, siz
 static size_t table_get( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( argcount > 3 ) throw std::exception();
+    if ( argcount > 3 ) throw argument_error( "too few arguments, expected 2 or 3, not %zu", argcount );
     if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
     value v;
     table_object* table = (table_object*)unbox_object( t );

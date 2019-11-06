@@ -71,7 +71,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         if ( *p == '*' )
         {
             format.push_back( *p++ );
-            if ( argindex >= argcount ) throw std::exception();
+            if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
             if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
             intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
             argindex += 1;
@@ -87,7 +87,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
             if ( *p == '*' )
             {
                 format.push_back( *p++ );
-                if ( argindex >= argcount ) throw std::exception();
+                if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
                 if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
                 intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
                 argindex += 1;
@@ -98,7 +98,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
             }
         }
 
-        if ( argindex >= argcount ) throw std::exception();
+        if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
         value arg = arguments[ argindex++ ];
 
         char c = *p++;
@@ -202,6 +202,11 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
     }
 
     printf( "%.*s", (int)( p - s ), s );
+
+    if ( argindex < argcount )
+    {
+        throw argument_error( "more arguments than format specifiers" );
+    }
 
     return rvoid( frame );
 }
