@@ -14,6 +14,7 @@
 #include <vector>
 #include <exception>
 #include "kenaf/runtime.h"
+#include "kenaf/exception.h"
 
 namespace kf
 {

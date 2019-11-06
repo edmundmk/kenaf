@@ -9,6 +9,7 @@
 //
 
 #include "vm_context.h"
+#include "kenaf/exception.h"
 #include "../objects/cothread_object.h"
 
 namespace kf

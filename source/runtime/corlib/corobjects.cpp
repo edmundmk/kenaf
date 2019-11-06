@@ -11,6 +11,7 @@
 #include "corobjects.h"
 #include <stdlib.h>
 #include <cmath>
+#include "kenaf/exception.h"
 #include "../objects/array_object.h"
 #include "../objects/table_object.h"
 #include "../objects/cothread_object.h"
