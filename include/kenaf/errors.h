@@ -1,5 +1,5 @@
 //
-//  exception.h
+//  errors.h
 //
 //  Created by Edmund Kapusniak on 01/11/2019
 //  Copyright © 2019 Edmund Kapusniak.
@@ -23,8 +23,8 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
-#ifndef KF_EXCEPTION_H
-#define KF_EXCEPTION_H
+#ifndef KF_ERRORS_H
+#define KF_ERRORS_H
 
 #include <exception>
 #include "defines.h"
@@ -37,31 +37,31 @@ namespace kf
     Exceptions thrown from script code.
 */
 
-class KF_API exception : public std::exception
+class KF_API script_error : public std::exception
 {
 public:
 
-    exception( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-    exception( const exception& e );
-    exception& operator = ( const exception& e );
-    ~exception() override;
+    script_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+    script_error( const script_error& e );
+    script_error& operator = ( const script_error& e );
+    ~script_error() override;
     const char* what() const noexcept override;
 
 protected:
 
-    exception();
+    script_error();
     char* _message;
 
 };
 
-class KF_API script_error : public exception
+class KF_API value_error : public script_error
 {
 public:
 
-    explicit script_error( value v );
-    script_error( const script_error& e );
-    script_error& operator = ( const script_error& e );
-    ~script_error() override;
+    explicit value_error( value v );
+    value_error( const value_error& e );
+    value_error& operator = ( const value_error& e );
+    ~value_error() override;
     struct value value() const noexcept;
 
 protected:
@@ -70,7 +70,7 @@ protected:
 
 };
 
-class KF_API type_error : public exception
+class KF_API type_error : public script_error
 {
 public:
 
@@ -81,7 +81,7 @@ public:
 
 };
 
-class KF_API key_error : public exception
+class KF_API key_error : public script_error
 {
 public:
 
@@ -92,7 +92,7 @@ public:
 
 };
 
-class KF_API index_error : public exception
+class KF_API index_error : public script_error
 {
 public:
 
@@ -103,7 +103,7 @@ public:
 
 };
 
-class KF_API argument_error : public exception
+class KF_API argument_error : public script_error
 {
 public:
 
@@ -111,6 +111,17 @@ public:
     argument_error( const argument_error& e );
     argument_error& operator = ( const argument_error& e );
     ~argument_error() override;
+
+};
+
+class KF_API cothread_error : public script_error
+{
+public:
+
+    cothread_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+    cothread_error( const cothread_error& e );
+    cothread_error& operator = ( const cothread_error& e );
+    ~cothread_error() override;
 
 };
 

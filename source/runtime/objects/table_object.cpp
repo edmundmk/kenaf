@@ -9,7 +9,7 @@
 //
 
 #include "table_object.h"
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "string_object.h"
 #include <limits.h>
 #include <functional>

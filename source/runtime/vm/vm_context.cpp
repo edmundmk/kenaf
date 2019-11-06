@@ -9,7 +9,7 @@
 //
 
 #include "vm_context.h"
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "../objects/cothread_object.h"
 
 namespace kf
@@ -241,7 +241,7 @@ vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned
     // Cothread might have completed.
     if ( cothread->stack_frames.empty() )
     {
-        throw std::exception();
+        throw cothread_error( "cothread is done" );
     }
 
     // Get current stack.
@@ -463,7 +463,7 @@ lookup_object* vm_superof( vm_context* vm, value v )
 
 void vm_throw( value v )
 {
-    throw script_error( v );
+    throw value_error( v );
 }
 
 void vm_type_error( value v, const char* expected )

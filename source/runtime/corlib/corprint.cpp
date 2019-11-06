@@ -14,7 +14,7 @@
 #include <vector>
 #include <exception>
 #include "kenaf/runtime.h"
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 
 namespace kf
 {
@@ -193,7 +193,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         }
 
         default:
-            throw std::exception();
+            throw script_error( "invalid format specifier '%c'", c );
         }
 
         format.clear();

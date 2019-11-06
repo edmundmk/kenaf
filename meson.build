@@ -45,7 +45,7 @@ sources = [
     'source/runtime/objects/table_object.cpp',
     'source/runtime/vm/vm_context.cpp',
     'source/runtime/vm/vm_execute.cpp',
-    'source/runtime/exception.cpp',
+    'source/runtime/errors.cpp',
     'source/runtime/heap.cpp',
     'source/runtime/runtime.cpp',
 ]

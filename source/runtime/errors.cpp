@@ -1,5 +1,5 @@
 //
-//  exception.cpp
+//  script_error.cpp
 //
 //  Created by Edmund Kapusniak on 01/11/2019
 //  Copyright © 2019 Edmund Kapusniak.
@@ -23,7 +23,7 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "../common/escape_string.h"
 #include "objects/object_model.h"
 #include "objects/string_object.h"
@@ -96,12 +96,12 @@ static char* format_value( value v )
     }
 }
 
-exception::exception()
+script_error::script_error()
     :   _message( nullptr )
 {
 }
 
-exception::exception( const char* format, ... )
+script_error::script_error( const char* format, ... )
 {
     va_list ap;
     va_start( ap, format );
@@ -109,58 +109,58 @@ exception::exception( const char* format, ... )
     va_end( ap );
 }
 
-exception::exception( const exception& e )
-{
-    size_t size = strlen( e._message );
-    _message = (char*)malloc( size + 1 );
-    memcpy( _message, e._message, size + 1 );
-}
-
-exception& exception::operator = ( const exception& e )
-{
-    free( _message );
-    size_t size = strlen( e._message );
-    _message = (char*)malloc( size + 1 );
-    memcpy( _message, e._message, size + 1 );
-    return *this;
-}
-
-exception::~exception()
-{
-    free( _message );
-}
-
-const char* exception::what() const noexcept
-{
-    return _message;
-}
-
-script_error::script_error( struct value v )
-    :   _value( retain( v ) )
-{
-    _message = format_value( v );
-}
-
 script_error::script_error( const script_error& e )
-    :   exception( e )
-    ,   _value( retain( e._value ) )
 {
+    size_t size = strlen( e._message );
+    _message = (char*)malloc( size + 1 );
+    memcpy( _message, e._message, size + 1 );
 }
 
 script_error& script_error::operator = ( const script_error& e )
 {
-    exception::operator = ( e );
-    release( _value );
-    _value = retain( e._value );
+    free( _message );
+    size_t size = strlen( e._message );
+    _message = (char*)malloc( size + 1 );
+    memcpy( _message, e._message, size + 1 );
     return *this;
 }
 
 script_error::~script_error()
 {
+    free( _message );
+}
+
+const char* script_error::what() const noexcept
+{
+    return _message;
+}
+
+value_error::value_error( struct value v )
+    :   _value( retain( v ) )
+{
+    _message = format_value( v );
+}
+
+value_error::value_error( const value_error& e )
+    :   script_error( e )
+    ,   _value( retain( e._value ) )
+{
+}
+
+value_error& value_error::operator = ( const value_error& e )
+{
+    script_error::operator = ( e );
+    release( _value );
+    _value = retain( e._value );
+    return *this;
+}
+
+value_error::~value_error()
+{
     release( _value );
 }
 
-value script_error::value() const noexcept
+value value_error::value() const noexcept
 {
     return _value;
 }
@@ -208,13 +208,13 @@ type_error::type_error( value v, const char* expected )
 }
 
 type_error::type_error( const type_error& e )
-    :   exception( e )
+    :   script_error( e )
 {
 }
 
 type_error& type_error::operator = ( const type_error& e )
 {
-    exception::operator = ( e );
+    script_error::operator = ( e );
     return *this;
 }
 
@@ -231,13 +231,13 @@ key_error::key_error( const char* format, ... )
 }
 
 key_error::key_error( const key_error& e )
-    :   exception( e )
+    :   script_error( e )
 {
 }
 
 key_error& key_error::operator = ( const key_error& e )
 {
-    exception::operator = ( e );
+    script_error::operator = ( e );
     return *this;
 }
 
@@ -254,13 +254,13 @@ index_error::index_error( const char* format, ... )
 }
 
 index_error::index_error( const index_error& e )
-    :   exception( e )
+    :   script_error( e )
 {
 }
 
 index_error& index_error::operator = ( const index_error& e )
 {
-    exception::operator = ( e );
+    script_error::operator = ( e );
     return *this;
 }
 
@@ -277,17 +277,40 @@ argument_error::argument_error( const char* format, ... )
 }
 
 argument_error::argument_error( const argument_error& e )
-    :   exception( e )
+    :   script_error( e )
 {
 }
 
 argument_error& argument_error::operator = ( const argument_error& e )
 {
-    exception::operator = ( e );
+    script_error::operator = ( e );
     return *this;
 }
 
 argument_error::~argument_error()
+{
+}
+
+cothread_error::cothread_error( const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    _message = format_message( format, ap );
+    va_end( ap );
+}
+
+cothread_error::cothread_error( const cothread_error& e )
+    :   script_error( e )
+{
+}
+
+cothread_error& cothread_error::operator = ( const cothread_error& e )
+{
+    script_error::operator = ( e );
+    return *this;
+}
+
+cothread_error::~cothread_error()
 {
 }
 

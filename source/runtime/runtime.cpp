@@ -9,7 +9,7 @@
 //
 
 #include "kenaf/runtime.h"
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
 #include "objects/cothread_object.h"

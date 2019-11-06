@@ -43,7 +43,7 @@
 
 #include <functional>
 #include <string_view>
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "object_model.h"
 #include "string_object.h"
 

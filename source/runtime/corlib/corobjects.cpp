@@ -11,7 +11,7 @@
 #include "corobjects.h"
 #include <stdlib.h>
 #include <cmath>
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "../objects/array_object.h"
 #include "../objects/table_object.h"
 #include "../objects/cothread_object.h"
@@ -121,7 +121,7 @@ static size_t number_self( void* cookie, frame* frame, const value* arguments, s
             string_object* s = unbox_string( v );
             char* endptr = nullptr;
             double n = strtod( s->text, &endptr );
-            if ( *endptr != '\0' ) throw std::exception();
+            if ( *endptr != '\0' ) throw script_error( "string cannot be converted to number" );
             if ( n != n ) n = NAN;
             v = box_number( n );
         }

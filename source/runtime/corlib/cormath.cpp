@@ -12,7 +12,7 @@
 #include <cmath>
 #include <algorithm>
 #include "kenaf/runtime.h"
-#include "kenaf/exception.h"
+#include "kenaf/errors.h"
 #include "../../common/imath.h"
 
 namespace kf
