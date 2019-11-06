@@ -58,7 +58,7 @@ class KF_API value_error : public script_error
 {
 public:
 
-    explicit value_error( value v );
+    explicit value_error( struct value v );
     value_error( const value_error& e );
     value_error& operator = ( const value_error& e );
     ~value_error() override;

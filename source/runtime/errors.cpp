@@ -24,6 +24,7 @@
 //
 
 #include "kenaf/errors.h"
+#include <stdarg.h>
 #include "../common/escape_string.h"
 #include "objects/object_model.h"
 #include "objects/string_object.h"
