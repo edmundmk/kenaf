@@ -195,7 +195,7 @@ static size_t array_pop( void* cookie, frame* frame, const value* arguments, siz
     value a = arguments[ 0 ];
     if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_object* array = (array_object*)unbox_object( a );
-    if ( array->length == 0 ) throw std::exception();
+    if ( array->length == 0 ) throw index_error( "array is empty" );
     return result( frame, read( read( array->aslots )->slots[ --array->length ] ) );
 }
 

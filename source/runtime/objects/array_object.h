@@ -55,7 +55,7 @@ inline value array_getindex( vm_context* vm, array_object* array, size_t index )
     }
     else
     {
-        throw std::out_of_range( "array" );
+        throw index_error( "array index out of range" );
     }
 }
 
@@ -67,7 +67,7 @@ inline void array_setindex( vm_context* vm, array_object* array, size_t index, v
     }
     else
     {
-        throw std::out_of_range( "array" );
+        throw index_error( "array index out of range" );
     }
 }
 

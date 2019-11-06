@@ -68,7 +68,7 @@ string_object* string_getindex( vm_context* vm, string_object* string, size_t in
     }
     else
     {
-        throw std::out_of_range( "string" );
+        throw index_error( "string index out of range" );
     }
 }
 

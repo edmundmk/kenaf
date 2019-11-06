@@ -210,7 +210,7 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     // Check if object is sealed.
     if ( lookup_sealed( vm, object ) )
     {
-        throw std::out_of_range( "sealed object" );
+        throw key_error( "object is sealed" );
     }
 
     // Determine new layout.
@@ -267,7 +267,7 @@ void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
     // Check if object is sealed.
     if ( lookup_sealed( vm, object ) )
     {
-        throw std::out_of_range( "sealed object" );
+        throw key_error( "object is sealed" );
     }
 
     // Remember all keys that we search past.

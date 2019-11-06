@@ -43,6 +43,7 @@
 
 #include <functional>
 #include <string_view>
+#include "kenaf/exception.h"
 #include "object_model.h"
 #include "string_object.h"
 
@@ -145,7 +146,7 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
     }
     else
     {
-        throw std::out_of_range( "lookup" );
+        throw key_error( "key '%s' not found", key->text );
     }
 }
 

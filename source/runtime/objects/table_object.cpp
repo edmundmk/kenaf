@@ -9,6 +9,7 @@
 //
 
 #include "table_object.h"
+#include "kenaf/exception.h"
 #include "string_object.h"
 #include <limits.h>
 #include <functional>
@@ -112,7 +113,7 @@ value table_getindex( vm_context* vm, table_object* table, value key )
     }
     else
     {
-        throw std::out_of_range( "table" );
+        throw index_error( "missing key in table" );
     }
 }
 
