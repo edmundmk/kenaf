@@ -24,7 +24,7 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
 
     if ( layout->cookie == 0 )
     {
-        throw std::out_of_range( "layout cookies exhausted" );
+        throw std::runtime_error( "layout cookies exhausted" );
     }
 
     if ( key )
@@ -34,7 +34,7 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
         layout->sindex = parent_layout->sindex + 1;
         if ( layout->sindex == (uint32_t)-1 )
         {
-            throw std::out_of_range( "too many object slots" );
+            throw std::runtime_error( "too many object slots" );
         }
 
         if ( ! parent_layout->next )

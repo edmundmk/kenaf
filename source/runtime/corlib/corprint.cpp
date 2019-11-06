@@ -71,7 +71,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         {
             format.push_back( *p++ );
             if ( argindex >= argcount ) throw std::exception();
-            if ( ! is_number( arguments[ argindex ] ) ) throw std::exception();
+            if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
             intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
             argindex += 1;
         }
@@ -87,7 +87,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
             {
                 format.push_back( *p++ );
                 if ( argindex >= argcount ) throw std::exception();
-                if ( ! is_number( arguments[ argindex ] ) ) throw std::exception();
+                if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
                 intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
                 argindex += 1;
             }
@@ -105,7 +105,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         {
         case 'c':
         {
-            if ( ! is_number( arg ) ) throw std::exception();
+            if ( ! is_number( arg ) ) type_error( arg, "a number" );
             int c = (int)(int64_t)get_number( arg );
             format.push_back( c );
             format.push_back( '\0' );
@@ -120,7 +120,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
 
         case 's':
         {
-            if ( ! is_string( arg ) ) throw std::exception();
+            if ( ! is_string( arg ) ) type_error( arg, "a string" );
             std::string_view text = get_text( arg );
             format.push_back( c );
             format.push_back( '\0' );
@@ -136,7 +136,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'd':
         case 'i':
         {
-            if ( ! is_number( arg ) ) throw std::exception();
+            if ( ! is_number( arg ) ) type_error( arg, "a number" );
             intmax_t i = (intmax_t)get_number( arg );
             format.push_back( 'j' );
             format.push_back( c );
@@ -155,7 +155,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'X':
         case 'u':
         {
-            if ( ! is_number( arg ) ) throw std::exception();
+            if ( ! is_number( arg ) ) type_error( arg, "a number" );
             uintmax_t u = (uintmax_t)get_number( arg );
             format.push_back( 'j' );
             format.push_back( c );
@@ -178,7 +178,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'g':
         case 'G':
         {
-            if ( ! is_number( arg ) ) throw std::exception();
+            if ( ! is_number( arg ) ) type_error( arg, "a number" );
             double n = get_number( arg );
             format.push_back( c );
             format.push_back( '\0' );
