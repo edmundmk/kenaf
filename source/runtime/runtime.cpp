@@ -522,9 +522,9 @@ value create_function( const void* code, size_t size )
     Native function interface.
 */
 
-value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags )
+value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags )
 {
-    return box_object( native_function_new( current(), native, cookie, param_count, code_flags ) );
+    return box_object( native_function_new( current(), name, native, cookie, param_count, code_flags ) );
 }
 
 value* arguments( frame* frame )

@@ -214,7 +214,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
 void expose_corprint()
 {
     value global = global_object();
-    set_key( global, "print", create_function( print, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "print", create_function( "print", print, nullptr, 1, PARAM_VARARG ) );
 }
 
 }

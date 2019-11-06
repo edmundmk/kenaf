@@ -27,6 +27,7 @@
 #define KF_ERRORS_H
 
 #include <exception>
+#include <vector>
 #include "defines.h"
 #include "runtime.h"
 
@@ -34,23 +35,29 @@ namespace kf
 {
 
 /*
-    Exceptions thrown from script code.
+    Error exceptions thrown from script code.
 */
 
 class KF_API script_error : public std::exception
 {
 public:
 
+    script_error();
     script_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
     script_error( const script_error& e );
     script_error& operator = ( const script_error& e );
     ~script_error() override;
+
+    void append_stack_trace( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+
     const char* what() const noexcept override;
+    size_t stack_trace_count() const;
+    const char* stack_trace( size_t i ) const;
 
 protected:
 
-    script_error();
     char* _message;
+    std::vector< char* > _stack_trace;
 
 };
 

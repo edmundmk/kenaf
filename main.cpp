@@ -15,6 +15,7 @@
 #include <kenaf/compile.h>
 #include <kenaf/runtime.h>
 #include <kenaf/handles.h>
+#include <kenaf/errors.h>
 
 int print_usage()
 {
@@ -134,23 +135,34 @@ int main( int argc, char* argv[] )
     compilation.reset();
 
     // Executes script, passing remaining command line arguments.
-    kf::stack_frame frame;
-    kf::stack_values arguments = kf::push_frame( frame, argc - i );
-    size_t argindex = 0;
-    while ( i < argc )
+    try
     {
-        arguments.values[ argindex++ ] = kf::create_string( argv[ i++ ] );
-    }
+        kf::stack_frame frame;
+        kf::stack_values arguments = kf::push_frame( frame, argc - i );
+        size_t argindex = 0;
+        while ( i < argc )
+        {
+            arguments.values[ argindex++ ] = kf::create_string( argv[ i++ ] );
+        }
 
-    kf::stack_values results = kf::call_frame( frame, main );
-    int result = EXIT_SUCCESS;
-    if ( results.count && is_number( results.values[ 0 ] ) )
+        kf::stack_values results = kf::call_frame( frame, main );
+        int result = EXIT_SUCCESS;
+        if ( results.count && is_number( results.values[ 0 ] ) )
+        {
+            result = (int)get_number( results.values[ 0 ] );
+        }
+
+        kf::pop_frame( frame );
+        return result;
+    }
+    catch ( const kf::script_error& e )
     {
-        result = (int)get_number( results.values[ 0 ] );
+        fprintf( stderr, "%s\n", e.what() );
+        for ( size_t i = 0; i < e.stack_trace_count(); ++i )
+        {
+            fprintf( stderr, "    %s\n", e.stack_trace( i ) );
+        }
+        return EXIT_FAILURE;
     }
-
-    kf::pop_frame( frame );
-
-    return result;
 }
 

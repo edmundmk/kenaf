@@ -160,7 +160,16 @@ vm_exstate vm_call_native( vm_context* vm, native_function_object* function, uns
 
     frame native_frame = { cothread, bp };
     value* arguments = cothread->stack.data() + bp + 1;
-    size_t result_count = function->native( function->cookie, (frame*)&native_frame, arguments, argument_count );
+    size_t result_count;
+    try
+    {
+        result_count = function->native( function->cookie, (frame*)&native_frame, arguments, argument_count );
+    }
+    catch ( script_error& e )
+    {
+        e.append_stack_trace( "[native]: %.*s", (int)function->name_size, function->name_text );
+        throw;
+    }
 
     assert( vm->cothreads->back() == cothread );
     assert( cothread->stack_frames.size() == frame_count );
@@ -469,6 +478,44 @@ void vm_throw( value v )
 void vm_type_error( value v, const char* expected )
 {
     throw type_error( v, expected );
+}
+
+/*
+    Unwind.
+*/
+
+void vm_unwind( vm_context* vm, script_error* e, unsigned ip )
+{
+    cothread_object* cothread = vm->cothreads->back();
+    vm_stack_frame& frame = cothread->stack_frames.back();
+    frame.ip = ip;
+
+    while ( true )
+    {
+        cothread_object* cothread = vm->cothreads->back();
+        vm_stack_frame& frame = cothread->stack_frames.back();
+        if ( ! frame.function )
+        {
+            return;
+        }
+
+        program_object* program = read( frame.function->program );
+
+        unsigned ip = frame.ip - 1;
+        std::string_view fname = program_name( vm, program );
+        std::string_view sname = script_name( vm, read( program->script ) );
+        source_location sloc = program_source_location( vm, program, ip );
+        e->append_stack_trace( "%.*s:%u:%u: %.*s", (int)sname.size(), sname.data(), sloc.line, sloc.column, (int)fname.size(), fname.data() );
+
+        cothread->stack_frames.pop_back();
+        if ( cothread->stack_frames.empty() )
+        {
+            if ( vm->cothreads->size() > 1 )
+                vm->cothreads->pop_back();
+            else
+                break;
+        }
+    }
 }
 
 }

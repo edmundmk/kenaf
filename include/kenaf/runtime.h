@@ -153,7 +153,7 @@ enum KF_API
     PARAM_VARARG = 1 << 0,
 };
 
-KF_API value create_function( native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
+KF_API value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
 KF_API value* arguments( frame* frame );
 KF_API value* results( frame* frame, size_t count );

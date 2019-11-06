@@ -133,6 +133,12 @@ lookup_object* vm_superof( vm_context* vm, value object );
 [[noreturn]] void vm_throw( value v );
 [[noreturn]] void vm_type_error( value v, const char* expected );
 
+/*
+    Handle unwind.
+*/
+
+void vm_unwind( vm_context* vm, script_error* e, unsigned ip );
+
 }
 
 #endif

@@ -81,6 +81,8 @@ struct native_function_object : public object
     void* cookie;
     unsigned param_count;
     unsigned code_flags;
+    unsigned name_size;
+    char name_text[];
 };
 
 /*
@@ -93,7 +95,8 @@ program_object* program_new( vm_context* vm, const void* data, size_t size );
 std::string_view program_name( vm_context* vm, program_object* program );
 source_location program_source_location( vm_context* vm, program_object* program, unsigned ip );
 function_object* function_new( vm_context* vm, program_object* program );
-native_function_object* native_function_new( vm_context* vm, native_function native, void* cookie, unsigned param_count, unsigned code_flags );
+native_function_object* native_function_new( vm_context* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags );
+std::string_view native_function_name( vm_context* vm, native_function_object* function );
 
 }
 

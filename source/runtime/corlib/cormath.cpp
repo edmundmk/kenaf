@@ -94,7 +94,7 @@ static size_t atan( void* cookie, frame* frame, const value* arguments, size_t a
     }
     else
     {
-        throw argument_error( "too few arguments, expected 1 or 2, not %zu", argcount );
+        throw argument_error( "too many arguments, expected 1 or 2, not %zu", argcount );
     }
 }
 
@@ -178,31 +178,31 @@ void expose_cormath()
 {
     value global = global_object();
 
-    set_key( global, "abs", create_function( abs, nullptr, 1 ) );
-    set_key( global, "min", create_function( min, nullptr, 1, PARAM_VARARG ) );
-    set_key( global, "max", create_function( max, nullptr, 1, PARAM_VARARG ) );
-    set_key( global, "pow", create_function( pow, nullptr, 2 ) );
-    set_key( global, "sqrt", create_function( sqrt, nullptr, 1 ) );
-    set_key( global, "sin", create_function( sin, nullptr, 1 ) );
-    set_key( global, "tan", create_function( tan, nullptr, 1 ) );
-    set_key( global, "cos", create_function( cos, nullptr, 1 ) );
-    set_key( global, "asin", create_function( asin, nullptr, 1 ) );
-    set_key( global, "acos", create_function( acos, nullptr, 1 ) );
-    set_key( global, "atan", create_function( atan, nullptr, 1, PARAM_VARARG ) );
-    set_key( global, "ceil", create_function( ceil, nullptr, 1 ) );
-    set_key( global, "floor", create_function( floor, nullptr, 1 ) );
-    set_key( global, "round", create_function( round, nullptr, 1 ) );
-    set_key( global, "trunc", create_function( trunc, nullptr, 1 ) );
-    set_key( global, "isnan", create_function( isnan, nullptr, 1 ) );
-    set_key( global, "isinf", create_function( isinf, nullptr, 1 ) );
-    set_key( global, "isfinite", create_function( isfinite, nullptr, 1 ) );
-    set_key( global, "fmod", create_function( fmod, nullptr, 2 ) );
-    set_key( global, "log2", create_function( log2, nullptr, 1 ) );
-    set_key( global, "exp2", create_function( exp2, nullptr, 1 ) );
-    set_key( global, "log", create_function( log, nullptr, 1 ) );
-    set_key( global, "exp", create_function( exp, nullptr, 1 ) );
-    set_key( global, "clz", create_function( clz, nullptr, 1 ) );
-    set_key( global, "ctz", create_function( ctz, nullptr, 1 ) );
+    set_key( global, "abs", create_function( "abs", abs, nullptr, 1 ) );
+    set_key( global, "min", create_function( "min", min, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "max", create_function( "max", max, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "pow", create_function( "pow", pow, nullptr, 2 ) );
+    set_key( global, "sqrt", create_function( "sqrt", sqrt, nullptr, 1 ) );
+    set_key( global, "sin", create_function( "sin", sin, nullptr, 1 ) );
+    set_key( global, "tan", create_function( "tan", tan, nullptr, 1 ) );
+    set_key( global, "cos", create_function( "cos", cos, nullptr, 1 ) );
+    set_key( global, "asin", create_function( "asin", asin, nullptr, 1 ) );
+    set_key( global, "acos", create_function( "acos", acos, nullptr, 1 ) );
+    set_key( global, "atan", create_function( "atan", atan, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "ceil", create_function( "ceil", ceil, nullptr, 1 ) );
+    set_key( global, "floor", create_function( "floor", floor, nullptr, 1 ) );
+    set_key( global, "round", create_function( "round", round, nullptr, 1 ) );
+    set_key( global, "trunc", create_function( "trunc", trunc, nullptr, 1 ) );
+    set_key( global, "isnan", create_function( "isnan", isnan, nullptr, 1 ) );
+    set_key( global, "isinf", create_function( "isinf", isinf, nullptr, 1 ) );
+    set_key( global, "isfinite", create_function( "isfinite", isfinite, nullptr, 1 ) );
+    set_key( global, "fmod", create_function( "fmod", fmod, nullptr, 2 ) );
+    set_key( global, "log2", create_function( "log2", log2, nullptr, 1 ) );
+    set_key( global, "exp2", create_function( "exp2", exp2, nullptr, 1 ) );
+    set_key( global, "log", create_function( "log", log, nullptr, 1 ) );
+    set_key( global, "exp", create_function( "exp", exp, nullptr, 1 ) );
+    set_key( global, "clz", create_function( "clz", clz, nullptr, 1 ) );
+    set_key( global, "ctz", create_function( "ctz", ctz, nullptr, 1 ) );
 
     set_key( global, "pi", number_value( PI ) );
     set_key( global, "tau", number_value( PI * 2.0 ) );

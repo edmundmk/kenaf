@@ -261,11 +261,11 @@ void expose_corobjects( vm_context* vm )
     value global = global_object();
     set_key( global, "global", global );
 
-    set_key( global, "superof", create_function( superof, vm, 1 ) );
-    set_key( global, "getkey", create_function( getkey, vm, 2 ) );
-    set_key( global, "setkey", create_function( setkey, vm, 3 ) );
-    set_key( global, "haskey", create_function( haskey, vm, 2 ) );
-    set_key( global, "delkey", create_function( delkey, vm, 2 ) );
+    set_key( global, "superof", create_function( "superof", superof, vm, 1 ) );
+    set_key( global, "getkey", create_function( "getkey", getkey, vm, 2 ) );
+    set_key( global, "setkey", create_function( "setkey", setkey, vm, 3 ) );
+    set_key( global, "haskey", create_function( "haskey", haskey, vm, 2 ) );
+    set_key( global, "delkey", create_function( "delkey", delkey, vm, 2 ) );
 
     lookup_object* proto_object = vm->prototypes[ LOOKUP_OBJECT ];
     set_key( global, "object", box_object( proto_object ) );
@@ -285,7 +285,7 @@ void expose_corobjects( vm_context* vm )
     set_key( global, "number", box_object( proto_number ) );
     if ( ! lookup_sealed( vm, proto_number ) )
     {
-        set_key( box_object( proto_number ), "self", create_function( number_self, vm, 2 ) );
+        set_key( box_object( proto_number ), "self", create_function( "number.self", number_self, vm, 2 ) );
         lookup_seal( vm, proto_number );
     }
 
@@ -293,7 +293,7 @@ void expose_corobjects( vm_context* vm )
     set_key( global, "string", box_object( proto_string ) );
     if ( ! lookup_sealed( vm, proto_string ) )
     {
-        set_key( box_object( proto_string ), "self", create_function( string_self, vm, 2 ) );
+        set_key( box_object( proto_string ), "self", create_function( "string.self", string_self, vm, 2 ) );
         lookup_seal( vm, proto_string );
     }
 
@@ -301,11 +301,11 @@ void expose_corobjects( vm_context* vm )
     set_key( global, "array", box_object( proto_array ) );
     if ( ! lookup_sealed( vm, proto_array ) )
     {
-        set_key( box_object( proto_array ), "resize", create_function( array_resize, vm, 2 ) );
-        set_key( box_object( proto_array ), "append", create_function( array_append, vm, 2 ) );
-        set_key( box_object( proto_array ), "extend", create_function( array_extend, vm, 1, PARAM_VARARG ) );
-        set_key( box_object( proto_array ), "pop", create_function( array_pop, vm, 1 ) );
-        set_key( box_object( proto_array ), "clear", create_function( array_clear, vm, 1 ) );
+        set_key( box_object( proto_array ), "resize", create_function( "array.resize", array_resize, vm, 2 ) );
+        set_key( box_object( proto_array ), "append", create_function( "array.append", array_append, vm, 2 ) );
+        set_key( box_object( proto_array ), "extend", create_function( "array.extend", array_extend, vm, 1, PARAM_VARARG ) );
+        set_key( box_object( proto_array ), "pop", create_function( "array.pop", array_pop, vm, 1 ) );
+        set_key( box_object( proto_array ), "clear", create_function( "array.clear", array_clear, vm, 1 ) );
         lookup_seal( vm, proto_array );
     }
 
@@ -313,10 +313,10 @@ void expose_corobjects( vm_context* vm )
     set_key( global, "table", box_object( proto_table ) );
     if ( ! lookup_sealed( vm, proto_table ) )
     {
-        set_key( box_object( proto_table ), "has", create_function( table_has, vm, 2 ) );
-        set_key( box_object( proto_table ), "get", create_function( table_get, vm, 2, PARAM_VARARG ) );
-        set_key( box_object( proto_table ), "del", create_function( table_del, vm, 2 ) );
-        set_key( box_object( proto_table ), "clear", create_function( table_clear, vm, 1 ) );
+        set_key( box_object( proto_table ), "has", create_function( "table.has", table_has, vm, 2 ) );
+        set_key( box_object( proto_table ), "get", create_function( "table.get", table_get, vm, 2, PARAM_VARARG ) );
+        set_key( box_object( proto_table ), "del", create_function( "table.del", table_del, vm, 2 ) );
+        set_key( box_object( proto_table ), "clear", create_function( "table.clear", table_clear, vm, 1 ) );
         lookup_seal( vm, proto_table );
     }
 
@@ -331,7 +331,7 @@ void expose_corobjects( vm_context* vm )
     set_key( global, "cothread", box_object( proto_cothread ) );
     if ( ! lookup_sealed( vm, proto_cothread ) )
     {
-        set_key( box_object( proto_cothread ), "done", create_function( cothread_done, vm, 1 ) );
+        set_key( box_object( proto_cothread ), "done", create_function( "cothread.done", cothread_done, vm, 1 ) );
         lookup_sealed( vm, proto_cothread );
     }
 }

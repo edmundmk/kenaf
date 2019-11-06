@@ -47,7 +47,7 @@ std::unique_ptr< ast_script > parser::parse()
     _ast_script = std::make_unique< ast_script >();
 
     _fstack.push_back( _ast_script->new_function( 0, nullptr ) );
-    _fstack.back()->name = _source->filename;
+    _fstack.back()->name = "[script]";
     _fstack.back()->is_top_level = true;
 
     unsigned z = string_node( AST_NAME, 0, "args", 4 );

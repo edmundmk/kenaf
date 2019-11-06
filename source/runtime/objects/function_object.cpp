@@ -126,7 +126,7 @@ program_object* program_new( vm_context* vm, const void* data, size_t size )
         }
 
         uint32_t* slocs = (uint32_t*)( program->functions + program->function_count );
-        memcpy( slocs, df->slocs(), program->op_count );
+        memcpy( slocs, df->slocs(), sizeof( uint32_t ) * program->op_count );
 
         char* name_text = (char*)( slocs + program->op_count );
         memcpy( name_text, name, program->name_size );
@@ -161,7 +161,7 @@ source_location program_source_location( vm_context* vm, program_object* program
 {
     // Get sloc.
     ip = std::min( ip, program->op_count - 1u );
-    uint32_t sloc = ( (uint32_t*)( program->functions + program->function_count ) )[ ip ];
+    uint32_t sloc = ( (const uint32_t*)( program->functions + program->function_count ) )[ ip ];
 
     // Search script for newline.
     script_object* script = read( program->script );
@@ -177,14 +177,22 @@ function_object* function_new( vm_context* vm, program_object* program )
     return function;
 }
 
-native_function_object* native_function_new( vm_context* vm, native_function native, void* cookie, unsigned param_count, unsigned code_flags )
+native_function_object* native_function_new( vm_context* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags )
 {
-    native_function_object* function = new ( object_new( vm, NATIVE_FUNCTION_OBJECT, sizeof( native_function_object ) ) ) native_function_object();
+    size_t size = sizeof( native_function_object ) + name.size();
+    native_function_object* function = new ( object_new( vm, NATIVE_FUNCTION_OBJECT, size ) ) native_function_object();
     function->native = native;
     function->cookie = cookie;
     function->param_count = param_count;
     function->code_flags = code_flags;
+    function->name_size = name.size();
+    memcpy( function->name_text, name.data(), name.size() );
     return function;
+}
+
+std::string_view native_function_name( vm_context* vm, native_function_object* function )
+{
+    return std::string_view( function->name_text, function->name_size );
 }
 
 }

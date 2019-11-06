@@ -179,6 +179,7 @@ void code_function::debug_print( const code_script* script ) const
     const code_selector* selectors = this->selectors();
     const uint32_t* functions = this->functions();
     const code_debug_function* debug = this->debug_function();
+    const uint32_t* slocs = debug->slocs();
 
     if ( debug )
         printf( "FUNCTION %s:\n", debug_heap + debug->function_name );
@@ -229,7 +230,7 @@ void code_function::debug_print( const code_script* script ) const
     for ( unsigned i = 0; i < op_count; ++i )
     {
         op cop = ops[ i ];
-        printf( ":%04X ", i );
+        printf( "[%3u]:%04X ", (unsigned)slocs[ i ], i );
         bool dual = false;
 
         for ( const char* p = OPCODE_PRINT[ cop.opcode ]; p[ 0 ]; ++p )

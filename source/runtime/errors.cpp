@@ -97,6 +97,14 @@ static char* format_value( value v )
     }
 }
 
+static inline char* duplicate_string( const char* s )
+{
+    size_t size = strlen( s );
+    char* d = (char*)malloc( size + 1 );
+    memcpy( d, s, size + 1 );
+    return d;
+}
+
 script_error::script_error()
     :   _message( nullptr )
 {
@@ -112,28 +120,57 @@ script_error::script_error( const char* format, ... )
 
 script_error::script_error( const script_error& e )
 {
-    size_t size = strlen( e._message );
-    _message = (char*)malloc( size + 1 );
-    memcpy( _message, e._message, size + 1 );
+    _message = duplicate_string( e._message );
+    _stack_trace.reserve( e._stack_trace.size() );
+    for ( char* stack_trace : e._stack_trace )
+    {
+        _stack_trace.push_back( duplicate_string( stack_trace ) );
+    }
 }
 
 script_error& script_error::operator = ( const script_error& e )
 {
     free( _message );
-    size_t size = strlen( e._message );
-    _message = (char*)malloc( size + 1 );
-    memcpy( _message, e._message, size + 1 );
+    _stack_trace.clear();
+    _message = duplicate_string( e._message );
+    _stack_trace.reserve( e._stack_trace.size() );
+    for ( char* stack_trace : e._stack_trace )
+    {
+        _stack_trace.push_back( duplicate_string( stack_trace ) );
+    }
     return *this;
 }
 
 script_error::~script_error()
 {
     free( _message );
+    for ( char* stack_trace : _stack_trace )
+    {
+        free( stack_trace );
+    }
+}
+
+void script_error::append_stack_trace( const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    _stack_trace.push_back( format_message( format, ap ) );
+    va_end( ap );
 }
 
 const char* script_error::what() const noexcept
 {
     return _message;
+}
+
+size_t script_error::stack_trace_count() const
+{
+    return _stack_trace.size();
+}
+
+const char* script_error::stack_trace( size_t i ) const
+{
+    return _stack_trace.at( i );
 }
 
 value_error::value_error( struct value v )

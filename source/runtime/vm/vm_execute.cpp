@@ -84,6 +84,9 @@ void vm_execute( vm_context* vm, vm_exstate state )
     unsigned xp = state.xp;
     struct op op;
 
+    try
+    {
+
     while ( true )
     {
 
@@ -1329,6 +1332,15 @@ type_error_a1_number:
 type_error_a2_number:
     vm_type_error( r[ op.a + 2 ], "a number" );
     return;
+
+    }
+    catch ( script_error& e )
+    {
+
+    vm_unwind( vm, &e, ip );
+    throw;
+
+    }
 }
 
 }
