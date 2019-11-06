@@ -74,7 +74,7 @@ static size_t superof( void* cookie, frame* frame, const value* arguments, size_
 static size_t getkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vm_context* vm = (vm_context*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
     selector sel = {};
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     return result( frame, lookup_getkey( vm, vm_keyerof( vm, arguments[ 0 ] ), key, &sel ) );
@@ -83,8 +83,8 @@ static size_t getkey( void* cookie, frame* frame, const value* arguments, size_t
 static size_t setkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vm_context* vm = (vm_context*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
-    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) throw std::exception();
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) throw type_error( arguments[ 0 ], "a lookup object" );
     selector sel = {};
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     lookup_setkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key, &sel, arguments[ 2 ] );
@@ -94,8 +94,8 @@ static size_t setkey( void* cookie, frame* frame, const value* arguments, size_t
 static size_t haskey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vm_context* vm = (vm_context*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
-    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return result( frame, boxed_false );
+     if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
+   if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return result( frame, boxed_false );
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     return result( frame, lookup_haskey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key ) ? boxed_true : boxed_false );
 }
@@ -103,7 +103,7 @@ static size_t haskey( void* cookie, frame* frame, const value* arguments, size_t
 static size_t delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vm_context* vm = (vm_context*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw std::exception();
+    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
     if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return rvoid( frame );
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     lookup_delkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key );
@@ -130,7 +130,7 @@ static size_t number_self( void* cookie, frame* frame, const value* arguments, s
         }
         else
         {
-            throw std::exception();
+            throw type_error( v, "convertible to a number" );
         }
     }
     return result( frame, v );
@@ -157,7 +157,7 @@ static size_t string_self( void* cookie, frame* frame, const value* arguments, s
         }
         else
         {
-            throw std::exception();
+            throw type_error( v, "convertible to a string" );
         }
     }
     return result( frame, v );
@@ -167,8 +167,8 @@ static size_t array_resize( void* cookie, frame* frame, const value* arguments, 
 {
     value a = arguments[ 0 ];
     value n = arguments[ 1 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
-    if ( ! box_is_number( n ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_number( n ) ) throw type_error( n, "a number" );
     array_resize( (vm_context*)cookie, (array_object*)unbox_object( a ), (size_t)(uint64_t)get_number( n ) );
     return rvoid( frame );
 }
@@ -176,7 +176,7 @@ static size_t array_resize( void* cookie, frame* frame, const value* arguments, 
 static size_t array_append( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_append( (vm_context*)cookie, (array_object*)unbox_object( a ), arguments[ 1 ] );
     return rvoid( frame );
 }
@@ -184,7 +184,7 @@ static size_t array_append( void* cookie, frame* frame, const value* arguments, 
 static size_t array_extend( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_extend( (vm_context*)cookie, (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
     return rvoid( frame );
 }
@@ -192,7 +192,7 @@ static size_t array_extend( void* cookie, frame* frame, const value* arguments, 
 static size_t array_pop( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_object* array = (array_object*)unbox_object( a );
     if ( array->length == 0 ) throw std::exception();
     return result( frame, read( read( array->aslots )->slots[ --array->length ] ) );
@@ -201,7 +201,7 @@ static size_t array_pop( void* cookie, frame* frame, const value* arguments, siz
 static size_t array_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_object* array = (array_object*)unbox_object( a );
     array_clear( (vm_context*)cookie, array );
     return rvoid( frame );
@@ -210,7 +210,7 @@ static size_t array_clear( void* cookie, frame* frame, const value* arguments, s
 static size_t table_has( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     return result( frame, bool_value( table_tryindex( (vm_context*)cookie, table, arguments[ 1 ], nullptr ) ) );
 }
@@ -219,7 +219,7 @@ static size_t table_get( void* cookie, frame* frame, const value* arguments, siz
 {
     value t = arguments[ 0 ];
     if ( argcount > 3 ) throw std::exception();
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
     value v;
     table_object* table = (table_object*)unbox_object( t );
     if ( ! table_tryindex( (vm_context*)cookie, table, arguments[ 1 ], &v ) )
@@ -232,7 +232,7 @@ static size_t table_get( void* cookie, frame* frame, const value* arguments, siz
 static size_t table_del( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     table_delindex( (vm_context*)cookie, table, arguments[ 1 ] );
     return rvoid( frame );
@@ -241,7 +241,7 @@ static size_t table_del( void* cookie, frame* frame, const value* arguments, siz
 static size_t table_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     table_clear( (vm_context*)cookie, table );
     return rvoid( frame );
@@ -250,7 +250,7 @@ static size_t table_clear( void* cookie, frame* frame, const value* arguments, s
 static size_t cothread_done( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value c = arguments[ 0 ];
-    if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) throw std::exception();
+    if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) throw type_error( c, "a cothread" );
     cothread_object* cothread = (cothread_object*)unbox_object( c );
     return result( frame, cothread->stack_frames.empty() ? boxed_true : boxed_false );
 }
