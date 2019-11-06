@@ -44,7 +44,7 @@ static char* format_message( const char* format, va_list ap )
     char* message = (char*)malloc( size + 1 );
     message[ size ] = '\0';
     va_copy( aq, ap );
-    vsnprintf( message, size, format, aq );
+    vsnprintf( message, size + 1, format, aq );
     va_end( aq );
     return message;
 }
