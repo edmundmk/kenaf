@@ -363,7 +363,7 @@ token lexer::lex()
         {
             // Work out how many encoding units there should be in UTF-8.
             int utf8_size = 1;
-            if ( ( c & 0xF8 ) == 0xF0 )     utf8_size = 4;
+            if ( ( c & 0xF8 ) == 0xF0 )       utf8_size = 4;
             else if ( ( c & 0xF0 ) == 0xE0 )  utf8_size = 3;
             else if ( ( c & 0xE0 ) == 0xC0 )  utf8_size = 2;
 

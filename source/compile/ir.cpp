@@ -11,6 +11,7 @@
 #include "ir.h"
 #include <string.h>
 #include "ast.h"
+#include "../common/escape_string.h"
 
 namespace kf
 {
@@ -214,8 +215,9 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
 
         case IR_O_STRING:
         {
-            const ir_constant& s = f->constants[ operand.index ];
-            printf( " \"%.*s\"", (int)s.size, s.text );
+            const ir_constant& k = f->constants[ operand.index ];
+            std::string s = escape_string( std::string_view( k.text, k.size ), 45 );
+            printf( " %s", s.c_str() );
             break;
         }
 

@@ -34,7 +34,7 @@ int main( int argc, char* argv[] )
         if ( argv[ i ][ 0 ] == '-' )
         {
             const char* option = argv[ i ];
-            if ( strcmp( option, "--ast-parsed" ) == 0 )
+            if ( strcmp( option, "--ast" ) == 0 )
             {
                 debug_print |= kf::PRINT_AST_PARSED;
             }

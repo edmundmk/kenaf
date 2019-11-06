@@ -10,6 +10,7 @@
 
 #include "code.h"
 #include <stdio.h>
+#include "escape_string.h"
 
 namespace kf
 {
@@ -201,9 +202,14 @@ void code_function::debug_print( const code_script* script ) const
     {
         const code_constant& k = constants[ i ];
         if ( k.text == ~(uint32_t)0 )
+        {
             printf( "    %u : %f\n", i, k.n() );
+        }
         else
-            printf( "    %u : \"%.*s\"\n", i, (int)k.size, heap + k.text );
+        {
+            std::string s = escape_string( std::string_view( heap + k.text, k.size ), 45 );
+            printf( "    %u : %s\n", i, s.c_str() );
+        }
     }
 
     printf( "  SELECTORS\n" );
@@ -295,9 +301,14 @@ void code_function::debug_print( const code_script* script ) const
                 {
                     const code_constant& k = constants[ v ];
                     if ( k.text == ~(uint32_t)0 )
+                    {
                         printf( "%f", k.n() );
+                    }
                     else
-                        printf( "\"%.*s\"", (int)k.size, heap + k.text );
+                    {
+                        std::string s = escape_string( std::string_view( heap + k.text, k.size ), 45 );
+                        printf( "%s", s.c_str() );
+                    }
                     break;
                 }
 

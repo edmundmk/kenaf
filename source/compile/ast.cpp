@@ -9,6 +9,7 @@
 //
 
 #include "ast.h"
+#include "../common/escape_string.h"
 
 namespace kf
 {
@@ -201,7 +202,8 @@ static void debug_print_tree( const std::vector< ast_node >& nodes, unsigned ind
     if ( n.leaf == AST_LEAF_STRING )
     {
         const ast_leaf_string& l = n.leaf_string();
-        printf( " STRING '%.*s'\n", (int)l.size, l.text );
+        std::string s = escape_string( std::string_view( l.text, l.size ), 45 );
+        printf( " STRING %s\n", s.c_str() );
     }
     else if ( n.leaf == AST_LEAF_NUMBER )
     {
