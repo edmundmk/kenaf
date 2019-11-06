@@ -10,7 +10,6 @@
 
 #include "vm_context.h"
 #include "../objects/cothread_object.h"
-#include "../../common/escape_string.h"
 
 namespace kf
 {
@@ -468,42 +467,7 @@ void vm_throw( value v )
 
 void vm_type_error( value v, const char* expected )
 {
-    const char* type_name = "object";
-    if ( box_is_number( v ) )
-    {
-        throw type_error( "%f is not %s", unbox_number( v ), expected );
-    }
-    else if ( box_is_string( v ) )
-    {
-        string_object* s = unbox_string( v );
-        std::string escaped = escape_string( std::string_view( s->text, s->size ), 10 );
-        throw type_error( "%s is not %s", escaped.c_str(), expected );
-    }
-    else if ( box_is_object( v ) )
-    {
-        switch ( header( unbox_object( v ) )->type )
-        {
-        case LOOKUP_OBJECT:             type_name = "lookup";           break;
-        case ARRAY_OBJECT:              type_name = "array";            break;
-        case TABLE_OBJECT:              type_name = "table";            break;
-        case FUNCTION_OBJECT:           type_name = "function";         break;
-        case NATIVE_FUNCTION_OBJECT:    type_name = "native function";  break;
-        case COTHREAD_OBJECT:           type_name = "cothread";         break;
-        default: break;
-        }
-    }
-    else if ( box_is_bool( v ) )
-    {
-        if ( v.v == boxed_true.v )
-            type_name = "true";
-        else
-            type_name = "false";
-    }
-    else
-    {
-        type_name = "null";
-    }
-    throw type_error( "%s is not %s", type_name, expected );
+    throw type_error( v, expected );
 }
 
 }

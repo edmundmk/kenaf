@@ -17,6 +17,7 @@
 #include "corlib/corobjects.h"
 #include "corlib/corprint.h"
 #include "corlib/cormath.h"
+#include "../common/escape_string.h"
 
 namespace kf
 {
@@ -299,7 +300,7 @@ value bool_value( bool b )
 
 bool get_bool( value v )
 {
-    if ( ! is_bool( v ) ) throw std::exception();
+    if ( ! is_bool( v ) ) throw type_error( v, "a bool" );
     return v.v == boxed_true.v;
 }
 
@@ -310,7 +311,7 @@ value number_value( double n )
 
 double get_number( value v )
 {
-    if ( ! is_number( v ) ) throw std::exception();
+    if ( ! is_number( v ) ) throw type_error( v, "a number" );
     return unbox_number( v );
 }
 
@@ -322,7 +323,7 @@ value create_lookup()
 
 value create_lookup( value prototype )
 {
-    if ( ! is_lookup( prototype ) ) throw std::exception();
+    if ( ! is_lookup( prototype ) ) throw type_error( prototype, "a lookup object" );
     return box_object( lookup_new( current(), (lookup_object*)unbox_object( prototype ) ) );
 }
 
@@ -338,7 +339,7 @@ void set_key( value lookup, std::string_view k, value v )
 {
     vm_context* vm = current();
     selector sel = {};
-    if ( ! is_lookup( lookup ) ) throw std::exception();
+    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
     string_object* skey = string_key( vm, k.data(), k.size() );
     lookup_setkey( vm, (lookup_object*)unbox_object( lookup ), skey, &sel, v );
 }
@@ -373,7 +374,7 @@ value create_string_buffer( size_t size, char** out_text )
 
 std::string_view get_text( value string )
 {
-    if ( ! is_string( string ) ) throw std::exception();
+    if ( ! is_string( string ) ) throw type_error( string, "a string" );
     string_object* s = unbox_string( string );
     return std::string_view( s->text, s->size );
 }
@@ -390,26 +391,26 @@ value create_array( size_t capacity )
 
 size_t array_length( value array )
 {
-    if ( ! is_array( array ) ) throw std::exception();
+    if ( ! is_array( array ) ) throw type_error( array, "an array" );
     array_object* a = (array_object*)unbox_object( array );
     return a->length;
 }
 
 void array_resize( value array, size_t length )
 {
-    if ( ! is_array( array ) ) throw std::exception();
+    if ( ! is_array( array ) ) throw type_error( array, "an array" );
     array_resize( current(), (array_object*)unbox_object( array ), length );
 }
 
 void array_append( value array, value v )
 {
-    if ( ! is_array( array ) ) throw std::exception();
+    if ( ! is_array( array ) ) throw type_error( array, "an array" );
     array_append( current(), (array_object*)unbox_object( array ), v );
 }
 
 void array_clear( value array )
 {
-    if ( ! is_array( array ) ) throw std::exception();
+    if ( ! is_array( array ) )throw type_error( array, "an array" );
     array_clear( current(), (array_object*)unbox_object( array ) );
 }
 
@@ -425,14 +426,14 @@ value create_table( size_t capacity )
 
 size_t table_length( value table )
 {
-    if ( ! is_table( table ) ) throw std::exception();
+    if ( ! is_table( table ) ) throw type_error( table, "a table" );
     table_object* t = (table_object*)unbox_object( table );
     return t->length;
 }
 
 void table_clear( value table )
 {
-    if ( ! is_table( table ) ) throw std::exception();
+    if ( ! is_table( table ) ) throw type_error( table, "a table" );
     table_clear( current(), (table_object*)unbox_object( table ) );
 }
 
@@ -444,13 +445,13 @@ value get_index( value table, value k )
     }
     else if ( is_array( table ) )
     {
-        if ( ! is_number( k ) ) throw std::exception();
+        if ( ! is_number( k ) ) throw type_error( k, "a number" );
         size_t index = (size_t)(uint64_t)unbox_number( k );
         return array_getindex( current(), (array_object*)unbox_object( table ), index );
     }
     else
     {
-        throw std::exception();
+        throw type_error( table, "indexable" );
     }
 }
 
@@ -466,7 +467,7 @@ value get_index( value array, size_t index )
     }
     else
     {
-        throw std::exception();
+        throw type_error( array, "indexable" );
     }
 }
 
@@ -478,13 +479,13 @@ void set_index( value table, value k, value v )
     }
     else if ( is_array( table ) )
     {
-        if ( ! is_number( k ) ) throw std::exception();
+        if ( ! is_number( k ) ) throw type_error( k, "a number" );
         size_t index = (size_t)(uint64_t)unbox_number( k );
         array_setindex( current(), (array_object*)unbox_object( table ), index, v );
     }
     else
     {
-        throw std::exception();
+        throw type_error( table, "indexable" );
     }
 }
 
@@ -500,13 +501,13 @@ void set_index( value array, size_t index, value v )
     }
     else
     {
-        throw std::exception();
+        throw type_error( array, "indexable" );
     }
 }
 
 void del_index( value table, value k )
 {
-    if ( ! is_table( table ) ) throw std::exception();
+    if ( ! is_table( table ) ) type_error( table, "a table" );
     table_delindex( current(), (table_object*)unbox_object( table ), k );
 }
 
@@ -582,7 +583,7 @@ stack_values call_frame( frame* frame, value function )
     value* r = cothread->stack.data() + frame->fp;
     r[ 0 ] = function;
 
-    if ( ! box_is_object( function ) ) throw std::exception();
+    if ( ! box_is_object( function ) ) throw type_error( function, "callable" );
     type_code type = header( unbox_object( function ) )->type;
     if ( type == FUNCTION_OBJECT )
     {
@@ -613,7 +614,7 @@ stack_values call_frame( frame* frame, value function )
     }
     else
     {
-        throw std::exception();
+        throw type_error( function, "callable" );
     }
 
     assert( vm->cothreads->back() == cothread );
@@ -791,12 +792,46 @@ value script_error::value() const noexcept
     return _value;
 }
 
-type_error::type_error( const char* format, ... )
+type_error::type_error( value v, const char* expected )
 {
-    va_list ap;
-    va_start( ap, format );
-    _message = format_message( format, ap );
-    va_end( ap );
+    const char* type_name = "object";
+    if ( box_is_number( v ) )
+    {
+        _message = format_message( "%f is not %s", unbox_number( v ), expected );
+        return;
+    }
+    else if ( box_is_string( v ) )
+    {
+        string_object* s = unbox_string( v );
+        std::string escaped = escape_string( std::string_view( s->text, s->size ), 10 );
+        _message = format_message( "%s is not %s", escaped.c_str(), expected );
+        return;
+    }
+    else if ( box_is_object( v ) )
+    {
+        switch ( header( unbox_object( v ) )->type )
+        {
+        case LOOKUP_OBJECT:             type_name = "lookup";           break;
+        case ARRAY_OBJECT:              type_name = "array";            break;
+        case TABLE_OBJECT:              type_name = "table";            break;
+        case FUNCTION_OBJECT:           type_name = "function";         break;
+        case NATIVE_FUNCTION_OBJECT:    type_name = "native function";  break;
+        case COTHREAD_OBJECT:           type_name = "cothread";         break;
+        default: break;
+        }
+    }
+    else if ( box_is_bool( v ) )
+    {
+        if ( v.v == boxed_true.v )
+            type_name = "true";
+        else
+            type_name = "false";
+    }
+    else
+    {
+        type_name = "null";
+    }
+    _message = format_message( "%s is not %s", type_name, expected );
 }
 
 type_error::type_error( const type_error& e )
