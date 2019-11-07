@@ -1,0 +1,34 @@
+var t = [
+    "hello" : 3,
+    43 : true
+]
+
+for key, val : t do
+    print( "%s : %s\n", string( key ), string( val ) )
+end
+
+t.del( 43 )
+
+for key, val : t do
+    print( "%s : %s\n", string( key ), string( val ) )
+end
+
+for i = 0 : 300 do
+    t[ i ] = i
+end
+
+for key, val : t do
+    print( "%s : %s\n", string( key ), string( val ) )
+end
+
+for i = 0 : 300 : 2 do
+    t.del( i )
+end
+
+for i = 0 : 300 do
+    print( "%d : %d\n", i, t.get( i, -1 ) )
+end
+
+for i = 1 : 300 : 2 do
+    print( "%d : %d\n", i, t[ i ] )
+end

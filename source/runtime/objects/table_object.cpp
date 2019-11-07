@@ -144,7 +144,7 @@ bool table_tryindex( vm_context* vm, table_object* table, value key, value* out_
 static kvslot* table_insert( vm_context* vm, kvslots_object* kvslots, size_t kvcount, value key, kvslot* main_slot )
 {
     // Insert in main slot if it's empty.
-    if ( main_slot->next )
+    if ( ! main_slot->next )
     {
         main_slot->next = (kvslot*)-1;
         return main_slot;
@@ -244,7 +244,7 @@ void table_setindex( vm_context* vm, table_object* table, value key, value val )
                 kvslot* slot = new_kvslots->slots + key_hash( key ) % new_kvcount;
                 slot = table_insert( vm, new_kvslots, new_kvcount, key, slot );
                 write( vm, slot->k, key );
-                write( vm, slot->v, val );
+                write( vm, slot->v, read( kval->v ) );
             }
         }
 

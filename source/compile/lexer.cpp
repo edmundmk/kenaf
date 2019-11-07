@@ -308,17 +308,9 @@ token lexer::lex()
             next();
             return assign_token( TOKEN_CARET, TOKEN_BITXOR_ASSIGN, sloc );
 
-        case '{':
-            next();
-            return source_token( TOKEN_LBR, sloc );
-
         case '|':
             next();
             return assign_token( TOKEN_VBAR, TOKEN_BITOR_ASSIGN, sloc );
-
-        case '}':
-            next();
-            return source_token( TOKEN_RBR, sloc );
 
         case '~':
             if ( peek( 1 ) == '>' && peek( 2 ) == '>' )
