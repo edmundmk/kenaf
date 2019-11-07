@@ -28,6 +28,30 @@ struct vm_context;
 struct string_object;
 
 /*
+    Each object type has a unique type index to identify it.
+*/
+
+enum type_code : uint8_t
+{
+    LOOKUP_OBJECT,
+    STRING_OBJECT,
+    ARRAY_OBJECT,
+    TABLE_OBJECT,
+    FUNCTION_OBJECT,
+    NATIVE_FUNCTION_OBJECT,
+    COTHREAD_OBJECT,
+    NUMBER_OBJECT,
+    BOOL_OBJECT,
+    NULL_OBJECT,
+    LAYOUT_OBJECT,
+    VSLOTS_OBJECT,
+    KVSLOTS_OBJECT,
+    PROGRAM_OBJECT,
+    SCRIPT_OBJECT,
+    TYPE_COUNT,
+};
+
+/*
     Base class of all objects.  It's empty - data is stored in the header.
 */
 
@@ -92,45 +116,6 @@ inline size_t unbox_index( value v )                { return ~v.v; }
 value box_object( string_object* p ) = delete;  // Prohibit boxing strings as objects.
 
 /*
-    References that are read by the garbage collector must be atomic.  Writes
-    to GC references must use a write barrier.
-*/
-
-template < typename T > using ref = atomic_p< T >;
-template < typename T > T* read( const ref< T >& ref );
-template < typename T > void winit( ref< T >& ref, T* value );
-template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
-
-using ref_value = atomic_u64;
-value read( const ref_value& ref );
-void winit( ref_value& ref, value value );
-void write( vm_context* vm, ref_value& ref, value value );
-
-/*
-    Each object type has a unique type index to identify it.
-*/
-
-enum type_code : uint8_t
-{
-    LOOKUP_OBJECT,
-    STRING_OBJECT,
-    ARRAY_OBJECT,
-    TABLE_OBJECT,
-    FUNCTION_OBJECT,
-    NATIVE_FUNCTION_OBJECT,
-    COTHREAD_OBJECT,
-    NUMBER_OBJECT,
-    BOOL_OBJECT,
-    NULL_OBJECT,
-    LAYOUT_OBJECT,
-    VSLOTS_OBJECT,
-    KVSLOTS_OBJECT,
-    PROGRAM_OBJECT,
-    SCRIPT_OBJECT,
-    TYPE_COUNT,
-};
-
-/*
     Object flags.
 */
 
@@ -160,6 +145,32 @@ inline bool box_is_object_type( value v, type_code type )
     return box_is_object( v ) && header( unbox_object( v ) )->type == type;
 }
 
+/*
+    Global GC state.
+*/
+
+enum gc_phase : uint8_t
+{
+    GC_PHASE_NONE,
+    GC_PHASE_MARK,
+    GC_PHASE_SWEEP,
+};
+
+enum gc_color : uint8_t
+{
+    GC_COLOR_NONE,
+    GC_COLOR_ORANGE,
+    GC_COLOR_PURPLE,
+    GC_COLOR_MARKED,
+};
+
+struct gc_state
+{
+    gc_color old_color;     // overwriting references to this colour must mark.
+    gc_color new_color;     // allocated objects must have this colour.
+    gc_color dead_color;    // cannot resurrect weak references to this colour.
+    gc_phase phase;         // current GC phase.
+};
 
 /*
     Object functions.
@@ -169,8 +180,19 @@ void* object_new( vm_context* vm, type_code type, size_t size );
 size_t object_size( vm_context* vm, object* object );
 
 /*
-    Inline functions.
+    References that are read by the garbage collector must be atomic.  Writes
+    to GC references must use a write barrier.
 */
+
+template < typename T > using ref = atomic_p< T >;
+template < typename T > T* read( const ref< T >& ref );
+template < typename T > void winit( ref< T >& ref, T* value );
+template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
+
+using ref_value = atomic_u64;
+value read( const ref_value& ref );
+void winit( ref_value& ref, value value );
+void write( vm_context* vm, ref_value& ref, value value );
 
 template < typename T > inline T* read( const ref< T >& ref )
 {
