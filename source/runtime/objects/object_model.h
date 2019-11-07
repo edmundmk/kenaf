@@ -64,8 +64,6 @@ enum
 /*
     Each object has a 4-byte header just before its address.  This stores
     the GC mark colour, type index, flags, and small native refcounts.
-
-    The base object structure itself is empty.
 */
 
 struct object_header
@@ -78,10 +76,10 @@ struct object_header
 
 struct object
 {
+    /* EMPTY */
 };
 
 object_header* header( object* object );
-
 
 /*
     Values are 64-bit 'nun-boxed' pointers/doubles.  Inverting the bits of
