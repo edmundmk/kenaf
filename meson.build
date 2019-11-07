@@ -43,10 +43,11 @@ sources = [
     'source/runtime/objects/object_model.cpp',
     'source/runtime/objects/string_object.cpp',
     'source/runtime/objects/table_object.cpp',
+    'source/runtime/vm/gc_mark_sweep.cpp',
+    'source/runtime/vm/heap.cpp',
     'source/runtime/vm/vm_context.cpp',
     'source/runtime/vm/vm_execute.cpp',
     'source/runtime/errors.cpp',
-    'source/runtime/heap.cpp',
     'source/runtime/runtime.cpp',
 ]
 
