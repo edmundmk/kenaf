@@ -52,10 +52,36 @@ enum type_code : uint8_t
 };
 
 /*
-    Base class of all objects.  It's empty - data is stored in the header.
+    Object flags.
 */
 
-struct object {};
+enum
+{
+    FLAG_KEY    = 1 << 0, // String object is a key.
+    FLAG_SEALED = 1 << 1, // Lookup object is sealed.
+};
+
+/*
+    Each object has a 4-byte header just before its address.  This stores
+    the GC mark colour, type index, flags, and small native refcounts.
+
+    The base object structure itself is empty.
+*/
+
+struct object_header
+{
+    atomic_u8 color;
+    type_code type;
+    uint8_t flags;
+    uint8_t refcount;
+};
+
+struct object
+{
+};
+
+object_header* header( object* object );
+
 
 /*
     Values are 64-bit 'nun-boxed' pointers/doubles.  Inverting the bits of
@@ -81,11 +107,9 @@ struct object {};
 
     For-each loops over arrays, tables, and strings store an index value
     directly on the value stack.  To differentiate indexes from pointers, the
-    index value is stored as the not of the index.
-
-    This overlaps with the encoding of numbers, but the compiler knows not to
-    use a register containing an index as an operand to an instruction that
-    requires a number.
+    index value is stored as the not of the index.  This overlaps with the
+    encoding of numbers, but the compiler knows not to use a register
+    containing an index as an operand to an instruction that requires a number.
 */
 
 const value boxed_null  = { 0 };
@@ -107,38 +131,13 @@ inline object* unbox_object( value v )              { return (object*)v.v; }
 inline string_object* unbox_string( value v )       { return (string_object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
 inline object* unbox_object_or_string( value v )    { return (object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
 
+value box_object( string_object* p ) = delete; // Prohibit boxing strings as objects.
+
 inline value box_number( double n )                 { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
 inline double unbox_number( value v )               { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
 
 inline value box_index( size_t i )                  { return { ~(uint64_t)i }; }
 inline size_t unbox_index( value v )                { return ~v.v; }
-
-value box_object( string_object* p ) = delete;  // Prohibit boxing strings as objects.
-
-/*
-    Object flags.
-*/
-
-enum
-{
-    FLAG_KEY    = 1 << 0, // String object is a key.
-    FLAG_SEALED = 1 << 1, // Lookup object is sealed.
-};
-
-/*
-    Each object has a 4-byte header just before its address.  This stores
-    the GC mark colour, type index, flags, and small native refcounts.
-*/
-
-struct object_header
-{
-    atomic_u8 color;
-    type_code type;
-    uint8_t flags;
-    uint8_t refcount;
-};
-
-object_header* header( object* object );
 
 inline bool box_is_object_type( value v, type_code type )
 {
