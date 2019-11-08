@@ -137,7 +137,7 @@ int main( int argc, char* argv[] )
     // Executes script, passing remaining command line arguments.
     try
     {
-        kf::stack_frame frame;
+        kf::scoped_frame frame;
         kf::stack_values arguments = kf::push_frame( frame, argc - i );
         size_t argindex = 0;
         while ( i < argc )

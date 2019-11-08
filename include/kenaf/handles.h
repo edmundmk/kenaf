@@ -87,18 +87,18 @@ private:
 
 };
 
-class stack_frame
+class scoped_frame
 {
 public:
 
-    stack_frame()                                   : _frame{ nullptr, 0 } {}
-    ~stack_frame()                                  { if ( _frame.sp ) pop_frame( &_frame ); }
+    scoped_frame()                                  : _frame{ nullptr, 0 } {}
+    ~scoped_frame()                                 { if ( _frame.sp ) pop_frame( &_frame ); }
     operator frame* ()                              { return &_frame; }
 
 private:
 
-    stack_frame( const stack_frame& ) = delete;
-    stack_frame& operator = ( const stack_frame& ) = delete;
+    scoped_frame( const scoped_frame& ) = delete;
+    scoped_frame& operator = ( const scoped_frame& ) = delete;
 
     frame _frame;
 
