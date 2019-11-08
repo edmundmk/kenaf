@@ -214,6 +214,9 @@ xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsi
     assert( rp < xp );
     rp += 1;
 
+    // Mark cothread.
+    cothread = mark_cothread( vm, cothread );
+
     // Cothread might have completed.
     if ( cothread->stack_frames.empty() )
     {

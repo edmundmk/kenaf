@@ -11,7 +11,9 @@
 #include "vmachine.h"
 #include <stdlib.h>
 #include "heap.h"
+#include "call_stack.h"
 #include "objects/lookup_object.h"
+#include "objects/cothread_object.h"
 
 namespace kf
 {
@@ -73,6 +75,12 @@ void object_retain( vmachine* vm, object* object )
 
 void object_release( vmachine* vm, object* object )
 {
+    std::unique_lock lock( vm->heap_mutex, std::defer_lock );
+    if ( vm->phase == GC_PHASE_SWEEP )
+    {
+        lock.lock();
+    }
+
     object_header* h = header( object );
     assert( h->refcount > 0 );
     if ( h->refcount == 255 )
@@ -95,7 +103,51 @@ void object_release( vmachine* vm, object* object )
 
 void write_barrier( vmachine* vm, object* old )
 {
-    // TODO.
+    atomic_store( header( old )->color, GC_COLOR_MARKED );
+    vm->mark_list.push_back( old );
+}
+
+void write_barrier( vmachine* vm, value oldv )
+{
+    if ( box_is_object( oldv ) )
+    {
+        // Add object to mark list.
+        write_barrier( vm, unbox_object( oldv ) );
+    }
+    else
+    {
+        // Mark strings as mark colour since they have no references.
+        assert( box_is_string( oldv ) );
+        string_object* s = unbox_string( oldv );
+        atomic_store( header( s )->color, vm->new_color );
+    }
+}
+
+cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
+{
+    // Mark entire cothread.  We mark references eagerly here rather than when
+    // we write values into the stack in order to reduce the number of write
+    // barriers required.
+
+    if ( vm->old_color && atomic_load( header( cothread )->color ) == vm->old_color )
+    {
+        // Mark with mark colour so the GC thread doesn't process it.
+        atomic_store( header( cothread )->color, vm->new_color );
+
+        // Add all referenced objects to the mark list.
+        for ( value v : cothread->stack )
+        {
+            write_barrier( vm, v );
+        }
+
+        // Add all functions in stack frames to the mark list.
+        for ( const stack_frame& frame : cothread->stack_frames )
+        {
+            write_barrier( vm, frame.function );
+        }
+    }
+
+    return cothread;
 }
 
 /*

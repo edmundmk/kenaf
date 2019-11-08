@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <string.h>
 #include <vector>
+#include <mutex>
 #include "datatypes/hash_table.h"
 #include "datatypes/segment_list.h"
 #include "kenaf/runtime.h"
@@ -231,6 +232,13 @@ struct vmachine
 
     // List of root objects.
     hash_table< object*, size_t > roots;
+
+    // Mutator mark stack.
+    segment_list< object* > mark_list;
+
+    // GC mutexes.
+    std::mutex heap_mutex;
+    std::mutex weak_mutex;
 };
 
 /*
@@ -254,7 +262,29 @@ value read( const ref_value& ref );
 void winit( ref_value& ref, value v );
 void write( vmachine* vm, ref_value& ref, value v );
 
-void write_barrier( vmachine* vm, object* object );
+void write_barrier( vmachine* vm, object* old );
+void write_barrier( vmachine* vm, value oldv );
+
+cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread );
+
+template < typename T > T* read_resurrect( vmachine* vm, T** ref );
+
+/*
+    Object model functions.
+*/
+
+void setup_object_model( vmachine* vm );
+lookup_object* value_keyerof( vmachine* vm, value v );
+lookup_object* value_superof( vmachine* vm, value v );
+
+/*
+
+*/
+
+inline object_header* header( object* object )
+{
+    return (object_header*)object - 1;
+}
 
 template < typename T > inline T* read( const ref< T >& ref )
 {
@@ -299,10 +329,9 @@ inline void write( vmachine* vm, ref_value& ref, value v )
         value oldv = { atomic_load( ref ) };
         if ( box_is_object_or_string( oldv ) )
         {
-            object* old = unbox_object_or_string( v );
-            if ( atomic_load( header( old )->color ) == vm->old_color )
+            if ( atomic_load( header( unbox_object_or_string( oldv ) )->color ) == vm->old_color )
             {
-                write_barrier( vm, old );
+                write_barrier( vm, oldv );
             }
         }
     }
@@ -310,18 +339,24 @@ inline void write( vmachine* vm, ref_value& ref, value v )
     atomic_store( ref, v.v );
 }
 
-inline object_header* header( object* object )
+template < typename T > T* read_resurrect( vmachine* vm, T** ref )
 {
-    return (object_header*)object - 1;
+    if ( vm->dead_color == GC_COLOR_NONE )
+    {
+        return *ref;
+    }
+    else
+    {
+        std::lock_guard lock( vm->weak_mutex );
+        T* object = *ref;
+        if ( atomic_load( header( object )->color ) == vm->dead_color )
+        {
+            return nullptr;
+        }
+        return object;
+    }
 }
 
-/*
-    Object model functions.
-*/
-
-void setup_object_model( vmachine* vm );
-lookup_object* value_keyerof( vmachine* vm, value v );
-lookup_object* value_superof( vmachine* vm, value v );
 
 }
 

@@ -69,15 +69,11 @@
     The mutator thread has a countdown of how many bytes its allowed to
     allocate from the heap before triggering a GC.  If this limit is exhausted,
     a GC is triggered at the next safepoint.
-
-
-
-
 */
-
 
 namespace kf
 {
+
 
 }
 
