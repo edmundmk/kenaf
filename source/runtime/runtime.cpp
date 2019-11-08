@@ -12,7 +12,7 @@
 #include "kenaf/errors.h"
 #include "vmachine.h"
 #include "vm/call_stack.h"
-#include "vm/vm_execute.h"
+#include "vm/execute.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
 #include "objects/function_object.h"
@@ -594,7 +594,7 @@ stack_values call_frame( frame* frame, value function )
         if ( ( callee_program->code_flags & CODE_GENERATOR ) == 0 )
         {
             xstate state = call_function( vm, callee_function, 0, xp );
-            vm_execute( vm, state );
+            execute( vm, state );
         }
         else
         {
@@ -612,7 +612,7 @@ stack_values call_frame( frame* frame, value function )
     {
         cothread_object* callee_cothread = (cothread_object*)unbox_object( function );
         xstate state = call_cothread( vm, callee_cothread, 0, xp );
-        vm_execute( vm, state );
+        execute( vm, state );
     }
     else
     {

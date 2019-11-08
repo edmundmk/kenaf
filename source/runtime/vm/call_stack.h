@@ -12,8 +12,7 @@
 #define KF_CALL_STACK_H
 
 /*
-    Context structure storing runtime state, and functions to manipulate the
-    context's state that don't belong in the main interpreter loop.
+    Functions dealing with the virtual machine's call/cothread stack.
 */
 
 #include <vector>

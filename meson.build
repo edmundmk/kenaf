@@ -45,7 +45,7 @@ sources = [
     'source/runtime/vm/gc_mark_sweep.cpp',
     'source/runtime/vm/heap.cpp',
     'source/runtime/vm/call_stack.cpp',
-    'source/runtime/vm/vm_execute.cpp',
+    'source/runtime/vm/execute.cpp',
     'source/runtime/errors.cpp',
     'source/runtime/runtime.cpp',
     'source/runtime/vmachine.cpp',

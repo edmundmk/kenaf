@@ -1,5 +1,5 @@
 //
-//  vm_execute.cpp
+//  execute.cpp
 //
 //  Created by Edmund Kapusniak on 24/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,7 +8,7 @@
 //  full license information.
 //
 
-#include "vm_execute.h"
+#include "execute.h"
 #include "../vmachine.h"
 #include "call_stack.h"
 #include "../../common/code.h"
@@ -73,7 +73,7 @@ static lookup_object* keyer_of( vmachine* vm, value u )
     }
 }
 
-void vm_execute( vmachine* vm, xstate state )
+void execute( vmachine* vm, xstate state )
 {
     function_object* function = state.function;
     const op* ops = read( function->program )->ops;

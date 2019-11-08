@@ -1,5 +1,5 @@
 //
-//  vm_execute.h
+//  execute.h
 //
 //  Created by Edmund Kapusniak on 24/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,8 +8,8 @@
 //  full license information.
 //
 
-#ifndef KF_VM_EXECUTE_H
-#define KF_VM_EXECUTE_H
+#ifndef KF_EXECUTE_H
+#define KF_EXECUTE_H
 
 /*
     The actual interpreter loop.
@@ -21,7 +21,7 @@ namespace kf
 struct vmachine;
 struct xstate;
 
-void vm_execute( vmachine* vm, xstate state );
+void execute( vmachine* vm, xstate state );
 
 }
 
