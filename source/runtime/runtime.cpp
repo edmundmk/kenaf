@@ -11,7 +11,7 @@
 #include "kenaf/runtime.h"
 #include "kenaf/errors.h"
 #include "vmachine.h"
-#include "vm/vm_context.h"
+#include "vm/call_stack.h"
 #include "vm/vm_execute.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
@@ -540,7 +540,7 @@ value* results( frame* frame, size_t count )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
     assert( current()->cothreads->back() ==cothread );
-    return vm_resize_stack( cothread, frame->fp, frame->fp + count );
+    return resize_stack( cothread, frame->fp, frame->fp + count );
 }
 
 size_t result( frame* frame, value v )
@@ -568,7 +568,7 @@ stack_values push_frame( frame* frame, size_t argcount )
     cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
     frame->sp = vm;
     frame->fp = fp;
-    return { vm_resize_stack( cothread, fp, 1 + argcount ) + 1, argcount };
+    return { resize_stack( cothread, fp, 1 + argcount ) + 1, argcount };
 }
 
 stack_values call_frame( frame* frame, value function )
@@ -589,29 +589,29 @@ stack_values call_frame( frame* frame, value function )
     type_code type = header( unbox_object( function ) )->type;
     if ( type == FUNCTION_OBJECT )
     {
-        function_object* call_function = (function_object*)unbox_object( function );
-        program_object* call_program = read( call_function->program );
-        if ( ( call_program->code_flags & CODE_GENERATOR ) == 0 )
+        function_object* callee_function = (function_object*)unbox_object( function );
+        program_object* callee_program = read( callee_function->program );
+        if ( ( callee_program->code_flags & CODE_GENERATOR ) == 0 )
         {
-            vm_exstate state = vm_call( vm, call_function, 0, xp );
+            xstate state = call_function( vm, callee_function, 0, xp );
             vm_execute( vm, state );
         }
         else
         {
-            vm_exstate state = vm_call_generator( vm, call_function, 0, xp );
+            xstate state = call_generator( vm, callee_function, 0, xp );
             assert( state.function == nullptr );
         }
     }
     else if ( type == NATIVE_FUNCTION_OBJECT )
     {
-        native_function_object* call_function = (native_function_object*)unbox_object( function );
-        vm_exstate state = vm_call_native( vm, call_function, 0, xp );
+        native_function_object* callee_function = (native_function_object*)unbox_object( function );
+        xstate state = call_native( vm, callee_function, 0, xp );
         assert( state.function == nullptr );
     }
     else if ( type == COTHREAD_OBJECT )
     {
-        cothread_object* call_cothread = (cothread_object*)unbox_object( function );
-        vm_exstate state = vm_call_cothread( vm, call_cothread, 0, xp );
+        cothread_object* callee_cothread = (cothread_object*)unbox_object( function );
+        xstate state = call_cothread( vm, callee_cothread, 0, xp );
         vm_execute( vm, state );
     }
     else

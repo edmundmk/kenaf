@@ -10,7 +10,7 @@
 
 #include "vm_execute.h"
 #include "../vmachine.h"
-#include "vm_context.h"
+#include "call_stack.h"
 #include "../../common/code.h"
 #include "../../common/imath.h"
 #include "../objects/lookup_object.h"
@@ -73,7 +73,7 @@ static lookup_object* keyer_of( vmachine* vm, value u )
     }
 }
 
-void vm_execute( vmachine* vm, vm_exstate state )
+void vm_execute( vmachine* vm, xstate state )
 {
     function_object* function = state.function;
     const op* ops = read( function->program )->ops;
@@ -676,11 +676,11 @@ void vm_execute( vmachine* vm, vm_exstate state )
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
-            r = vm_resize_stack( vm, xp = op.a );
+            r = resize_stack( vm, xp = op.a );
         }
 
         // Store ip, xr:xb in current stack frame.
-        stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = active_frame( vm );
         stack_frame->ip = ip;
         stack_frame->resume = RESUME_CALL;
         stack_frame->xr = op.r;
@@ -710,7 +710,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
             lookup_object* self = lookup_new( vm, class_object );
 
             // Rearrange stack.
-            r = vm_resize_stack( vm, xp + 2 );
+            r = resize_stack( vm, xp + 2 );
             memcpy( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
             r[ rp + 0 ] = box_object( self );
             r[ rp + 1 ] = method;
@@ -728,30 +728,30 @@ void vm_execute( vmachine* vm, vm_exstate state )
             type = header( unbox_object( w ) )->type;
         }
 
-        vm_exstate state;
+        xstate state;
         if ( type == FUNCTION_OBJECT )
         {
-            function_object* call_function = (function_object*)unbox_object( w );
-            program_object* call_program = read( call_function->program );
-            if ( op.opcode == OP_YCALL || ( call_program->code_flags & CODE_GENERATOR ) == 0 )
+            function_object* callee_function = (function_object*)unbox_object( w );
+            program_object* callee_program = read( callee_function->program );
+            if ( op.opcode == OP_YCALL || ( callee_program->code_flags & CODE_GENERATOR ) == 0 )
             {
-                state = vm_call( vm, call_function, rp, xp );
+                state = call_function( vm, callee_function, rp, xp );
             }
             else
             {
-                state = vm_call_generator( vm, call_function, rp, xp );
+                state = call_generator( vm, callee_function, rp, xp );
             }
         }
         else if ( type == NATIVE_FUNCTION_OBJECT )
         {
-            native_function_object* call_function = (native_function_object*)unbox_object( w );
-            state = vm_call_native( vm, call_function, rp, xp );
+            native_function_object* callee_function = (native_function_object*)unbox_object( w );
+            state = call_native( vm, callee_function, rp, xp );
         }
         else if ( type == COTHREAD_OBJECT )
         {
             // Resume yielded cothread.
-            cothread_object* cothread = (cothread_object*)unbox_object( w );
-            state = vm_call_cothread( vm, cothread, rp, xp );
+            cothread_object* callee_cothread = (cothread_object*)unbox_object( w );
+            state = call_cothread( vm, callee_cothread, rp, xp );
         }
         else
         {
@@ -774,11 +774,11 @@ void vm_execute( vmachine* vm, vm_exstate state )
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
-            r = vm_resize_stack( vm, xp = op.a );
+            r = resize_stack( vm, xp = op.a );
         }
 
         // Store ip, xr:xb in current stack frame.
-        stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = active_frame( vm );
         stack_frame->ip = ip;
         stack_frame->resume = RESUME_YIELD;
         stack_frame->xr = op.r;
@@ -786,7 +786,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
         stack_frame->rr = op.r;
 
         // Yield.
-        vm_exstate state = vm_yield( vm, rp, xp );
+        xstate state = call_yield( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -809,11 +809,11 @@ void vm_execute( vmachine* vm, vm_exstate state )
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
-            r = vm_resize_stack( vm, xp = op.a );
+            r = resize_stack( vm, xp = op.a );
         }
 
         // Return.
-        vm_exstate state = vm_return( vm, rp, xp );
+        xstate state = call_return( vm, rp, xp );
 
         if ( ! state.function )
         {
@@ -833,11 +833,11 @@ void vm_execute( vmachine* vm, vm_exstate state )
     case OP_VARARG:
     {
         // Unpack varargs into r:b.
-        stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = active_frame( vm );
         unsigned rp = op.r;
         xp = op.b != OP_STACK_MARK ? op.b : rp + stack_frame->fp - stack_frame->bp;
-        r = vm_resize_stack( vm, xp );
-        value* stack = vm_entire_stack( vm );
+        r = resize_stack( vm, xp );
+        value* stack = entire_stack( vm );
         size_t ap = stack_frame->bp;
         size_t fp = stack_frame->fp;
         while ( rp < xp )
@@ -855,7 +855,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
         array_object* array = (array_object*)unbox_object( u );
         unsigned rp = op.r;
         xp = op.b != OP_STACK_MARK ? op.b : rp + array->length;
-        r = vm_resize_stack( vm, xp );
+        r = resize_stack( vm, xp );
         size_t i = 0;
         while ( rp < xp )
         {
@@ -873,7 +873,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )
         {
-            r = vm_resize_stack( vm, xp = op.a );
+            r = resize_stack( vm, xp = op.a );
         }
         assert( rp <= xp );
         array_extend( vm, array, r + rp, xp - rp );
@@ -965,7 +965,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
                 if ( i < array->length )
                 {
                     xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
-                    r = vm_resize_stack( vm, xp );
+                    r = resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
                     if ( rp < xp ) r[ rp++ ] = box_number( i );
                     while ( rp < xp )
@@ -988,7 +988,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
                 if ( table_next( vm, table, &i, &keyval ) )
                 {
                     xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
-                    r = vm_resize_stack( vm, xp );
+                    r = resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = keyval.k;
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
                     while ( rp < xp )
@@ -1006,9 +1006,9 @@ void vm_execute( vmachine* vm, vm_exstate state )
             else if ( type == COTHREAD_OBJECT )
             {
                 // Resume generator with no arguments.
-                cothread_object* cothread = (cothread_object*)unbox_object( g );
+                cothread_object* callee_cothread = (cothread_object*)unbox_object( g );
 
-                stack_frame* stack_frame = vm_active_frame( vm );
+                stack_frame* stack_frame = active_frame( vm );
                 stack_frame->ip = ip;
                 stack_frame->resume = RESUME_FOR_EACH;
                 stack_frame->xr = op.r;
@@ -1016,7 +1016,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
                 stack_frame->rr = op.r;
 
                 r[ rp ] = g;
-                vm_exstate state = vm_call_cothread( vm, cothread, rp, rp + 1 );
+                xstate state = call_cothread( vm, callee_cothread, rp, rp + 1 );
 
                 function = state.function;
                 ops = read( function->program )->ops;
@@ -1035,7 +1035,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
             if ( i < string->size )
             {
                 xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
-                r = vm_resize_stack( vm, xp );
+                r = resize_stack( vm, xp );
                 if ( rp < xp ) r[ rp++ ] = box_string( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
@@ -1269,7 +1269,7 @@ void vm_execute( vmachine* vm, vm_exstate state )
 
     case OP_THROW:
     {
-        vm_throw( r[ op.a ] );
+        throw_value_error( r[ op.a ] );
         return;
     }
 
@@ -1283,62 +1283,62 @@ void vm_execute( vmachine* vm, vm_exstate state )
     }
 
 type_error_a_number:
-    vm_type_error( r[ op.a ], "a number" );
+    throw_type_error( r[ op.a ], "a number" );
     return;
 
 type_error_a_string:
-    vm_type_error( r[ op.a ], "a string" );
+    throw_type_error( r[ op.a ], "a string" );
     return;
 
 type_error_a_number_or_string:
-    vm_type_error( r[ op.a ], "a number or string" );
+    throw_type_error( r[ op.a ], "a number or string" );
     return;
 
 type_error_a_lookup:
-    vm_type_error( r[ op.a ], "a lookup object" );
+    throw_type_error( r[ op.a ], "a lookup object" );
     return;
 
 type_error_a_array:
-    vm_type_error( r[ op.a ], "an array" );
+    throw_type_error( r[ op.a ], "an array" );
     return;
 
 type_error_a_indexable:
-    vm_type_error( r[ op.a ], "indexable" );
+    throw_type_error( r[ op.a ], "indexable" );
     return;
 
 type_error_a_iterable:
-    vm_type_error( r[ op.a ], "iterable" );
+    throw_type_error( r[ op.a ], "iterable" );
     return;
 
 type_error_b_number:
-    vm_type_error( r[ op.b ], "a number" );
+    throw_type_error( r[ op.b ], "a number" );
     return;
 
 type_error_b_string:
-    vm_type_error( r[ op.b ], "a string" );
+    throw_type_error( r[ op.b ], "a string" );
     return;
 
 type_error_b_array:
-    vm_type_error( r[ op.b ], "an array" );
+    throw_type_error( r[ op.b ], "an array" );
     return;
 
 type_error_r_callable:
-    vm_type_error( r[ op.r ], "callable" );
+    throw_type_error( r[ op.r ], "callable" );
     return;
 
 type_error_a1_number:
-    vm_type_error( r[ op.a + 1 ], "a number" );
+    throw_type_error( r[ op.a + 1 ], "a number" );
     return;
 
 type_error_a2_number:
-    vm_type_error( r[ op.a + 2 ], "a number" );
+    throw_type_error( r[ op.a + 2 ], "a number" );
     return;
 
     }
     catch ( script_error& e )
     {
 
-    vm_unwind( vm, &e, ip );
+    unwind( vm, &e, ip );
     throw;
 
     }

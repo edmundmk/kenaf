@@ -9,7 +9,7 @@
 //
 
 #include "cothread_object.h"
-#include "../vm/vm_context.h"
+#include "../vm/call_stack.h"
 
 namespace kf
 {

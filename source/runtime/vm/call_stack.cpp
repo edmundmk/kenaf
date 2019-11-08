@@ -1,5 +1,5 @@
 //
-//  vm_context.cpp
+//  call_stack.cpp
 //
 //  Created by Edmund Kapusniak on 29/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,28 +8,28 @@
 //  full license information.
 //
 
-#include "vm_context.h"
+#include "call_stack.h"
 #include "kenaf/errors.h"
 #include "../objects/cothread_object.h"
 
 namespace kf
 {
 
-static vm_exstate vm_stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
-static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
+static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
+static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
 
-stack_frame* vm_active_frame( vmachine* vm )
+stack_frame* active_frame( vmachine* vm )
 {
     return &vm->cothreads->back()->stack_frames.back();
 }
 
-value* vm_resize_stack( vmachine* vm, unsigned xp )
+value* resize_stack( vmachine* vm, unsigned xp )
 {
     cothread_object* cothread = vm->cothreads->back();
-    return vm_resize_stack( vm->cothreads->back(), cothread->stack_frames.back().fp, xp );
+    return resize_stack( vm->cothreads->back(), cothread->stack_frames.back().fp, xp );
 }
 
-value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
+value* resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
 {
     // xp is relative to current frame pointer.
     cothread->xp = fp + xp;
@@ -45,13 +45,13 @@ value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
     return cothread->stack.data() + fp;
 }
 
-value* vm_entire_stack( vmachine* vm )
+value* entire_stack( vmachine* vm )
 {
     cothread_object* cothread = vm->cothreads->back();
     return cothread->stack.data();
 }
 
-vm_exstate vm_call( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
+xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call rp:xp
@@ -102,11 +102,11 @@ vm_exstate vm_call( vmachine* vm, function_object* function, unsigned rp, unsign
         stack_frame->fp = bp + total_count - split_count;
     }
 
-    value* r = vm_resize_stack( cothread, stack_frame->fp, program->stack_size );
+    value* r = resize_stack( cothread, stack_frame->fp, program->stack_size );
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-vm_exstate vm_call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp )
+xstate call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call native rp:xp -> rp:count
@@ -142,10 +142,10 @@ vm_exstate vm_call_native( vmachine* vm, native_function_object* function, unsig
     assert( cothread->stack_frames.size() == frame_count );
 
     const stack_frame* stack_frame = &cothread->stack_frames.back();
-    return vm_stack_return( vm, cothread, stack_frame, bp, 0, result_count );
+    return stack_return( vm, cothread, stack_frame, bp, 0, result_count );
 }
 
-vm_exstate vm_call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
+xstate call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call generator rp:xp -> rp:rp+1 [generator]
@@ -193,7 +193,7 @@ vm_exstate vm_call_generator( vmachine* vm, function_object* function, unsigned 
 
     // Copy arguments to cothread's stack.
     unsigned stack_size = std::max< unsigned >( program->stack_size, 1 + argument_count );
-    value* generator_r = vm_resize_stack( generator_cothread, 0, stack_size );
+    value* generator_r = resize_stack( generator_cothread, 0, stack_size );
     unsigned actual_count = 1 + program->param_count;
     unsigned vararg_count = xp - rp - actual_count;
     memcpy( generator_r, caller_r + actual_count, vararg_count * sizeof( value ) );
@@ -202,10 +202,10 @@ vm_exstate vm_call_generator( vmachine* vm, function_object* function, unsigned 
 
     // Return with the generator as the result.
     caller_r[ 0 ] = box_object( generator_cothread );
-    return vm_stack_return( vm, caller_cothread, caller_frame, caller_bp, 0, 1 );
+    return stack_return( vm, caller_cothread, caller_frame, caller_bp, 0, 1 );
 }
 
-vm_exstate vm_call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsigned xp )
+xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsigned xp )
 {
     /*
         call cothread rp:xp, to new cothread
@@ -232,7 +232,7 @@ vm_exstate vm_call_cothread( vmachine* vm, cothread_object* cothread, unsigned r
     // Work out place in stack to copy to.
     unsigned xr = stack_frame->xr;
     unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + ( xp - rp );
-    value* r = vm_resize_stack( cothread, stack_frame->fp, xb );
+    value* r = resize_stack( cothread, stack_frame->fp, xb );
 
     // Copy parameters into cothread.
     while ( xr < xb )
@@ -245,7 +245,7 @@ vm_exstate vm_call_cothread( vmachine* vm, cothread_object* cothread, unsigned r
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-vm_exstate vm_return( vmachine* vm, unsigned rp, unsigned xp )
+xstate call_return( vmachine* vm, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -258,7 +258,7 @@ vm_exstate vm_return( vmachine* vm, unsigned rp, unsigned xp )
     {
         // Normal return.
         const stack_frame* stack_frame = &cothread->stack_frames.back();
-        return vm_stack_return( vm, cothread, stack_frame, return_frame.fp, rp, xp );
+        return stack_return( vm, cothread, stack_frame, return_frame.fp, rp, xp );
     }
     else
     {
@@ -274,18 +274,18 @@ vm_exstate vm_return( vmachine* vm, unsigned rp, unsigned xp )
         {
             // Return across cothreads.
             const value* yield_r = yield_cothread->stack.data() + return_frame.fp;
-            return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
+            return yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
         }
         else
         {
             // No results, end iteration by jumping.
-            value* r = vm_resize_stack( cothread, stack_frame->fp, rp );
+            value* r = resize_stack( cothread, stack_frame->fp, rp );
             return { stack_frame->function, r, stack_frame->ip - 1, cothread->xp - stack_frame->fp };
         }
     }
 }
 
-vm_exstate vm_yield( vmachine* vm, unsigned rp, unsigned xp )
+xstate call_yield( vmachine* vm, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -300,10 +300,10 @@ vm_exstate vm_yield( vmachine* vm, unsigned rp, unsigned xp )
     const stack_frame* stack_frame = &cothread->stack_frames.back();
 
     // Return across cothreads.
-    return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
+    return yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
 }
 
-static vm_exstate vm_stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
+static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
 {
     size_t result_count = rp - xp;
     unsigned xr = stack_frame->xr;
@@ -343,7 +343,7 @@ static vm_exstate vm_stack_return( vmachine* vm, cothread_object* cothread, cons
     return { stack_frame->function, r, stack_frame->ip, xb };
 }
 
-static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
+static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -351,7 +351,7 @@ static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, cons
     size_t result_count = rp - xp;
     unsigned xr = stack_frame->xr;
     unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + result_count;
-    value* r = vm_resize_stack( cothread, stack_frame->fp, xb );
+    value* r = resize_stack( cothread, stack_frame->fp, xb );
 
     if ( stack_frame->resume == RESUME_CONSTRUCT && result_count == 0 )
     {
@@ -372,12 +372,16 @@ static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, cons
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-void vm_throw( value v )
+/*
+    Throw exceptions.
+*/
+
+void throw_value_error( value v )
 {
     throw value_error( v );
 }
 
-void vm_type_error( value v, const char* expected )
+void throw_type_error( value v, const char* expected )
 {
     throw type_error( v, expected );
 }
@@ -386,7 +390,7 @@ void vm_type_error( value v, const char* expected )
     Unwind.
 */
 
-void vm_unwind( vmachine* vm, script_error* e, unsigned ip )
+void unwind( vmachine* vm, script_error* e, unsigned ip )
 {
     cothread_object* cothread = vm->cothreads->back();
     stack_frame& frame = cothread->stack_frames.back();
