@@ -39,7 +39,7 @@ class basic_handle
 public:
 
     basic_handle()                                  : _p( nullptr ) {}
-    explicit basic_handle( T* p )                   : _p( retain( p ) ) {}
+    explicit basic_handle( T* p )                   : _p( p ) {}
     basic_handle( basic_handle&& p )                : _p( nullptr ) { swap( p ); }
     basic_handle& operator = ( basic_handle&& p )   { reset(); swap( p ); return *this; }
     ~basic_handle()                                 { if ( _p ) release( _p ); }

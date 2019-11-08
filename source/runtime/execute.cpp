@@ -711,7 +711,7 @@ void execute( vmachine* vm, xstate state )
 
             // Rearrange stack.
             r = resize_stack( vm, xp + 2 );
-            memcpy( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
+            memmove( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
             r[ rp + 0 ] = box_object( self );
             r[ rp + 1 ] = method;
             r[ rp + 2 ] = box_object( self );
