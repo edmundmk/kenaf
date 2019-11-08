@@ -10,11 +10,13 @@
 
 #include "kenaf/runtime.h"
 #include "kenaf/errors.h"
-#include "objects/array_object.h"
-#include "objects/table_object.h"
-#include "objects/cothread_object.h"
+#include "vmachine.h"
 #include "vm/vm_context.h"
 #include "vm/vm_execute.h"
+#include "objects/array_object.h"
+#include "objects/table_object.h"
+#include "objects/function_object.h"
+#include "objects/cothread_object.h"
 #include "corlib/corobjects.h"
 #include "corlib/corprint.h"
 #include "corlib/cormath.h"
@@ -34,7 +36,7 @@ static thread_local runtime* current_runtime = nullptr;
 
 struct runtime
 {
-    vm_context vm;
+    vmachine vm;
     intptr_t refcount;
     context* current_context;
 };
@@ -43,7 +45,7 @@ struct context
 {
     intptr_t refcount;
     struct runtime* runtime;
-    vm_cothread_stack cothreads;
+    cothread_stack cothreads;
     lookup_object* global_object;
 };
 
@@ -52,7 +54,7 @@ runtime* create_runtime()
     runtime* r = new runtime();
     r->refcount = 1;
     r->current_context = nullptr;
-    vm_setup_object_model( &r->vm );
+    setup_object_model( &r->vm );
     return r;
 }
 
@@ -146,7 +148,7 @@ value global_object()
     Public API.
 */
 
-inline vm_context* current() { return &current_runtime->vm; }
+inline vmachine* current() { return &current_runtime->vm; }
 
 value retain( value v )
 {
@@ -156,13 +158,13 @@ value retain( value v )
         object_header* h = header( o );
         if ( h->refcount == 0 )
         {
-            vm_context* vm = current();
+            vmachine* vm = current();
             assert( ! vm->roots.contains( o ) );
             vm->roots.insert_or_assign( o, 0 );
         }
         if ( ++h->refcount == 0 )
         {
-            vm_context* vm = current();
+            vmachine* vm = current();
             vm->roots.at( o ) += 1;
             h->refcount = 255;
         }
@@ -179,7 +181,7 @@ void release( value v )
         assert( h->refcount > 0 );
         if ( h->refcount == 255 )
         {
-            vm_context* vm = current();
+            vmachine* vm = current();
             size_t& refcount = vm->roots.at( o );
             if ( refcount > 0 )
             {
@@ -192,7 +194,7 @@ void release( value v )
         }
         else if ( --h->refcount == 0 )
         {
-            vm_context* vm = current();
+            vmachine* vm = current();
             vm->roots.erase( o );
         }
     }
@@ -284,8 +286,8 @@ value false_value()
 
 value superof( value v )
 {
-    vm_context* vm = current();
-    return box_object( vm_superof( vm, v ) );
+    vmachine* vm = current();
+    return box_object( value_superof( vm, v ) );
 }
 
 bool test( value v )
@@ -317,7 +319,7 @@ double get_number( value v )
 
 value create_lookup()
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     return box_object( lookup_new( vm, vm->prototypes[ LOOKUP_OBJECT ] ) );
 }
 
@@ -329,15 +331,15 @@ value create_lookup( value prototype )
 
 value get_key( value lookup, std::string_view k )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     selector sel = {};
     string_object* skey = string_key( vm, k.data(), k.size() );
-    return lookup_getkey( vm, vm_keyerof( vm, lookup ), skey, &sel );
+    return lookup_getkey( vm, value_keyerof( vm, lookup ), skey, &sel );
 }
 
 void set_key( value lookup, std::string_view k, value v )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     selector sel = {};
     if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
     string_object* skey = string_key( vm, k.data(), k.size() );
@@ -346,7 +348,7 @@ void set_key( value lookup, std::string_view k, value v )
 
 bool has_key( value lookup, std::string_view k )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     if ( ! is_lookup( lookup ) ) return false;
     string_object* skey = string_key( vm, k.data(), k.size() );
     return lookup_haskey( vm, (lookup_object*)unbox_object( lookup ), skey );
@@ -354,7 +356,7 @@ bool has_key( value lookup, std::string_view k )
 
 void del_key( value lookup, std::string_view k )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     if ( ! is_lookup( lookup ) ) return;
     string_object* skey = string_key( vm, k.data(), k.size() );
     lookup_delkey( vm, (lookup_object*)unbox_object( lookup ), skey );
@@ -513,7 +515,7 @@ void del_index( value table, value k )
 
 value create_function( const void* code, size_t size )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     program_object* program = program_new( vm, code, size );
     return box_object( function_new( vm, program ) );
 }
@@ -560,7 +562,7 @@ size_t rvoid( frame* frame )
 
 stack_values push_frame( frame* frame, size_t argcount )
 {
-    vm_context* vm = current();
+    vmachine* vm = current();
     cothread_object* cothread = vm->cothreads->back();
     unsigned fp = cothread->xp;
     cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
@@ -571,7 +573,7 @@ stack_values push_frame( frame* frame, size_t argcount )
 
 stack_values call_frame( frame* frame, value function )
 {
-    vm_context* vm = (vm_context*)frame->sp;
+    vmachine* vm = (vmachine*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
 
     stack_frame* stack_frame = &cothread->stack_frames.back();
@@ -624,7 +626,7 @@ stack_values call_frame( frame* frame, value function )
 
 void pop_frame( frame* frame )
 {
-    vm_context* vm = (vm_context*)frame->sp;
+    vmachine* vm = (vmachine*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
 
     stack_frame* stack_frame = &cothread->stack_frames.back();

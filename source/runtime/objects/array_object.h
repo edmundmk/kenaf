@@ -15,7 +15,7 @@
     An array object.
 */
 
-#include "object_model.h"
+#include "../vmachine.h"
 #include "lookup_object.h"
 
 namespace kf
@@ -35,19 +35,19 @@ struct array_object : public object
     Functions.
 */
 
-array_object* array_new( vm_context* vm, size_t capacity );
-value array_getindex( vm_context* vm, array_object* array, size_t index );
-void array_setindex( vm_context* vm, array_object* array, size_t index, value value );
-void array_resize( vm_context* vm, array_object* array, size_t length );
-void array_append( vm_context* vm, array_object* array, value value );
-void array_extend( vm_context* vm, array_object* array, const value* values, size_t vcount );
-void array_clear( vm_context* vm, array_object* array );
+array_object* array_new( vmachine* vm, size_t capacity );
+value array_getindex( vmachine* vm, array_object* array, size_t index );
+void array_setindex( vmachine* vm, array_object* array, size_t index, value value );
+void array_resize( vmachine* vm, array_object* array, size_t length );
+void array_append( vmachine* vm, array_object* array, value value );
+void array_extend( vmachine* vm, array_object* array, const value* values, size_t vcount );
+void array_clear( vmachine* vm, array_object* array );
 
 /*
     Inline functions.
 */
 
-inline value array_getindex( vm_context* vm, array_object* array, size_t index )
+inline value array_getindex( vmachine* vm, array_object* array, size_t index )
 {
     if ( index < array->length )
     {
@@ -59,7 +59,7 @@ inline value array_getindex( vm_context* vm, array_object* array, size_t index )
     }
 }
 
-inline void array_setindex( vm_context* vm, array_object* array, size_t index, value value )
+inline void array_setindex( vmachine* vm, array_object* array, size_t index, value value )
 {
     if ( index < array->length )
     {

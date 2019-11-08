@@ -15,7 +15,7 @@
 namespace kf
 {
 
-script_object* script_new( vm_context* vm, const code_script* code )
+script_object* script_new( vmachine* vm, const code_script* code )
 {
     const char* name = code->debug_heap() + code->debug_script_name;
     script_object* script = new ( object_new( vm, SCRIPT_OBJECT, sizeof( script_object ) + sizeof( uint32_t ) * code->debug_newline_count + strlen( name ) ) ) script_object();
@@ -26,7 +26,7 @@ script_object* script_new( vm_context* vm, const code_script* code )
     return script;
 }
 
-std::string_view script_name( vm_context* vm, script_object* script )
+std::string_view script_name( vmachine* vm, script_object* script )
 {
     const char* text = (const char*)( script->newlines + script->newline_count );
     return std::string_view( text, script->name_size );
@@ -47,7 +47,7 @@ static const code_script* validate_code( const void* data, size_t size )
     return code;
 }
 
-program_object* program_new( vm_context* vm, const void* data, size_t size )
+program_object* program_new( vmachine* vm, const void* data, size_t size )
 {
     // Get code.
     const code_script* code = validate_code( data, size );
@@ -151,13 +151,13 @@ program_object* program_new( vm_context* vm, const void* data, size_t size )
     return programs.front();
 }
 
-std::string_view program_name( vm_context* vm, program_object* program )
+std::string_view program_name( vmachine* vm, program_object* program )
 {
     const char* text = (const char*)( (uint32_t*)( program->functions + program->function_count ) + program->op_count );
     return std::string_view( text, program->name_size );
 }
 
-source_location program_source_location( vm_context* vm, program_object* program, unsigned ip )
+source_location program_source_location( vmachine* vm, program_object* program, unsigned ip )
 {
     // Get sloc.
     ip = std::min( ip, program->op_count - 1u );
@@ -170,14 +170,14 @@ source_location program_source_location( vm_context* vm, program_object* program
     return { (unsigned)( i - script->newlines ), (unsigned)( sloc - *( i - 1 ) + 1 ) };
 }
 
-function_object* function_new( vm_context* vm, program_object* program )
+function_object* function_new( vmachine* vm, program_object* program )
 {
     function_object* function = new ( object_new( vm, FUNCTION_OBJECT, sizeof( function_object ) + sizeof( ref< vslots_object > ) * program->outenv_count ) ) function_object();
     winit( function->program, program );
     return function;
 }
 
-native_function_object* native_function_new( vm_context* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags )
+native_function_object* native_function_new( vmachine* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags )
 {
     size_t size = sizeof( native_function_object ) + name.size();
     native_function_object* function = new ( object_new( vm, NATIVE_FUNCTION_OBJECT, size ) ) native_function_object();
@@ -190,7 +190,7 @@ native_function_object* native_function_new( vm_context* vm, std::string_view na
     return function;
 }
 
-std::string_view native_function_name( vm_context* vm, native_function_object* function )
+std::string_view native_function_name( vmachine* vm, native_function_object* function )
 {
     return std::string_view( function->name_text, function->name_size );
 }

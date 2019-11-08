@@ -15,7 +15,7 @@
     Hash table mapping arbitrary values.
 */
 
-#include "object_model.h"
+#include "../vmachine.h"
 
 namespace kf
 {
@@ -47,13 +47,13 @@ struct table_object : public object
     Functions.
 */
 
-kvslots_object* kvslots_new( vm_context* vm, size_t count );
-table_object* table_new( vm_context* vm, size_t capacity );
-value table_getindex( vm_context* vm, table_object* table, value key );
-bool table_tryindex( vm_context* vm, table_object* table, value key, value* out_value );
-void table_setindex( vm_context* vm, table_object* table, value key, value val );
-void table_delindex( vm_context* vm, table_object* table, value key );
-void table_clear( vm_context* vm, table_object* table );
+kvslots_object* kvslots_new( vmachine* vm, size_t count );
+table_object* table_new( vmachine* vm, size_t capacity );
+value table_getindex( vmachine* vm, table_object* table, value key );
+bool table_tryindex( vmachine* vm, table_object* table, value key, value* out_value );
+void table_setindex( vmachine* vm, table_object* table, value key, value val );
+void table_delindex( vmachine* vm, table_object* table, value key );
+void table_clear( vmachine* vm, table_object* table );
 
 /*
     Table for-each.
@@ -65,8 +65,8 @@ struct table_keyval
     value v;
 };
 
-size_t table_iterate( vm_context* vm, table_object* table );
-bool table_next( vm_context* vm, table_object* table, size_t* i, table_keyval* keyval );
+size_t table_iterate( vmachine* vm, table_object* table );
+bool table_next( vmachine* vm, table_object* table, size_t* i, table_keyval* keyval );
 
 }
 

@@ -13,7 +13,7 @@
 namespace kf
 {
 
-array_object* array_new( vm_context* vm, size_t capacity )
+array_object* array_new( vmachine* vm, size_t capacity )
 {
     array_object* array = new ( object_new( vm, ARRAY_OBJECT, sizeof( array_object ) ) ) array_object();
     if ( capacity )
@@ -23,7 +23,7 @@ array_object* array_new( vm_context* vm, size_t capacity )
     return array;
 }
 
-void array_resize( vm_context* vm, array_object* array, size_t length )
+void array_resize( vmachine* vm, array_object* array, size_t length )
 {
     vslots_object* aslots = read( array->aslots );
     size_t array_length = array->length;
@@ -53,12 +53,12 @@ void array_resize( vm_context* vm, array_object* array, size_t length )
     array->length = length;
 }
 
-void array_append( vm_context* vm, array_object* array, value value )
+void array_append( vmachine* vm, array_object* array, value value )
 {
     array_extend( vm, array, &value, 1 );
 }
 
-void array_extend( vm_context* vm, array_object* array, const value* values, size_t vcount )
+void array_extend( vmachine* vm, array_object* array, const value* values, size_t vcount )
 {
     vslots_object* aslots = read( array->aslots );
     size_t aslots_count = aslots ? object_size( vm, aslots ) / sizeof( ref_value ) : 0;
@@ -88,7 +88,7 @@ void array_extend( vm_context* vm, array_object* array, const value* values, siz
     array->length = array_length + vcount;
 }
 
-void array_clear( vm_context* vm, array_object* array )
+void array_clear( vmachine* vm, array_object* array )
 {
     array->length = 0;
 }

@@ -16,7 +16,7 @@
 */
 
 #include <string_view>
-#include "object_model.h"
+#include "../vmachine.h"
 #include "lookup_object.h"
 #include "../../common/code.h"
 
@@ -24,19 +24,13 @@ namespace kf
 {
 
 /*
-    Utility.
+    Source location.
 */
 
 struct source_location
 {
     unsigned line;
     unsigned column;
-};
-
-struct key_selector
-{
-    ref< string_object > key;
-    selector sel;
 };
 
 /*
@@ -89,14 +83,14 @@ struct native_function_object : public object
     Functions.
 */
 
-script_object* script_new( vm_context* vm, const code_script* code );
-std::string_view script_name( vm_context* vm, script_object* script );
-program_object* program_new( vm_context* vm, const void* data, size_t size );
-std::string_view program_name( vm_context* vm, program_object* program );
-source_location program_source_location( vm_context* vm, program_object* program, unsigned ip );
-function_object* function_new( vm_context* vm, program_object* program );
-native_function_object* native_function_new( vm_context* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags );
-std::string_view native_function_name( vm_context* vm, native_function_object* function );
+script_object* script_new( vmachine* vm, const code_script* code );
+std::string_view script_name( vmachine* vm, script_object* script );
+program_object* program_new( vmachine* vm, const void* data, size_t size );
+std::string_view program_name( vmachine* vm, program_object* program );
+source_location program_source_location( vmachine* vm, program_object* program, unsigned ip );
+function_object* function_new( vmachine* vm, program_object* program );
+native_function_object* native_function_new( vmachine* vm, std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags );
+std::string_view native_function_name( vmachine* vm, native_function_object* function );
 
 }
 

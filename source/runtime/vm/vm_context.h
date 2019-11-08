@@ -17,48 +17,13 @@
 */
 
 #include <vector>
-#include "../datatypes/hash_table.h"
-#include "../datatypes/segment_list.h"
+#include "../vmachine.h"
 #include "../objects/lookup_object.h"
 #include "../objects/string_object.h"
 #include "../objects/function_object.h"
 
 namespace kf
 {
-
-struct cothread_object;
-
-/*
-    Global VM state.
-*/
-
-typedef std::vector< cothread_object* > vm_cothread_stack;
-
-struct vm_context
-{
-    vm_context();
-    ~vm_context();
-
-    // Context state.
-    vm_cothread_stack* cothreads;
-    lookup_object* global_object;
-
-    // Object model support.
-    lookup_object* prototypes[ TYPE_COUNT ];
-    string_object* self_key;
-    selector self_sel;
-
-    // Lookup object tables.
-    hash_table< string_hashkey, string_object* > keys;
-    hash_table< lookup_object*, layout_object* > instance_layouts;
-    hash_table< layout_hashkey, layout_object* > splitkey_layouts;
-    uint32_t next_cookie;
-
-    // List of root objects.
-    hash_table< object*, size_t > roots;
-};
-
-void vm_setup_object_model( vm_context* vm );
 
 /*
     Execute state, required to execute bytecode.
@@ -102,29 +67,22 @@ struct stack_frame
     Functions for manipulating the register stack.
 */
 
-stack_frame* vm_active_frame( vm_context* vm );
-value* vm_resize_stack( vm_context* vm, unsigned xp );
+stack_frame* vm_active_frame( vmachine* vm );
+value* vm_resize_stack( vmachine* vm, unsigned xp );
 value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp );
-value* vm_entire_stack( vm_context* vm );
+value* vm_entire_stack( vmachine* vm );
 
 /*
     Functions that perform calls and returns.
 */
 
-vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_exstate vm_call_native( vm_context* vm, native_function_object* function, unsigned rp, unsigned xp );
-vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigned rp, unsigned xp );
-vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp );
+vm_exstate vm_call( vmachine* vm, function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp );
+vm_exstate vm_call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsigned xp );
 
-vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp );
-vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp );
-
-/*
-    Common object model operations.
-*/
-
-lookup_object* vm_keyerof( vm_context* vm, value object );
-lookup_object* vm_superof( vm_context* vm, value object );
+vm_exstate vm_return( vmachine* vm, unsigned rp, unsigned xp );
+vm_exstate vm_yield( vmachine* vm, unsigned rp, unsigned xp );
 
 /*
     Throwing of exceptions from execute loop.
@@ -137,7 +95,7 @@ lookup_object* vm_superof( vm_context* vm, value object );
     Handle unwind.
 */
 
-void vm_unwind( vm_context* vm, script_error* e, unsigned ip );
+void vm_unwind( vmachine* vm, script_error* e, unsigned ip );
 
 }
 

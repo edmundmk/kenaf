@@ -22,7 +22,7 @@ cothread_object::~cothread_object()
 {
 }
 
-cothread_object* cothread_new( vm_context* vm )
+cothread_object* cothread_new( vmachine* vm )
 {
     return new ( object_new( vm, COTHREAD_OBJECT, sizeof( cothread_object ) ) ) cothread_object();
 }

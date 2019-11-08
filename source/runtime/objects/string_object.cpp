@@ -1,5 +1,5 @@
 //
-//  string_object.h
+//  string_object.cpp
 //
 //  Created by Edmund Kapusniak on 25/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -9,12 +9,12 @@
 //
 
 #include "string_object.h"
-#include "../vm/vm_context.h"
+#include "kenaf/errors.h"
 
 namespace kf
 {
 
-string_object* string_new( vm_context* vm, const char* text, size_t size )
+string_object* string_new( vmachine* vm, const char* text, size_t size )
 {
     string_object* string = new ( object_new( vm, STRING_OBJECT, sizeof( string_object ) + size + 1 ) ) string_object();
     string->size = size;
@@ -26,7 +26,7 @@ string_object* string_new( vm_context* vm, const char* text, size_t size )
     return string;
 }
 
-string_object* string_key_internal( vm_context* vm, string_object* string )
+string_object* string_key_internal( vmachine* vm, string_object* string )
 {
     assert( ( header( string )->flags & FLAG_KEY ) == 0 );
 
@@ -42,7 +42,7 @@ string_object* string_key_internal( vm_context* vm, string_object* string )
     return string;
 }
 
-string_object* string_key( vm_context* vm, const char* text, size_t size )
+string_object* string_key( vmachine* vm, const char* text, size_t size )
 {
     size_t hash = std::hash< std::string_view >()( std::string_view( text, size ) );
     string_hashkey hashkey = { hash, size, text };
@@ -60,7 +60,7 @@ string_object* string_key( vm_context* vm, const char* text, size_t size )
     return string;
 }
 
-string_object* string_getindex( vm_context* vm, string_object* string, size_t index )
+string_object* string_getindex( vmachine* vm, string_object* string, size_t index )
 {
     if ( index < string->size )
     {

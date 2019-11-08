@@ -18,10 +18,10 @@
 namespace kf
 {
 
-struct vm_context;
+struct vmachine;
 struct vm_exstate;
 
-void vm_execute( vm_context* vm, vm_exstate state );
+void vm_execute( vmachine* vm, vm_exstate state );
 
 }
 

@@ -14,9 +14,9 @@
 namespace kf
 {
 
-struct vm_context;
+struct vmachine;
 
-void expose_corobjects( vm_context* vm );
+void expose_corobjects( vmachine* vm );
 
 }
 

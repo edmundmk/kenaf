@@ -15,48 +15,15 @@
 namespace kf
 {
 
-static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
-static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
+static vm_exstate vm_stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
+static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
 
-vm_context::vm_context()
-    :   cothreads( nullptr )
-    ,   global_object( nullptr )
-    ,   prototypes{}
-    ,   self_key( nullptr )
-    ,   self_sel{}
-    ,   next_cookie( 0 )
-{
-}
-
-vm_context::~vm_context()
-{
-}
-
-void vm_setup_object_model( vm_context* vm )
-{
-    // Prototype objects.
-    lookup_object* object = lookup_new( vm, nullptr );
-    vm->prototypes[ LOOKUP_OBJECT ] = object;
-    vm->prototypes[ STRING_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ ARRAY_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ TABLE_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ FUNCTION_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ NATIVE_FUNCTION_OBJECT ] = vm->prototypes[ FUNCTION_OBJECT ];
-    vm->prototypes[ COTHREAD_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ NUMBER_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ BOOL_OBJECT ] = lookup_new( vm, object );
-    vm->prototypes[ NULL_OBJECT ] = lookup_new( vm, object );
-
-    // 'self' key.
-    vm->self_key = string_key( vm, "self", 4 );
-}
-
-stack_frame* vm_active_frame( vm_context* vm )
+stack_frame* vm_active_frame( vmachine* vm )
 {
     return &vm->cothreads->back()->stack_frames.back();
 }
 
-value* vm_resize_stack( vm_context* vm, unsigned xp )
+value* vm_resize_stack( vmachine* vm, unsigned xp )
 {
     cothread_object* cothread = vm->cothreads->back();
     return vm_resize_stack( vm->cothreads->back(), cothread->stack_frames.back().fp, xp );
@@ -78,13 +45,13 @@ value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp )
     return cothread->stack.data() + fp;
 }
 
-value* vm_entire_stack( vm_context* vm )
+value* vm_entire_stack( vmachine* vm )
 {
     cothread_object* cothread = vm->cothreads->back();
     return cothread->stack.data();
 }
 
-vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsigned xp )
+vm_exstate vm_call( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call rp:xp
@@ -139,7 +106,7 @@ vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsi
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-vm_exstate vm_call_native( vm_context* vm, native_function_object* function, unsigned rp, unsigned xp )
+vm_exstate vm_call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call native rp:xp -> rp:count
@@ -178,7 +145,7 @@ vm_exstate vm_call_native( vm_context* vm, native_function_object* function, uns
     return vm_stack_return( vm, cothread, stack_frame, bp, 0, result_count );
 }
 
-vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigned rp, unsigned xp )
+vm_exstate vm_call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
 {
     /*
         call generator rp:xp -> rp:rp+1 [generator]
@@ -238,7 +205,7 @@ vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigne
     return vm_stack_return( vm, caller_cothread, caller_frame, caller_bp, 0, 1 );
 }
 
-vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned rp, unsigned xp )
+vm_exstate vm_call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsigned xp )
 {
     /*
         call cothread rp:xp, to new cothread
@@ -278,7 +245,7 @@ vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp )
+vm_exstate vm_return( vmachine* vm, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -318,7 +285,7 @@ vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp )
     }
 }
 
-vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp )
+vm_exstate vm_yield( vmachine* vm, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -336,7 +303,7 @@ vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp )
     return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
 }
 
-static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
+static vm_exstate vm_stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
 {
     size_t result_count = rp - xp;
     unsigned xr = stack_frame->xr;
@@ -376,7 +343,7 @@ static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, co
     return { stack_frame->function, r, stack_frame->ip, xb };
 }
 
-static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
+static vm_exstate vm_yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -405,71 +372,6 @@ static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, co
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
-lookup_object* vm_keyerof( vm_context* vm, value v )
-{
-    if ( box_is_number( v ) )
-    {
-        return vm->prototypes[ NUMBER_OBJECT ];
-    }
-    else if ( box_is_string( v ) )
-    {
-        return vm->prototypes[ STRING_OBJECT ];
-    }
-    else if ( box_is_object( v ) )
-    {
-        type_code type = header( unbox_object( v ) )->type;
-        if ( type == LOOKUP_OBJECT )
-        {
-            return (lookup_object*)unbox_object( v );
-        }
-        else
-        {
-            return vm->prototypes[ type ];
-        }
-    }
-    else if ( box_is_bool( v ) )
-    {
-        return vm->prototypes[ BOOL_OBJECT ];
-    }
-    else
-    {
-        return vm->prototypes[ NULL_OBJECT ];
-    }
-}
-
-lookup_object* vm_superof( vm_context* vm, value v )
-{
-    if ( box_is_number( v ) )
-    {
-        return vm->prototypes[ NUMBER_OBJECT ];
-    }
-    else if ( box_is_string( v ) )
-    {
-
-        return vm->prototypes[ STRING_OBJECT ];
-    }
-    else if ( box_is_object( v ) )
-    {
-        type_code type = header( unbox_object( v ) )->type;
-        if ( type == LOOKUP_OBJECT )
-        {
-            return lookup_prototype( vm, (lookup_object*)unbox_object( v ) );
-        }
-        else
-        {
-            return vm->prototypes[ type ];
-        }
-    }
-    else if ( box_is_bool( v ) )
-    {
-        return vm->prototypes[ BOOL_OBJECT ];
-    }
-    else
-    {
-        return vm->prototypes[ NULL_OBJECT ];
-    }
-}
-
 void vm_throw( value v )
 {
     throw value_error( v );
@@ -484,7 +386,7 @@ void vm_type_error( value v, const char* expected )
     Unwind.
 */
 
-void vm_unwind( vm_context* vm, script_error* e, unsigned ip )
+void vm_unwind( vmachine* vm, script_error* e, unsigned ip )
 {
     cothread_object* cothread = vm->cothreads->back();
     stack_frame& frame = cothread->stack_frames.back();

@@ -40,7 +40,6 @@ sources = [
     'source/runtime/objects/cothread_object.cpp',
     'source/runtime/objects/function_object.cpp',
     'source/runtime/objects/lookup_object.cpp',
-    'source/runtime/objects/object_model.cpp',
     'source/runtime/objects/string_object.cpp',
     'source/runtime/objects/table_object.cpp',
     'source/runtime/vm/gc_mark_sweep.cpp',
@@ -49,6 +48,7 @@ sources = [
     'source/runtime/vm/vm_execute.cpp',
     'source/runtime/errors.cpp',
     'source/runtime/runtime.cpp',
+    'source/runtime/vmachine.cpp',
 ]
 
 sources += lemon.process( 'source/compile/grammar.lemon' )

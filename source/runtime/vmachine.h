@@ -1,5 +1,5 @@
 //
-//  object_model.h
+//  vmachine.h
 //
 //  Created by Edmund Kapusniak on 12/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,24 +8,30 @@
 //  full license information.
 //
 
-#ifndef KF_OBJECT_MODEL_H
-#define KF_OBJECT_MODEL_H
+#ifndef KF_VMACHINE_H
+#define KF_VMACHINE_H
 
 /*
-    The basics of the object model for all garbage-collected objects.
+    The virtual machine's object model and global environment.
 */
 
 #include <stddef.h>
 #include <assert.h>
 #include <string.h>
+#include <vector>
+#include "datatypes/hash_table.h"
+#include "datatypes/segment_list.h"
 #include "kenaf/runtime.h"
-#include "../atomic_load_store.h"
+#include "atomic_load_store.h"
+#include "hashkeys.h"
 
 namespace kf
 {
 
-struct vm_context;
+struct layout_object;
+struct lookup_object;
 struct string_object;
+struct cothread_object;
 
 /*
     Each object type has a unique type index to identify it.
@@ -143,6 +149,30 @@ inline bool box_is_object_type( value v, type_code type )
 }
 
 /*
+    References visible to the garbage collector must be atomic.
+*/
+
+template < typename T > using ref = atomic_p< T >;
+using ref_value = atomic_u64;
+
+/*
+    Selectors.
+*/
+
+struct selector
+{
+    uint32_t cookie;
+    uint32_t sindex;
+    ref_value* slot;
+};
+
+struct key_selector
+{
+    ref< string_object > key;
+    selector sel;
+};
+
+/*
     Global GC state.
 */
 
@@ -170,26 +200,63 @@ struct gc_state
 };
 
 /*
+    Execution environment structure.
+*/
+
+typedef std::vector< cothread_object* > cothread_stack;
+
+struct vmachine
+{
+    vmachine();
+    ~vmachine();
+
+    // Context state.
+    cothread_stack* cothreads;
+    lookup_object* global_object;
+
+    // Object model support.
+    lookup_object* prototypes[ TYPE_COUNT ];
+    string_object* self_key;
+    selector self_sel;
+
+    // Lookup object tables.
+    hash_table< string_hashkey, string_object* > keys;
+    hash_table< lookup_object*, layout_object* > instance_layouts;
+    hash_table< layout_hashkey, layout_object* > splitkey_layouts;
+    uint32_t next_cookie;
+
+    // List of root objects.
+    hash_table< object*, size_t > roots;
+};
+
+/*
     Object functions.
 */
 
-void* object_new( vm_context* vm, type_code type, size_t size );
-size_t object_size( vm_context* vm, object* object );
+void* object_new( vmachine* vm, type_code type, size_t size );
+size_t object_size( vmachine* vm, object* object );
+void object_retain( vmachine* vm, object* object );
+void object_release( vmachine* vm, object* object );
 
 /*
-    References that are read by the garbage collector must be atomic.  Writes
-    to GC references must use a write barrier.
+    Object model functions.
 */
 
-template < typename T > using ref = atomic_p< T >;
+void setup_object_model( vmachine* vm );
+lookup_object* value_keyerof( vmachine* vm, value v );
+lookup_object* value_superof( vmachine* vm, value v );
+
+/*
+    Writes to GC references must use a write barrier.
+*/
+
 template < typename T > T* read( const ref< T >& ref );
 template < typename T > void winit( ref< T >& ref, T* value );
-template < typename T > void write( vm_context* vm, ref< T >& ref, T* value );
+template < typename T > void write( vmachine* vm, ref< T >& ref, T* value );
 
-using ref_value = atomic_u64;
 value read( const ref_value& ref );
 void winit( ref_value& ref, value value );
-void write( vm_context* vm, ref_value& ref, value value );
+void write( vmachine* vm, ref_value& ref, value value );
 
 template < typename T > inline T* read( const ref< T >& ref )
 {
@@ -202,7 +269,7 @@ template < typename T > inline void winit( ref< T >& ref, T* value )
     atomic_store( ref, value );
 }
 
-template < typename T > inline void write( vm_context* vm, ref< T >& ref, T* value )
+template < typename T > inline void write( vmachine* vm, ref< T >& ref, T* value )
 {
     // TODO: pass previous unmarked value of reference to gc thread.
     atomic_store( ref, value );
@@ -219,7 +286,7 @@ inline void winit( ref_value& ref, value value )
     atomic_store( ref, value.v );
 }
 
-inline void write( vm_context* vm, ref_value& ref, value value )
+inline void write( vmachine* vm, ref_value& ref, value value )
 {
     // TODO: pass previous unmarked value of reference to gc thread.
     atomic_store( ref, value.v );

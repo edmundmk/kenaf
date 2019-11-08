@@ -80,7 +80,7 @@ static inline bool key_equal( value a, value b )
     Key/value slot list.
 */
 
-kvslots_object* kvslots_new( vm_context* vm, size_t count )
+kvslots_object* kvslots_new( vmachine* vm, size_t count )
 {
     kvslots_object* kvslots = new ( object_new( vm, KVSLOTS_OBJECT, sizeof( kvslots_object ) + ( count + 1 ) * sizeof( kvslot ) ) ) kvslots_object();
     kvslots->count = count;
@@ -92,7 +92,7 @@ kvslots_object* kvslots_new( vm_context* vm, size_t count )
     Table functions.
 */
 
-table_object* table_new( vm_context* vm, size_t capacity )
+table_object* table_new( vmachine* vm, size_t capacity )
 {
     table_object* table = new ( object_new( vm, TABLE_OBJECT, sizeof( table_object ) ) ) table_object();
     if ( capacity != 0 )
@@ -104,7 +104,7 @@ table_object* table_new( vm_context* vm, size_t capacity )
     return table;
 }
 
-value table_getindex( vm_context* vm, table_object* table, value key )
+value table_getindex( vmachine* vm, table_object* table, value key )
 {
     value v;
     if ( table_tryindex( vm, table, key, &v ) )
@@ -117,7 +117,7 @@ value table_getindex( vm_context* vm, table_object* table, value key )
     }
 }
 
-bool table_tryindex( vm_context* vm, table_object* table, value key, value* out_value )
+bool table_tryindex( vmachine* vm, table_object* table, value key, value* out_value )
 {
     kvslots_object* kvslots = read( table->kvslots );
     if ( kvslots->count )
@@ -141,7 +141,7 @@ bool table_tryindex( vm_context* vm, table_object* table, value key, value* out_
     return false;
 }
 
-static kvslot* table_insert( vm_context* vm, kvslots_object* kvslots, size_t kvcount, value key, kvslot* main_slot )
+static kvslot* table_insert( vmachine* vm, kvslots_object* kvslots, size_t kvcount, value key, kvslot* main_slot )
 {
     // Insert in main slot if it's empty.
     if ( ! main_slot->next )
@@ -203,7 +203,7 @@ static kvslot* table_insert( vm_context* vm, kvslots_object* kvslots, size_t kvc
     return main_slot;
 }
 
-void table_setindex( vm_context* vm, table_object* table, value key, value val )
+void table_setindex( vmachine* vm, table_object* table, value key, value val )
 {
     key = key_value( key );
     size_t hash = key_hash( key );
@@ -264,7 +264,7 @@ void table_setindex( vm_context* vm, table_object* table, value key, value val )
     write( vm, slot->v, val );
 }
 
-void table_delindex( vm_context* vm, table_object* table, value key )
+void table_delindex( vmachine* vm, table_object* table, value key )
 {
     kvslots_object* kvslots = read( table->kvslots );
     if ( ! kvslots || ! table->length )
@@ -319,7 +319,7 @@ void table_delindex( vm_context* vm, table_object* table, value key )
     }
 }
 
-void table_clear( vm_context* vm, table_object* table )
+void table_clear( vmachine* vm, table_object* table )
 {
     kvslots_object* kvslots = read( table->kvslots );
     if ( ! kvslots )
@@ -342,7 +342,7 @@ void table_clear( vm_context* vm, table_object* table )
     table->length = 0;
 }
 
-size_t table_iterate( vm_context* vm, table_object* table )
+size_t table_iterate( vmachine* vm, table_object* table )
 {
     kvslots_object* kvslots = read( table->kvslots );
     size_t i = 0;
@@ -353,7 +353,7 @@ size_t table_iterate( vm_context* vm, table_object* table )
     return i;
 }
 
-bool table_next( vm_context* vm, table_object* table, size_t* i, table_keyval* keyval )
+bool table_next( vmachine* vm, table_object* table, size_t* i, table_keyval* keyval )
 {
     kvslots_object* kvslots = read( table->kvslots );
     if ( *i < kvslots->count )

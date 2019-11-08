@@ -10,12 +10,11 @@
 
 #include "lookup_object.h"
 #include <vector>
-#include "../vm/vm_context.h"
 
 namespace kf
 {
 
-layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
+layout_object* layout_new( vmachine* vm, object* parent, string_object* key )
 {
     layout_object* layout = new ( object_new( vm, LAYOUT_OBJECT, sizeof( layout_object ) ) ) layout_object();
     winit( layout->parent, parent );
@@ -57,13 +56,13 @@ layout_object* layout_new( vm_context* vm, object* parent, string_object* key )
     return layout;
 }
 
-vslots_object* vslots_new( vm_context* vm, size_t count )
+vslots_object* vslots_new( vmachine* vm, size_t count )
 {
     vslots_object* oslots = new ( object_new( vm, VSLOTS_OBJECT, count * sizeof( ref_value ) ) ) vslots_object();
     return oslots;
 }
 
-lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
+lookup_object* lookup_new( vmachine* vm, lookup_object* prototype )
 {
     // Seal prototype.
     if ( prototype )
@@ -92,7 +91,7 @@ lookup_object* lookup_new( vm_context* vm, lookup_object* prototype )
     return object;
 }
 
-lookup_object* lookup_prototype( vm_context* vm, lookup_object* object )
+lookup_object* lookup_prototype( vmachine* vm, lookup_object* object )
 {
     // Prototype is linked from the top of the object's layout chain.
     layout_object* layout = read( object->layout );
@@ -104,7 +103,7 @@ lookup_object* lookup_prototype( vm_context* vm, lookup_object* object )
     return (lookup_object*)read( layout->parent );
 }
 
-void lookup_seal( vm_context* vm, lookup_object* object )
+void lookup_seal( vmachine* vm, lookup_object* object )
 {
     object_header* object_header = header( object );
     if ( ( object_header->flags & FLAG_SEALED ) == 0 )
@@ -113,12 +112,12 @@ void lookup_seal( vm_context* vm, lookup_object* object )
     }
 }
 
-bool lookup_sealed( vm_context* vm, lookup_object* object )
+bool lookup_sealed( vmachine* vm, lookup_object* object )
 {
     return ( header( object )->flags & FLAG_SEALED ) != 0;
 }
 
-bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+bool lookup_getsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {
     assert( header( key )->flags & FLAG_KEY );
     layout_object* lookup_layout = read( object->layout );
@@ -163,7 +162,7 @@ bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, s
     return false;
 }
 
-static layout_object* next_layout( vm_context* vm, layout_object* layout, string_object* key )
+static layout_object* next_layout( vmachine* vm, layout_object* layout, string_object* key )
 {
     // Check if we can follow the next layout chain.
     layout_object* next_layout = layout->next;
@@ -188,7 +187,7 @@ static layout_object* next_layout( vm_context* vm, layout_object* layout, string
     return next_layout;
 }
 
-void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+void lookup_setsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {
     assert( header( key )->flags & FLAG_KEY );
     layout_object* lookup_layout = read( object->layout );
@@ -243,7 +242,7 @@ void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, s
     return;
 }
 
-bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key )
+bool lookup_haskey( vmachine* vm, lookup_object* object, string_object* key )
 {
     assert( header( key )->flags & FLAG_KEY );
 
@@ -260,7 +259,7 @@ bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key )
     return false;
 }
 
-void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key )
+void lookup_delkey( vmachine* vm, lookup_object* object, string_object* key )
 {
     assert( header( key )->flags & FLAG_KEY );
 

@@ -44,7 +44,7 @@
 #include <functional>
 #include <string_view>
 #include "kenaf/errors.h"
-#include "object_model.h"
+#include "../vmachine.h"
 #include "string_object.h"
 
 namespace kf
@@ -53,27 +53,6 @@ namespace kf
 struct layout_object;
 struct vslots_object;
 struct lookup_object;
-struct selector;
-
-/*
-    Key for split map.
-*/
-
-struct layout_hashkey
-{
-    layout_object* layout;
-    string_object* key;
-};
-
-inline bool operator == ( const layout_hashkey& a, const layout_hashkey& b )
-{
-    return a.layout == b.layout && a.key == b.key;
-}
-
-inline bool operator != ( const layout_hashkey& a, const layout_hashkey& b )
-{
-    return ! operator == ( a, b );
-}
 
 /*
     Object structures.
@@ -100,39 +79,28 @@ struct lookup_object : public object
 };
 
 /*
-    Selector.
-*/
-
-struct selector
-{
-    uint32_t cookie;
-    uint32_t sindex;
-    ref_value* slot;
-};
-
-/*
     Functions.
 */
 
-layout_object* layout_new( vm_context* vm, object* parent, string_object* key );
-vslots_object* vslots_new( vm_context* vm, size_t count );
-lookup_object* lookup_new( vm_context* vm, lookup_object* prototype );
-lookup_object* lookup_prototype( vm_context* vm, lookup_object* object );
-void lookup_seal( vm_context* vm, lookup_object* object );
-bool lookup_sealed( vm_context* vm, lookup_object* object );
-value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
-void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value );
-bool lookup_haskey( vm_context* vm, lookup_object* object, string_object* key );
-void lookup_delkey( vm_context* vm, lookup_object* object, string_object* key );
+layout_object* layout_new( vmachine* vm, object* parent, string_object* key );
+vslots_object* vslots_new( vmachine* vm, size_t count );
+lookup_object* lookup_new( vmachine* vm, lookup_object* prototype );
+lookup_object* lookup_prototype( vmachine* vm, lookup_object* object );
+void lookup_seal( vmachine* vm, lookup_object* object );
+bool lookup_sealed( vmachine* vm, lookup_object* object );
+value lookup_getkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel );
+void lookup_setkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel, value value );
+bool lookup_haskey( vmachine* vm, lookup_object* object, string_object* key );
+void lookup_delkey( vmachine* vm, lookup_object* object, string_object* key );
 
 /*
     Inline functions.
 */
 
-inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel )
+inline value lookup_getkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {
     layout_object* layout = read( object->layout );
-    extern bool lookup_getsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+    extern bool lookup_getsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel );
     if ( sel->cookie == layout->cookie || lookup_getsel( vm, object, key, sel ) )
     {
         if ( sel->sindex != ~(uint32_t)0 )
@@ -150,22 +118,17 @@ inline value lookup_getkey( vm_context* vm, lookup_object* object, string_object
     }
 }
 
-inline void lookup_setkey( vm_context* vm, lookup_object* object, string_object* key, selector* sel, value value )
+inline void lookup_setkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel, value value )
 {
     layout_object* layout = read( object->layout );
     if ( sel->cookie != layout->cookie || sel->sindex == ~(uint32_t)0 )
     {
-        extern void lookup_setsel( vm_context* vm, lookup_object* object, string_object* key, selector* sel );
+        extern void lookup_setsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel );
         lookup_setsel( vm, object, key, sel );
     }
     write( vm, read( object->oslots )->slots[ sel->sindex ], value );
 }
 
 }
-
-template <> struct std::hash< kf::layout_hashkey > : private std::hash< std::string_view >
-{
-    size_t operator () ( const kf::layout_hashkey& k ) { return std::hash< std::string_view >::operator () ( std::string_view( (char*)&k, sizeof( k ) ) ); }
-};
 
 #endif

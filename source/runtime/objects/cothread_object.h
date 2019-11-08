@@ -18,7 +18,7 @@
 */
 
 #include <vector>
-#include "object_model.h"
+#include "../vmachine.h"
 
 namespace kf
 {
@@ -43,7 +43,7 @@ struct cothread_object : public object
     Functions.
 */
 
-cothread_object* cothread_new( vm_context* vm );
+cothread_object* cothread_new( vmachine* vm );
 
 }
 

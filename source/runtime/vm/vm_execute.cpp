@@ -9,6 +9,7 @@
 //
 
 #include "vm_execute.h"
+#include "../vmachine.h"
 #include "vm_context.h"
 #include "../../common/code.h"
 #include "../../common/imath.h"
@@ -40,7 +41,7 @@ static inline int string_compare( string_object* us, string_object* vs )
     return memcmp( us->text, vs->text, size + 1 );
 }
 
-static lookup_object* keyer_of( vm_context* vm, value u )
+static lookup_object* keyer_of( vmachine* vm, value u )
 {
     if ( box_is_number( u ) )
     {
@@ -72,7 +73,7 @@ static lookup_object* keyer_of( vm_context* vm, value u )
     }
 }
 
-void vm_execute( vm_context* vm, vm_exstate state )
+void vm_execute( vmachine* vm, vm_exstate state )
 {
     function_object* function = state.function;
     const op* ops = read( function->program )->ops;

@@ -20,31 +20,10 @@
 #include <string.h>
 #include <functional>
 #include <string_view>
-#include "object_model.h"
+#include "../vmachine.h"
 
 namespace kf
 {
-
-/*
-    Key used in the hash table for the key map.
-*/
-
-struct string_hashkey
-{
-    size_t hash;
-    size_t size;
-    const char* text;
-};
-
-inline bool operator == ( const string_hashkey& a, const string_hashkey& b )
-{
-    return a.hash == b.hash && a.size == b.size && memcmp( a.text, b.text, a.size ) == 0;
-}
-
-inline bool operator != ( const string_hashkey& a, const string_hashkey& b )
-{
-    return ! operator == ( a, b );
-}
 
 /*
     String object structure.
@@ -60,24 +39,24 @@ struct string_object : public object
     String functions.
 */
 
-string_object* string_new( vm_context* vm, const char* text, size_t size );
-size_t string_hash( vm_context* vm, string_object* string );
-string_object* string_key( vm_context* vm, string_object* string );
-string_object* string_key( vm_context* vm, const char* text, size_t size );
-string_object* string_getindex( vm_context* vm, string_object* string, size_t index );
+string_object* string_new( vmachine* vm, const char* text, size_t size );
+size_t string_hash( vmachine* vm, string_object* string );
+string_object* string_key( vmachine* vm, string_object* string );
+string_object* string_key( vmachine* vm, const char* text, size_t size );
+string_object* string_getindex( vmachine* vm, string_object* string, size_t index );
 
 /*
     Inline functions.
 */
 
-inline size_t string_hash( vm_context* vm, string_object* string )
+inline size_t string_hash( vmachine* vm, string_object* string )
 {
     return std::hash< std::string_view >()( std::string_view( string->text, string->size ) );
 }
 
-inline string_object* string_key( vm_context* vm, string_object* string )
+inline string_object* string_key( vmachine* vm, string_object* string )
 {
-    extern string_object* string_key_internal( vm_context* vm, string_object* string );
+    extern string_object* string_key_internal( vmachine* vm, string_object* string );
     if ( header( string )->flags & FLAG_KEY )
     {
         return string;
@@ -89,10 +68,5 @@ inline string_object* string_key( vm_context* vm, string_object* string )
 }
 
 }
-
-template <> struct std::hash< kf::string_hashkey >
-{
-    size_t operator () ( const kf::string_hashkey& k ) { return k.hash; }
-};
 
 #endif
