@@ -23,7 +23,7 @@
 namespace kf
 {
 
-struct vm_stack_frame;
+struct stack_frame;
 
 /*
     Structures.
@@ -35,7 +35,7 @@ struct cothread_object : public object
     ~cothread_object();
 
     std::vector< value > stack;
-    std::vector< vm_stack_frame > stack_frames;
+    std::vector< stack_frame > stack_frames;
     unsigned xp;
 };
 

@@ -574,7 +574,7 @@ stack_values call_frame( frame* frame, value function )
     vm_context* vm = (vm_context*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
 
-    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
     assert( stack_frame->fp == frame->fp );
     assert( stack_frame->fp < cothread->xp );
@@ -627,7 +627,7 @@ void pop_frame( frame* frame )
     vm_context* vm = (vm_context*)frame->sp;
     cothread_object* cothread = vm->cothreads->back();
 
-    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
     assert( stack_frame->fp == frame->fp );
     assert( stack_frame->fp <= cothread->xp );

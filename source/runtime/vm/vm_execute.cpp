@@ -679,7 +679,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         }
 
         // Store ip, xr:xb in current stack frame.
-        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
         stack_frame->resume = RESUME_CALL;
         stack_frame->xr = op.r;
@@ -777,7 +777,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
         }
 
         // Store ip, xr:xb in current stack frame.
-        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = vm_active_frame( vm );
         stack_frame->ip = ip;
         stack_frame->resume = RESUME_YIELD;
         stack_frame->xr = op.r;
@@ -832,7 +832,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
     case OP_VARARG:
     {
         // Unpack varargs into r:b.
-        vm_stack_frame* stack_frame = vm_active_frame( vm );
+        stack_frame* stack_frame = vm_active_frame( vm );
         unsigned rp = op.r;
         xp = op.b != OP_STACK_MARK ? op.b : rp + stack_frame->fp - stack_frame->bp;
         r = vm_resize_stack( vm, xp );
@@ -1007,7 +1007,7 @@ void vm_execute( vm_context* vm, vm_exstate state )
                 // Resume generator with no arguments.
                 cothread_object* cothread = (cothread_object*)unbox_object( g );
 
-                vm_stack_frame* stack_frame = vm_active_frame( vm );
+                stack_frame* stack_frame = vm_active_frame( vm );
                 stack_frame->ip = ip;
                 stack_frame->resume = RESUME_FOR_EACH;
                 stack_frame->xr = op.r;

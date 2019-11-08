@@ -15,8 +15,8 @@
 namespace kf
 {
 
-static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const vm_stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
-static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const vm_stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
+static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
+static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
 
 vm_context::vm_context()
     :   cothreads( nullptr )
@@ -51,7 +51,7 @@ void vm_setup_object_model( vm_context* vm )
     vm->self_key = string_key( vm, "self", 4 );
 }
 
-vm_stack_frame* vm_active_frame( vm_context* vm )
+stack_frame* vm_active_frame( vm_context* vm )
 {
     return &vm->cothreads->back()->stack_frames.back();
 }
@@ -103,7 +103,7 @@ vm_exstate vm_call( vm_context* vm, function_object* function, unsigned rp, unsi
     cothread_object* cothread = vm->cothreads->back();
     unsigned bp = cothread->stack_frames.back().fp + rp;
     cothread->stack_frames.push_back( { function, bp, bp, 0, RESUME_CALL, 0, 0, 0 } );
-    vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    stack_frame* stack_frame = &cothread->stack_frames.back();
 
     if ( is_varargs )
     {
@@ -174,7 +174,7 @@ vm_exstate vm_call_native( vm_context* vm, native_function_object* function, uns
     assert( vm->cothreads->back() == cothread );
     assert( cothread->stack_frames.size() == frame_count );
 
-    const vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    const stack_frame* stack_frame = &cothread->stack_frames.back();
     return vm_stack_return( vm, cothread, stack_frame, bp, 0, result_count );
 }
 
@@ -196,14 +196,14 @@ vm_exstate vm_call_generator( vm_context* vm, function_object* function, unsigne
 
     // Get current stack.
     cothread_object* caller_cothread = vm->cothreads->back();
-    const vm_stack_frame* caller_frame = &caller_cothread->stack_frames.back();
+    const stack_frame* caller_frame = &caller_cothread->stack_frames.back();
     unsigned caller_bp = caller_frame->fp + rp;
     value* caller_r = caller_cothread->stack.data() + caller_bp;
 
     // Create new cothread.
     cothread_object* generator_cothread = cothread_new( vm );
     generator_cothread->stack_frames.push_back( { function, 0, 0, 0, RESUME_YIELD, 0, 0, 0 } );
-    vm_stack_frame* generator_frame = &generator_cothread->stack_frames.back();
+    stack_frame* generator_frame = &generator_cothread->stack_frames.back();
 
     /*
         Arguments are on caller's stack:
@@ -258,7 +258,7 @@ vm_exstate vm_call_cothread( vm_context* vm, cothread_object* cothread, unsigned
     value* caller_r = caller_cothread->stack.data() + caller_cothread->stack_frames.back().fp;
 
     // Get stack frame we are resuming into.
-    const vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    const stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( stack_frame->resume == RESUME_YIELD );
     assert( stack_frame->rr == stack_frame->xr );
 
@@ -284,13 +284,13 @@ vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp )
 
     // Get current stack.
     cothread_object* cothread = vm->cothreads->back();
-    vm_stack_frame return_frame = cothread->stack_frames.back();
+    stack_frame return_frame = cothread->stack_frames.back();
     cothread->stack_frames.pop_back();
 
     if ( cothread->stack_frames.size() )
     {
         // Normal return.
-        const vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+        const stack_frame* stack_frame = &cothread->stack_frames.back();
         return vm_stack_return( vm, cothread, stack_frame, return_frame.fp, rp, xp );
     }
     else
@@ -301,7 +301,7 @@ vm_exstate vm_return( vm_context* vm, unsigned rp, unsigned xp )
 
         assert( ! vm->cothreads->empty() );
         cothread = vm->cothreads->back();
-        const vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+        const stack_frame* stack_frame = &cothread->stack_frames.back();
 
         if ( stack_frame->resume != RESUME_FOR_EACH )
         {
@@ -330,13 +330,13 @@ vm_exstate vm_yield( vm_context* vm, unsigned rp, unsigned xp )
     // Get cothread we are yielding into.
     assert( ! vm->cothreads->empty() );
     cothread_object* cothread = vm->cothreads->back();
-    const vm_stack_frame* stack_frame = &cothread->stack_frames.back();
+    const stack_frame* stack_frame = &cothread->stack_frames.back();
 
     // Return across cothreads.
     return vm_yield_return( vm, cothread, stack_frame, yield_r, rp, xp );
 }
 
-static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const vm_stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
+static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
 {
     size_t result_count = rp - xp;
     unsigned xr = stack_frame->xr;
@@ -376,7 +376,7 @@ static vm_exstate vm_stack_return( vm_context* vm, cothread_object* cothread, co
     return { stack_frame->function, r, stack_frame->ip, xb };
 }
 
-static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const vm_stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
+static vm_exstate vm_yield_return( vm_context* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );
 
@@ -487,13 +487,13 @@ void vm_type_error( value v, const char* expected )
 void vm_unwind( vm_context* vm, script_error* e, unsigned ip )
 {
     cothread_object* cothread = vm->cothreads->back();
-    vm_stack_frame& frame = cothread->stack_frames.back();
+    stack_frame& frame = cothread->stack_frames.back();
     frame.ip = ip;
 
     while ( true )
     {
         cothread_object* cothread = vm->cothreads->back();
-        vm_stack_frame& frame = cothread->stack_frames.back();
+        stack_frame& frame = cothread->stack_frames.back();
         if ( ! frame.function )
         {
             return;

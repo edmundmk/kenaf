@@ -84,7 +84,7 @@ enum vm_resume : uint8_t
     RESUME_FOR_EACH,    // if generator is done, return to jump
 };
 
-struct vm_stack_frame
+struct stack_frame
 {
     function_object* function;
 
@@ -102,7 +102,7 @@ struct vm_stack_frame
     Functions for manipulating the register stack.
 */
 
-vm_stack_frame* vm_active_frame( vm_context* vm );
+stack_frame* vm_active_frame( vm_context* vm );
 value* vm_resize_stack( vm_context* vm, unsigned xp );
 value* vm_resize_stack( cothread_object* cothread, unsigned fp, unsigned xp );
 value* vm_entire_stack( vm_context* vm );
