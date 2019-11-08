@@ -10,13 +10,18 @@
 
 #include "vmachine.h"
 #include <stdlib.h>
+#include "heap.h"
 #include "objects/lookup_object.h"
 
 namespace kf
 {
 
 vmachine::vmachine()
-    :   cothreads( nullptr )
+    :   old_color( GC_COLOR_NONE )
+    ,   new_color( GC_COLOR_PURPLE )
+    ,   dead_color( GC_COLOR_NONE )
+    ,   heap( heap_create() )
+    ,   cothreads( nullptr )
     ,   global_object( nullptr )
     ,   prototypes{}
     ,   self_key( nullptr )
@@ -27,23 +32,75 @@ vmachine::vmachine()
 
 vmachine::~vmachine()
 {
+    heap_destroy( heap );
 }
+
+/*
+    Object allocation and write barriers.
+*/
 
 void* object_new( vmachine* vm, type_code type, size_t size )
 {
-    // TEMP.
-    void* p = calloc( 1, 8 + size );
-    *(uint32_t*)p = size;
-    object_header* header = (object_header*)( (char*)p + 4 );
-    header->type = type;
-    return header + 1;
+    void* p = heap_malloc( vm->heap, size );
+    object_header* h = header( (object*)p );
+    atomic_store( h->color, vm->new_color );
+    h->type = type;
+    h->flags = 0;
+    h->refcount = 0;
+    atomic_produce_fence();
+    return p;
 }
 
 size_t object_size( vmachine* vm, object* object )
 {
-    // TEMP.
-    return *(uint32_t*)( (char*)object - 8 );
+    return heap_malloc_size( object );
 }
+
+void object_retain( vmachine* vm, object* object )
+{
+    object_header* h = header( object );
+    if ( h->refcount == 0 )
+    {
+        assert( ! vm->roots.contains( object ) );
+        vm->roots.insert_or_assign( object, 0 );
+    }
+    if ( ++h->refcount == 0 )
+    {
+        vm->roots.at( object ) += 1;
+        h->refcount = 255;
+    }
+}
+
+void object_release( vmachine* vm, object* object )
+{
+    object_header* h = header( object );
+    assert( h->refcount > 0 );
+    if ( h->refcount == 255 )
+    {
+        size_t& refcount = vm->roots.at( object );
+        if ( refcount > 0 )
+        {
+            refcount -= 1;
+        }
+        else
+        {
+            h->refcount -= 1;
+        }
+    }
+    else if ( --h->refcount == 0 )
+    {
+        vm->roots.erase( object );
+    }
+}
+
+void write_barrier( vmachine* vm, object* old )
+{
+    // TODO.
+}
+
+/*
+    Object model.
+*/
 
 void setup_object_model( vmachine* vm )
 {

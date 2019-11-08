@@ -28,6 +28,7 @@
 namespace kf
 {
 
+struct heap_state;
 struct layout_object;
 struct lookup_object;
 struct string_object;
@@ -186,17 +187,13 @@ enum gc_phase : uint8_t
 enum gc_color : uint8_t
 {
     GC_COLOR_NONE,
-    GC_COLOR_ORANGE,
     GC_COLOR_PURPLE,
+    GC_COLOR_ORANGE,
     GC_COLOR_MARKED,
 };
 
 struct gc_state
 {
-    gc_color old_color;     // overwriting references to this colour must mark.
-    gc_color new_color;     // allocated objects must have this colour.
-    gc_color dead_color;    // cannot resurrect weak references to this colour.
-    gc_phase phase;         // current GC phase.
 };
 
 /*
@@ -209,6 +206,13 @@ struct vmachine
 {
     vmachine();
     ~vmachine();
+
+    // Basic GC heap state.
+    gc_color old_color;     // overwriting references to this colour must mark.
+    gc_color new_color;     // allocated objects must have this colour.
+    gc_color dead_color;    // cannot resurrect weak references to this colour.
+    gc_phase phase;         // current GC phase.
+    heap_state* heap;       // GC heap.
 
     // Context state.
     cothread_stack* cothreads;
@@ -239,14 +243,6 @@ void object_retain( vmachine* vm, object* object );
 void object_release( vmachine* vm, object* object );
 
 /*
-    Object model functions.
-*/
-
-void setup_object_model( vmachine* vm );
-lookup_object* value_keyerof( vmachine* vm, value v );
-lookup_object* value_superof( vmachine* vm, value v );
-
-/*
     Writes to GC references must use a write barrier.
 */
 
@@ -255,24 +251,34 @@ template < typename T > void winit( ref< T >& ref, T* value );
 template < typename T > void write( vmachine* vm, ref< T >& ref, T* value );
 
 value read( const ref_value& ref );
-void winit( ref_value& ref, value value );
-void write( vmachine* vm, ref_value& ref, value value );
+void winit( ref_value& ref, value v );
+void write( vmachine* vm, ref_value& ref, value v );
+
+void write_barrier( vmachine* vm, object* object );
 
 template < typename T > inline T* read( const ref< T >& ref )
 {
     return atomic_load( ref );
 }
 
-template < typename T > inline void winit( ref< T >& ref, T* value )
+template < typename T > inline void winit( ref< T >& ref, T* v )
 {
     assert( atomic_load( ref ) == nullptr );
-    atomic_store( ref, value );
+    atomic_store( ref, v );
 }
 
-template < typename T > inline void write( vmachine* vm, ref< T >& ref, T* value )
+template < typename T > inline void write( vmachine* vm, ref< T >& ref, T* v )
 {
-    // TODO: pass previous unmarked value of reference to gc thread.
-    atomic_store( ref, value );
+    if ( vm->old_color )
+    {
+        T* old = atomic_load( ref );
+        if ( atomic_load( header( old )->color ) == vm->old_color )
+        {
+            write_barrier( vm, old );
+        }
+    }
+
+    atomic_store( ref, v );
 }
 
 inline value read( const ref_value& ref )
@@ -280,22 +286,42 @@ inline value read( const ref_value& ref )
     return { atomic_load( ref ) };
 }
 
-inline void winit( ref_value& ref, value value )
+inline void winit( ref_value& ref, value v )
 {
     assert( atomic_load( ref ) == 0 );
-    atomic_store( ref, value.v );
+    atomic_store( ref, v.v );
 }
 
-inline void write( vmachine* vm, ref_value& ref, value value )
+inline void write( vmachine* vm, ref_value& ref, value v )
 {
-    // TODO: pass previous unmarked value of reference to gc thread.
-    atomic_store( ref, value.v );
+    if ( vm->old_color )
+    {
+        value oldv = { atomic_load( ref ) };
+        if ( box_is_object_or_string( oldv ) )
+        {
+            object* old = unbox_object_or_string( v );
+            if ( atomic_load( header( old )->color ) == vm->old_color )
+            {
+                write_barrier( vm, old );
+            }
+        }
+    }
+
+    atomic_store( ref, v.v );
 }
 
 inline object_header* header( object* object )
 {
     return (object_header*)object - 1;
 }
+
+/*
+    Object model functions.
+*/
+
+void setup_object_model( vmachine* vm );
+lookup_object* value_keyerof( vmachine* vm, value v );
+lookup_object* value_superof( vmachine* vm, value v );
 
 }
 
