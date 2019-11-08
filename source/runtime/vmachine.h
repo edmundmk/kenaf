@@ -238,6 +238,7 @@ struct vmachine
 
     // GC mutexes.
     std::mutex heap_mutex;
+    std::mutex mark_mutex;
     std::mutex weak_mutex;
 };
 

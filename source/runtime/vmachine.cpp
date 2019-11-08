@@ -129,23 +129,42 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     // we write values into the stack in order to reduce the number of write
     // barriers required.
 
-    if ( vm->old_color && atomic_load( header( cothread )->color ) == vm->old_color )
+    if ( ! vm->old_color )
     {
-        // Mark with mark colour so the GC thread doesn't process it.
-        atomic_store( header( cothread )->color, vm->new_color );
-
-        // Add all referenced objects to the mark list.
-        for ( value v : cothread->stack )
-        {
-            write_barrier( vm, v );
-        }
-
-        // Add all functions in stack frames to the mark list.
-        for ( const stack_frame& frame : cothread->stack_frames )
-        {
-            write_barrier( vm, frame.function );
-        }
+        return cothread;
     }
+
+    object_header* h = header( cothread );
+    if ( atomic_load( h->color ) != vm->old_color )
+    {
+        return cothread;
+    }
+
+    // Must lock before marking because marked cothreads can be resized, which
+    // would be disastrous if done while the GC is marking the cothread.  So we
+    // must lock, check color again, mark, and unlock, on both mutator and
+    // GC thread.
+
+    std::lock_guard lock( vm->mark_mutex );
+    if ( atomic_load( h->color ) != vm->old_color )
+    {
+        return cothread;
+    }
+
+    // Add all referenced objects to the mark list.
+    for ( value v : cothread->stack )
+    {
+        write_barrier( vm, v );
+    }
+
+    // Add all functions in stack frames to the mark list.
+    for ( const stack_frame& frame : cothread->stack_frames )
+    {
+        write_barrier( vm, frame.function );
+    }
+
+    // Mark with mark colour.
+    atomic_store( header( cothread )->color, vm->new_color );
 
     return cothread;
 }
