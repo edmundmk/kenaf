@@ -9,16 +9,16 @@
 //
 
 #include "execute.h"
-#include "../vmachine.h"
+#include "vmachine.h"
 #include "call_stack.h"
-#include "../../common/code.h"
-#include "../../common/imath.h"
-#include "../objects/lookup_object.h"
-#include "../objects/string_object.h"
-#include "../objects/array_object.h"
-#include "../objects/table_object.h"
-#include "../objects/cothread_object.h"
-#include "../objects/function_object.h"
+#include "../common/code.h"
+#include "../common/imath.h"
+#include "objects/lookup_object.h"
+#include "objects/string_object.h"
+#include "objects/array_object.h"
+#include "objects/table_object.h"
+#include "objects/cothread_object.h"
+#include "objects/function_object.h"
 
 namespace kf
 {

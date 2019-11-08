@@ -1,5 +1,5 @@
 //
-//  gc_mark_sweep.h
+//  collector.h
 //
 //  Created by Edmund Kapusniak on 07/11/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,7 +8,8 @@
 //  full license information.
 //
 
-#ifndef KF_GC_MARK_SWEEP_H
+#ifndef KF_COLLECTOR_H
+#define KF_COLLECTOR_H
 
 /*
     GC happens like this:

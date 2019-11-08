@@ -10,7 +10,7 @@
 
 #include "call_stack.h"
 #include "kenaf/errors.h"
-#include "../objects/cothread_object.h"
+#include "objects/cothread_object.h"
 
 namespace kf
 {

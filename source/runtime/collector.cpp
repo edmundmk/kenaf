@@ -1,5 +1,5 @@
 //
-//  gc_mark_sweep.cpp
+//  collector.cpp
 //
 //  Created by Edmund Kapusniak on 07/11/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,5 +8,5 @@
 //  full license information.
 //
 
-#include "gc_mark_sweep.h"
+#include "collector.h"
 

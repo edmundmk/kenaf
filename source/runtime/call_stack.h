@@ -16,10 +16,10 @@
 */
 
 #include <vector>
-#include "../vmachine.h"
-#include "../objects/lookup_object.h"
-#include "../objects/string_object.h"
-#include "../objects/function_object.h"
+#include "vmachine.h"
+#include "objects/lookup_object.h"
+#include "objects/string_object.h"
+#include "objects/function_object.h"
 
 namespace kf
 {
