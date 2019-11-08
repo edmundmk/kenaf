@@ -27,24 +27,14 @@ namespace kf
 
 struct heap_state;
 
-class heap
-{
-public:
+heap_state* heap_create();
+void heap_destroy( heap_state* heap );
 
-    heap();
-    ~heap();
-
-    void* malloc( size_t size );
-    void free( void* p );
-    void debug_print() const;
-
-private:
-
-    heap_state* _state;
-
-};
-
+void* heap_malloc( heap_state* heap, size_t size );
 size_t heap_malloc_size( void* p );
+void heap_free( heap_state* heap, void* p );
+
+void debug_print( heap_state* heap );
 
 }
 

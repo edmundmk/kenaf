@@ -1355,42 +1355,38 @@ void heap_state::debug_print()
     Heap interface.
 */
 
-heap::heap()
+heap_state* heap_create()
 {
-    _state = new ( heap_vmalloc( HEAP_INITIAL_SIZE ) ) heap_state( HEAP_INITIAL_SIZE );
+    return new ( heap_vmalloc( HEAP_INITIAL_SIZE ) ) heap_state( HEAP_INITIAL_SIZE );
 }
 
-heap::~heap()
+void heap_destroy( heap_state* heap )
 {
-    size_t vmsize = _state->segment_size;
-    _state->~heap_state();
-    heap_vmfree( _state, vmsize );
+    size_t vmsize = heap->segment_size;
+    heap->~heap_state();
+    heap_vmfree( heap, vmsize );
 }
 
-void* heap::malloc( size_t size )
+void* heap_malloc( heap_state* heap, size_t size )
 {
-    return _state->malloc( size );
+    return heap->malloc( size );
 }
-
-void heap::free( void* p )
-{
-    _state->free( p );
-}
-
-void heap::debug_print() const
-{
-    _state->debug_print();
-}
-
-/*
-    Get size of allocation.
-*/
 
 size_t heap_malloc_size( void* p )
 {
     heap_chunk* chunk = heap_chunk_head( p );
     assert( chunk->header.u() );
     return chunk->header.size() - sizeof( heap_chunk_header );
+}
+
+void heap_free( heap_state* heap, void* p )
+{
+    heap->free( p );
+}
+
+void debug_print( heap_state* heap )
+{
+    heap->debug_print();
 }
 
 }
@@ -1401,14 +1397,17 @@ size_t heap_malloc_size( void* p )
 
 #ifdef HEAP_TEST
 
+#include <string.h>
 #include <vector>
 #include <map>
 
-bool visit_largebin( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins, size_t index, kf::heap_chunk* tree )
+using namespace kf;
+
+bool visit_largebin( heap_state* heap, std::map< heap_chunk*, size_t >* bins, size_t index, heap_chunk* tree )
 {
     bool ok = true;
 
-    kf::heap_chunk* chunk = tree;
+    heap_chunk* chunk = tree;
     do
     {
         if ( chunk->index != index )
@@ -1445,19 +1444,19 @@ bool visit_largebin( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* 
     return ok;
 }
 
-bool visit_bins( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins )
+bool visit_bins( heap_state* heap, std::map< heap_chunk*, size_t >* bins )
 {
     bool ok = true;
 
-    for ( size_t smi = 0; smi < kf::HEAP_SMALLBIN_COUNT; ++smi )
+    for ( size_t smi = 0; smi < HEAP_SMALLBIN_COUNT; ++smi )
     {
         if ( !( heap->smallbin_map & 1u << smi ) )
             continue;
-        kf::heap_chunk* anchor = heap->smallbin_anchor( smi );
-        kf::heap_chunk* chunk = anchor->next;
+        heap_chunk* anchor = heap->smallbin_anchor( smi );
+        heap_chunk* chunk = anchor->next;
         do
         {
-            if ( smi != kf::heap_smallbin_index( chunk->header.size() ) )
+            if ( smi != heap_smallbin_index( chunk->header.size() ) )
             {
                 printf( "******** SMALLBIN CHUNK %p HAS INCORRECT INDEX\n", chunk );
                 ok = false;
@@ -1469,7 +1468,7 @@ bool visit_bins( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins
         while ( chunk != anchor );
     }
 
-    for ( size_t lgi = 0; lgi < kf::HEAP_LARGEBIN_COUNT; ++lgi )
+    for ( size_t lgi = 0; lgi < HEAP_LARGEBIN_COUNT; ++lgi )
     {
         if ( !( heap->largebin_map & 1u << lgi ) )
             continue;
@@ -1480,17 +1479,17 @@ bool visit_bins( kf::heap_state* heap, std::map< kf::heap_chunk*, size_t >* bins
     return ok;
 }
 
-bool check_bins( kf::heap_state* heap )
+bool check_bins( heap_state* heap )
 {
     bool ok = true;
 
-    std::map< kf::heap_chunk*, size_t > bins;
+    std::map< heap_chunk*, size_t > bins;
     if ( ! visit_bins( heap, &bins ) )
         ok = false;
 
-    for ( kf::heap_segment* s = heap->segments; s; s = s->next )
+    for ( heap_segment* s = heap->segments; s; s = s->next )
     {
-        kf::heap_chunk* c = (kf::heap_chunk*)s->base;
+        heap_chunk* c = (heap_chunk*)s->base;
 
         bool was_u = true;
         while ( true )
@@ -1517,7 +1516,7 @@ bool check_bins( kf::heap_state* heap )
                         ok = false;
                     }
                 }
-                else if ( c->header.size() < kf::HEAP_MIN_BINNED_SIZE )
+                else if ( c->header.size() < HEAP_MIN_BINNED_SIZE )
                 {
                     if ( bins.find( c ) != bins.end() )
                     {
@@ -1525,7 +1524,7 @@ bool check_bins( kf::heap_state* heap )
                         ok = false;
                     }
                 }
-                else if ( c->header.size() < kf::HEAP_LARGE_SIZE )
+                else if ( c->header.size() < HEAP_LARGE_SIZE )
                 {
                     if ( bins.find( c ) == bins.end() )
                     {
@@ -1545,7 +1544,7 @@ bool check_bins( kf::heap_state* heap )
                 }
             }
 
-            if ( c == (kf::heap_chunk*)s )
+            if ( c == (heap_chunk*)s )
                 break;
             c = heap_chunk_next( c, c->header.size() );
         }
@@ -1566,8 +1565,7 @@ bool check_bins( kf::heap_state* heap )
 
 int main( int argc, char* argv[] )
 {
-    kf::heap heap;
-    kf::heap_state* state = *(kf::heap_state**)&heap;
+    heap_state* state = heap_create();
 
     srand( clock() );
     struct alloc { void* p; size_t size; int b; };
@@ -1587,13 +1585,13 @@ int main( int argc, char* argv[] )
             {
                 alloc_size = rand() % ( 16 * 1024 * 1024 );
             }
-            void* p = heap.malloc( alloc_size );
+            void* p = heap_malloc( state, alloc_size );
             memset( p, b, alloc_size );
             allocs.push_back( { p, alloc_size, b } );
             b = ( b + 1 ) % 256;
 
-            printf( "    -------- %p\n", kf::heap_chunk_head( p ) );
-            heap.debug_print();
+            printf( "    -------- %p\n", heap_chunk_head( p ) );
+            debug_print( state );
             bool ok = check_bins( state );
             assert( ok );
         }
@@ -1620,11 +1618,11 @@ int main( int argc, char* argv[] )
 
             assert( ok );
 
-            printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
-            heap.free( a.p );
+            printf( "-------- FREE %p\n", heap_chunk_head( a.p ) );
+            heap_free( state, a.p );
             allocs.erase( allocs.begin() + alloc_index );
 
-            heap.debug_print();
+            debug_print( state );
             if ( ! check_bins( state ) )
                 ok = false;
             assert( ok );
@@ -1647,10 +1645,10 @@ int main( int argc, char* argv[] )
 
         assert( ok );
 
-        printf( "-------- FREE %p\n", kf::heap_chunk_head( a.p ) );
-        heap.free( a.p );
+        printf( "-------- FREE %p\n", heap_chunk_head( a.p ) );
+        heap_free( state, a.p );
 
-        heap.debug_print();
+        debug_print( state );
         if ( ! check_bins( state ) )
             ok = false;
         assert( ok );
@@ -1658,6 +1656,7 @@ int main( int argc, char* argv[] )
 
     allocs.clear();
 
+    heap_destroy( state );
     return EXIT_SUCCESS;
 }
 
