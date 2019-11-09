@@ -43,10 +43,9 @@ struct runtime
 
 struct context
 {
+    vcontext vc;
     intptr_t refcount;
     struct runtime* runtime;
-    cothread_stack cothreads;
-    lookup_object* global_object;
 };
 
 runtime* create_runtime()
@@ -74,6 +73,7 @@ void release_runtime( runtime* r )
         {
             make_current( nullptr );
         }
+        destroy_vmachine( &r->vm );
         delete r;
     }
 }
@@ -83,8 +83,8 @@ context* create_context( runtime* r )
     context* c = new context();
     c->refcount = 1;
     c->runtime = r;
-    c->cothreads.push_back( cothread_new( &r->vm ) );
-    c->global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
+    c->vc.cothreads.push_back( cothread_new( &r->vm ) );
+    c->vc.global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
     context* prev = make_current( c );
     expose_corobjects( &r->vm );
     expose_corprint();
@@ -120,10 +120,8 @@ context* make_current( context* c )
     if ( current_runtime )
     {
         prev = current_runtime->current_context;
-        assert( current_runtime->vm.cothreads == &prev->cothreads );
-        assert( current_runtime->vm.global_object == prev->global_object );
-        current_runtime->vm.cothreads = nullptr;
-        current_runtime->vm.global_object = nullptr;
+        assert( current_runtime->vm.c = &prev->vc );
+        current_runtime->vm.c = nullptr;
         current_runtime->current_context = nullptr;
         current_runtime = nullptr;
     }
@@ -131,8 +129,7 @@ context* make_current( context* c )
     if ( c )
     {
         current_runtime = c->runtime;
-        current_runtime->vm.cothreads = &c->cothreads;
-        current_runtime->vm.global_object = c->global_object;
+        current_runtime->vm.c = &c->vc;
         current_runtime->current_context = c;
     }
 
@@ -141,7 +138,7 @@ context* make_current( context* c )
 
 value global_object()
 {
-    return box_object( current_runtime->vm.global_object );
+    return box_object( current_runtime->vm.c->global_object );
 }
 
 /*
@@ -499,14 +496,14 @@ value create_function( std::string_view name, native_function native, void* cook
 value* arguments( frame* frame )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
-    assert( current()->cothreads->back() == frame->sp );
+    assert( current()->c->cothreads.back() == frame->sp );
     return cothread->stack.data() + frame->fp + 1;
 }
 
 value* results( frame* frame, size_t count )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
-    assert( current()->cothreads->back() ==cothread );
+    assert( current()->c->cothreads.back() ==cothread );
     return resize_stack( cothread, frame->fp, frame->fp + count );
 }
 
@@ -530,7 +527,7 @@ size_t rvoid( frame* frame )
 stack_values push_frame( frame* frame, size_t argcount )
 {
     vmachine* vm = current();
-    cothread_object* cothread = vm->cothreads->back();
+    cothread_object* cothread = vm->c->cothreads.back();
     unsigned fp = cothread->xp;
     cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
     frame->sp = vm;
@@ -541,7 +538,7 @@ stack_values push_frame( frame* frame, size_t argcount )
 stack_values call_frame( frame* frame, value function )
 {
     vmachine* vm = (vmachine*)frame->sp;
-    cothread_object* cothread = vm->cothreads->back();
+    cothread_object* cothread = vm->c->cothreads.back();
 
     stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
@@ -586,7 +583,7 @@ stack_values call_frame( frame* frame, value function )
         throw type_error( function, "callable" );
     }
 
-    assert( vm->cothreads->back() == cothread );
+    assert( vm->c->cothreads.back() == cothread );
     assert( frame->fp <= cothread->xp );
     return { cothread->stack.data() + frame->fp, cothread->xp - frame->fp };
 }
@@ -594,7 +591,7 @@ stack_values call_frame( frame* frame, value function )
 void pop_frame( frame* frame )
 {
     vmachine* vm = (vmachine*)frame->sp;
-    cothread_object* cothread = vm->cothreads->back();
+    cothread_object* cothread = vm->c->cothreads.back();
 
     stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );

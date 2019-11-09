@@ -34,6 +34,7 @@ struct layout_object;
 struct lookup_object;
 struct string_object;
 struct cothread_object;
+struct collector;
 
 /*
     Each object type has a unique type index to identify it.
@@ -193,15 +194,20 @@ enum gc_color : uint8_t
     GC_COLOR_MARKED,
 };
 
-struct gc_state
-{
-};
-
 /*
     Execution environment structure.
 */
 
-typedef std::vector< cothread_object* > cothread_stack;
+struct vcontext
+{
+    vcontext();
+    ~vcontext();
+
+    std::vector< cothread_object* > cothreads;
+    lookup_object* global_object;
+    vcontext* next;
+    vcontext* prev;
+};
 
 struct vmachine
 {
@@ -213,11 +219,11 @@ struct vmachine
     gc_color new_color;     // allocated objects must have this colour.
     gc_color dead_color;    // cannot resurrect weak references to this colour.
     gc_phase phase;         // current GC phase.
+    unsigned countdown;     // GC allocation countdown.
     heap_state* heap;       // GC heap.
 
     // Context state.
-    cothread_stack* cothreads;
-    lookup_object* global_object;
+    vcontext* c;
 
     // Object model support.
     lookup_object* prototypes[ TYPE_COUNT ];
@@ -232,15 +238,21 @@ struct vmachine
 
     // List of root objects.
     hash_table< object*, size_t > roots;
+    vcontext* context_list;
 
     // Mutator mark stack.
     segment_list< object* > mark_list;
 
-    // GC mutexes.
+    // GC state.
     std::mutex heap_mutex;
     std::mutex mark_mutex;
     std::mutex weak_mutex;
+    collector* gc;
 };
+
+void link_vcontext( vmachine* vm, vcontext* vc );
+void unlink_vcontext( vmachine* vm, vcontext* vc );
+void destroy_vmachine( vmachine* vm );
 
 /*
     Object functions.

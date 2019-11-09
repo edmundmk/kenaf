@@ -425,7 +425,7 @@ void execute( vmachine* vm, xstate state )
     case OP_GET_GLOBAL:
     {
         key_selector* ks = s + op.c;
-        r[ op.r ] = lookup_getkey( vm, vm->global_object, read( ks->key ), &ks->sel );
+        r[ op.r ] = lookup_getkey( vm, vm->c->global_object, read( ks->key ), &ks->sel );
         break;
     }
 

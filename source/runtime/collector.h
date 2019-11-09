@@ -74,6 +74,17 @@
 namespace kf
 {
 
+struct vmachine;
+struct collector;
+
+collector* collector_create();
+void collector_destroy( collector* c );
+
+void safepoint( vmachine* vm );
+void start_collection( vmachine* vm );
+void wait_for_collection( vmachine* vm );
+
+void sweep_entire_heap( vmachine* vm );
 
 }
 

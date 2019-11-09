@@ -11,6 +11,7 @@
 #include "vmachine.h"
 #include <stdlib.h>
 #include "heap.h"
+#include "collector.h"
 #include "call_stack.h"
 #include "objects/lookup_object.h"
 #include "objects/cothread_object.h"
@@ -18,23 +19,47 @@
 namespace kf
 {
 
+vcontext::vcontext()
+    :   global_object( nullptr )
+{
+}
+
+vcontext::~vcontext()
+{
+}
+
 vmachine::vmachine()
     :   old_color( GC_COLOR_NONE )
     ,   new_color( GC_COLOR_PURPLE )
     ,   dead_color( GC_COLOR_NONE )
+    ,   countdown( 512 * 1024 )
     ,   heap( heap_create() )
-    ,   cothreads( nullptr )
-    ,   global_object( nullptr )
+    ,   c( nullptr )
     ,   prototypes{}
     ,   self_key( nullptr )
     ,   self_sel{}
     ,   next_cookie( 0 )
+    ,   context_list( nullptr )
+    ,   gc( nullptr )
 {
 }
 
 vmachine::~vmachine()
 {
-    heap_destroy( heap );
+    assert( heap == nullptr );
+    assert( gc == nullptr );
+}
+
+void destroy_vmachine( vmachine* vm )
+{
+    wait_for_collection( vm );
+    sweep_entire_heap( vm );
+
+    collector_destroy( vm->gc );
+    vm->gc = nullptr;
+
+    heap_destroy( vm->heap );
+    vm->heap = nullptr;
 }
 
 /*
@@ -43,13 +68,21 @@ vmachine::~vmachine()
 
 void* object_new( vmachine* vm, type_code type, size_t size )
 {
+    // Allocate object from heap.
     void* p = heap_malloc( vm->heap, size );
+    vm->countdown -= std::min< size_t >( vm->countdown, size );
+
+    // Initialize object header.
     object_header* h = header( (object*)p );
     atomic_store( h->color, vm->new_color );
     h->type = type;
     h->flags = 0;
     h->refcount = 0;
+
+    // Fence so that consume reads of reference from GC thread get an
+    // initialized object header with correct colour.
     atomic_produce_fence();
+
     return p;
 }
 
