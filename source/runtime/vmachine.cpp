@@ -31,7 +31,6 @@ vcontext::~vcontext()
 vmachine::vmachine()
     :   old_color( GC_COLOR_NONE )
     ,   new_color( GC_COLOR_PURPLE )
-    ,   dead_color( GC_COLOR_NONE )
     ,   countdown( 512 * 1024 )
     ,   heap( heap_create() )
     ,   c( nullptr )
@@ -102,7 +101,10 @@ void* object_new( vmachine* vm, type_code type, size_t size )
     std::unique_lock lock( vm->heap_mutex, std::defer_lock );
     if ( vm->phase == GC_PHASE_SWEEP )
     {
+        std::lock_guard lock_ticket( vm->lock_mutex );
+        atomic_store( vm->heap_flag, 1 );
         lock.lock();
+        atomic_store( vm->heap_flag, 0 );
     }
 
     // Allocate object from heap.
@@ -119,7 +121,6 @@ void* object_new( vmachine* vm, type_code type, size_t size )
     // Fence so that consume reads of reference from GC thread get an
     // initialized object header with correct colour.
     atomic_produce_fence();
-
     return p;
 }
 

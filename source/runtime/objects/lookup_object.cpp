@@ -165,7 +165,7 @@ bool lookup_getsel( vmachine* vm, lookup_object* object, string_object* key, sel
 static layout_object* next_layout( vmachine* vm, layout_object* layout, string_object* key )
 {
     // Check if we can follow the next layout chain.
-    layout_object* next_layout = read_resurrect( vm, &layout->next );
+    layout_object* next_layout = layout->next;
     if ( next_layout && read( next_layout->key ) == key )
     {
         assert( next_layout->sindex == layout->sindex + 1 );

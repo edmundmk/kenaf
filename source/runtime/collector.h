@@ -29,15 +29,13 @@
                             sweep orange keys
                             sweep orange layouts
                             -- orange is dead --
-        sweep heap                                  don't resurrect orange objects
-        clear weakrefs                              all other objects should be purple
+        sweep heap                                  all objects should be purple.
                             -- purple epoch --
 
     There are two colours, orange and purple.  At any point, the mutator:
 
       - Allocates objects as either orange or purple.
       - Marks old values which are either orange, purple, or neither.
-      - Can resurrect objects of either colour or of only a single colour.
 
     Marking and sweeping happens concurrently.  There are several operations
     that require synchronization.
@@ -52,18 +50,13 @@
       - The GC thread and the mutator thread have separate mark stacks.
       - When writing references, or when pushing a cothread, the mutator
         marks previously reachable objects that are unmarked.
-      - The mutator may freely resurrect objects of either colour.  Resurrected
-        objects of the wrong colour must be marked.
       - When the GC thread runs out of work, it steals the mutator thread's
         mark stack.
       - When the GC thread steals an empty stack, marking is done.
 
     During the sweep phase:
 
-      - The mutator must lock before resurrecting objects.  Objects of the dead
-        colour are not resurrected, they must be re-created.
       - The mutator must lock before allocating objects.
-      - The GC thread must lock before clearing weakrefs.
       - The GC thread must lock during sweeping.
 
     The mutator thread has a countdown of how many bytes its allowed to

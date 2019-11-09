@@ -218,8 +218,8 @@ struct vmachine
     // Basic GC heap state.
     gc_color old_color;     // overwriting references to this colour must mark.
     gc_color new_color;     // allocated objects must have this colour.
-    gc_color dead_color;    // cannot resurrect weak references to this colour.
     gc_phase phase;         // current GC phase.
+    atomic_u8 heap_flag;    // Set to 1 if the mutator needs the heap.
     unsigned countdown;     // GC allocation countdown.
     heap_state* heap;       // GC heap.
 
@@ -245,9 +245,9 @@ struct vmachine
     segment_list< object* > mark_list;
 
     // GC state.
-    std::mutex heap_mutex;
-    std::mutex mark_mutex;
-    std::mutex weak_mutex;
+    std::mutex mark_mutex;  // Serialize marking of cothread stacks.
+    std::mutex lock_mutex;  // Used to ensure priority of heap lock.
+    std::mutex heap_mutex;  // Serialize access to heap during sweeping.
     collector* gc;
 };
 
@@ -280,8 +280,6 @@ void write_barrier( vmachine* vm, object* old );
 void write_barrier( vmachine* vm, value oldv );
 
 cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread );
-
-template < typename T > T* read_resurrect( vmachine* vm, T** ref );
 
 /*
     Object model functions.
@@ -352,28 +350,6 @@ inline void write( vmachine* vm, ref_value& ref, value v )
 
     atomic_store( ref, v.v );
 }
-
-template < typename T > T* read_resurrect( vmachine* vm, T** ref )
-{
-    if ( vm->dead_color == GC_COLOR_NONE )
-    {
-        return *ref;
-    }
-    else
-    {
-        std::lock_guard lock( vm->weak_mutex );
-        T* object = *ref;
-        if ( object && atomic_load( header( object )->color ) != vm->dead_color )
-        {
-            return object;
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-}
-
 
 }
 

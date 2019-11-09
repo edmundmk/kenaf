@@ -79,7 +79,6 @@ inline void __attribute__(( always_inline )) atomic_store( atomic_u64& u, uint64
 inline void __attribute__(( always_inline )) atomic_produce_fence() { __atomic_thread_fence( __ATOMIC_RELEASE ); }
 
 template < typename T > inline T* __attribute__(( always_inline )) atomic_consume( const atomic_p< T >& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
-template < typename T > inline uint8_t __attribute__(( always_inline )) atomic_consume( const atomic_u8& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
 template < typename T > inline uint64_t __attribute__(( always_inline )) atomic_consume( const atomic_u64& p ) { return __atomic_load_n( &p.v, ATOMIC_CONSUME ); }
 
 #undef ATOMIC_CONSUME
@@ -118,7 +117,6 @@ inline void atomic_store( atomic_u64& u, uint64_t v ) { p.store( v, std::memory_
 inline void atomic_produce_fence() __attribute__(( always_inline )) { std::atomic_thread_fence( std::memory_order_release ); }
 
 template < typename T > inline T* atomic_consume( const atomic_p< T >& p ) { p.load( MEMORY_ORDER_CONSUME ); }
-template < typename T > inline uint8_t atomic_consume( const atomic_u8& p ) { p.load( MEMORY_ORDER_CONSUME ); }
 template < typename T > inline uint64_t atomic_consume( const atomic_u64& p ) { p.load( MEMORY_ORDER_CONSUME ); }
 
 #undef MEMORY_ORDER_CONSUME
