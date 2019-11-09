@@ -19,7 +19,10 @@ static void safepoint_start_mark( vmachine* vm );
 static void safepoint_start_sweep( vmachine* vm );
 static void safepoint_new_epoch( vmachine* vm );
 
-static void mark( collector* gc, object* o );
+static void mark_ref( collector* gc, value v );
+static void mark_ref( collector* gc, object* o );
+static void mark_ref( collector* gc, string_object* s );
+static void mark_cothread( collector* gc, cothread_object* cothread );
 
 struct collector
 {
@@ -130,8 +133,34 @@ void safepoint_start_mark( vmachine* vm )
     vm->dead_color = GC_COLOR_NONE;
     vm->phase = GC_PHASE_MARK;
 
-    // Mark roots.
+    // Add all roots to mark list.
+    assert( gc->mark_list.empty() );
+    mark_ref( gc, vm->self_key );
+    for ( const auto& root : vm->roots )
+    {
+        object* o = root.first;
+        if ( header( o )->type != STRING_OBJECT )
+            mark_ref( gc, o );
+        else
+            mark_ref( gc, (string_object*)o );
+    }
+    mark_cothread( gc, vm->c->cothread );
+}
 
+void mark_ref( collector* gc, value v )
+{
+}
+
+void mark_ref( collector* gc, object* o )
+{
+}
+
+void mark_ref( collector* gc, string_object* o )
+{
+}
+
+void mark_cothread( collector* gc, cothread_object* cothread )
+{
 
 }
 

@@ -363,11 +363,14 @@ template < typename T > T* read_resurrect( vmachine* vm, T** ref )
     {
         std::lock_guard lock( vm->weak_mutex );
         T* object = *ref;
-        if ( atomic_load( header( object )->color ) == vm->dead_color )
+        if ( object && atomic_load( header( object )->color ) != vm->dead_color )
+        {
+            return object;
+        }
+        else
         {
             return nullptr;
         }
-        return object;
     }
 }
 

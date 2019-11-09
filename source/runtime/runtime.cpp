@@ -80,17 +80,24 @@ void release_runtime( runtime* r )
 
 context* create_context( runtime* r )
 {
+    // Create context.
     context* c = new context();
     c->refcount = 1;
-    c->runtime = r;
+    c->runtime = retain_runtime( r );
     c->vc.cothread = cothread_new( &r->vm );
     c->vc.global_object = lookup_new( &r->vm, r->vm.prototypes[ LOOKUP_OBJECT ] );
+    link_vcontext( &r->vm, &c->vc );
+
+    // Set up builtins.
     context* prev = make_current( c );
     expose_corobjects( &r->vm );
     expose_corprint();
     expose_cormath();
     make_current( prev );
+
+    // Done.
     return c;
+
 }
 
 context* retain_context( context* c )
@@ -109,6 +116,8 @@ void release_context( context* c )
         {
             make_current( nullptr );
         }
+        unlink_vcontext( &c->runtime->vm, &c->vc );
+        release_runtime( c->runtime );
         delete c;
     }
 }
@@ -120,7 +129,7 @@ context* make_current( context* c )
     if ( current_runtime )
     {
         prev = current_runtime->current_context;
-        assert( current_runtime->vm.c = &prev->vc );
+        assert( current_runtime->vm.c == &prev->vc );
         current_runtime->vm.c = nullptr;
         current_runtime->current_context = nullptr;
         current_runtime = nullptr;
@@ -129,6 +138,7 @@ context* make_current( context* c )
     if ( c )
     {
         current_runtime = c->runtime;
+        c->vc.cothread = mark_cothread( &current_runtime->vm, c->vc.cothread );
         current_runtime->vm.c = &c->vc;
         current_runtime->current_context = c;
     }

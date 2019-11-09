@@ -50,8 +50,39 @@ vmachine::~vmachine()
     assert( gc == nullptr );
 }
 
+void link_vcontext( vmachine* vm, vcontext* vc )
+{
+    assert( ! vc->next && ! vc->prev );
+    vc->next = vm->context_list;
+    vc->prev = nullptr;
+    vm->context_list = vc;
+}
+
+void unlink_vcontext( vmachine* vm, vcontext* vc )
+{
+    if ( vc->next )
+    {
+        assert( vc->next->prev == vc );
+        vc->next->prev = nullptr;
+    }
+    if ( vc->prev )
+    {
+        assert( vc->prev->next == vc );
+        vc->prev->next = nullptr;
+    }
+    else
+    {
+        assert( vm->context_list == vc );
+        vm->context_list = vc->next;
+    }
+    vc->next = nullptr;
+    vc->prev = nullptr;
+}
+
 void destroy_vmachine( vmachine* vm )
 {
+    assert( ! vm->context_list );
+
     wait_for_collection( vm );
     sweep_entire_heap( vm );
 
@@ -161,25 +192,21 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     // Mark entire cothread.  We mark references eagerly here rather than when
     // we write values into the stack in order to reduce the number of write
     // barriers required.
-
     if ( ! vm->old_color )
     {
         return cothread;
     }
 
-    object_header* h = header( cothread );
-    if ( atomic_load( h->color ) != vm->old_color )
-    {
-        return cothread;
-    }
+    // Unlike other objects, check against new_color.  It doesn't matter if
+    // the cothread has been pushed onto the mark list, we need it to be
+    // completely marked before it can be used.
 
     // Must lock before marking because marked cothreads can be resized, which
-    // would be disastrous if done while the GC is marking the cothread.  So we
-    // must lock, check color again, mark, and unlock, on both mutator and
-    // GC thread.
-
+    // would be disastrous if done while the GC is marking the cothread.
+    // Either we mark, in which case the GC will not, or the GC has already
+    // marked, in which case we will not.
     std::lock_guard lock( vm->mark_mutex );
-    if ( atomic_load( h->color ) != vm->old_color )
+    if ( atomic_load( header( cothread )->color ) == vm->new_color )
     {
         return cothread;
     }
@@ -198,7 +225,6 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
 
     // Mark with mark colour.
     atomic_store( header( cothread )->color, vm->new_color );
-
     return cothread;
 }
 
