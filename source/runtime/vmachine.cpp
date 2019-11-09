@@ -68,6 +68,12 @@ void destroy_vmachine( vmachine* vm )
 
 void* object_new( vmachine* vm, type_code type, size_t size )
 {
+    std::unique_lock lock( vm->heap_mutex, std::defer_lock );
+    if ( vm->phase == GC_PHASE_SWEEP )
+    {
+        lock.lock();
+    }
+
     // Allocate object from heap.
     void* p = heap_malloc( vm->heap, size );
     vm->countdown -= std::min< size_t >( vm->countdown, size );
@@ -108,12 +114,6 @@ void object_retain( vmachine* vm, object* object )
 
 void object_release( vmachine* vm, object* object )
 {
-    std::unique_lock lock( vm->heap_mutex, std::defer_lock );
-    if ( vm->phase == GC_PHASE_SWEEP )
-    {
-        lock.lock();
-    }
-
     object_header* h = header( object );
     assert( h->refcount > 0 );
     if ( h->refcount == 255 )
