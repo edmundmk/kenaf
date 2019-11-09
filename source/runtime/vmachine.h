@@ -203,8 +203,9 @@ struct vcontext
     vcontext();
     ~vcontext();
 
-    std::vector< cothread_object* > cothreads;
+    cothread_object* cothread;
     lookup_object* global_object;
+    std::vector< cothread_object* > cothread_stack;
     vcontext* next;
     vcontext* prev;
 };
