@@ -32,14 +32,14 @@ vmachine::vmachine()
     :   old_color( GC_COLOR_NONE )
     ,   new_color( GC_COLOR_PURPLE )
     ,   countdown( 512 * 1024 )
-    ,   heap( heap_create() )
     ,   c( nullptr )
     ,   prototypes{}
     ,   self_key( nullptr )
     ,   self_sel{}
     ,   next_cookie( 0 )
     ,   context_list( nullptr )
-    ,   gc( nullptr )
+    ,   heap( heap_create() )
+    ,   gc( collector_create() )
 {
 }
 

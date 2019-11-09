@@ -221,7 +221,6 @@ struct vmachine
     gc_phase phase;         // current GC phase.
     atomic_u8 heap_flag;    // Set to 1 if the mutator needs the heap.
     unsigned countdown;     // GC allocation countdown.
-    heap_state* heap;       // GC heap.
 
     // Context state.
     vcontext* c;
@@ -248,7 +247,8 @@ struct vmachine
     std::mutex mark_mutex;  // Serialize marking of cothread stacks.
     std::mutex lock_mutex;  // Used to ensure priority of heap lock.
     std::mutex heap_mutex;  // Serialize access to heap during sweeping.
-    collector* gc;
+    heap_state* heap;       // GC heap.
+    collector* gc;          // GC thread.
 };
 
 void link_vcontext( vmachine* vm, vcontext* vc );
