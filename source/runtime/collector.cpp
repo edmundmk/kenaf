@@ -258,7 +258,9 @@ void safepoint_start_mark( vmachine* vm )
 
     // Add all roots to mark list.
     assert( gc->mark_list.empty() );
+
     gc_mark_string_ref( gc, vm->self_key );
+
     for ( const auto& root : vm->roots )
     {
         object* o = root.first;
@@ -271,6 +273,20 @@ void safepoint_start_mark( vmachine* vm )
             gc_mark_string_ref( gc, (string_object*)o );
         }
     }
+
+    for ( vcontext* c = vm->context_list; c; c = c->next )
+    {
+        gc_mark_object_ref( gc, c->global_object );
+        for ( cothread_object* cothread : c->cothread_stack )
+        {
+            gc_mark_object_ref( gc, cothread );
+        }
+        if ( c != vm->c )
+        {
+            gc_mark_object_ref( gc, c->cothread );
+        }
+    }
+
     gc_mark_cothread( gc, vm, vm->c->cothread );
 
     // Signal GC thread.
