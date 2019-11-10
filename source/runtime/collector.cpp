@@ -245,7 +245,6 @@ void safepoint( vmachine* vm )
     {
         assert( vm->countdown == 0 );
         std::lock_guard lock( vm->gc->work_mutex );
-        printf( "sm mark_list: %zu\n", vm->gc->mark_list.size() );
         safepoint_start_mark( vm );
         return;
     }
@@ -254,7 +253,6 @@ void safepoint( vmachine* vm )
     std::unique_lock lock( vm->gc->work_mutex, std::defer_lock );
     if ( lock.try_lock() )
     {
-        printf( "hs mark_list: %zu\n", vm->gc->mark_list.size() );
         safepoint_handshake( vm );
     }
 }
@@ -283,6 +281,10 @@ void safepoint_handshake( vmachine* vm )
     if ( vm->phase == GC_PHASE_MARK )
     {
         collector* gc = vm->gc;
+        if ( ! gc->mark_list.empty() )
+        {
+            return;
+        }
 
         if ( ! vm->mark_list.empty() )
         {
@@ -290,12 +292,11 @@ void safepoint_handshake( vmachine* vm )
             gc->mark_list.swap( vm->mark_list );
             assert( vm->mark_list.empty() );
             gc->work_wait.notify_all();
+            return;
         }
-        else
-        {
-            // Everything is marked, move to sweep phase.
-            safepoint_start_sweep( vm );
-        }
+
+        // Everything is marked, move to sweep phase.
+        safepoint_start_sweep( vm );
     }
     else
     {
@@ -464,11 +465,9 @@ void gc_thread( vmachine* vm )
     {
         std::unique_lock lock( gc->work_mutex );
         gc->work_wait.wait( lock );
-        printf( "wake up: %d\n", gc->phase );
         if ( gc->phase == GC_PHASE_MARK )
         {
             gc_mark( vm );
-            printf( "after mark: %zu\n", gc->mark_list.size() );
         }
         else if ( gc->phase == GC_PHASE_SWEEP )
         {

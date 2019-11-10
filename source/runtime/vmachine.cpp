@@ -107,6 +107,8 @@ void* object_new( vmachine* vm, type_code type, size_t size )
 
     // Allocate object from heap.
     void* p = heap_malloc( vm->heap, size );
+    size = heap_malloc_size( p );
+    memset( p, 0, size );
     vm->countdown -= std::min< size_t >( vm->countdown, size );
 
     // Initialize object header.
