@@ -48,6 +48,7 @@ sources = [
     'source/runtime/execute.cpp',
     'source/runtime/heap.cpp',
     'source/runtime/runtime.cpp',
+    'source/runtime/tick.cpp',
     'source/runtime/vmachine.cpp',
 ]
 

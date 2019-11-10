@@ -276,9 +276,9 @@ value read( const ref_value& ref );
 void winit( ref_value& ref, value v );
 void write( vmachine* vm, ref_value& ref, value v );
 
+void write_barrier( vmachine* vm, value oldv );
 void write_barrier( vmachine* vm, object* old );
 void write_barrier( vmachine* vm, string_object* old );
-void write_barrier( vmachine* vm, value oldv );
 
 cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread );
 

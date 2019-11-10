@@ -64,17 +64,32 @@
     a GC is triggered at the next safepoint.
 */
 
+#include "vmachine.h"
+
 namespace kf
 {
 
 struct vmachine;
 struct collector;
 
+struct collector_statistics
+{
+    uint64_t tick_mark_pause;
+    uint64_t tick_stack_pause;
+    uint64_t tick_sweep_pause;
+    size_t swept_bytes[ TYPE_COUNT ];
+    size_t swept_count[ TYPE_COUNT ];
+    size_t alive_bytes[ TYPE_COUNT ];
+    size_t alive_count[ TYPE_COUNT ];
+};
+
 collector* collector_create();
 void collector_destroy( collector* c );
 
 void start_collector( vmachine* vm );
 void stop_collector( vmachine* vm );
+
+void add_stack_pause( collector* c, uint64_t tick );
 
 void safepoint( vmachine* vm );
 void start_collection( vmachine* vm );

@@ -13,6 +13,7 @@
 #include "heap.h"
 #include "collector.h"
 #include "call_stack.h"
+#include "tick.h"
 #include "objects/lookup_object.h"
 #include "objects/cothread_object.h"
 
@@ -81,7 +82,6 @@ void unlink_vcontext( vmachine* vm, vcontext* vc )
 void destroy_vmachine( vmachine* vm )
 {
     assert( ! vm->context_list );
-
 
     collector_destroy( vm->gc );
     vm->gc = nullptr;
@@ -164,19 +164,6 @@ void object_release( vmachine* vm, object* object )
     }
 }
 
-void write_barrier( vmachine* vm, object* old )
-{
-    // Add object to mark list.
-    atomic_store( header( old )->color, GC_COLOR_MARKED );
-    vm->mark_list.push_back( old );
-}
-
-void write_barrier( vmachine* vm, string_object* old )
-{
-    // Mark strings as mark colour since they have no references.
-    atomic_store( header( old )->color, vm->new_color );
-}
-
 void write_barrier( vmachine* vm, value oldv )
 {
     if ( box_is_object( oldv ) )
@@ -188,6 +175,19 @@ void write_barrier( vmachine* vm, value oldv )
         assert( box_is_string( oldv ) );
         write_barrier( vm, unbox_string( oldv ) );
     }
+}
+
+void write_barrier( vmachine* vm, object* old )
+{
+    // Add object to mark list.
+    atomic_store( header( old )->color, GC_COLOR_MARKED );
+    vm->mark_list.push_back( old );
+}
+
+void write_barrier( vmachine* vm, string_object* old )
+{
+    // Mark strings as mark colour since they have no references.
+    atomic_store( header( old )->color, vm->new_color );
 }
 
 cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
@@ -208,7 +208,11 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     // would be disastrous if done while the GC is marking the cothread.
     // Either we mark, in which case the GC will not, or the GC has already
     // marked, in which case we will not.
+
+    uint64_t pause_start = tick();
     std::lock_guard lock( vm->mark_mutex );
+    add_stack_pause( vm->gc, tick() - pause_start );
+
     if ( atomic_load( header( cothread )->color ) == vm->new_color )
     {
         return cothread;

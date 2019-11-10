@@ -132,6 +132,8 @@
 #include <thread>
 #include "vmachine.h"
 #include "call_stack.h"
+#include "heap.h"
+#include "tick.h"
 #include "objects/array_object.h"
 #include "objects/cothread_object.h"
 #include "objects/string_object.h"
@@ -175,6 +177,9 @@ struct collector
 
     // GC thread.
     std::thread thread;
+
+    // Statistics.
+    collector_statistics statistics;
 };
 
 collector::collector()
@@ -221,6 +226,11 @@ void stop_collector( vmachine* vm )
 
     // Sweep entire heap to destroy live objects.
     sweep_entire_heap( vm );
+}
+
+void add_stack_pause( collector* c, uint64_t tick )
+{
+    c->statistics.tick_stack_pause += tick;
 }
 
 void safepoint( vmachine* vm )
@@ -296,6 +306,10 @@ void safepoint_handshake( vmachine* vm )
 void safepoint_start_mark( vmachine* vm )
 {
     collector* gc = vm->gc;
+    uint64_t pause_start = tick();
+
+    // Reset statistics.
+    gc->statistics = {};
 
     // Determine colours for this mark phase.
     gc_color white_color = gc->white_color = vm->new_color;
@@ -339,11 +353,15 @@ void safepoint_start_mark( vmachine* vm )
 
     // Signal GC thread.
     gc->work_wait.notify_all();
+
+    // Set pause time.
+    gc->statistics.tick_mark_pause = tick() - pause_start;
 }
 
 void safepoint_start_sweep( vmachine* vm )
 {
     collector* gc = vm->gc;
+    uint64_t pause_start = tick();
 
     // Disable write barrier and update phase.
     vm->old_color = GC_COLOR_NONE;
@@ -387,6 +405,8 @@ void safepoint_start_sweep( vmachine* vm )
             }
             layout = next;
         }
+
+        ++i;
     }
 
     auto splitkey_layouts_end = vm->splitkey_layouts.end();
@@ -409,15 +429,26 @@ void safepoint_start_sweep( vmachine* vm )
             }
             layout = next;
         }
+
+        ++i;
     }
 
     // Signal GC thread.
     gc->work_wait.notify_all();
+
+    // Set pause time.
+    gc->statistics.tick_sweep_pause = tick() - pause_start;
 }
 
 void safepoint_new_epoch( vmachine* vm )
 {
     collector* gc = vm->gc;
+
+    // Report statistics.
+    printf( "collection report:\n" );
+    printf( "    mark  : %f\n", tick_seconds( gc->statistics.tick_mark_pause ) );
+    printf( "    stack : %f\n", tick_seconds( gc->statistics.tick_stack_pause ) );
+    printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
 
     // Update phase and allocation countdown.
     vm->phase = gc->phase = GC_PHASE_NONE;
@@ -491,7 +522,7 @@ void gc_mark( vmachine* vm )
             function_object* function = (function_object*)o;
             gc_mark_object_ref( gc, atomic_consume( function->program ) );
             gc_mark_object_ref( gc, atomic_consume( function->omethod ) );
-            size_t count = ( object_size( vm, function ) - offsetof( function_object, outenvs ) ) / sizeof( ref< vslots_object > );
+            size_t count = ( heap_malloc_size( function ) - offsetof( function_object, outenvs ) ) / sizeof( ref< vslots_object > );
             for ( size_t i = 0; i < count; ++i )
             {
                 gc_mark_object_ref( gc, atomic_consume( function->outenvs[ i ] ) );
@@ -522,7 +553,7 @@ void gc_mark( vmachine* vm )
         case VSLOTS_OBJECT:
         {
             vslots_object* vslots = (vslots_object*)o;
-            size_t count = object_size( vm, vslots ) / sizeof( ref_value );
+            size_t count = heap_malloc_size( vslots ) / sizeof( ref_value );
             for ( size_t i = 0; i < count; ++i )
             {
                 gc_mark_value( gc, { atomic_consume( vslots->slots[ i ] ) } );
