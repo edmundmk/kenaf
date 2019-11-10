@@ -132,9 +132,10 @@
 #include <thread>
 #include "vmachine.h"
 #include "call_stack.h"
-#include "objects/string_object.h"
+#include "objects/array_object.h"
 #include "objects/cothread_object.h"
-
+#include "objects/string_object.h"
+#include "objects/table_object.h"
 
 namespace kf
 {
@@ -473,16 +474,28 @@ void gc_mark( vmachine* vm )
 
         case ARRAY_OBJECT:
         {
+            array_object* array = (array_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( array->aslots ) );
             break;
         }
 
         case TABLE_OBJECT:
         {
+            table_object* table = (table_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( table->kvslots ) );
             break;
         }
 
         case FUNCTION_OBJECT:
         {
+            function_object* function = (function_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( function->program ) );
+            gc_mark_object_ref( gc, atomic_consume( function->omethod ) );
+            size_t count = ( object_size( vm, function ) - offsetof( function_object, outenvs ) ) / sizeof( ref< vslots_object > );
+            for ( size_t i = 0; i < count; ++i )
+            {
+                gc_mark_object_ref( gc, atomic_consume( function->outenvs[ i ] ) );
+            }
             break;
         }
 
@@ -493,6 +506,8 @@ void gc_mark( vmachine* vm )
 
         case COTHREAD_OBJECT:
         {
+            cothread_object* cothread = (cothread_object*)o;
+            gc_mark_cothread( gc, vm, cothread );
             break;
         }
 
@@ -517,11 +532,36 @@ void gc_mark( vmachine* vm )
 
         case KVSLOTS_OBJECT:
         {
+            kvslots_object* kvslots = (kvslots_object*)o;
+            size_t count = kvslots->count;
+            for ( size_t i = 0; i < count; ++i )
+            {
+                const kvslot* kv = kvslots->slots + i;
+                gc_mark_value( gc, { atomic_consume( kv->k ) } );
+                gc_mark_value( gc, { atomic_consume( kv->v ) } );
+            }
             break;
         }
 
         case PROGRAM_OBJECT:
         {
+            program_object* program = (program_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( program->script ) );
+            size_t count = program->constant_count;
+            for ( size_t i = 0; i < count; ++i )
+            {
+                gc_mark_value( gc, { atomic_consume( program->constants[ i ] ) } );
+            }
+            count = program->selector_count;
+            for ( size_t i = 0; i < count; ++i )
+            {
+                gc_mark_string_ref( gc, atomic_consume( program->selectors[ i ].key ) );
+            }
+            count = program->function_count;
+            for ( size_t i = 0; i < count; ++i )
+            {
+                gc_mark_object_ref( gc, atomic_consume( program->functions[ i ] ) );
+            }
             break;
         }
 
