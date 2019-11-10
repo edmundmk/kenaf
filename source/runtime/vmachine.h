@@ -277,6 +277,7 @@ void winit( ref_value& ref, value v );
 void write( vmachine* vm, ref_value& ref, value v );
 
 void write_barrier( vmachine* vm, object* old );
+void write_barrier( vmachine* vm, string_object* old );
 void write_barrier( vmachine* vm, value oldv );
 
 cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread );
@@ -314,7 +315,7 @@ template < typename T > inline void write( vmachine* vm, ref< T >& ref, T* v )
     if ( vm->old_color )
     {
         T* old = atomic_load( ref );
-        if ( atomic_load( header( old )->color ) == vm->old_color )
+        if ( old && atomic_load( header( old )->color ) == vm->old_color )
         {
             write_barrier( vm, old );
         }
@@ -339,12 +340,9 @@ inline void write( vmachine* vm, ref_value& ref, value v )
     if ( vm->old_color )
     {
         value oldv = { atomic_load( ref ) };
-        if ( box_is_object_or_string( oldv ) )
+        if ( box_is_object_or_string( oldv ) && atomic_load( header( unbox_object_or_string( oldv ) )->color ) == vm->old_color )
         {
-            if ( atomic_load( header( unbox_object_or_string( oldv ) )->color ) == vm->old_color )
-            {
-                write_barrier( vm, oldv );
-            }
+            write_barrier( vm, oldv );
         }
     }
 

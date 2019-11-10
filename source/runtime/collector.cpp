@@ -145,10 +145,12 @@ static void safepoint_start_sweep( vmachine* vm );
 static void safepoint_new_epoch( vmachine* vm );
 
 static void gc_thread( vmachine* vm );
+static void gc_mark( vmachine* vm );
 static void gc_mark_value( collector* gc, value v );
 static void gc_mark_object_ref( collector* gc, object* o );
 static void gc_mark_string_ref( collector* gc, string_object* s );
 static void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread );
+static void gc_sweep( vmachine* vm );
 
 static void sweep_entire_heap( vmachine* vm );
 
@@ -421,21 +423,134 @@ void safepoint_new_epoch( vmachine* vm )
     vm->countdown = std::max< size_t >( std::min< size_t >( gc->heap_size / 2, 512 * 1024 ), UINT_MAX );
 }
 
+void gc_thread( vmachine* vm )
+{
+    collector* gc = vm->gc;
+    while ( true )
+    {
+        std::unique_lock lock( gc->work_mutex );
+        gc->work_wait.wait( lock );
+        if ( gc->phase == GC_PHASE_MARK )
+        {
+            gc_mark( vm );
+        }
+        else if ( gc->phase == GC_PHASE_SWEEP )
+        {
+            gc_sweep( vm );
+        }
+        else if ( gc->phase == GC_PHASE_QUIT )
+        {
+            break;
+        }
+    }
+}
+
+void gc_mark( vmachine* vm )
+{
+    collector* gc = vm->gc;
+
+    // Mark until work list is empty.
+    while ( ! gc->mark_list.empty() )
+    {
+        object* o = gc->mark_list.back();
+        gc->mark_list.pop_back();
+
+        switch ( header( o )->type )
+        {
+        case LOOKUP_OBJECT:
+        {
+            break;
+        }
+
+        case STRING_OBJECT:
+        {
+            assert( ! "string object should not be on mark list" );
+            break;
+        }
+
+        case ARRAY_OBJECT:
+        {
+            break;
+        }
+
+        case TABLE_OBJECT:
+        {
+            break;
+        }
+
+        case FUNCTION_OBJECT:
+        {
+            break;
+        }
+
+        case NATIVE_FUNCTION_OBJECT:
+        {
+            break;
+        }
+
+        case COTHREAD_OBJECT:
+        {
+            break;
+        }
+
+        case LAYOUT_OBJECT:
+        {
+            break;
+        }
+
+        case VSLOTS_OBJECT:
+        {
+            break;
+        }
+
+        case KVSLOTS_OBJECT:
+        {
+            break;
+        }
+
+        case PROGRAM_OBJECT:
+        {
+            break;
+        }
+
+        case SCRIPT_OBJECT:
+        {
+            break;
+        }
+
+        default: break;
+        }
+    }
+}
+
 void gc_mark_value( collector* gc, value v )
 {
+    if ( ! box_is_object_or_string( v ) )
+    {
+        return;
+    }
+
+    object* o = unbox_object_or_string( v );
+    if ( atomic_load( header( o )->color ) != gc->white_color )
+    {
+        return;
+    }
+
     if ( box_is_object( v ) )
     {
-        gc_mark_object_ref( gc, unbox_object( v ) );
+        atomic_store( header( o )->color, GC_COLOR_MARKED );
+        gc->mark_list.push_back( o );
     }
-    else if ( box_is_string( v ) )
+    else
     {
-        gc_mark_string_ref( gc, unbox_string( v ) );
+        assert( box_is_string( v ) );
+        atomic_store( header( o )->color, gc->black_color );
     }
 }
 
 void gc_mark_object_ref( collector* gc, object* o )
 {
-    if ( atomic_load( header( o )->color ) == gc->white_color )
+    if ( o && atomic_load( header( o )->color ) == gc->white_color )
     {
         atomic_store( header( o )->color, GC_COLOR_MARKED );
         gc->mark_list.push_back( o );
@@ -444,7 +559,10 @@ void gc_mark_object_ref( collector* gc, object* o )
 
 void gc_mark_string_ref( collector* gc, string_object* o )
 {
-    atomic_store( header( o )->color, gc->black_color );
+    if ( o && atomic_load( header( o )->color ) == gc->white_color )
+    {
+        atomic_store( header( o )->color, gc->black_color );
+    }
 }
 
 void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread )
@@ -467,17 +585,14 @@ void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread )
     // Mark all references to functions in call stack.
     for ( const stack_frame& frame : cothread->stack_frames )
     {
-        if ( frame.function )
-        {
-            gc_mark_object_ref( gc, frame.function );
-        }
+        gc_mark_object_ref( gc, frame.function );
     }
 
     // Mark.
     atomic_store( header( cothread )->color, gc->black_color );
 }
 
-void gc_thread( vmachine* vm )
+void gc_sweep( vmachine* vm )
 {
 }
 

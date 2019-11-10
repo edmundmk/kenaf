@@ -166,23 +166,27 @@ void object_release( vmachine* vm, object* object )
 
 void write_barrier( vmachine* vm, object* old )
 {
+    // Add object to mark list.
     atomic_store( header( old )->color, GC_COLOR_MARKED );
     vm->mark_list.push_back( old );
+}
+
+void write_barrier( vmachine* vm, string_object* old )
+{
+    // Mark strings as mark colour since they have no references.
+    atomic_store( header( old )->color, vm->new_color );
 }
 
 void write_barrier( vmachine* vm, value oldv )
 {
     if ( box_is_object( oldv ) )
     {
-        // Add object to mark list.
         write_barrier( vm, unbox_object( oldv ) );
     }
     else
     {
-        // Mark strings as mark colour since they have no references.
         assert( box_is_string( oldv ) );
-        string_object* s = unbox_string( oldv );
-        atomic_store( header( s )->color, vm->new_color );
+        write_barrier( vm, unbox_string( oldv ) );
     }
 }
 
