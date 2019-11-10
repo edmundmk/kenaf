@@ -184,6 +184,7 @@ enum gc_phase : uint8_t
     GC_PHASE_NONE,
     GC_PHASE_MARK,
     GC_PHASE_SWEEP,
+    GC_PHASE_QUIT,
 };
 
 enum gc_color : uint8_t
@@ -253,7 +254,6 @@ struct vmachine
 
 void link_vcontext( vmachine* vm, vcontext* vc );
 void unlink_vcontext( vmachine* vm, vcontext* vc );
-void destroy_vmachine( vmachine* vm );
 
 /*
     Object functions.

@@ -12,6 +12,7 @@
 #include "kenaf/errors.h"
 #include "vmachine.h"
 #include "call_stack.h"
+#include "collector.h"
 #include "execute.h"
 #include "objects/array_object.h"
 #include "objects/table_object.h"
@@ -53,6 +54,7 @@ runtime* create_runtime()
     runtime* r = new runtime();
     r->refcount = 1;
     r->current_context = nullptr;
+    start_collector( &r->vm );
     setup_object_model( &r->vm );
     return r;
 }
@@ -73,7 +75,7 @@ void release_runtime( runtime* r )
         {
             make_current( nullptr );
         }
-        destroy_vmachine( &r->vm );
+        stop_collector( &r->vm );
         delete r;
     }
 }

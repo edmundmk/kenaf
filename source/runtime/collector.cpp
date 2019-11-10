@@ -8,12 +8,6 @@
 //  full license information.
 //
 
-#include "collector.h"
-#include "vmachine.h"
-#include "call_stack.h"
-#include "objects/string_object.h"
-#include "objects/cothread_object.h"
-
 /*
     GC/mutator interactions.
 
@@ -134,6 +128,14 @@
             Must lock to serialize access to the heap.
 */
 
+#include "collector.h"
+#include <thread>
+#include "vmachine.h"
+#include "call_stack.h"
+#include "objects/string_object.h"
+#include "objects/cothread_object.h"
+
+
 namespace kf
 {
 
@@ -142,13 +144,19 @@ static void safepoint_start_mark( vmachine* vm );
 static void safepoint_start_sweep( vmachine* vm );
 static void safepoint_new_epoch( vmachine* vm );
 
+static void gc_thread( vmachine* vm );
 static void gc_mark_value( collector* gc, value v );
 static void gc_mark_object_ref( collector* gc, object* o );
 static void gc_mark_string_ref( collector* gc, string_object* s );
 static void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread );
 
+static void sweep_entire_heap( vmachine* vm );
+
 struct collector
 {
+    collector();
+    ~collector();
+
     // Synchronization.
     std::mutex work_mutex;
     std::condition_variable work_wait;
@@ -157,19 +165,59 @@ struct collector
     segment_list< object* > mark_list;
     gc_color white_color; // objects this colour are unmarked
     gc_color black_color; // object and all refs have been processed by marker.
+    gc_phase phase;
 
     // Sweep state.
     size_t heap_size;
+
+    // GC thread.
+    std::thread thread;
 };
+
+collector::collector()
+    :   white_color( GC_COLOR_NONE )
+    ,   black_color( GC_COLOR_NONE )
+    ,   heap_size( 0 )
+{
+}
+
+collector::~collector()
+{
+}
 
 collector* collector_create()
 {
-    return new collector;
+    return new collector();
 }
 
 void collector_destroy( collector* c )
 {
+    assert( ! c->thread.joinable() );
     delete c;
+}
+
+void start_collector( vmachine* vm )
+{
+    vm->gc->thread = std::thread( gc_thread, vm );
+}
+
+void stop_collector( vmachine* vm )
+{
+    collector* gc = vm->gc;
+
+    // Wait for collection to complete.
+    wait_for_collection( vm );
+
+    // Request that collector quits, then wait for it to do so.
+    {
+        std::lock_guard lock( gc->work_mutex );
+        gc->phase = GC_PHASE_QUIT;
+        gc->work_wait.notify_all();
+    }
+    gc->thread.join();
+
+    // Sweep entire heap to destroy live objects.
+    sweep_entire_heap( vm );
 }
 
 void safepoint( vmachine* vm )
@@ -183,6 +231,7 @@ void safepoint( vmachine* vm )
     if ( vm->phase == GC_PHASE_NONE )
     {
         assert( vm->countdown == 0 );
+        std::lock_guard lock( vm->gc->work_mutex );
         safepoint_start_mark( vm );
         return;
     }
@@ -200,6 +249,7 @@ void start_collection( vmachine* vm )
     // If GC is not already started, start marking.
     if ( vm->phase == GC_PHASE_NONE )
     {
+        std::lock_guard lock( vm->gc->work_mutex );
         safepoint_start_mark( vm );
     }
 }
@@ -211,11 +261,6 @@ void wait_for_collection( vmachine* vm )
         std::lock_guard lock( vm->gc->work_mutex );
         safepoint_handshake( vm );
     }
-}
-
-void sweep_entire_heap( vmachine* vm )
-{
-    // TODO.
 }
 
 void safepoint_handshake( vmachine* vm )
@@ -254,7 +299,7 @@ void safepoint_start_mark( vmachine* vm )
     gc_color black_color = gc->black_color = white_color == GC_COLOR_PURPLE ? GC_COLOR_ORANGE : GC_COLOR_PURPLE;
     vm->old_color = white_color;
     vm->new_color = black_color;
-    vm->phase = GC_PHASE_MARK;
+    vm->phase = gc->phase = GC_PHASE_MARK;
 
     // Add all roots to mark list.
     assert( gc->mark_list.empty() );
@@ -299,7 +344,7 @@ void safepoint_start_sweep( vmachine* vm )
 
     // Disable write barrier and update phase.
     vm->old_color = GC_COLOR_NONE;
-    vm->phase = GC_PHASE_SWEEP;
+    vm->phase = gc->phase = GC_PHASE_SWEEP;
     gc->heap_size = 0;
 
     // Get colour for dead objects.
@@ -372,7 +417,7 @@ void safepoint_new_epoch( vmachine* vm )
     collector* gc = vm->gc;
 
     // Update phase and allocation countdown.
-    vm->phase = GC_PHASE_NONE;
+    vm->phase = gc->phase = GC_PHASE_NONE;
     vm->countdown = std::max< size_t >( std::min< size_t >( gc->heap_size / 2, 512 * 1024 ), UINT_MAX );
 }
 
@@ -430,6 +475,14 @@ void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread )
 
     // Mark.
     atomic_store( header( cothread )->color, gc->black_color );
+}
+
+void gc_thread( vmachine* vm )
+{
+}
+
+void sweep_entire_heap( vmachine* vm )
+{
 }
 
 }

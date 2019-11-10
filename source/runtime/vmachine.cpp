@@ -45,8 +45,8 @@ vmachine::vmachine()
 
 vmachine::~vmachine()
 {
-    assert( heap == nullptr );
-    assert( gc == nullptr );
+    collector_destroy( gc );
+    heap_destroy( heap );
 }
 
 void link_vcontext( vmachine* vm, vcontext* vc )
@@ -82,8 +82,6 @@ void destroy_vmachine( vmachine* vm )
 {
     assert( ! vm->context_list );
 
-    wait_for_collection( vm );
-    sweep_entire_heap( vm );
 
     collector_destroy( vm->gc );
     vm->gc = nullptr;
