@@ -98,12 +98,12 @@ void destroy_vmachine( vmachine* vm )
 
 void* object_new( vmachine* vm, type_code type, size_t size )
 {
-    std::unique_lock lock( vm->heap_mutex, std::defer_lock );
+    std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
     if ( vm->phase == GC_PHASE_SWEEP )
     {
-        std::lock_guard lock_ticket( vm->lock_mutex );
+        std::lock_guard lock_lock( vm->lock_mutex );
         atomic_store( vm->heap_flag, 1 );
-        lock.lock();
+        lock_heap.lock();
         atomic_store( vm->heap_flag, 0 );
     }
 

@@ -463,13 +463,13 @@ void safepoint_start_sweep( vmachine* vm )
 void safepoint_new_epoch( vmachine* vm )
 {
     collector* gc = vm->gc;
-
+/*
     // Report statistics.
     printf( "collection report:\n" );
     printf( "    mark  : %f\n", tick_seconds( gc->statistics.tick_mark_pause ) );
     printf( "    stack : %f\n", tick_seconds( gc->statistics.tick_stack_pause ) );
     printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
-
+*/
     // Update phase and allocation countdown.
     assert( gc->state == GC_STATE_SWEEP_DONE );
     gc->state = GC_STATE_WAIT;
@@ -710,7 +710,11 @@ void gc_sweep( vmachine* vm )
     collector* gc = vm->gc;
     assert( gc->state == GC_STATE_SWEEP );
 
-    // TODO.
+    std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
+    {
+        std::lock_guard lock_lock( vm->lock_mutex );
+        lock_heap.lock();
+    }
 
     gc->state = GC_STATE_SWEEP_DONE;
 }
