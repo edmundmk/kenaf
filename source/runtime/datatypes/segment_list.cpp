@@ -9,7 +9,6 @@
 //
 
 #include "segment_list.h"
-#include <assert.h>
 #include <vector>
 
 int main( int argc, char* argv[] )

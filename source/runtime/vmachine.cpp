@@ -221,7 +221,10 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     // Add all functions in stack frames to the mark list.
     for ( const stack_frame& frame : cothread->stack_frames )
     {
-        write_barrier( vm, frame.function );
+        if ( frame.function )
+        {
+            write_barrier( vm, frame.function );
+        }
     }
 
     // Mark with mark colour.

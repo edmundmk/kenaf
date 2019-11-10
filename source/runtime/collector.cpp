@@ -422,7 +422,10 @@ void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread )
     // Mark all references to functions in call stack.
     for ( const stack_frame& frame : cothread->stack_frames )
     {
-        gc_mark_object_ref( gc, frame.function );
+        if ( frame.function )
+        {
+            gc_mark_object_ref( gc, frame.function );
+        }
     }
 
     // Mark.
