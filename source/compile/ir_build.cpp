@@ -1628,11 +1628,25 @@ ir_operand ir_build::selector_operand( ast_node_index node )
 
 ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
 {
+    // If there's no block, then create one.
     if ( _block_index == IR_INVALID_INDEX )
     {
         new_block( sloc, IR_BLOCK_BASIC );
     }
 
+    // Convert temporaries back to IR_O_OP by looking up the temporary in
+    // this block.
+    unsigned oindex = _o.size() - ocount;
+    for ( size_t i = oindex; i < _o.size(); ++i )
+    {
+        ir_operand* operand = &_o[ i ];
+        if ( operand->kind == IR_O_TEMP )
+        {
+            *operand = use( sloc, operand->index );
+        }
+    }
+
+    // Emit op.
     ir_op op;
     op.opcode = opcode;
     op.ocount = ocount;
@@ -1642,11 +1656,8 @@ ir_operand ir_build::emit( srcloc sloc, ir_opcode opcode, unsigned ocount )
     unsigned op_index = _f->ops.append( op );
 
     assert( ocount <= _o.size() );
-    unsigned oindex = _o.size() - ocount;
     for ( unsigned i = 0; i < ocount; ++i )
     {
-        if ( _f->operands.size() >= IR_INVALID_INDEX )
-            throw std::out_of_range( "too many operands" );
         _f->operands.append( _o[ oindex + i ] );
     }
     _o.resize( oindex );
@@ -1661,6 +1672,7 @@ void ir_build::goto_block( goto_label* label )
 
 ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
 {
+    // If a block exists, close it with a jump to this new block.
     if ( _block_index != IR_INVALID_INDEX )
     {
         goto_label goto_next;
@@ -1668,6 +1680,7 @@ ir_block_index ir_build::new_block( srcloc sloc, ir_block_kind kind )
         goto_block( &goto_next );
     }
 
+    // Construct new block.
     ir_block block;
     block.kind = kind;
     block.lower = _f->ops.size();
@@ -1798,6 +1811,23 @@ ir_operand ir_build::end_block( ir_operand jump )
     {
         assert( _block_index == IR_INVALID_INDEX );
         return jump;
+    }
+
+    // If any operands which reference op results survive the block, those
+    // results must be upgraded to actual temporaries.
+    for ( size_t i = 0; i < _o.size(); ++i )
+    {
+        ir_operand* operand = &_o[ i ];
+        if ( operand->kind == IR_O_OP )
+        {
+            ir_op* op = &_f->ops[ operand->index ];
+            if ( op->local() == IR_INVALID_LOCAL )
+            {
+                def( op->sloc, temporary(), *operand );
+            }
+            operand->kind = IR_O_TEMP;
+            operand->index = op->local();
+        }
     }
 
     assert( jump.kind == IR_O_OP );

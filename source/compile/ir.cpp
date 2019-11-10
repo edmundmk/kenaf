@@ -176,6 +176,12 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
             break;
         }
 
+        case IR_O_TEMP:
+        {
+            printf( " TEMP :%04X", operand.index );
+            break;
+        }
+
         case IR_O_BLOCK:
         {
             printf( " @%u", operand.index );

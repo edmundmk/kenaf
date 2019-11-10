@@ -235,6 +235,7 @@ enum ir_operand_kind : uint8_t
     IR_O_OP,            // Index of op.
     IR_O_PIN,           // Index of pin op.
     IR_O_SELECT,        // Index of selected result.
+    IR_O_TEMP,          // Index of local temporary.
 
     IR_O_BLOCK,         // Index of block in function's blocks array.
     IR_O_JUMP,          // Index of op to jump to.
