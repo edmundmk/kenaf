@@ -157,6 +157,16 @@ static void gc_sweep( vmachine* vm );
 
 static void sweep_entire_heap( vmachine* vm );
 
+enum gc_state
+{
+    GC_STATE_WAIT,
+    GC_STATE_MARK,
+    GC_STATE_MARK_DONE,
+    GC_STATE_SWEEP,
+    GC_STATE_SWEEP_DONE,
+    GC_STATE_QUIT,
+};
+
 struct collector
 {
     collector();
@@ -166,11 +176,13 @@ struct collector
     std::mutex work_mutex;
     std::condition_variable work_wait;
 
-    // Mark state.
+    // Mark list.
     segment_list< object* > mark_list;
+
+    // State.
+    gc_state state;
     gc_color white_color; // objects this colour are unmarked
     gc_color black_color; // object and all refs have been processed by marker.
-    gc_phase phase;
 
     // Sweep state.
     size_t heap_size;
@@ -183,9 +195,11 @@ struct collector
 };
 
 collector::collector()
-    :   white_color( GC_COLOR_NONE )
-    ,   black_color( GC_COLOR_NONE )
+    :   state( GC_STATE_WAIT )
+    ,   white_color( GC_COLOR_ORANGE )
+    ,   black_color( GC_COLOR_PURPLE )
     ,   heap_size( 0 )
+    ,   statistics{}
 {
 }
 
@@ -219,7 +233,7 @@ void stop_collector( vmachine* vm )
     // Request that collector quits, then wait for it to do so.
     {
         std::lock_guard lock( gc->work_mutex );
-        gc->phase = GC_PHASE_QUIT;
+        gc->state = GC_STATE_QUIT;
         gc->work_wait.notify_all();
     }
     gc->thread.join();
@@ -235,15 +249,13 @@ void add_stack_pause( collector* c, uint64_t tick )
 
 void safepoint( vmachine* vm )
 {
-    if ( vm->phase == GC_PHASE_NONE && vm->countdown > 0 )
+    if ( vm->countdown > 0 )
     {
         return;
     }
 
-    // If allocation countdown has expired, kick off GC.
     if ( vm->phase == GC_PHASE_NONE )
     {
-        assert( vm->countdown == 0 );
         std::lock_guard lock( vm->gc->work_mutex );
         safepoint_start_mark( vm );
         return;
@@ -278,29 +290,27 @@ void wait_for_collection( vmachine* vm )
 
 void safepoint_handshake( vmachine* vm )
 {
-    if ( vm->phase == GC_PHASE_MARK )
+    collector* gc = vm->gc;
+
+    if ( gc->state == GC_STATE_MARK_DONE )
     {
-        collector* gc = vm->gc;
-        if ( ! gc->mark_list.empty() )
-        {
-            return;
-        }
+        assert( vm->phase == GC_PHASE_MARK );
 
         if ( ! vm->mark_list.empty() )
         {
             // Swap mark lists.
+            assert( gc->mark_list.empty() );
             gc->mark_list.swap( vm->mark_list );
             assert( vm->mark_list.empty() );
+            gc->state = GC_STATE_MARK;
             gc->work_wait.notify_all();
             return;
         }
 
-        // Everything is marked, move to sweep phase.
         safepoint_start_sweep( vm );
     }
-    else
+    else if ( gc->state == GC_STATE_SWEEP_DONE )
     {
-        // Sweeping is done, move to new epoch.
         assert( vm->phase == GC_PHASE_SWEEP );
         safepoint_new_epoch( vm );
     }
@@ -314,12 +324,15 @@ void safepoint_start_mark( vmachine* vm )
     // Reset statistics.
     gc->statistics = {};
 
-    // Determine colours for this mark phase.
-    gc_color white_color = gc->white_color = vm->new_color;
-    gc_color black_color = gc->black_color = white_color == GC_COLOR_PURPLE ? GC_COLOR_ORANGE : GC_COLOR_PURPLE;
-    vm->old_color = white_color;
-    vm->new_color = black_color;
-    vm->phase = gc->phase = GC_PHASE_MARK;
+    // Initialize phase.
+    assert( gc->state == GC_STATE_WAIT );
+    gc->state = GC_STATE_MARK;
+    std::swap( gc->white_color, gc->black_color );
+
+    assert( vm->phase == GC_PHASE_NONE );
+    vm->phase = GC_PHASE_MARK;
+    vm->old_color = gc->white_color;
+    vm->new_color = gc->black_color;
 
     // Add all roots to mark list.
     assert( gc->mark_list.empty() );
@@ -367,9 +380,13 @@ void safepoint_start_sweep( vmachine* vm )
     uint64_t pause_start = tick();
 
     // Disable write barrier and update phase.
-    vm->old_color = GC_COLOR_NONE;
-    vm->phase = gc->phase = GC_PHASE_SWEEP;
+    assert( gc->state == GC_STATE_MARK_DONE );
+    gc->state = GC_STATE_SWEEP;
     gc->heap_size = 0;
+
+    assert( vm->phase == GC_PHASE_MARK );
+    vm->phase = GC_PHASE_SWEEP;
+    vm->old_color = GC_COLOR_NONE;
 
     // Get colour for dead objects.
     gc_color dead_color = gc->white_color;
@@ -454,26 +471,33 @@ void safepoint_new_epoch( vmachine* vm )
     printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
 
     // Update phase and allocation countdown.
-    vm->phase = gc->phase = GC_PHASE_NONE;
+    assert( gc->state == GC_STATE_SWEEP_DONE );
+    gc->state = GC_STATE_WAIT;
+
+    assert( vm->phase == GC_PHASE_SWEEP );
+    vm->phase = GC_PHASE_NONE;
     vm->countdown = std::min< size_t >( std::max< size_t >( gc->heap_size / 2, 512 * 1024 ), UINT_MAX );
 }
 
 void gc_thread( vmachine* vm )
 {
     collector* gc = vm->gc;
+    std::unique_lock lock( gc->work_mutex );
     while ( true )
     {
-        std::unique_lock lock( gc->work_mutex );
-        gc->work_wait.wait( lock );
-        if ( gc->phase == GC_PHASE_MARK )
+        while ( gc->state == GC_STATE_WAIT || gc->state == GC_STATE_MARK_DONE || gc->state == GC_STATE_SWEEP_DONE )
+        {
+            gc->work_wait.wait( lock );
+        }
+        if ( gc->state == GC_STATE_MARK )
         {
             gc_mark( vm );
         }
-        else if ( gc->phase == GC_PHASE_SWEEP )
+        else if ( gc->state == GC_STATE_SWEEP )
         {
             gc_sweep( vm );
         }
-        else if ( gc->phase == GC_PHASE_QUIT )
+        else if ( gc->state == GC_STATE_QUIT )
         {
             break;
         }
@@ -483,6 +507,7 @@ void gc_thread( vmachine* vm )
 void gc_mark( vmachine* vm )
 {
     collector* gc = vm->gc;
+    assert( gc->state == GC_STATE_MARK );
 
     // Mark until work list is empty.
     while ( ! gc->mark_list.empty() )
@@ -607,6 +632,8 @@ void gc_mark( vmachine* vm )
         default: break;
         }
     }
+
+    gc->state = GC_STATE_MARK_DONE;
 }
 
 void gc_mark_value( collector* gc, value v )
@@ -680,6 +707,12 @@ void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread )
 
 void gc_sweep( vmachine* vm )
 {
+    collector* gc = vm->gc;
+    assert( gc->state == GC_STATE_SWEEP );
+
+    // TODO.
+
+    gc->state = GC_STATE_SWEEP_DONE;
 }
 
 void sweep_entire_heap( vmachine* vm )

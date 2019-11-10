@@ -32,6 +32,7 @@ vcontext::~vcontext()
 vmachine::vmachine()
     :   old_color( GC_COLOR_NONE )
     ,   new_color( GC_COLOR_PURPLE )
+    ,   phase( GC_PHASE_NONE )
     ,   countdown( 512 * 1024 )
     ,   c( nullptr )
     ,   prototypes{}
@@ -42,6 +43,7 @@ vmachine::vmachine()
     ,   heap( heap_create() )
     ,   gc( collector_create() )
 {
+    atomic_store( heap_flag, 0 );
 }
 
 vmachine::~vmachine()

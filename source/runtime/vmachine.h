@@ -179,12 +179,11 @@ struct key_selector
     Global GC state.
 */
 
-enum gc_phase : uint8_t
+enum gc_phase
 {
     GC_PHASE_NONE,
     GC_PHASE_MARK,
     GC_PHASE_SWEEP,
-    GC_PHASE_QUIT,
 };
 
 enum gc_color : uint8_t
@@ -219,7 +218,7 @@ struct vmachine
     // Basic GC heap state.
     gc_color old_color;     // overwriting references to this colour must mark.
     gc_color new_color;     // allocated objects must have this colour.
-    gc_phase phase;         // current GC phase.
+    gc_phase phase;         // gc phase.
     atomic_u8 heap_flag;    // Set to 1 if the mutator needs the heap.
     unsigned countdown;     // GC allocation countdown.
 
