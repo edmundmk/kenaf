@@ -459,6 +459,9 @@ void gc_mark( vmachine* vm )
         {
         case LOOKUP_OBJECT:
         {
+            lookup_object* lookup = (lookup_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( lookup->oslots ) );
+            gc_mark_object_ref( gc, atomic_consume( lookup->layout ) );
             break;
         }
 
@@ -495,11 +498,20 @@ void gc_mark( vmachine* vm )
 
         case LAYOUT_OBJECT:
         {
+            layout_object* layout = (layout_object*)o;
+            gc_mark_object_ref( gc, atomic_consume( layout->parent ) );
+            gc_mark_string_ref( gc, atomic_consume( layout->key ) );
             break;
         }
 
         case VSLOTS_OBJECT:
         {
+            vslots_object* vslots = (vslots_object*)o;
+            size_t count = object_size( vm, vslots ) / sizeof( ref_value );
+            for ( size_t i = 0; i < count; ++i )
+            {
+                gc_mark_value( gc, { atomic_consume( vslots->slots[ i ] ) } );
+            }
             break;
         }
 
