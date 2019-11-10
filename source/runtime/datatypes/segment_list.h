@@ -16,6 +16,7 @@
     iterating forwards.  Unlike a vector, it allocates in chunks.
 */
 
+#include <assert.h>
 #include <iterator>
 
 namespace kf
@@ -160,7 +161,7 @@ T* segment_list< T, segment_size >::allocate()
 {
     if ( _i >= segment_size )
     {
-        if ( _tail->next )
+        if ( _tail && _tail->next )
         {
             _tail = _tail->next;
         }
@@ -169,12 +170,17 @@ T* segment_list< T, segment_size >::allocate()
             segment* s = (segment*)malloc( sizeof( segment ) + sizeof( T ) * segment_size );
             s->next = nullptr;
             s->prev = _tail;
-            _tail->next = s;
-            if ( _head == nullptr )
+
+            if ( _tail )
+            {
+                _tail->next = s;
+                _tail = s;
+            }
+            else
             {
                 _head = s;
+                _tail = s;
             }
-            _tail = s;
         }
         _i = 0;
     }
