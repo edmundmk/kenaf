@@ -245,6 +245,7 @@ void safepoint( vmachine* vm )
     {
         assert( vm->countdown == 0 );
         std::lock_guard lock( vm->gc->work_mutex );
+        printf( "sm mark_list: %zu\n", vm->gc->mark_list.size() );
         safepoint_start_mark( vm );
         return;
     }
@@ -253,6 +254,7 @@ void safepoint( vmachine* vm )
     std::unique_lock lock( vm->gc->work_mutex, std::defer_lock );
     if ( lock.try_lock() )
     {
+        printf( "hs mark_list: %zu\n", vm->gc->mark_list.size() );
         safepoint_handshake( vm );
     }
 }
@@ -452,7 +454,7 @@ void safepoint_new_epoch( vmachine* vm )
 
     // Update phase and allocation countdown.
     vm->phase = gc->phase = GC_PHASE_NONE;
-    vm->countdown = std::max< size_t >( std::min< size_t >( gc->heap_size / 2, 512 * 1024 ), UINT_MAX );
+    vm->countdown = std::min< size_t >( std::max< size_t >( gc->heap_size / 2, 512 * 1024 ), UINT_MAX );
 }
 
 void gc_thread( vmachine* vm )
@@ -462,9 +464,11 @@ void gc_thread( vmachine* vm )
     {
         std::unique_lock lock( gc->work_mutex );
         gc->work_wait.wait( lock );
+        printf( "wake up: %d\n", gc->phase );
         if ( gc->phase == GC_PHASE_MARK )
         {
             gc_mark( vm );
+            printf( "after mark: %zu\n", gc->mark_list.size() );
         }
         else if ( gc->phase == GC_PHASE_SWEEP )
         {

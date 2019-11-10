@@ -82,6 +82,7 @@ public:
     segment_list& operator = ( const segment_list& s )  { clear(); for ( const auto& v : s ) push_back( s ); return *this; }
     ~segment_list()                                     { destroy(); }
 
+    size_t size() const;
     bool empty() const                                  { return _head == _tail && ( _i == 0 || _head == nullptr ); }
 
     const_iterator cbegin() const                       { return const_iterator( _head, 0 ); }
@@ -112,6 +113,24 @@ private:
     size_t _i;
 
 };
+
+template < typename T, size_t segment_size >
+size_t segment_list< T, segment_size >::size() const
+{
+    if ( _head == nullptr )
+    {
+        return 0;
+    }
+
+    size_t size = 0;
+    for ( segment* ss = _head; ss != _tail; ss = ss->next )
+    {
+        size += segment_size;
+    }
+
+    size += _i;
+    return size;
+}
 
 template < typename T, size_t segment_size >
 void segment_list< T, segment_size >::pop_back()
