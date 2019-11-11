@@ -177,6 +177,7 @@ struct collector
     gc_state state;
     gc_color white_color; // objects this colour are unmarked
     gc_color black_color; // object and all refs have been processed by marker.
+    bool print_stats;
 
     // Sweep state.
     size_t heap_size;
@@ -192,6 +193,7 @@ collector::collector()
     :   state( GC_STATE_WAIT )
     ,   white_color( GC_COLOR_ORANGE )
     ,   black_color( GC_COLOR_PURPLE )
+    ,   print_stats( getenv( "KENAF_GC_PRINT_STATS" ) != nullptr )
     ,   heap_size( 0 )
     ,   statistics{}
 {
@@ -483,25 +485,28 @@ void safepoint_new_epoch( vmachine* vm )
     collector* gc = vm->gc;
 
     // Report statistics.
-    const collector_statistics& stats = gc->statistics;
-    printf( "collection report:\n" );
-    printf( "    mark  : %f\n", tick_seconds( stats.tick_mark_pause ) );
-    printf( "    stack : %f\n", tick_seconds( stats.tick_stack_pause ) );
-    printf( "    sweep : %f\n", tick_seconds( stats.tick_sweep_pause ) );
-    printf( "    heap  : %f\n", tick_seconds( stats.tick_heap_pause ) );
-    printf( "    swept :\n" );
-    for ( size_t i = 0; i < TYPE_COUNT; ++i )
+    if ( gc->print_stats )
     {
-        const char* name = TYPE_NAMES[ i ];
-        if ( ! name ) continue;
-        printf( "        %-8s : %zu / %zu bytes\n", name, stats.swept_count[ i ], stats.swept_bytes[ i ] );
-    }
-    printf( "    alive :\n" );
-    for ( size_t i = 0; i < TYPE_COUNT; ++i )
-    {
-        const char* name = TYPE_NAMES[ i ];
-        if ( ! name ) continue;
-        printf( "        %-8s : %zu / %zu bytes\n", name, stats.alive_count[ i ], stats.alive_bytes[ i ] );
+        const collector_statistics& stats = gc->statistics;
+        printf( "collection report:\n" );
+        printf( "    mark  : %f\n", tick_seconds( stats.tick_mark_pause ) );
+        printf( "    stack : %f\n", tick_seconds( stats.tick_stack_pause ) );
+        printf( "    sweep : %f\n", tick_seconds( stats.tick_sweep_pause ) );
+        printf( "    heap  : %f\n", tick_seconds( stats.tick_heap_pause ) );
+        printf( "    swept :\n" );
+        for ( size_t i = 0; i < TYPE_COUNT; ++i )
+        {
+            const char* name = TYPE_NAMES[ i ];
+            if ( ! name ) continue;
+            printf( "        %-8s : %zu / %zu bytes\n", name, stats.swept_count[ i ], stats.swept_bytes[ i ] );
+        }
+        printf( "    alive :\n" );
+        for ( size_t i = 0; i < TYPE_COUNT; ++i )
+        {
+            const char* name = TYPE_NAMES[ i ];
+            if ( ! name ) continue;
+            printf( "        %-8s : %zu / %zu bytes\n", name, stats.alive_count[ i ], stats.alive_bytes[ i ] );
+        }
     }
 
     // Update phase and allocation countdown.
@@ -753,38 +758,46 @@ void gc_sweep( vmachine* vm )
     void* p = nullptr;
     bool free_chunk = false;
 
+    // Process 'pages' of 64k each in the heap with the lock held.
+    uintptr_t PAGE_MASK = ~(uintptr_t)( 64 * 1024 - 1 );
+    uintptr_t page_base = 0;
+
     while ( true )
     {
+        std::unique_lock lock_heap( vm->heap_mutex );
+        while ( ( (uintptr_t)p & PAGE_MASK ) == page_base )
         {
-            std::unique_lock lock_heap( vm->heap_mutex );
             p = heap_sweep( heap, p, free_chunk );
-        }
-        if ( ! p )
-        {
-            break;
+            if ( ! p )
+            {
+                goto break_all;
+            }
+
+            type_code type = header( (object*)p )->type;
+            gc_color color = (gc_color)atomic_load( header( (object*)p )->color );
+            assert( color != GC_COLOR_MARKED );
+            size_t size = heap_malloc_size( p );
+
+            free_chunk = color == white_color;
+            if ( ! free_chunk )
+            {
+                gc->heap_size += size;
+                gc->statistics.alive_count[ type ] += 1;
+                gc->statistics.alive_bytes[ type ] += size;
+            }
+            else
+            {
+                gc_destroy( (object*)p );
+//              memset( p, 0xFE, size );
+                gc->statistics.swept_count[ type ] += 1;
+                gc->statistics.swept_bytes[ type ] += size;
+            }
         }
 
-        type_code type = header( (object*)p )->type;
-        gc_color color = (gc_color)atomic_load( header( (object*)p )->color );
-        assert( color != GC_COLOR_MARKED );
-        size_t size = heap_malloc_size( p );
-
-        free_chunk = color == white_color;
-        if ( ! free_chunk )
-        {
-            gc->heap_size += size;
-            gc->statistics.alive_count[ type ] += 1;
-            gc->statistics.alive_bytes[ type ] += size;
-        }
-        else
-        {
-            gc_destroy( (object*)p );
-            memset( p, 0xFE, size );
-            gc->statistics.swept_count[ type ] += 1;
-            gc->statistics.swept_bytes[ type ] += size;
-        }
+        page_base = (uintptr_t)p & PAGE_MASK;
     }
 
+break_all:
     gc->state = GC_STATE_SWEEP_DONE;
     return;
 }
