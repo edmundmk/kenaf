@@ -47,16 +47,7 @@ void heap_free( heap_state* heap, void* p );
     blocks while a sweep is active.  p is a pointer to the allocated block.
 */
 
-struct heap_sweep
-{
-    void* internal;
-    void* p;
-    size_t size;
-};
-
-bool heap_sweep_start( heap_state* heap, heap_sweep* sweep );
-bool heap_sweep_next( heap_state* heap, heap_sweep* sweep );
-bool heap_sweep_free( heap_state* heap, heap_sweep* sweep );
+void* heap_sweep( heap_state* heap, void* p, bool free_chunk );
 
 /*
     Debugging.

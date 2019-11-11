@@ -222,6 +222,7 @@ inline void heap_chunk_set_free( heap_chunk* chunk, size_t size )
 
 inline void heap_chunk_set_allocated( heap_chunk* chunk, size_t size )
 {
+    assert( size > 0 );
     chunk->header = { true, true, size, 0 };
 }
 
@@ -715,9 +716,7 @@ struct heap_state
     void free_segment( heap_segment* segment );
     void unlink_segment( heap_segment* segment );
 
-    bool sweep_start( heap_sweep* sweep );
-    bool sweep_next( heap_sweep* sweep );
-    bool sweep_free( heap_sweep* sweep );
+    void* sweep( void* p, bool free_chunk );
 
     void debug_print();
 };
@@ -1279,68 +1278,58 @@ void heap_state::unlink_segment( heap_segment* segment )
     *link = segment->next;
 }
 
-bool heap_state::sweep_start( heap_sweep* sweep )
+void* heap_state::sweep( void* p, bool free_chunk )
 {
-    // Find first allocated block in entire
-    for ( heap_segment* s = segments; s; s = s->next )
+    heap_chunk* c;
+    if ( p )
     {
-        heap_chunk* c = (heap_chunk*)s->base;
-        while ( c != (heap_chunk*)s )
-        {
-            if ( c->header.u() )
-            {
-                *sweep = { s, heap_chunk_data( c ), c->header.size() };
-                return true;
-            }
-            c = heap_chunk_next( c, c->header.size() );
-        }
+        c = heap_chunk_head( p );
+        c = heap_chunk_next( c, c->header.size() );
     }
-    *sweep = { nullptr, nullptr, 0 };
-    return false;
-}
-
-bool heap_state::sweep_next( heap_sweep* sweep )
-{
-    if ( ! sweep->internal || ! sweep->p )
+    else
     {
-        return false;
+        c = (heap_chunk*)segments->base;
     }
 
-    heap_segment* s = (heap_segment*)sweep->internal;
-    heap_chunk* c = (heap_chunk*)heap_chunk_head( sweep->p );
+    void* q = nullptr;
     while ( true )
     {
-        // Move to next chunk.
-        c = heap_chunk_next( c, c->header.size() );
-        if ( c == (heap_chunk*)s )
+        // Check for end of segment.
+        if ( c->header.size() == 0 )
         {
+            // Move to next segment.
+            heap_segment* s = (heap_segment*)c;
             s = s->next;
+
+            // Check if we've reached the end of the heap.
             if ( ! s )
             {
                 break;
             }
+
+            // Consider first chunk in this segment.
             c = (heap_chunk*)s->base;
         }
 
-        // Return allocated chunk.
+        // Check for allocated chunk.
         if ( c->header.u() )
         {
-            *sweep = { s, heap_chunk_data( c ), c->header.size() };
-            return true;
+            q = heap_chunk_data( c );
+            break;
         }
+
+        // Move to next chunk.
+        c = heap_chunk_next( c, c->header.size() );
     }
 
-    // Reached end of heap.
-    *sweep = { nullptr, nullptr, 0 };
-    return false;
-}
+    // Free current chunk.
+    if ( free_chunk )
+    {
+        free( p );
+    }
 
-bool heap_state::sweep_free( heap_sweep* sweep )
-{
-    void* p = sweep->p;
-    bool next = sweep_next( sweep );
-    free( p );
-    return next;
+    // return next allocated chunk, or nullptr at end of heap.
+    return q;
 }
 
 void heap_state::debug_print()
@@ -1443,19 +1432,9 @@ void heap_free( heap_state* heap, void* p )
     heap->free( p );
 }
 
-bool heap_sweep_start( heap_state* heap, heap_sweep* sweep )
+void* heap_sweep( heap_state* heap, void* p, bool free_chunk )
 {
-    return heap->sweep_start( sweep );
-}
-
-bool heap_sweep_next( heap_state* heap, heap_sweep* sweep )
-{
-    return heap->sweep_next( sweep );
-}
-
-bool heap_sweep_free( heap_state* heap, heap_sweep* sweep )
-{
-    return heap->sweep_free( sweep );
+    return heap->sweep( p, free_chunk );
 }
 
 void debug_print( heap_state* heap )
