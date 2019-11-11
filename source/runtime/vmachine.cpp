@@ -101,10 +101,12 @@ void* object_new( vmachine* vm, type_code type, size_t size )
     std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
     if ( vm->phase == GC_PHASE_SWEEP )
     {
+        uint64_t pause_start = tick();
         std::lock_guard lock_lock( vm->lock_mutex );
         atomic_store( vm->heap_flag, 1 );
         lock_heap.lock();
         atomic_store( vm->heap_flag, 0 );
+        add_heap_pause( vm->gc, tick() - pause_start );
     }
 
     // Allocate object from heap.

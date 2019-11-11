@@ -247,6 +247,11 @@ void add_stack_pause( collector* c, uint64_t tick )
     c->statistics.tick_stack_pause += tick;
 }
 
+void add_heap_pause( collector* c, uint64_t tick )
+{
+    c->statistics.tick_heap_pause += tick;
+}
+
 void safepoint( vmachine* vm )
 {
     if ( vm->countdown > 0 )
@@ -469,6 +474,7 @@ void safepoint_new_epoch( vmachine* vm )
     printf( "    mark  : %f\n", tick_seconds( gc->statistics.tick_mark_pause ) );
     printf( "    stack : %f\n", tick_seconds( gc->statistics.tick_stack_pause ) );
     printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
+    printf( "    heap  : %f\n", tick_seconds( gc->statistics.tick_heap_pause ) );
 */
     // Update phase and allocation countdown.
     assert( gc->state == GC_STATE_SWEEP_DONE );
