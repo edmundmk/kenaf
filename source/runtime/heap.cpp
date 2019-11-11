@@ -12,8 +12,8 @@
 #include <stdint.h>
 #include <limits.h>
 #include <assert.h>
-#include <mutex>
 #include <new>
+#include <functional>
 
 #include <sys/mman.h>
 
@@ -701,7 +701,6 @@ struct heap_state
     heap_chunk* victim;
     heap_chunk* smallbin_anchors[ HEAP_SMALLBIN_COUNT * 2 ];
     heap_largebin largebins[ HEAP_LARGEBIN_COUNT ];
-    std::mutex mutex;
 
     void* malloc( size_t size );
     void free( void* p );
@@ -715,6 +714,10 @@ struct heap_state
     heap_chunk* alloc_segment( size_t size );
     void free_segment( heap_segment* segment );
     void unlink_segment( heap_segment* segment );
+
+    bool sweep_start( heap_sweep* sweep );
+    bool sweep_next( heap_sweep* sweep );
+    bool sweep_free( heap_sweep* sweep );
 
     void debug_print();
 };
@@ -784,9 +787,6 @@ void* heap_state::malloc( size_t size )
     {
         throw std::bad_alloc();
     }
-
-    // Lock.
-    std::lock_guard< std::mutex > lock( mutex );
 
     heap_chunk* chunk = nullptr;
     size_t chunk_size = 0;
@@ -970,9 +970,6 @@ void heap_state::free( void* p )
     {
         return;
     }
-
-    // Lock.
-    std::lock_guard< std::mutex > lock( mutex );
 
     // We don't have much context, but assert that the chunk is allocated.
     heap_chunk* chunk = heap_chunk_head( p );
@@ -1282,10 +1279,72 @@ void heap_state::unlink_segment( heap_segment* segment )
     *link = segment->next;
 }
 
+bool heap_state::sweep_start( heap_sweep* sweep )
+{
+    // Find first allocated block in entire
+    for ( heap_segment* s = segments; s; s = s->next )
+    {
+        heap_chunk* c = (heap_chunk*)s->base;
+        while ( c != (heap_chunk*)s )
+        {
+            if ( c->header.u() )
+            {
+                *sweep = { s, heap_chunk_data( c ), c->header.size() };
+                return true;
+            }
+            c = heap_chunk_next( c, c->header.size() );
+        }
+    }
+    *sweep = { nullptr, nullptr, 0 };
+    return false;
+}
+
+bool heap_state::sweep_next( heap_sweep* sweep )
+{
+    if ( ! sweep->internal || ! sweep->p )
+    {
+        return false;
+    }
+
+    heap_segment* s = (heap_segment*)sweep->internal;
+    heap_chunk* c = (heap_chunk*)heap_chunk_head( sweep->p );
+    while ( true )
+    {
+        // Move to next chunk.
+        c = heap_chunk_next( c, c->header.size() );
+        if ( c == (heap_chunk*)s )
+        {
+            s = s->next;
+            if ( ! s )
+            {
+                break;
+            }
+            c = (heap_chunk*)s->base;
+        }
+
+        // Return allocated chunk.
+        if ( c->header.u() )
+        {
+            *sweep = { s, heap_chunk_data( c ), c->header.size() };
+            return true;
+        }
+    }
+
+    // Reached end of heap.
+    *sweep = { nullptr, nullptr, 0 };
+    return false;
+}
+
+bool heap_state::sweep_free( heap_sweep* sweep )
+{
+    void* p = sweep->p;
+    bool next = sweep_next( sweep );
+    free( p );
+    return next;
+}
+
 void heap_state::debug_print()
 {
-    std::lock_guard< std::mutex > lock( mutex );
-
     printf( "HEAP %p:\n", this );
     printf( "  smallbin_map: %08X\n", smallbin_map );
 
@@ -1382,6 +1441,21 @@ size_t heap_malloc_size( void* p )
 void heap_free( heap_state* heap, void* p )
 {
     heap->free( p );
+}
+
+bool heap_sweep_start( heap_state* heap, heap_sweep* sweep )
+{
+    return heap->sweep_start( sweep );
+}
+
+bool heap_sweep_next( heap_state* heap, heap_sweep* sweep )
+{
+    return heap->sweep_next( sweep );
+}
+
+bool heap_sweep_free( heap_state* heap, heap_sweep* sweep )
+{
+    return heap->sweep_free( sweep );
 }
 
 void debug_print( heap_state* heap )
