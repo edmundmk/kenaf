@@ -78,10 +78,10 @@ struct collector_statistics
     uint64_t tick_stack_pause;
     uint64_t tick_sweep_pause;
     uint64_t tick_heap_pause;
-    size_t swept_bytes[ TYPE_COUNT ];
     size_t swept_count[ TYPE_COUNT ];
-    size_t alive_bytes[ TYPE_COUNT ];
+    size_t swept_bytes[ TYPE_COUNT ];
     size_t alive_count[ TYPE_COUNT ];
+    size_t alive_bytes[ TYPE_COUNT ];
 };
 
 collector* collector_create();

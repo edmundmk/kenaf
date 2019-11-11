@@ -147,6 +147,7 @@ static void gc_mark_object_ref( collector* gc, object* o );
 static void gc_mark_string_ref( collector* gc, string_object* s );
 static void gc_mark_cothread( collector* gc, vmachine* vm, cothread_object* cothread );
 static void gc_sweep( vmachine* vm );
+static void gc_destroy( object* o );
 
 static void sweep_entire_heap( vmachine* vm );
 
@@ -458,16 +459,50 @@ void safepoint_start_sweep( vmachine* vm )
     gc->statistics.tick_sweep_pause = tick() - pause_start;
 }
 
+const char* const TYPE_NAMES[ TYPE_COUNT ] =
+{
+    [ LOOKUP_OBJECT             ] = "lookup",
+    [ STRING_OBJECT             ] = "string",
+    [ ARRAY_OBJECT              ] = "array",
+    [ TABLE_OBJECT              ] = "table",
+    [ FUNCTION_OBJECT           ] = "function",
+    [ NATIVE_FUNCTION_OBJECT    ] = "fnative",
+    [ COTHREAD_OBJECT           ] = "cothread",
+    [ NUMBER_OBJECT             ] = nullptr,
+    [ BOOL_OBJECT               ] = nullptr,
+    [ NULL_OBJECT               ] = nullptr,
+    [ LAYOUT_OBJECT             ] = "layout",
+    [ VSLOTS_OBJECT             ] = "vslots",
+    [ KVSLOTS_OBJECT            ] = "kvslots",
+    [ PROGRAM_OBJECT            ] = "program",
+    [ SCRIPT_OBJECT             ] = "script",
+};
+
 void safepoint_new_epoch( vmachine* vm )
 {
     collector* gc = vm->gc;
 
     // Report statistics.
+    const collector_statistics& stats = gc->statistics;
     printf( "collection report:\n" );
-    printf( "    mark  : %f\n", tick_seconds( gc->statistics.tick_mark_pause ) );
-    printf( "    stack : %f\n", tick_seconds( gc->statistics.tick_stack_pause ) );
-    printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
-    printf( "    heap  : %f\n", tick_seconds( gc->statistics.tick_heap_pause ) );
+    printf( "    mark  : %f\n", tick_seconds( stats.tick_mark_pause ) );
+    printf( "    stack : %f\n", tick_seconds( stats.tick_stack_pause ) );
+    printf( "    sweep : %f\n", tick_seconds( stats.tick_sweep_pause ) );
+    printf( "    heap  : %f\n", tick_seconds( stats.tick_heap_pause ) );
+    printf( "    swept :\n" );
+    for ( size_t i = 0; i < TYPE_COUNT; ++i )
+    {
+        const char* name = TYPE_NAMES[ i ];
+        if ( ! name ) continue;
+        printf( "        %-8s : %zu / %zu bytes\n", name, stats.swept_count[ i ], stats.swept_bytes[ i ] );
+    }
+    printf( "    alive :\n" );
+    for ( size_t i = 0; i < TYPE_COUNT; ++i )
+    {
+        const char* name = TYPE_NAMES[ i ];
+        if ( ! name ) continue;
+        printf( "        %-8s : %zu / %zu bytes\n", name, stats.alive_count[ i ], stats.alive_bytes[ i ] );
+    }
 
     // Update phase and allocation countdown.
     assert( gc->state == GC_STATE_SWEEP_DONE );
@@ -721,7 +756,7 @@ void gc_sweep( vmachine* vm )
     while ( true )
     {
         {
-            std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
+            std::unique_lock lock_heap( vm->heap_mutex );
             p = heap_sweep( heap, p, free_chunk );
         }
         if ( ! p )
@@ -729,22 +764,108 @@ void gc_sweep( vmachine* vm )
             break;
         }
 
-        size_t size = heap_malloc_size( p );
-        object_header* h = header( (object*)p );
-
-        gc_color color = (gc_color)atomic_load( h->color );
+        type_code type = header( (object*)p )->type;
+        gc_color color = (gc_color)atomic_load( header( (object*)p )->color );
         assert( color != GC_COLOR_MARKED );
+        size_t size = heap_malloc_size( p );
 
-
-//            printf( "%p : %d %02d : %zu\n", p, atomic_load( h->color ), h->type, s );
+        free_chunk = color == white_color;
+        if ( ! free_chunk )
+        {
+            gc->heap_size += size;
+            gc->statistics.alive_count[ type ] += 1;
+            gc->statistics.alive_bytes[ type ] += size;
+        }
+        else
+        {
+            gc_destroy( (object*)p );
+            memset( p, 0xFE, size );
+            gc->statistics.swept_count[ type ] += 1;
+            gc->statistics.swept_bytes[ type ] += size;
+        }
     }
 
     gc->state = GC_STATE_SWEEP_DONE;
     return;
 }
 
+void gc_destroy( object* o )
+{
+    switch ( header( o )->type )
+    {
+    case LOOKUP_OBJECT:
+        ( (lookup_object*)o )->~lookup_object();
+        break;
+
+    case STRING_OBJECT:
+        ( (string_object*)o )->~string_object();
+        break;
+
+    case ARRAY_OBJECT:
+        ( (array_object*)o )->~array_object();
+        break;
+
+    case TABLE_OBJECT:
+        ( (table_object*)o )->~table_object();
+        break;
+
+    case FUNCTION_OBJECT:
+        ( (function_object*)o )->~function_object();
+        break;
+
+    case NATIVE_FUNCTION_OBJECT:
+        ( (native_function_object*)o )->~native_function_object();
+        break;
+
+    case COTHREAD_OBJECT:
+        // This should be the only object type with a non-trivial destructor.
+        ( (cothread_object*)o )->~cothread_object();
+        break;
+
+    case LAYOUT_OBJECT:
+        ( (layout_object*)o )->~layout_object();
+        break;
+
+    case VSLOTS_OBJECT:
+        ( (vslots_object*)o )->~vslots_object();
+        break;
+
+    case KVSLOTS_OBJECT:
+        ( (kvslots_object*)o )->~kvslots_object();
+        break;
+
+    case PROGRAM_OBJECT:
+        ( (program_object*)o )->~program_object();
+        break;
+
+    case SCRIPT_OBJECT:
+        ( (script_object*)o )->~script_object();
+        break;
+
+    default: break;
+    }
+}
+
 void sweep_entire_heap( vmachine* vm )
 {
+    heap_state* heap = vm->heap;
+    void* p = nullptr;
+    bool free_chunk = false;
+
+    while ( true )
+    {
+        p = heap_sweep( heap, p, free_chunk );
+        if ( ! p )
+        {
+            break;
+        }
+
+        free_chunk = atomic_load( header( (object*)p )->color ) != GC_COLOR_NONE;
+        if ( free_chunk )
+        {
+            gc_destroy( (object*)p );
+        }
+    }
 }
 
 }
