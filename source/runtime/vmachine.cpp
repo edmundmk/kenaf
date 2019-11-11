@@ -43,7 +43,6 @@ vmachine::vmachine()
     ,   heap( heap_create() )
     ,   gc( collector_create() )
 {
-    atomic_store( heap_flag, 0 );
 }
 
 vmachine::~vmachine()
@@ -102,17 +101,13 @@ void* object_new( vmachine* vm, type_code type, size_t size )
     if ( vm->phase == GC_PHASE_SWEEP )
     {
         uint64_t pause_start = tick();
-        std::lock_guard lock_lock( vm->lock_mutex );
-        atomic_store( vm->heap_flag, 1 );
         lock_heap.lock();
-        atomic_store( vm->heap_flag, 0 );
         add_heap_pause( vm->gc, tick() - pause_start );
     }
 
     // Allocate object from heap.
     void* p = heap_malloc( vm->heap, size );
     size = heap_malloc_size( p );
-    memset( p, 0, size );
     vm->countdown -= std::min< size_t >( vm->countdown, size );
 
     // Initialize object header.
@@ -125,6 +120,13 @@ void* object_new( vmachine* vm, type_code type, size_t size )
     // Fence so that consume reads of reference from GC thread get an
     // initialized object header with correct colour.
     atomic_produce_fence();
+    if ( vm->phase == GC_PHASE_SWEEP )
+    {
+        lock_heap.unlock();
+    }
+
+    // Zero memory.
+    memset( p, 0, size );
     return p;
 }
 

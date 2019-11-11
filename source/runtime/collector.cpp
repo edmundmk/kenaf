@@ -104,26 +104,19 @@
 
         OBJECT CONSTRUCTION
 
-            lock L
-            set waiting flag
             lock H
-            clear waiting flag
-            unlock L
             construct object
             unlock H
 
             During sweeping, we must lock to serialize access to the heap.
-            We use two locks to ensure that
 
         SWEEPING
 
             while true
-                lock L
                 lock H
-                unlock L
-                while not waiting flag:
-                    sweep some amount of objects
+                next/free heap
                 unlock H
+                check if object must be swept
 
             Must lock to serialize access to the heap.
 */
@@ -468,14 +461,14 @@ void safepoint_start_sweep( vmachine* vm )
 void safepoint_new_epoch( vmachine* vm )
 {
     collector* gc = vm->gc;
-/*
+
     // Report statistics.
     printf( "collection report:\n" );
     printf( "    mark  : %f\n", tick_seconds( gc->statistics.tick_mark_pause ) );
     printf( "    stack : %f\n", tick_seconds( gc->statistics.tick_stack_pause ) );
     printf( "    sweep : %f\n", tick_seconds( gc->statistics.tick_sweep_pause ) );
     printf( "    heap  : %f\n", tick_seconds( gc->statistics.tick_heap_pause ) );
-*/
+
     // Update phase and allocation countdown.
     assert( gc->state == GC_STATE_SWEEP_DONE );
     gc->state = GC_STATE_WAIT;
@@ -514,6 +507,8 @@ void gc_mark( vmachine* vm )
 {
     collector* gc = vm->gc;
     assert( gc->state == GC_STATE_MARK );
+
+    gc_color black_color = gc->black_color;
 
     // Mark until work list is empty.
     while ( ! gc->mark_list.empty() )
@@ -637,6 +632,8 @@ void gc_mark( vmachine* vm )
 
         default: break;
         }
+
+        atomic_store( header( o )->color, black_color );
     }
 
     gc->state = GC_STATE_MARK_DONE;
@@ -715,14 +712,35 @@ void gc_sweep( vmachine* vm )
 {
     collector* gc = vm->gc;
     assert( gc->state == GC_STATE_SWEEP );
+    gc_color white_color = gc->white_color;
 
-    std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
+    heap_state* heap = vm->heap;
+    void* p = nullptr;
+    bool free_chunk = false;
+
+    while ( true )
     {
-        std::lock_guard lock_lock( vm->lock_mutex );
-        lock_heap.lock();
+        {
+            std::unique_lock lock_heap( vm->heap_mutex, std::defer_lock );
+            p = heap_sweep( heap, p, free_chunk );
+        }
+        if ( ! p )
+        {
+            break;
+        }
+
+        size_t size = heap_malloc_size( p );
+        object_header* h = header( (object*)p );
+
+        gc_color color = (gc_color)atomic_load( h->color );
+        assert( color != GC_COLOR_MARKED );
+
+
+//            printf( "%p : %d %02d : %zu\n", p, atomic_load( h->color ), h->type, s );
     }
 
     gc->state = GC_STATE_SWEEP_DONE;
+    return;
 }
 
 void sweep_entire_heap( vmachine* vm )

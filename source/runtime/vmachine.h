@@ -219,7 +219,6 @@ struct vmachine
     gc_color old_color;     // overwriting references to this colour must mark.
     gc_color new_color;     // allocated objects must have this colour.
     gc_phase phase;         // gc phase.
-    atomic_u8 heap_flag;    // Set to 1 if the mutator needs the heap.
     unsigned countdown;     // GC allocation countdown.
 
     // Context state.
@@ -245,7 +244,6 @@ struct vmachine
 
     // GC state.
     std::mutex mark_mutex;  // Serialize marking of cothread stacks.
-    std::mutex lock_mutex;  // Used to ensure priority of heap lock.
     std::mutex heap_mutex;  // Serialize access to heap during sweeping.
     heap_state* heap;       // GC heap.
     collector* gc;          // GC thread.
