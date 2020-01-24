@@ -10,9 +10,11 @@
 
 project( 'kenaf', 'cpp', default_options : [ 'cpp_std=c++17' ] )
 
-lemon_program = find_program( 'lemon' )
-lemon_buildsh = find_program( 'lemon.sh' )
-lemon = generator( lemon_buildsh, output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ lemon_program.path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
+lemon = generator(
+    find_program( 'lemon.py' ),
+    output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
+    arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ]
+)
 
 sources = [
     'source/common/code.cpp',
