@@ -38,7 +38,7 @@ namespace kf
     Value structure.
 */
 
-struct KF_API value { uint64_t v; };
+struct value { uint64_t v; };
 
 /*
     A runtime manages the global state of a virtual machine, including the
@@ -69,7 +69,7 @@ KF_API value global_object();
     Values.
 */
 
-enum KF_API value_kind
+enum value_kind
 {
     LOOKUP,
     STRING,
@@ -144,15 +144,10 @@ KF_API value create_function( const void* code, size_t size );
     Native function interface.
 */
 
-struct KF_API frame { void* sp; size_t fp; };
-
+struct frame { void* sp; size_t fp; };
 typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
-enum KF_API
-{
-    PARAM_VARARG = 1 << 0,
-};
-
+enum { PARAM_VARARG = 1 << 0 };
 KF_API value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
 KF_API value* arguments( frame* frame );

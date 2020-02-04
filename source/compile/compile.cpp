@@ -24,71 +24,55 @@
 namespace kf
 {
 
-struct compilation
+struct compiler
 {
     intptr_t refcount;
+    unsigned debug_print;
     code_script_ptr code;
     std::vector< source_diagnostic > diagnostics;
 };
 
-compilation* retain_compilation( compilation* cn )
+compiler* create_compiler()
 {
-    assert( cn->refcount >= 1 );
-    cn->refcount += 1;
-    return cn;
+    compiler* c = new compiler();
+    c->refcount = 1;
+    c->debug_print = 0;
+    return c;
 }
 
-void release_compilation( compilation* cn )
+compiler* retain_compiler( compiler* c )
 {
-    assert( cn->refcount >= 1 );
-    if ( --cn->refcount == 0 )
+    assert( c->refcount >= 1 );
+    c->refcount += 1;
+    return c;
+}
+
+void release_compiler( compiler* c )
+{
+    assert( c->refcount >= 1 );
+    if ( --c->refcount == 0 )
     {
-        delete cn;
+        delete c;
     }
 }
 
-bool success( compilation* cn )
+bool compile( compiler* c, std::string_view path, std::string_view text )
 {
-    return cn->code != nullptr;
-}
-
-code_view get_code( compilation* cn )
-{
-    if ( cn->code )
-        return { cn->code.get(), cn->code->code_size };
-    else
-        return { nullptr, 0 };
-}
-
-size_t diagnostic_count( compilation* cn )
-{
-    return cn->diagnostics.size();
-}
-
-diagnostic get_diagnostic( compilation* cn, size_t index )
-{
-    const source_diagnostic& d = cn->diagnostics.at( index );
-    return { d.kind, d.location.line, d.location.column, d.message };
-}
-
-compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print )
-{
-    std::unique_ptr< compilation > cn = std::make_unique< compilation >();
-    cn->refcount = 1;
+    c->code.reset();
+    c->diagnostics.clear();
 
     source source;
     try
     {
-
         // Load source text.
-        source.filename = filename;
+        source.filename = path;
         source.append( text.data(), text.size() );
 
         // Parse AST.
         lexer lexer( &source );
         parser parser( &source, &lexer );
         std::unique_ptr< ast_script > script = parser.parse();
-        if ( debug_print & PRINT_AST_PARSED )
+        if ( c->debug_print & PRINT_AST_PARSED )
             script->debug_print();
         if ( source.has_error )
             goto return_error;
@@ -103,7 +87,7 @@ compilation* compile( std::string_view filename, std::string_view text, unsigned
         // Resolve names.
         ast_resolve resolve( &source, script.get() );
         resolve.resolve();
-        if ( debug_print & PRINT_AST_RESOLVED )
+        if ( c->debug_print & PRINT_AST_RESOLVED )
             script->debug_print();
         if ( source.has_error )
             goto return_error;
@@ -119,37 +103,37 @@ compilation* compile( std::string_view filename, std::string_view text, unsigned
         for ( const auto& function : script->functions )
         {
             std::unique_ptr< ir_function > ir = build.build( function.get() );
-            if ( ir && ( debug_print & PRINT_IR_BUILD ) )
+            if ( ir && ( c->debug_print & PRINT_IR_BUILD ) )
                 ir->debug_print();
             if ( ! ir || source.has_error )
                 goto return_error;
 
             fold.fold( ir.get() );
-            if ( debug_print & PRINT_IR_FOLD )
+            if ( c->debug_print & PRINT_IR_FOLD )
                 ir->debug_print();
             if ( source.has_error )
                 goto return_error;
 
             live.live( ir.get() );
-            if ( debug_print & PRINT_IR_LIVE )
+            if ( c->debug_print & PRINT_IR_LIVE )
                 ir->debug_print();
             if ( source.has_error )
                 goto return_error;
 
             foldk.foldk( ir.get() );
-            if ( debug_print & PRINT_IR_FOLDK )
+            if ( c->debug_print & PRINT_IR_FOLDK )
                 ir->debug_print();
             if ( source.has_error )
                 goto return_error;
 
             live.live( ir.get() );
-            if ( debug_print & PRINT_IR_FOLD_LIVE )
+            if ( c->debug_print & PRINT_IR_FOLD_LIVE )
                 ir->debug_print();
             if ( source.has_error )
                 goto return_error;
 
             alloc.alloc( ir.get() );
-            if ( debug_print & PRINT_IR_ALLOC )
+            if ( c->debug_print & PRINT_IR_ALLOC )
                 ir->debug_print();
             if ( source.has_error )
                 goto return_error;
@@ -160,11 +144,10 @@ compilation* compile( std::string_view filename, std::string_view text, unsigned
         }
 
         code_script_ptr code = unit.pack();
-        if ( debug_print & PRINT_CODE )
+        if ( c->debug_print & PRINT_CODE )
             code->debug_print();
 
-        cn->code = std::move( code );
-
+        c->code = std::move( code );
     }
     catch ( std::exception& e )
     {
@@ -172,11 +155,47 @@ compilation* compile( std::string_view filename, std::string_view text, unsigned
     }
 
 return_error:
-    std::swap( cn->diagnostics, source.diagnostics );
-    return cn.release();
+    std::swap( c->diagnostics, source.diagnostics );
+    return ! source.has_error;
 }
 
-void debug_print_code( const void* code, size_t size )
+const void* compiled_code( compiler* c )
+{
+    return c->code.get();
+}
+
+size_t compiled_size( compiler* c )
+{
+    return c->code ? c->code->code_size : 0;
+}
+
+size_t diagnostic_count( compiler* c )
+{
+    return c->diagnostics.size();
+}
+
+diagnostic_kind get_diagnostic_kind( compiler* c, size_t index )
+{
+    return c->diagnostics.at( index ).kind;
+}
+
+diagnostic_location get_diagnostic_location( compiler* c, size_t index )
+{
+    const source_location& location = c->diagnostics.at( index ).location;
+    return { location.line, location.column };
+}
+
+std::string_view get_diagnostic_message( compiler* c, size_t index )
+{
+    return c->diagnostics.at( index ).message;
+}
+
+void debug_print( compiler* c, unsigned debug_print )
+{
+    c->debug_print = debug_print;
+}
+
+void debug_print( const void* code, size_t size )
 {
     const code_script* c = (const code_script*)code;
     assert( c->magic == CODE_MAGIC );

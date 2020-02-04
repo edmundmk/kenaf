@@ -96,25 +96,29 @@ int main( int argc, char* argv[] )
     fclose( file );
 
     // Compile script.
-    kf::compilation_handle compilation( kf::compile( filename, std::string_view( text.data(), text.size() ), debug_print ) );
+    kf::compiler_handle compiler = kf::make_compiler();
+    kf::debug_print( compiler.get(), debug_print );
+    bool success = kf::compile( compiler.get(), filename, std::string_view( text.data(), text.size() ) );
 
-    size_t diagnostic_count = kf::diagnostic_count( compilation.get() );
+    size_t diagnostic_count = kf::diagnostic_count( compiler.get() );
     for ( size_t i = 0; i < diagnostic_count; ++i )
     {
-        kf::diagnostic d = kf::get_diagnostic( compilation.get(), i );
+        kf::diagnostic_kind kind = kf::get_diagnostic_kind( compiler.get(), i );
+        kf::diagnostic_location location = kf::get_diagnostic_location( compiler.get(), i );
+        std::string_view message = kf::get_diagnostic_message( compiler.get(), i );
         fprintf
         (
             stderr,
             "%s:%u:%u: %s: %.*s\n",
             filename,
-            d.line,
-            d.column,
-            d.kind == kf::ERROR ? "error" : "warning",
-            (int)d.message.size(), d.message.data()
+            location.line,
+            location.column,
+            kind == kf::ERROR ? "error" : "warning",
+            (int)message.size(), message.data()
         );
     }
 
-    if ( ! kf::success( compilation.get() ) )
+    if ( ! success )
     {
         return EXIT_FAILURE;
     }
@@ -130,9 +134,8 @@ int main( int argc, char* argv[] )
     kf::context_handle context = kf::make_context( runtime.get() );
     kf::make_current( context.get() );
 
-    kf::code_view code = kf::get_code( compilation.get() );
-    kf::value main = kf::create_function( code.code, code.size );
-    compilation.reset();
+    kf::value main = kf::create_function( kf::compiled_code( compiler.get() ), kf::compiled_size( compiler.get() ) );
+    compiler.reset();
 
     // Executes script, passing remaining command line arguments.
     try

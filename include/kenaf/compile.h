@@ -33,44 +33,46 @@ namespace kf
 {
 
 /*
-    Warnings and errors from compilation.
+    Compiler object.
 */
 
-enum KF_API diagnostic_kind
-{
-    ERROR,
-    WARNING,
-};
+struct compiler;
 
-struct KF_API diagnostic
-{
-    diagnostic_kind kind;
-    unsigned line;
-    unsigned column;
-    std::string_view message;
-};
+KF_API compiler* create_compiler();
+KF_API compiler* retain_compiler( compiler* c );
+KF_API void release_compiler( compiler* c );
 
 /*
-    The result of compiling script source.  The bytecode is a block of bytes
-    which can be freely copied around or serialized.
+    Compilation.
 */
 
-struct compilation;
-struct KF_API code_view { const void* code; size_t size; };
-
-KF_API compilation* retain_compilation( compilation* cn );
-KF_API void release_compilation( compilation* cn );
-
-KF_API bool success( compilation* cn );
-KF_API code_view get_code( compilation* cn );
-KF_API size_t diagnostic_count( compilation* cn );
-KF_API diagnostic get_diagnostic( compilation* cn, size_t index );
+KF_API bool compile( compiler* c, std::string_view path, std::string_view text );
 
 /*
-    Compile source text.
+    Result of successful compilation is a bytecode block.  This is a block of
+    bytes which can be freely copied around or serialized.
 */
 
-enum KF_API
+KF_API const void* compiled_code( compiler* c );
+KF_API size_t compiled_size( compiler* c );
+
+/*
+    Errors and warnings from failed compilation.
+*/
+
+enum diagnostic_kind { ERROR, WARNING };
+struct diagnostic_location { unsigned line; unsigned column; };
+
+KF_API size_t diagnostic_count( compiler* c );
+KF_API diagnostic_kind get_diagnostic_kind( compiler* c, size_t index );
+KF_API diagnostic_location get_diagnostic_location( compiler* c, size_t index );
+KF_API std::string_view get_diagnostic_message( compiler* c, size_t index );
+
+/*
+    Debug printing stuff.
+*/
+
+enum
 {
     PRINT_NONE          = 0,
     PRINT_AST_PARSED    = 1 << 0,
@@ -84,13 +86,8 @@ enum KF_API
     PRINT_CODE          = 1 << 8,
 };
 
-KF_API compilation* compile( std::string_view filename, std::string_view text, unsigned debug_print = PRINT_NONE );
-
-/*
-    Print bytecode
-*/
-
-KF_API void debug_print_code( const void* code, size_t size );
+KF_API void debug_print( compiler* c, unsigned debug_print );
+KF_API void debug_print( const void* code, size_t size );
 
 }
 

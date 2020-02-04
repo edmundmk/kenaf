@@ -59,10 +59,11 @@ private:
 
 typedef basic_handle< runtime, retain_runtime, release_runtime > runtime_handle;
 typedef basic_handle< context, retain_context, release_context > context_handle;
-typedef basic_handle< compilation, retain_compilation, release_compilation > compilation_handle;
+typedef basic_handle< compiler, retain_compiler, release_compiler > compiler_handle;
 
 inline runtime_handle make_runtime() { return runtime_handle( create_runtime() ); }
 inline context_handle make_context( runtime* r ) { return context_handle( create_context( r ) ); }
+inline compiler_handle make_compiler() { return compiler_handle( create_compiler() ); }
 
 class handle
 {
