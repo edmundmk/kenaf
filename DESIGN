@@ -354,18 +354,17 @@ x = proto( x, y )
     x = construct( proto, x, y )
 
 
+OP_NEW_OBJECT needs a stack top.
+
+
 def construct( proto, ... )
-    var c = proto.self
-    if not c then
-        if #[ ... ] then throw invalid_arguments()
-        return new_object( proto )
-    end
-    if not is_native_self( c ) then
+    var c = proto.self // must find something
+    if not is_direct_self( c ) then
         o = new_object( proto )
         c( o, ... )
         return o
     else
-        return c( null, ... )
+        return c( null, ... ) ...
     end
 end
 
