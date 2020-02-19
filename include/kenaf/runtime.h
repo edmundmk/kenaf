@@ -77,6 +77,7 @@ enum value_kind
     TABLE,
     FUNCTION,
     COTHREAD,
+    U64VAL,
     NUMBER,
     BOOL_VALUE,
     NULL_VALUE,
@@ -92,6 +93,7 @@ KF_API bool is_array( value v );
 KF_API bool is_table( value v );
 KF_API bool is_function( value v );
 KF_API bool is_cothread( value v );
+KF_API bool is_u64val( value v );
 KF_API bool is_number( value v );
 KF_API bool is_bool( value v );
 KF_API bool is_null( value v );
@@ -108,6 +110,9 @@ KF_API bool get_bool( value v );
 
 KF_API value number_value( double n );
 KF_API double get_number( value v );
+
+KF_API value u64val_value( uint64_t u );
+KF_API uint64_t get_u64val( value v );
 
 KF_API value create_lookup();
 KF_API value create_lookup( value prototype );

@@ -261,6 +261,7 @@ void setup_object_model( vmachine* vm )
     vm->prototypes[ FUNCTION_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ NATIVE_FUNCTION_OBJECT ] = vm->prototypes[ FUNCTION_OBJECT ];
     vm->prototypes[ COTHREAD_OBJECT ] = lookup_new( vm, object );
+    vm->prototypes[ U64VAL_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ NUMBER_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ BOOL_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ NULL_OBJECT ] = lookup_new( vm, object );
@@ -295,6 +296,10 @@ lookup_object* value_keyerof( vmachine* vm, value v )
     {
         return vm->prototypes[ BOOL_OBJECT ];
     }
+    else if ( box_is_u64val( v ) )
+    {
+        return vm->prototypes[ U64VAL_OBJECT ];
+    }
     else
     {
         return vm->prototypes[ NULL_OBJECT ];
@@ -327,6 +332,10 @@ lookup_object* value_superof( vmachine* vm, value v )
     else if ( box_is_bool( v ) )
     {
         return vm->prototypes[ BOOL_OBJECT ];
+    }
+    else if ( box_is_u64val( v ) )
+    {
+        return vm->prototypes[ U64VAL_OBJECT ];
     }
     else
     {

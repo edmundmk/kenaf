@@ -67,6 +67,10 @@ static lookup_object* keyer_of( vmachine* vm, value u )
     {
         return vm->prototypes[ BOOL_OBJECT ];
     }
+    else if ( box_is_u64val( u ) )
+    {
+        return vm->prototypes[ U64VAL_OBJECT ];
+    }
     else
     {
         return vm->prototypes[ NULL_OBJECT ];

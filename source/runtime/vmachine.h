@@ -33,6 +33,7 @@ struct heap_state;
 struct layout_object;
 struct lookup_object;
 struct string_object;
+struct u64val_object;
 struct cothread_object;
 struct collector;
 
@@ -49,6 +50,7 @@ enum type_code : uint8_t
     FUNCTION_OBJECT,
     NATIVE_FUNCTION_OBJECT,
     COTHREAD_OBJECT,
+    U64VAL_OBJECT,
     NUMBER_OBJECT,
     BOOL_OBJECT,
     NULL_OBJECT,
@@ -99,7 +101,8 @@ object_header* header( object* object );
           0000 0000 0000 0001   false
           0000 0000 0000 0003   true
           0000 XXXX XXXX XXXX   object pointer
-          0004 XXXX XXXX XXXX   string pointer
+          0002 XXXX XXXX XXXX   string pointer
+          0004 XXXX XXXX XXXX   boxed u64val
           0008 0000 0000 0000   minimum number
           000F FFFF FFFF FFFF   -infinity
           7FFF FFFF FFFF FFFF   -0
@@ -123,22 +126,31 @@ const value boxed_null  = { 0 };
 const value boxed_false = { 1 };
 const value boxed_true  = { 2 };
 
+const uint64_t BOX_OBJPTR = UINT64_C( 0x0001'FFFF'FFFF'FFFF );
+const uint64_t BOX_STRING = UINT64_C( 0x0002'0000'0000'0000 );
+const uint64_t BOX_U64VAL = UINT64_C( 0x0004'0000'0000'0000 );
+const uint64_t BOX_NUMBER = UINT64_C( 0x0008'0000'0000'0000 );
+
 inline bool box_is_null( value v )                  { return v.v == boxed_null.v; }
 inline bool box_is_false( value v )                 { return v.v == boxed_false.v; }
 inline bool box_is_true( value v )                  { return v.v == boxed_true.v; }
 inline bool box_is_bool( value v )                  { return v.v >= 1 && v.v < 3; }
-inline bool box_is_object( value v )                { return v.v >= 3 && v.v < UINT64_C( 0x0004'0000'0000'0000 ); }
-inline bool box_is_string( value v )                { return v.v >= UINT64_C( 0x0004'0000'0000'0000 ) && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
-inline bool box_is_number( value v )                { return v.v >= UINT64_C( 0x0008'0000'0000'0000 ); }
-inline bool box_is_object_or_string( value v )      { return v.v >= 3 && v.v < UINT64_C( 0x0008'0000'0000'0000 ); }
+inline bool box_is_object( value v )                { return v.v >= 3 && v.v < BOX_STRING; }
+inline bool box_is_string( value v )                { return v.v >= BOX_STRING && v.v < BOX_U64VAL; }
+inline bool box_is_u64val( value v )                { return v.v >= BOX_U64VAL && v.v < BOX_NUMBER; }
+inline bool box_is_number( value v )                { return v.v >= BOX_NUMBER; }
+inline bool box_is_object_or_string( value v )      { return v.v >= 3 && v.v < BOX_U64VAL; }
 
 inline value box_object( object* p )                { return { (uint64_t)p }; }
-inline value box_string( string_object* s )         { return { (uint64_t)s | UINT64_C( 0x0004'0000'0000'0000 ) }; }
+inline value box_string( string_object* s )         { return { (uint64_t)s | BOX_STRING }; }
 inline object* unbox_object( value v )              { return (object*)v.v; }
-inline string_object* unbox_string( value v )       { return (string_object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
-inline object* unbox_object_or_string( value v )    { return (object*)( v.v & UINT64_C( 0x0003'FFFF'FFFF'FFFF ) ); }
+inline string_object* unbox_string( value v )       { return (string_object*)( v.v & BOX_OBJPTR ); }
+inline object* unbox_object_or_string( value v )    { return (object*)( v.v & BOX_OBJPTR ); }
 
-value box_object( string_object* p ) = delete; // Prohibit boxing strings as objects.
+inline value box_u64val( uint64_t u )               { return { u | BOX_U64VAL }; }
+inline uint64_t unbox_u64val( value v )             { return v.v & BOX_OBJPTR; }
+
+value box_object( string_object* p ) = delete;      // Prohibit boxing strings as objects.
 
 inline value box_number( double n )                 { uint64_t i; memcpy( &i, &n, sizeof( i ) ); return { ~i }; }
 inline double unbox_number( value v )               { double n; uint64_t i = ~v.v; memcpy( &n, &i, sizeof( n ) ); return n; }
@@ -234,6 +246,9 @@ struct vmachine
     hash_table< lookup_object*, layout_object* > instance_layouts;
     hash_table< layout_hashkey, layout_object* > splitkey_layouts;
     uint32_t next_cookie;
+
+    // Unique u64vals.
+    hash_table< uint64_t, u64val_object* > u64vals;
 
     // List of root objects.
     hash_table< object*, size_t > roots;

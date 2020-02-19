@@ -44,6 +44,7 @@ sources = [
     'source/runtime/objects/lookup_object.cpp',
     'source/runtime/objects/string_object.cpp',
     'source/runtime/objects/table_object.cpp',
+    'source/runtime/objects/u64val_object.cpp',
     'source/runtime/call_stack.cpp',
     'source/runtime/collector.cpp',
     'source/runtime/errors.cpp',

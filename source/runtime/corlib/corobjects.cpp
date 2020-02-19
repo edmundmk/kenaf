@@ -63,6 +63,8 @@ namespace kf
         def done() end
     end
 
+    def u64val is object end
+
 */
 
 static size_t superof( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -332,6 +334,13 @@ void expose_corobjects( vmachine* vm )
     {
         set_key( box_object( proto_cothread ), "done", create_function( "cothread.done", cothread_done, vm, 1 ) );
         lookup_sealed( vm, proto_cothread );
+    }
+
+    lookup_object* proto_u64val = vm->prototypes[ U64VAL_OBJECT ];
+    set_key( global, "u64val", box_object( proto_u64val ) );
+    if ( ! lookup_sealed( vm, proto_u64val ) )
+    {
+        lookup_seal( vm, proto_u64val );
     }
 }
 

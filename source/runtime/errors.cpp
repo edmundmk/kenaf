@@ -23,8 +23,11 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
+#define __STDC_FORMAT_MACROS
+
 #include "kenaf/errors.h"
 #include <stdarg.h>
+#include <inttypes.h>
 #include "../common/escape_string.h"
 #include "vmachine.h"
 #include "objects/string_object.h"
@@ -83,6 +86,7 @@ static char* format_value( value v )
         case FUNCTION_OBJECT:           type_name = "function";         break;
         case NATIVE_FUNCTION_OBJECT:    type_name = "native function";  break;
         case COTHREAD_OBJECT:           type_name = "cothread";         break;
+        case U64VAL_OBJECT:             type_name = "u64val";           break;
         default: break;
         }
         return format_message( "<%s %p>", type_name, unbox_object( v ) );
@@ -90,6 +94,10 @@ static char* format_value( value v )
     else if ( box_is_bool( v ) )
     {
         return format_message( "%s", v.v == boxed_true.v ? "true" : "false" );
+    }
+    else if ( box_is_u64val( v ) )
+    {
+        return format_message( "[%016" PRIX64 "]", unbox_u64val( v ) );
     }
     else
     {
@@ -228,6 +236,7 @@ type_error::type_error( value v, const char* expected )
         case FUNCTION_OBJECT:           type_name = "function";         break;
         case NATIVE_FUNCTION_OBJECT:    type_name = "native function";  break;
         case COTHREAD_OBJECT:           type_name = "cothread";         break;
+        case U64VAL_OBJECT:             type_name = "u64val";           break;
         default: break;
         }
     }
@@ -237,6 +246,10 @@ type_error::type_error( value v, const char* expected )
             type_name = "true";
         else
             type_name = "false";
+    }
+    else if ( box_is_u64val( v ) )
+    {
+        type_name = "u64val";
     }
     else
     {

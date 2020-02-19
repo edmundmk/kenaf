@@ -131,6 +131,7 @@
 #include "objects/cothread_object.h"
 #include "objects/string_object.h"
 #include "objects/table_object.h"
+#include "objects/u64val_object.h"
 
 namespace kf
 {
@@ -454,6 +455,20 @@ void safepoint_start_sweep( vmachine* vm )
         ++i;
     }
 
+    // Clear references to dead u64vals.
+    auto u64vals_end = vm->u64vals.end();
+    for ( auto i = vm->u64vals.begin(); i != u64vals_end; )
+    {
+        if ( atomic_load( header( i->second )->color ) == dead_color )
+        {
+            i = vm->u64vals.erase( i );
+        }
+        else
+        {
+            ++i;
+        }
+    }
+
     // Signal GC thread.
     gc->work_wait.notify_all();
 
@@ -470,6 +485,7 @@ const char* const TYPE_NAMES[ TYPE_COUNT ] =
     [ FUNCTION_OBJECT           ] = "function",
     [ NATIVE_FUNCTION_OBJECT    ] = "fnative",
     [ COTHREAD_OBJECT           ] = "cothread",
+    [ U64VAL_OBJECT             ] = "u64val",
     [ NUMBER_OBJECT             ] = nullptr,
     [ BOOL_OBJECT               ] = nullptr,
     [ NULL_OBJECT               ] = nullptr,
@@ -608,6 +624,11 @@ void gc_mark( vmachine* vm )
         {
             cothread_object* cothread = (cothread_object*)o;
             gc_mark_cothread( gc, vm, cothread );
+            break;
+        }
+
+        case U64VAL_OBJECT:
+        {
             break;
         }
 
@@ -833,6 +854,10 @@ void gc_destroy( object* o )
     case COTHREAD_OBJECT:
         // This should be the only object type with a non-trivial destructor.
         ( (cothread_object*)o )->~cothread_object();
+        break;
+
+    case U64VAL_OBJECT:
+        ( (u64val_object*)o )->~u64val_object();
         break;
 
     case LAYOUT_OBJECT:

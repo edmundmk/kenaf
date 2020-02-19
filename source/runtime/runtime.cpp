@@ -18,6 +18,7 @@
 #include "objects/table_object.h"
 #include "objects/function_object.h"
 #include "objects/cothread_object.h"
+#include "objects/u64val_object.h"
 #include "corlib/corobjects.h"
 #include "corlib/corprint.h"
 #include "corlib/cormath.h"
@@ -194,6 +195,10 @@ value_kind kindof( value v )
     {
         return BOOL_VALUE;
     }
+    else if ( box_is_u64val( v ) )
+    {
+        return U64VAL;
+    }
     else
     {
         return NULL_VALUE;
@@ -228,6 +233,11 @@ bool is_function( value v )
 bool is_cothread( value v )
 {
     return box_is_object_type( v, COTHREAD_OBJECT );
+}
+
+bool is_u64val( value v )
+{
+    return box_is_u64val( v ) || box_is_object_type( v, U64VAL_OBJECT );
 }
 
 bool is_number( value v )
@@ -291,6 +301,21 @@ double get_number( value v )
 {
     if ( ! is_number( v ) ) throw type_error( v, "a number" );
     return unbox_number( v );
+}
+
+value u64val_value( uint64_t u )
+{
+    vmachine* vm = current();
+    return u64val_value( vm, u );
+}
+
+uint64_t get_u64val( value v )
+{
+    uint64_t u;
+    if ( u64val_check( v, &u ) )
+        return u;
+    else
+        throw type_error( v, "a u64val" );
 }
 
 value create_lookup()
