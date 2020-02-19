@@ -250,10 +250,22 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     Object model.
 */
 
+static size_t object_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
+{
+    return rvoid( frame );
+}
+
 void setup_object_model( vmachine* vm )
 {
-    // Prototype objects.
+    // 'self' key.
+    vm->self_key = string_key( vm, "self", 4 );
+
+    // Root object.
     lookup_object* object = lookup_new( vm, nullptr );
+    native_function_object* obself = native_function_new( vm, "object.self", object_self, nullptr, 1, 0 );
+    lookup_setkey( vm, object, vm->self_key, &vm->self_sel, box_object( obself ) );
+
+    // Prototype objects.
     vm->prototypes[ LOOKUP_OBJECT ] = object;
     vm->prototypes[ STRING_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ ARRAY_OBJECT ] = lookup_new( vm, object );
@@ -265,9 +277,6 @@ void setup_object_model( vmachine* vm )
     vm->prototypes[ NUMBER_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ BOOL_OBJECT ] = lookup_new( vm, object );
     vm->prototypes[ NULL_OBJECT ] = lookup_new( vm, object );
-
-    // 'self' key.
-    vm->self_key = string_key( vm, "self", 4 );
 }
 
 lookup_object* value_keyerof( vmachine* vm, value v )

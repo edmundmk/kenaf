@@ -79,6 +79,7 @@ xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsi
 xstate call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp );
 xstate call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp );
 xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsigned xp );
+xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsigned xp );
 
 xstate call_return( vmachine* vm, unsigned rp, unsigned xp );
 xstate call_yield( vmachine* vm, unsigned rp, unsigned xp );

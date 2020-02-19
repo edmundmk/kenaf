@@ -187,6 +187,10 @@ native_function_object* native_function_new( vmachine* vm, std::string_view name
     function->code_flags = code_flags;
     function->name_size = name.size();
     memcpy( function->name_text, name.data(), name.size() );
+    if ( code_flags & DIRECT_SELF )
+    {
+        header( function )->flags |= FLAG_DIRECT;
+    }
     return function;
 }
 

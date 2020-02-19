@@ -157,7 +157,7 @@ KF_API value create_function( const void* code, size_t size );
 struct frame { void* sp; size_t fp; };
 typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
-enum { PARAM_VARARG = 1 << 0 };
+enum { PARAM_VARARG = 1 << 0, DIRECT_SELF = 1 << 1 };
 KF_API value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
 
 KF_API value* arguments( frame* frame );

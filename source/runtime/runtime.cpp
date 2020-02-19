@@ -639,6 +639,15 @@ stack_values call_frame( frame* frame, value function )
         xstate state = call_cothread( vm, callee_cothread, 0, xp );
         execute( vm, state );
     }
+    else if ( type == LOOKUP_OBJECT )
+    {
+        lookup_object* callee_prototype = (lookup_object*)unbox_object( function );
+        xstate state = call_prototype( vm, callee_prototype, 0, xp );
+        if ( state.function )
+        {
+            execute( vm, state );
+        }
+    }
     else
     {
         throw type_error( function, "callable" );

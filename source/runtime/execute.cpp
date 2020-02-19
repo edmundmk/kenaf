@@ -716,6 +716,7 @@ void execute( vmachine* vm, xstate state )
 
     LABEL( OP_NEW_OBJECT ):
     {
+        // Get prototype.
         value u = r[ op.a ];
         lookup_object* prototype;
         if ( box_is_object_type( u, LOOKUP_OBJECT ) )
@@ -730,7 +731,30 @@ void execute( vmachine* vm, xstate state )
         {
             goto type_error_a_lookup;
         }
-        r[ op.r ] = box_object( lookup_new( vm, prototype ) );
+
+        // Set prototype on stack top.
+        r = resize_stack( vm, op.b + 1 );
+        r[ op.b ] = box_object( prototype );
+
+        // Set up stack frame for constructor call.
+        stack_frame* stack_frame = active_frame( vm );
+        stack_frame->ip = ip;
+        stack_frame->resume = RESUME_CALL;
+        stack_frame->xr = op.b;
+        stack_frame->xb = op.b + 1;
+        stack_frame->rr = op.r;
+
+        // Call prototype with no arguments.
+        xstate state = call_prototype( vm, prototype, op.b, op.b + 1 );
+
+        // Continue with constructor (or with result).
+        function = state.function;
+        ops = read( function->program )->ops;
+        k = read( function->program )->constants;
+        s = read( function->program )->selectors;
+        r = state.r;
+        ip = state.ip;
+        xp = state.xp;
         INEXT;
     }
 
@@ -795,34 +819,6 @@ void execute( vmachine* vm, xstate state )
         if ( ! box_is_object( w ) ) goto type_error_r_callable;
         type_code type = header( unbox_object( w ) )->type;
 
-        if ( type == LOOKUP_OBJECT )
-        {
-            // Lookup w.self.
-            lookup_object* class_object = (lookup_object*)unbox_object( w );
-            value method = lookup_getkey( vm, class_object, vm->self_key, &vm->self_sel );
-
-            // Construct new object.
-            lookup_object* self = lookup_new( vm, class_object );
-
-            // Rearrange stack.
-            r = resize_stack( vm, xp + 2 );
-            memmove( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
-            r[ rp + 0 ] = box_object( self );
-            r[ rp + 1 ] = method;
-            r[ rp + 2 ] = box_object( self );
-            op.r += 1;
-            rp += 1;
-            xp += 2;
-
-            // Return needs to know about the self parameter.
-            stack_frame->resume = RESUME_CONSTRUCT;
-
-            // Continue adjusted call.
-            w = method;
-            if ( ! box_is_object( w ) ) goto type_error_r_callable;
-            type = header( unbox_object( w ) )->type;
-        }
-
         xstate state;
         if ( type == FUNCTION_OBJECT )
         {
@@ -847,6 +843,12 @@ void execute( vmachine* vm, xstate state )
             // Resume yielded cothread.
             cothread_object* callee_cothread = (cothread_object*)unbox_object( w );
             state = call_cothread( vm, callee_cothread, rp, xp );
+        }
+        else if ( type == LOOKUP_OBJECT )
+        {
+            // Call prototype constructor.
+            lookup_object* callee_prototype = (lookup_object*)unbox_object( w );
+            state = call_prototype( vm, callee_prototype, rp, xp );
         }
         else
         {

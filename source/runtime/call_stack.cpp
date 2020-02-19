@@ -250,6 +250,71 @@ xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsi
     return { stack_frame->function, r, stack_frame->ip, cothread->xp - stack_frame->fp };
 }
 
+
+xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsigned xp )
+{
+    /*
+        Call prototype.self, optionally passing a newly-constructed object.
+    */
+
+    assert( rp < xp );
+
+    // Lookup prototype.self.
+    value c = lookup_getkey( vm, prototype, vm->self_key, &vm->self_sel );
+    if ( ! box_is_object( c ) ) throw_type_error( c, "function" );
+    type_code type = header( unbox_object( c ) )->type;
+
+    if ( ( header( unbox_object( c ) )->flags & FLAG_DIRECT ) == 0 )
+    {
+        // Construct new object.
+        lookup_object* self = lookup_new( vm, prototype );
+
+        // Rearrange stack.  self must be kept live.
+        value* r = resize_stack( vm, xp + 2 );
+        memmove( r + rp + 2, r + rp, sizeof( value ) * ( xp - rp ) );
+        r[ rp + 0 ] = box_object( self );
+        r[ rp + 1 ] = c;
+        r[ rp + 2 ] = box_object( self );
+        rp += 1;
+        xp += 2;
+
+        // Return needs to know about the self parameter.
+        stack_frame* stack_frame = active_frame( vm );
+        assert( stack_frame->resume == RESUME_CALL );
+        stack_frame->resume = RESUME_CONSTRUCT;
+    }
+    else
+    {
+        // Shift stack to add null self parameter.
+        value* r = resize_stack( vm, xp + 1 );
+        memmove( r + rp + 1, r + rp, sizeof( value ) * ( xp - rp ) );
+        r[ rp + 0 ] = c;
+        r[ rp + 1 ] = boxed_null;
+        xp += 1;
+    }
+
+    // Now call actual constructor.
+    if ( type == FUNCTION_OBJECT )
+    {
+        function_object* callee_function = (function_object*)unbox_object( c );
+        program_object* callee_program = read( callee_function->program );
+        if ( ( callee_program->code_flags & CODE_GENERATOR ) != 0 )
+        {
+            throw_type_error( c, "non-generator function" );
+        }
+        return call_function( vm, callee_function, rp, xp );
+    }
+    else if ( type == NATIVE_FUNCTION_OBJECT )
+    {
+        native_function_object* callee_function = (native_function_object*)unbox_object( c );
+        return call_native( vm, callee_function, rp, xp );
+    }
+    else
+    {
+        throw_type_error( c, "function" );
+    }
+}
+
 xstate call_return( vmachine* vm, unsigned rp, unsigned xp )
 {
     assert( rp <= xp );

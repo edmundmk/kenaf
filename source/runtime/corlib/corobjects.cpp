@@ -286,7 +286,7 @@ void expose_corobjects( vmachine* vm )
     set_key( global, "number", box_object( proto_number ) );
     if ( ! lookup_sealed( vm, proto_number ) )
     {
-        set_key( box_object( proto_number ), "self", create_function( "number.self", number_self, vm, 2 ) );
+        set_key( box_object( proto_number ), "self", create_function( "number.self", number_self, vm, 2, DIRECT_SELF ) );
         lookup_seal( vm, proto_number );
     }
 
@@ -294,7 +294,7 @@ void expose_corobjects( vmachine* vm )
     set_key( global, "string", box_object( proto_string ) );
     if ( ! lookup_sealed( vm, proto_string ) )
     {
-        set_key( box_object( proto_string ), "self", create_function( "string.self", string_self, vm, 2 ) );
+        set_key( box_object( proto_string ), "self", create_function( "string.self", string_self, vm, 2, DIRECT_SELF ) );
         lookup_seal( vm, proto_string );
     }
 

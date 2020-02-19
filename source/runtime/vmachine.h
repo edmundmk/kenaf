@@ -70,6 +70,7 @@ enum
 {
     FLAG_KEY    = 1 << 0, // String object is a key.
     FLAG_SEALED = 1 << 1, // Lookup object is sealed.
+    FLAG_DIRECT = 1 << 2, // Function is a direct constructor.
 };
 
 /*
