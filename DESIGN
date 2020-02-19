@@ -326,3 +326,46 @@ Maybe replace i and j immediates with some kind of small float packing,
 allowing us to recover a double using integer instructions - cvtsi2sd is a
 pretty heavyweight instruction.  This would also reduce the need for MULK.
 
+
+self/new/construction thoughts
+
+
+def object
+    def self() end
+end
+
+
+def proto
+    def self()
+        self.x = 3
+        self.y = 4
+    end
+end
+
+
+def child : proto x : 3 end
+
+    child = construct( proto )
+    child.x = 3
+
+
+x = proto( x, y )
+
+    x = construct( proto, x, y )
+
+
+def construct( proto, ... )
+    var c = proto.self
+    if not c then
+        if #[ ... ] then throw invalid_arguments()
+        return new_object( proto )
+    end
+    if not is_native_self( c ) then
+        o = new_object( proto )
+        c( o, ... )
+        return o
+    else
+        return c( null, ... )
+    end
+end
+
