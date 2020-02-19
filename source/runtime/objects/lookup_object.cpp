@@ -117,6 +117,76 @@ bool lookup_sealed( vmachine* vm, lookup_object* object )
     return ( header( object )->flags & FLAG_SEALED ) != 0;
 }
 
+static layout_object* next_layout( vmachine* vm, layout_object* layout, string_object* key )
+{
+    // Check if we can follow the next layout chain.
+    layout_object* next_layout = layout->next;
+    if ( next_layout && read( next_layout->key ) == key )
+    {
+        assert( next_layout->sindex == layout->sindex + 1 );
+        return next_layout;
+    }
+
+    // Otherwise, this is a split.  Might already exist.
+    auto i = vm->splitkey_layouts.find( { layout, key } );
+    if ( i != vm->splitkey_layouts.end() )
+    {
+        next_layout = i->second;
+    }
+    else
+    {
+        next_layout = layout_new( vm, layout, key );
+    }
+
+    assert( next_layout->sindex == layout->sindex + 1 );
+    return next_layout;
+}
+
+static layout_object* update_layout( vmachine* vm, lookup_object* object, layout_object* layout, string_object* key )
+{
+    // Determine new layout.
+    layout = next_layout( vm, layout, key );
+
+    // Might need to reallocate slots.
+    vslots_object* oslots = read( object->oslots );
+    size_t oslots_count = object_size( vm, oslots ) / sizeof( ref_value );
+    if ( layout->sindex >= oslots_count )
+    {
+        size_t expand_count = oslots_count * 2;
+        if ( oslots_count >= 16 ) expand_count -= oslots_count / 2;
+        vslots_object* expand = vslots_new( vm, expand_count );
+
+        for ( size_t i = 0; i < oslots_count; ++i )
+        {
+            winit( expand->slots[ i ], read( oslots->slots[ i ] ) );
+        }
+
+        write( vm, object->oslots, expand );
+    }
+
+    // Update layout.
+    write( vm, object->layout, layout );
+    return layout;
+}
+
+void lookup_addkeyslot( vmachine* vm, lookup_object* object, size_t index, std::string_view keyslot )
+{
+    if ( lookup_sealed( vm, object ) )
+    {
+        throw key_error( "object is sealed" );
+    }
+
+    layout_object* layout = read( object->layout );
+    if ( index != layout->sindex + 1 )
+    {
+        throw key_error( "keyslot added out of order" );
+    }
+
+    string_object* key = string_key( vm, keyslot.data(), keyslot.size() );
+    layout = update_layout( vm, object, layout, key );
+    assert( layout->sindex == index );
+}
+
 bool lookup_getsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {
     assert( header( key )->flags & FLAG_KEY );
@@ -162,31 +232,6 @@ bool lookup_getsel( vmachine* vm, lookup_object* object, string_object* key, sel
     return false;
 }
 
-static layout_object* next_layout( vmachine* vm, layout_object* layout, string_object* key )
-{
-    // Check if we can follow the next layout chain.
-    layout_object* next_layout = layout->next;
-    if ( next_layout && read( next_layout->key ) == key )
-    {
-        assert( next_layout->sindex == layout->sindex + 1 );
-        return next_layout;
-    }
-
-    // Otherwise, this is a split.  Might already exist.
-    auto i = vm->splitkey_layouts.find( { layout, key } );
-    if ( i != vm->splitkey_layouts.end() )
-    {
-        next_layout = i->second;
-    }
-    else
-    {
-        next_layout = layout_new( vm, layout, key );
-    }
-
-    assert( next_layout->sindex == layout->sindex + 1 );
-    return next_layout;
-}
-
 void lookup_setsel( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {
     assert( header( key )->flags & FLAG_KEY );
@@ -212,28 +257,8 @@ void lookup_setsel( vmachine* vm, lookup_object* object, string_object* key, sel
         throw key_error( "object is sealed" );
     }
 
-    // Determine new layout.
-    layout = next_layout( vm, lookup_layout, key );
-
-    // Might need to reallocate slots.
-    vslots_object* oslots = read( object->oslots );
-    size_t oslots_count = object_size( vm, oslots ) / sizeof( ref_value );
-    if ( layout->sindex >= oslots_count )
-    {
-        size_t expand_count = oslots_count * 2;
-        if ( oslots_count >= 16 ) expand_count -= oslots_count / 2;
-        vslots_object* expand = vslots_new( vm, expand_count );
-
-        for ( size_t i = 0; i < oslots_count; ++i )
-        {
-            winit( expand->slots[ i ], read( oslots->slots[ i ] ) );
-        }
-
-        write( vm, object->oslots, expand );
-    }
-
     // Update layout.
-    write( vm, object->layout, layout );
+    layout = update_layout( vm, object, lookup_layout, key );
 
     // Created slot.
     sel->cookie = layout->cookie;

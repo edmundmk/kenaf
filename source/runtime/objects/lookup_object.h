@@ -85,9 +85,15 @@ struct lookup_object : public object
 layout_object* layout_new( vmachine* vm, object* parent, string_object* key );
 vslots_object* vslots_new( vmachine* vm, size_t count );
 lookup_object* lookup_new( vmachine* vm, lookup_object* prototype );
+
 lookup_object* lookup_prototype( vmachine* vm, lookup_object* object );
 void lookup_seal( vmachine* vm, lookup_object* object );
 bool lookup_sealed( vmachine* vm, lookup_object* object );
+
+void lookup_addkeyslot( vmachine* vm, lookup_object* object, size_t index, std::string_view keyslot );
+value lookup_getkeyslot( vmachine* vm, lookup_object* object, size_t index );
+void lookup_setkeyslot( vmachine* vm, lookup_object* object, size_t index, value value );
+
 value lookup_getkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel );
 void lookup_setkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel, value value );
 bool lookup_haskey( vmachine* vm, lookup_object* object, string_object* key );
@@ -96,6 +102,30 @@ void lookup_delkey( vmachine* vm, lookup_object* object, string_object* key );
 /*
     Inline functions.
 */
+
+inline value lookup_getkeyslot( vmachine* vm, lookup_object* object, size_t index )
+{
+    if ( index < read( object->layout )->sindex + 1 )
+    {
+        return read( read( object->oslots )->slots[ index ] );
+    }
+    else
+    {
+        throw key_error( "invalid keyslot index %zu", index );
+    }
+}
+
+inline void lookup_setkeyslot( vmachine* vm, lookup_object* object, size_t index, value value )
+{
+    if ( index < read( object->layout )->sindex + 1 )
+    {
+        write( vm, read( object->oslots )->slots[ index ], value );
+    }
+    else
+    {
+        throw key_error( "invalid keyslot index %zu", index );
+    }
+}
 
 inline value lookup_getkey( vmachine* vm, lookup_object* object, string_object* key, selector* sel )
 {

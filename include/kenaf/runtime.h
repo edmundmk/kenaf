@@ -116,6 +116,11 @@ KF_API uint64_t get_u64val( value v );
 
 KF_API value create_lookup();
 KF_API value create_lookup( value prototype );
+KF_API value create_lookup( value prototype, std::string_view ksnames[], size_t kscount );
+
+KF_API value get_keyslot( value lookup, size_t index );
+KF_API void set_keyslot( value lookup, size_t index, value v );
+
 KF_API value get_key( value lookup, std::string_view k );
 KF_API void set_key( value lookup, std::string_view k, value v );
 KF_API bool has_key( value lookup, std::string_view k );

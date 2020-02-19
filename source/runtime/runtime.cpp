@@ -330,6 +330,30 @@ value create_lookup( value prototype )
     return box_object( lookup_new( current(), (lookup_object*)unbox_object( prototype ) ) );
 }
 
+value create_lookup( value prototype, std::string_view ksnames[], size_t kscount )
+{
+    if ( ! is_lookup( prototype ) ) throw type_error( prototype, "a lookup object" );
+    vmachine* vm = current();
+    lookup_object* lookup = lookup_new( vm, (lookup_object*)unbox_object( prototype ) );
+    for ( size_t index = 0; index < kscount; ++index )
+    {
+        lookup_addkeyslot( vm, lookup, index, ksnames[ index ] );
+    }
+    return box_object( lookup );
+}
+
+value get_keyslot( value lookup, size_t index )
+{
+    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
+    return lookup_getkeyslot( current(), (lookup_object*)unbox_object( lookup ), index );
+}
+
+void set_keyslot( value lookup, size_t index, value v )
+{
+    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
+    lookup_setkeyslot( current(), (lookup_object*)unbox_object( lookup ), index, v );
+}
+
 value get_key( value lookup, std::string_view k )
 {
     vmachine* vm = current();
