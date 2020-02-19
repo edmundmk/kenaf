@@ -81,7 +81,7 @@ enum opcode : uint8_t
     OP_SET_OUTENV,      // out[a][ %b ] = r         | G | r | a | b |
 
     OP_FUNCTION,        // r = close function       | N | r |   c   |
-    OP_NEW_OBJECT,      // r = object proto         | N | r | a | - |
+    OP_NEW_OBJECT,      // r = object proto (b top) | N | r | a | b |
     OP_NEW_ARRAY,       // r = [], reserve c        | N | r |   c   |
     OP_NEW_TABLE,       // r = {}, reserve c        | N | r |   c   |
     OP_APPEND,          // a.append( b )            | G | - | a | b |

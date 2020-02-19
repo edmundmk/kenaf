@@ -74,7 +74,6 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_GET_ENV,       2, { IR_O_OUTENV, IR_O_ENVSLOT          },  OP_GET_OUTENV,  AB      },
     { IR_SET_ENV,       3, { IR_O_OP, IR_O_ENVSLOT, IR_O_OP     },  OP_SET_VARENV,  AB      },
     { IR_SET_ENV,       3, { IR_O_OUTENV, IR_O_ENVSLOT, IR_O_OP },  OP_SET_OUTENV,  AB      },
-    { IR_NEW_OBJECT,    1, { IR_O_OP                            },  OP_NEW_OBJECT,  AB      },
     { IR_NEW_ARRAY,     1, { IR_O_IMMEDIATE                     },  OP_NEW_ARRAY,   C       },
     { IR_NEW_TABLE,     1, { IR_O_IMMEDIATE                     },  OP_NEW_TABLE,   C       },
     { IR_APPEND,        2, { IR_O_OP, IR_O_OP                   },  OP_APPEND,      AB_NO_R },
@@ -321,6 +320,35 @@ void ir_emit::assemble()
                     assert( ! "invalid function environment operand" );
                 }
             }
+            break;
+        }
+
+        case IR_NEW_OBJECT:
+        {
+            if ( iop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( iop->sloc, "internal: no allocated result register" );
+                break;
+            }
+
+            assert( iop->ocount == 1 );
+            ir_operand a = _f->operands[ iop->oindex ];
+            assert( a.kind == IR_O_OP );
+
+            const ir_op* aop = &_f->ops[ a.index ];
+            if ( aop->r == IR_INVALID_REGISTER )
+            {
+                _source->error( aop->sloc, "internal: no allocated a register" );
+                break;
+            }
+
+            if ( iop->s == IR_INVALID_REGISTER )
+            {
+                _source->error( aop->sloc, "internal: missing stack top at new object" );
+                break;
+            }
+
+            emit( iop->sloc, op::op_ab( OP_NEW_OBJECT, iop->r, aop->r, iop->s ) );
             break;
         }
 

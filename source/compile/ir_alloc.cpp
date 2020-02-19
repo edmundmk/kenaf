@@ -667,6 +667,9 @@ bool ir_alloc::is_stacked( const ir_op* op )
 {
     switch ( op->opcode )
     {
+    case IR_NEW_OBJECT:
+        return true;
+
     case IR_VARARG:
     case IR_UNPACK:
     case IR_FOR_EACH_ITEMS:
