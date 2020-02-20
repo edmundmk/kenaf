@@ -10,11 +10,13 @@
 
 project( 'kenaf', 'cpp', default_options : [ 'cpp_std=c++17' ] )
 
-lemon = generator(
-    find_program( 'lemon.py' ),
-    output : [ '@BASENAME@.cpp', '@BASENAME@.h' ],
-    arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ]
-)
+headers = [
+    'include/kenaf/compile.h',
+    'include/kenaf/defines.h',
+    'include/kenaf/errors.h',
+    'include/kenaf/handles.h',
+    'include/kenaf/runtime.h'
+]
 
 sources = [
     'source/common/code.cpp',
@@ -55,26 +57,13 @@ sources = [
     'source/runtime/vmachine.cpp',
 ]
 
+lemon = generator( find_program( 'lemon.py' ), output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
 sources += lemon.process( 'source/compile/grammar.lemon' )
 
-libkenaf = library(
-    'kenaf',
-    gnu_symbol_visibility : 'hidden',
-    cpp_args : [ '-DKF_BUILD' ],
-    include_directories : include_directories( 'include', 'source/compile' ),
-    sources : sources,
-    install : true
-)
+kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compile' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', install : true )
+kenaf_lic = files( 'LICENSE' )
+kenaf_dep = declare_dependency( include_directories : include_directories( 'include' ), link_with : kenaf_lib )
+install_headers( headers, subdir : 'kenaf' )
 
-sources = [
-    'main.cpp'
-]
-
-kenaf = executable(
-    'kenaf',
-    sources : sources,
-    include_directories : include_directories( 'include' ),
-    link_with : [ libkenaf ],
-    install : true
-)
+executable( 'kenaf', sources : [ 'main.cpp' ], include_directories : include_directories( 'include' ), link_with : [ kenaf_lib ], install : true )
 
