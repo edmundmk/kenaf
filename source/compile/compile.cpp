@@ -174,20 +174,10 @@ size_t diagnostic_count( compiler* c )
     return c->diagnostics.size();
 }
 
-diagnostic_kind get_diagnostic_kind( compiler* c, size_t index )
+diagnostic get_diagnostic( compiler* c, size_t index )
 {
-    return c->diagnostics.at( index ).kind;
-}
-
-diagnostic_location get_diagnostic_location( compiler* c, size_t index )
-{
-    const source_location& location = c->diagnostics.at( index ).location;
-    return { location.line, location.column };
-}
-
-std::string_view get_diagnostic_message( compiler* c, size_t index )
-{
-    return c->diagnostics.at( index ).message;
+    const source_diagnostic& d = c->diagnostics.at( index );
+    return { d.kind, d.location.line, d.location.column, d.message };
 }
 
 void debug_print( compiler* c, unsigned debug_print )

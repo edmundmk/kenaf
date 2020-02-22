@@ -103,18 +103,16 @@ int main( int argc, char* argv[] )
     size_t diagnostic_count = kf::diagnostic_count( compiler.get() );
     for ( size_t i = 0; i < diagnostic_count; ++i )
     {
-        kf::diagnostic_kind kind = kf::get_diagnostic_kind( compiler.get(), i );
-        kf::diagnostic_location location = kf::get_diagnostic_location( compiler.get(), i );
-        std::string_view message = kf::get_diagnostic_message( compiler.get(), i );
+        kf::diagnostic d = kf::get_diagnostic( compiler.get(), i );
         fprintf
         (
             stderr,
             "%s:%u:%u: %s: %.*s\n",
             filename,
-            location.line,
-            location.column,
-            kind == kf::ERROR ? "error" : "warning",
-            (int)message.size(), message.data()
+            d.line,
+            d.column,
+            d.kind == kf::ERROR ? "error" : "warning",
+            (int)d.message.size(), d.message.data()
         );
     }
 

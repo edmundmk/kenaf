@@ -61,12 +61,17 @@ KF_API size_t compiled_size( compiler* c );
 */
 
 enum diagnostic_kind { ERROR, WARNING };
-struct diagnostic_location { unsigned line; unsigned column; };
+
+struct diagnostic
+{
+    diagnostic_kind kind;
+    unsigned line;
+    unsigned column;
+    std::string_view message;
+};
 
 KF_API size_t diagnostic_count( compiler* c );
-KF_API diagnostic_kind get_diagnostic_kind( compiler* c, size_t index );
-KF_API diagnostic_location get_diagnostic_location( compiler* c, size_t index );
-KF_API std::string_view get_diagnostic_message( compiler* c, size_t index );
+KF_API diagnostic get_diagnostic( compiler* c, size_t index );
 
 /*
     Debug printing stuff.
