@@ -123,6 +123,7 @@
 
 #include "collector.h"
 #include <thread>
+#include <condition_variable>
 #include "vmachine.h"
 #include "call_stack.h"
 #include "heap.h"

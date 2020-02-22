@@ -60,7 +60,7 @@ sources = [
 lemon = generator( find_program( 'lemon.py' ), output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
 sources += lemon.process( 'source/compile/grammar.lemon' )
 
-kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compile' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', install : true )
+kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compile' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
 kenaf_lic = files( 'LICENSE' )
 kenaf_dep = declare_dependency( include_directories : include_directories( 'include' ), link_with : kenaf_lib )
 install_headers( headers, subdir : 'kenaf' )
