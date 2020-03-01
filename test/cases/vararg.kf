@@ -1,0 +1,30 @@
+
+def print_xyz( x, y, z, w )
+    print( "%d %d %d %d\n", x, y, z, w )
+end
+
+def extend( args ... )
+    var a = [ args ... ]
+    for i : a do
+       print( " -- %d\n", i )
+    end
+    a = [ 44, args ... ]
+    for i : a do
+       print( " .. %d\n", i )
+    end
+end
+
+def fixed( x, y )
+    var a = [ x, y ]
+    for i : a do
+       print( " ~~ %d\n", i )
+    end
+end
+
+def print( args ... )
+    print_xyz( 33, args ... )
+end
+
+fixed( 8, 9 )
+extend( 1, 2, 3, 4, 5 )
+print( 1, 2, 3 )
