@@ -346,7 +346,13 @@ void ir_alloc::mark_pinning()
             /*
                 Examine operands.  If they die at this op, then mark pinned.
             */
-            for ( unsigned j = 0; j < op->ocount; ++j )
+            unsigned j = 0;
+            if ( op->opcode == IR_EXTEND )
+            {
+                j += 1;
+            }
+
+            for ( ; j < op->ocount; ++j )
             {
                 ir_operand operand = _f->operands[ op->oindex + j ];
 
@@ -583,7 +589,7 @@ void ir_alloc::anchor_stacked( stacked* instruction )
         if ( op->opcode != IR_EXTEND )
             unpack->s = op->s + op->ocount - 1;
         else
-            unpack->s = op->s;
+            unpack->s = op->s + op->ocount - 2;
         unpin_stacked( unpack, operand.index );
         op = unpack;
     }
@@ -698,13 +704,14 @@ bool ir_alloc::is_pinning( const ir_op* op )
     case IR_MOV:
         return true;
 
-    case IR_EXTEND:
+    case IR_NEW_OBJECT:
+    case IR_VARARG:
     case IR_UNPACK:
     case IR_FOR_EACH_ITEMS:
         return false;
 
     default:
-        return is_stacked( op ) && op->ocount > 1;
+        return is_stacked( op );
     }
 }
 

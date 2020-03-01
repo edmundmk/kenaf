@@ -1,0 +1,21 @@
+
+def function()
+    return 1, 2, 3
+end
+
+var a = [ function() ... ]
+for i : a do
+    print( "  %d", i )
+end
+print( "\n" )
+
+var b = [ 44, function() ... ]
+for i : b do
+    print( "  %d", i )
+end
+print( "\n" )
+
+print( "#a: %d\n", #a )
+
+var c = [ 44, 55, function() ... ]
+-- do not use c

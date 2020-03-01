@@ -170,6 +170,13 @@ void ir_live::live_body( ir_block_index block_index, ir_block* block )
             }
 
             unsigned use_index = op_index;
+
+            // First argument to EXTEND is live across instruction.
+            if ( op->opcode == IR_EXTEND && j == 0 )
+            {
+                use_index += 1;
+            }
+
             mark_use( operand, use_index );
         }
 

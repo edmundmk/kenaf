@@ -69,12 +69,16 @@ private:
     void assemble();
     unsigned with_shape( unsigned op_index, const ir_op* iop, const emit_shape* shape );
     unsigned with_moves( unsigned op_index, const ir_op* iop );
-    unsigned with_stacked( unsigned op_index, const ir_op* iop, opcode copcode );
+    unsigned with_stacked( unsigned op_index, const ir_op* iop );
     unsigned with_for_each( unsigned op_index, const ir_op* iop );
     unsigned with_for_step( unsigned op_index, const ir_op* iop );
 
     unsigned next( unsigned op_index, ir_opcode iopcode );
     bool match_operands( const ir_op* iop, const emit_shape* shape );
+
+    const ir_op* u_operand( const ir_op* iop );
+    bool check_r( const ir_op* iop, const char* detail );
+    bool check_s( const ir_op* iop, const char* detail );
 
     void move( srcloc sloc, unsigned target, unsigned source );
     bool move_is_source( unsigned source );
