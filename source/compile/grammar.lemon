@@ -459,7 +459,11 @@ keyval(x) ::= expr(u) COLON(op) expr .              { x = p->node( AST_TABLE_KEY
 avalue_list_opt(x) ::= .                            { x = AST_INVALID_INDEX; }
 avalue_list_opt(x) ::= term_list(u) .               { x = u.index; }
 avalue_list_opt(x) ::= term_list(u) COMMA .         { x = u.index; }
-avalue_list_opt(x) ::= term_list(u) ELLIPSIS(op) .  { p->node( AST_EXPR_UNPACK, op.sloc, u.ilast ); x = u.index; }
+avalue_list_opt(x) ::= term_list(u) ELLIPSIS(op) .
+    {
+        unsigned z = p->node( AST_EXPR_UNPACK, op.sloc, u.ilast );
+        x = u.index == u.ilast ? z : u.index;
+    }
 
 unpack_list_opt(x) ::= .                            { x = { EXPR_FULL, AST_INVALID_INDEX, 0, AST_INVALID_INDEX }; }
 unpack_list_opt(x) ::= unpack_list(u) .             { x = u; }
