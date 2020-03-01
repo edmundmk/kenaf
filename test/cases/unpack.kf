@@ -1,0 +1,14 @@
+
+def function()
+    return 1, 2, 3
+end
+
+def print_xyz( x, y, z, w )
+    print( "%d\n", x );
+    print( "%d\n", y );
+    print( "%d\n", z );
+    print( "%d\n", w );
+end
+
+print_xyz( 2, function() ... )
+
