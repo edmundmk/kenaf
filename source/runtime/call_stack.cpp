@@ -379,7 +379,8 @@ xstate call_yield( vmachine* vm, unsigned rp, unsigned xp )
 
 static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp )
 {
-    size_t result_count = rp - xp;
+    assert( rp <= xp );
+    size_t result_count = xp - rp;
     unsigned xr = stack_frame->xr;
     unsigned xb = stack_frame->xb != OP_STACK_MARK ? stack_frame->xb : xr + result_count;
 
