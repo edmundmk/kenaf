@@ -21,10 +21,10 @@ def fixed( x, y )
     end
 end
 
-def print( args ... )
+def print2( args ... )
     print_xyz( 33, args ... )
 end
 
-fixed( 8, 9 )
-extend( 1, 2, 3, 4, 5 )
-print( 1, 2, 3 )
+fixed( 8, 9 )               -- 8, 9
+extend( 1, 2, 3, 4, 5 )     -- 1, 2, 3, 4, 5 / 44, 1, 2, 3, 4, 5
+print2( 1, 2, 3 )           -- 33, 1, 2, 3

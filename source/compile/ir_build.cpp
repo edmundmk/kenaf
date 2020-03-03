@@ -86,6 +86,14 @@ ir_operand ir_build::visit( ast_node_index node )
         return emit( node->sloc, (ir_opcode)node->kind, 2 );
     }
 
+    // -- PARENTHESES --
+
+    case AST_EXPR_PAREN:
+    {
+        ast_node_index u = ast_child_node( _f->ast, node );
+        return visit( u );
+    }
+
     // -- CONSTANTS --
 
     case AST_EXPR_NULL:

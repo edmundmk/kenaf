@@ -10,5 +10,5 @@ def print_xyz( x, y, z, w )
     print( "%d\n", w );
 end
 
-print_xyz( 2, function() ... )
+print_xyz( 44, function() ... )
 

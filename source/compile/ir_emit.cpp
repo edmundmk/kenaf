@@ -607,235 +607,163 @@ unsigned ir_emit::with_moves( unsigned op_index, const ir_op* iop )
 unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
 {
     // Stacked instructions operate on the stack top at r.  They consume
-    // registers r:a and produce results r:b.  Chains of stacked instructions
-    // must be treated as a single instruction.
+    // registers r:a and produce results r:b.
 
-    // Identify all ops in the chain.
-    unsigned op_ipack = op_index;
-    unsigned op_inext = op_index + 1;
-
-    while ( op_inext < _f->ops.size() )
-    {
-        // iop must produce results, and unpack them.
-        bool has_results =
-               iop->opcode == IR_CALL
-            || iop->opcode == IR_YCALL
-            || iop->opcode == IR_YIELD
-            || iop->opcode == IR_VARARG
-            || iop->opcode == IR_UNPACK;
-        if ( ! has_results )
-        {
-            break;
-        }
-        if ( iop->unpack() != IR_UNPACK_ALL )
-        {
-            break;
-        }
-
-        // nop must consume arguments, and final argument must be iop.
-        const ir_op* nop = &_f->ops[ op_inext ];
-        bool has_arguments =
-               nop->opcode == IR_CALL
-            || nop->opcode == IR_YCALL
-            || nop->opcode == IR_YIELD
-            || nop->opcode == IR_JUMP_RETURN
-            || nop->opcode == IR_EXTEND;
-        if ( ! has_arguments )
-        {
-            break;
-        }
-        if ( nop->ocount <= 0 )
-        {
-            break;
-        }
-
-        ir_operand last = _f->operands[ nop->oindex + nop->ocount - 1 ];
-        if ( last.kind != IR_O_OP || last.index != op_ipack )
-        {
-            break;
-        }
-
-        // extend chain.
-        op_ipack = op_inext;
-        op_inext += 1;
-        iop = nop;
-    }
-
-    // Move all operands into the correct registers, starting from the final
-    // link in the chain and pushing them all on the stack..
+    // Move all operands into the correct registers.
     if ( ! check_s( iop, "instruction" ) ) return op_index;
     unsigned sp = iop->s;
 
-    unsigned op_imove = op_inext;
-    while ( op_imove-- > op_index )
+    unsigned j = 0;
+    if ( iop->opcode == IR_UNPACK || iop->opcode == IR_EXTEND )
     {
-        iop = &_f->ops[ op_imove ];
+        j += 1;
+    }
 
-        if ( ! check_s( iop, "instruction" ) ) return op_index;
-        if ( iop->s != sp )
+    for ( ; j < iop->ocount; ++j )
+    {
+        ir_operand operand = _f->operands[ iop->oindex + j ];
+        assert( operand.kind == IR_O_OP );
+        const ir_op* uop = &_f->ops[ operand.index ];
+        if ( uop->unpack() != IR_UNPACK_ALL )
         {
-            _source->error( iop->sloc, "internal: misaligned stack chain" );
-            return op_index;
+            if ( ! check_r( uop, "argument" ) ) return op_index;
+            move( iop->sloc, sp, uop->r );
+            sp += 1;
         }
-
-        unsigned j = 0;
-        if ( iop->opcode == IR_UNPACK || iop->opcode == IR_EXTEND )
+        else
         {
-            j += 1;
-        }
-
-        for ( ; j < iop->ocount; ++j )
-        {
-            ir_operand operand = _f->operands[ iop->oindex + j ];
-            assert( operand.kind == IR_O_OP );
-            const ir_op* uop = &_f->ops[ operand.index ];
-            if ( uop->unpack() != IR_UNPACK_ALL )
-            {
-                if ( ! check_r( uop, "argument" ) ) return op_index;
-                move( iop->sloc, sp, uop->r );
-                sp += 1;
-            }
-            else
-            {
-                assert( j == iop->ocount - 1u );
-            }
+            assert( j == iop->ocount - 1u );
         }
     }
 
     move_emit();
 
-    // Emit each stacked op.
-    for ( ; op_index < op_inext; ++op_index )
+    unsigned a = IR_INVALID_REGISTER; // arguments
+    unsigned b = IR_INVALID_REGISTER; // results
+
+    opcode opcode;
+    switch ( iop->opcode )
     {
-        iop = &_f->ops[ op_index ];
-
-        unsigned a = IR_INVALID_REGISTER; // arguments
-        unsigned b = IR_INVALID_REGISTER; // results
-
-        opcode opcode;
-        switch ( iop->opcode )
+    case IR_CALL:
+        // Check if we can encode as CALLR.
+        if ( iop->unpack() == 1 && iop->r != iop->s )
         {
-        case IR_CALL:
-            // Check if we can encode as CALLR.
-            if ( iop->unpack() == 1 && iop->r != iop->s )
-            {
-                opcode = OP_CALLR;
-                if ( ! check_r( iop, "call result" ) ) return op_index;
-                _max_r = std::max( _max_r, iop->r );
-                b = iop->r; // explicitly encoded result.
-            }
-            else
-            {
-                opcode = OP_CALL;
-            }
-            break;
-
-        case IR_YCALL:
-            opcode = OP_YCALL;
-            break;
-
-        case IR_YIELD:
-            opcode = OP_YIELD;
-            break;
-
-        case IR_JUMP_RETURN:
-            opcode = OP_RETURN;
-            b = 0; // no results.
-            break;
-
-        case IR_VARARG:
-            opcode = OP_VARARG;
-            a = 0; // no arguments.
-            break;
-
-        case IR_UNPACK:
-            // Get unpack argument.
-            {
-                opcode = OP_UNPACK;
-                const ir_op* uop = u_operand( iop );
-                if ( ! check_r( uop, "unpack argument" ) ) return op_index;
-                a = uop->r; // explicitly encoded argument.
-            }
-            break;
-
-        case IR_EXTEND:
-            // Get extend target.
-            {
-                opcode = OP_EXTEND;
-                const ir_op* uop = u_operand( iop );
-                if ( ! check_r( uop, "extend target" ) ) return op_index;
-                b = uop->r; // explicitly encoded argument, no results.
-            }
-            break;
-
-        default:
-            assert( ! "invalid stacked instruction" );
-            return op_index;
+            opcode = OP_CALLR;
+            if ( ! check_r( iop, "call result" ) ) return op_index;
+            _max_r = std::max( _max_r, iop->r );
+            b = iop->r; // explicitly encoded result.
         }
-
-        // Arguments.
-        if ( a == IR_INVALID_REGISTER )
+        else
         {
-            // Get arguments.
-            a = iop->s + iop->ocount;
-
-            // Deal with unpack argument.
-            if ( iop->ocount )
-            {
-                ir_operand operand = _f->operands[ iop->oindex + iop->ocount - 1 ];
-                assert( operand.kind == IR_O_OP );
-                const ir_op* uop = &_f->ops[ operand.index ];
-                if ( uop->unpack() == IR_UNPACK_ALL )
-                {
-                    a = OP_STACK_MARK;
-                }
-            }
+            opcode = OP_CALL;
         }
+        break;
 
-        // Results.
-        unsigned r = iop->s;
-        unsigned m = IR_INVALID_REGISTER;
-        if ( b == IR_INVALID_REGISTER )
+    case IR_YCALL:
+        opcode = OP_YCALL;
+        break;
+
+    case IR_YIELD:
+        opcode = OP_YIELD;
+        break;
+
+    case IR_JUMP_RETURN:
+        opcode = OP_RETURN;
+        b = 0; // no results.
+        break;
+
+    case IR_VARARG:
+        opcode = OP_VARARG;
+        a = 0; // no arguments.
+        break;
+
+    case IR_UNPACK:
+        // Get unpack argument.
         {
-            if ( iop->unpack() == 1 )
-            {
-                if ( ! check_r( iop, "result" ) ) return op_index;
-                _max_r = std::max( _max_r, iop->r );
-
-                if ( iop->opcode == IR_VARARG || iop->opcode == IR_UNPACK )
-                {
-                    r = iop->r;
-                    b = iop->r + 1;
-                }
-                else
-                {
-                    b = iop->r + 1;
-                    m = iop->r;
-                }
-            }
-            else if ( iop->unpack() != IR_UNPACK_ALL )
-            {
-                b = iop->s + iop->unpack();
-                _max_r = std::max( _max_r, b );
-            }
-            else
-            {
-                b = OP_STACK_MARK;
-            }
+            opcode = OP_UNPACK;
+            const ir_op* uop = u_operand( iop );
+            if ( ! check_r( uop, "unpack argument" ) ) return op_index;
+            a = uop->r; // explicitly encoded argument.
         }
+        break;
 
-        // Emit.
-        emit( iop->sloc, op::op_ab( opcode, iop->s, a, b ) );
-
-        // Move single result if necessary.
-        if ( m != IR_INVALID_REGISTER )
+    case IR_EXTEND:
+        // Get extend target.
         {
-            move( iop->sloc, m, iop->s );
-            move_emit();
+            opcode = OP_EXTEND;
+            const ir_op* uop = u_operand( iop );
+            if ( ! check_r( uop, "extend target" ) ) return op_index;
+            b = uop->r; // explicitly encoded argument, no results.
+        }
+        break;
+
+    default:
+        assert( ! "invalid stacked instruction" );
+        return op_index;
+    }
+
+    // Arguments.
+    if ( a == IR_INVALID_REGISTER )
+    {
+        // Get arguments.
+        a = iop->s + iop->ocount;
+
+        // Deal with unpack argument.
+        if ( iop->ocount )
+        {
+            ir_operand operand = _f->operands[ iop->oindex + iop->ocount - 1 ];
+            assert( operand.kind == IR_O_OP );
+            const ir_op* uop = &_f->ops[ operand.index ];
+            if ( uop->unpack() == IR_UNPACK_ALL )
+            {
+                a = OP_STACK_MARK;
+            }
         }
     }
 
-    return op_index - 1;
+    // Results.
+    unsigned r = iop->s;
+    unsigned m = IR_INVALID_REGISTER;
+    if ( b == IR_INVALID_REGISTER )
+    {
+        if ( iop->unpack() == 1 )
+        {
+            if ( ! check_r( iop, "result" ) ) return op_index;
+            _max_r = std::max( _max_r, iop->r );
+
+            if ( iop->opcode == IR_VARARG || iop->opcode == IR_UNPACK )
+            {
+                r = iop->r;
+                b = iop->r + 1;
+            }
+            else
+            {
+                b = iop->r + 1;
+                m = iop->r;
+            }
+        }
+        else if ( iop->unpack() != IR_UNPACK_ALL )
+        {
+            b = iop->s + iop->unpack();
+            _max_r = std::max( _max_r, b );
+        }
+        else
+        {
+            b = OP_STACK_MARK;
+        }
+    }
+
+    // Emit.
+    emit( iop->sloc, op::op_ab( opcode, iop->s, a, b ) );
+
+    // Move single result if necessary.
+    if ( m != IR_INVALID_REGISTER )
+    {
+        move( iop->sloc, m, iop->s );
+        move_emit();
+    }
+
+    return op_index;
 }
 
 unsigned ir_emit::with_for_each( unsigned op_index, const ir_op* iop )

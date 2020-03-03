@@ -364,7 +364,7 @@ lval_list(x) ::= lval_list(u) COMMA expr_lval(v) .              { x = { expr_lis
 
 expr_prefix(x) ::= expr_lval(u) .                               { x = u; }
 expr_prefix(x) ::= expr_call(u) . [LPN]                         { x = u; }
-expr_prefix(x) ::= LPN expr(u) RPN .                            { x = { EXPR_FULL, u.index }; }
+expr_prefix(x) ::= LPN(op) expr(u) RPN .                        { x = { EXPR_FULL, p->node( AST_EXPR_PAREN, op.sloc, u.index ) }; }
 
 expr_call(x) ::= expr_prefix(u) LPN(op) unpack_list_opt RPN .   { x = { EXPR_CALL, p->node( AST_EXPR_CALL, op.sloc, u.index ) }; }
 

@@ -36,6 +36,8 @@ const char* const AST_NODE_NAME[] =
     [ AST_EXPR_BITXOR       ] = "EXPR_BITXOR",
     [ AST_EXPR_BITOR        ] = "EXPR_BITOR",
 
+    [ AST_EXPR_PAREN        ] = "EXPR_PAREN",
+
     [ AST_EXPR_NULL         ] = "EXPR_NULL",
     [ AST_EXPR_FALSE        ] = "EXPR_FALSE",
     [ AST_EXPR_TRUE         ] = "EXPR_TRUE",

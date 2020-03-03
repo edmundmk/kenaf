@@ -137,6 +137,8 @@ enum ast_node_kind : uint16_t
     AST_EXPR_BITOR,             // expr expr
     // -- MUST MATCH IR OPS --
 
+    AST_EXPR_PAREN,             // expr
+
     AST_EXPR_NULL,              // -
     AST_EXPR_FALSE,             // -
     AST_EXPR_TRUE,              // -
