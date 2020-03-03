@@ -70,6 +70,12 @@ void source_text( compiler* c, std::string_view text )
     c->source->append( text.data(), text.size() );
 }
 
+void* source_alloc( compiler* c, size_t size )
+{
+    if ( ! c->source ) c->source = std::make_unique< source >();
+    return c->source->buffer( size );
+}
+
 bool compile( compiler* c )
 {
     if ( ! c->source ) return false;

@@ -48,6 +48,7 @@ KF_API void release_compiler( compiler* c );
 
 KF_API void source_path( compiler* c, std::string_view path );
 KF_API void source_text( compiler* c, std::string_view text );
+KF_API void* source_buffer( compiler* c, size_t size );
 KF_API bool compile( compiler* c );
 
 /*

@@ -75,6 +75,7 @@ struct source
     ~source();
 
     void append( const void* data, size_t size );
+    void* buffer( size_t size );
     size_t size() const;
 
     void newline( srcloc sloc );

@@ -32,6 +32,13 @@ void source::append( const void* data, size_t size )
     text.insert( text.end() - SOURCE_LOOKAHEAD, (char*)data, (char*)data + size );
 }
 
+void* source::buffer( size_t size )
+{
+    size_t offset = text.size();
+    text.insert( text.end() - SOURCE_LOOKAHEAD, size, '\0' );
+    return text.data() + offset;
+}
+
 size_t source::size() const
 {
     return text.size() - SOURCE_LOOKAHEAD;
