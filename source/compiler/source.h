@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "kenaf/compile.h"
+#include "kenaf/compiler.h"
 
 namespace kf
 {

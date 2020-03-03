@@ -1,5 +1,5 @@
 //
-//  compile.cpp
+//  compiler.cpp
 //
 //  Created by Edmund Kapusniak on 19/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -8,7 +8,7 @@
 //  full license information.
 //
 
-#include "kenaf/compile.h"
+#include "kenaf/compiler.h"
 #include "source.h"
 #include "lexer.h"
 #include "parser.h"

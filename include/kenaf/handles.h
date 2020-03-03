@@ -27,7 +27,7 @@
 #define KENAF_HANDLES_H
 
 #include "runtime.h"
-#include "compile.h"
+#include "compiler.h"
 #include <utility>
 
 namespace kf

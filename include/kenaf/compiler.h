@@ -1,5 +1,5 @@
 //
-//  compile.h
+//  compiler.h
 //
 //  Created by Edmund Kapusniak on 19/10/2019.
 //  Copyright © 2019 Edmund Kapusniak.
@@ -23,8 +23,8 @@
 //  DEALINGS IN THE SOFTWARE.
 //
 
-#ifndef KENAF_COMPILE_H
-#define KENAF_COMPILE_H
+#ifndef KENAF_COMPILER_H
+#define KENAF_COMPILER_H
 
 #include <string_view>
 #include "defines.h"

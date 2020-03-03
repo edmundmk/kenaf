@@ -11,7 +11,7 @@
 project( 'kenaf', 'cpp', default_options : [ 'cpp_std=c++17' ] )
 
 headers = [
-    'include/kenaf/compile.h',
+    'include/kenaf/compiler.h',
     'include/kenaf/defines.h',
     'include/kenaf/errors.h',
     'include/kenaf/handles.h',
@@ -22,21 +22,21 @@ sources = [
     'source/common/code.cpp',
     'source/common/escape_string.cpp',
     'source/common/imath.cpp',
-    'source/compile/ast.cpp',
-    'source/compile/ast_resolve.cpp',
-    'source/compile/code_unit.cpp',
-    'source/compile/compile.cpp',
-    'source/compile/ir.cpp',
-    'source/compile/ir_alloc.cpp',
-    'source/compile/ir_build.cpp',
-    'source/compile/ir_emit.cpp',
-    'source/compile/ir_fold.cpp',
-    'source/compile/ir_foldk.cpp',
-    'source/compile/ir_live.cpp',
-    'source/compile/ir_regmap.cpp',
-    'source/compile/lexer.cpp',
-    'source/compile/source.cpp',
-    'source/compile/parser.cpp',
+    'source/compiler/ast.cpp',
+    'source/compiler/ast_resolve.cpp',
+    'source/compiler/code_unit.cpp',
+    'source/compiler/compiler.cpp',
+    'source/compiler/ir.cpp',
+    'source/compiler/ir_alloc.cpp',
+    'source/compiler/ir_build.cpp',
+    'source/compiler/ir_emit.cpp',
+    'source/compiler/ir_fold.cpp',
+    'source/compiler/ir_foldk.cpp',
+    'source/compiler/ir_live.cpp',
+    'source/compiler/ir_regmap.cpp',
+    'source/compiler/lexer.cpp',
+    'source/compiler/source.cpp',
+    'source/compiler/parser.cpp',
     'source/runtime/corlib/cormath.cpp',
     'source/runtime/corlib/corobjects.cpp',
     'source/runtime/corlib/corprint.cpp',
@@ -58,9 +58,9 @@ sources = [
 ]
 
 lemon = generator( find_program( 'lemon.py' ), output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
-sources += lemon.process( 'source/compile/grammar.lemon' )
+sources += lemon.process( 'source/compiler/grammar.lemon' )
 
-kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compile' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
+kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compiler' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
 kenaf_lic = files( 'LICENSE' )
 kenaf_dep = declare_dependency( include_directories : include_directories( 'include' ), link_with : kenaf_lib )
 install_headers( headers, subdir : 'kenaf' )

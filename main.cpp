@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vector>
-#include <kenaf/compile.h>
+#include <kenaf/compiler.h>
 #include <kenaf/runtime.h>
 #include <kenaf/handles.h>
 #include <kenaf/errors.h>
