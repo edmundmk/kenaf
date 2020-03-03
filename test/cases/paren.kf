@@ -14,3 +14,18 @@ end
 print_yzw( array_abc() ... )
 print_yzw( ( array_abc() ) ... )
 print_yzw( ( xyarr() ) ... )
+
+def test
+    value : 4
+end
+
+def talt
+    value : 5
+end
+
+def test.method( a, b )
+    print( "-- %d %d %d\n", self.value, a, b )
+end
+
+test.method( 1, 2 )
+;( test.method )( talt, 1, 2 )
