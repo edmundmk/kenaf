@@ -25,7 +25,7 @@ namespace kf
 
 static size_t print( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    std::string_view text = get_text( arguments[ 0 ] );
+    std::string_view text = get_string( arguments[ 0 ] );
     const char* s = text.data();
     const char* e = text.data() + text.size();
     assert( e[ 0 ] == '\0' );
@@ -122,7 +122,7 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         case 's':
         {
             if ( ! is_string( arg ) ) type_error( arg, "a string" );
-            std::string_view text = get_text( arg );
+            std::string_view text = get_string( arg );
             format.push_back( c );
             format.push_back( '\0' );
             if ( intarg_count == 0 )

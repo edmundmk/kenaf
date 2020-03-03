@@ -399,7 +399,7 @@ value create_string_buffer( size_t size, char** out_text )
     return box_string( s );
 }
 
-std::string_view get_text( value string )
+std::string_view get_string( value string )
 {
     if ( ! is_string( string ) ) throw type_error( string, "a string" );
     string_object* s = unbox_string( string );

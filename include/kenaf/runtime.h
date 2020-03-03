@@ -128,7 +128,7 @@ KF_API void del_key( value lookup, std::string_view k );
 
 KF_API value create_string( std::string_view text );
 KF_API value create_string_buffer( size_t size, char** out_text );
-KF_API std::string_view get_text( value string );
+KF_API std::string_view get_string( value string );
 
 KF_API value create_array();
 KF_API value create_array( size_t capacity );
