@@ -98,7 +98,10 @@ int main( int argc, char* argv[] )
     // Compile script.
     kf::compiler_handle compiler = kf::make_compiler();
     kf::debug_print( compiler.get(), debug_print );
-    bool success = kf::compile( compiler.get(), filename, std::string_view( text.data(), text.size() ) );
+
+    kf::source_path( compiler.get(), filename );
+    kf::source_text( compiler.get(), std::string_view( text.data(), text.size() ) );
+    bool success = kf::compile( compiler.get() );
 
     size_t diagnostic_count = kf::diagnostic_count( compiler.get() );
     for ( size_t i = 0; i < diagnostic_count; ++i )

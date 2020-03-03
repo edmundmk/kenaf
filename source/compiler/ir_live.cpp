@@ -14,11 +14,11 @@
 namespace kf
 {
 
-ir_live::ir_live( source* source )
-    :   _source( source )
+ir_live::ir_live( report* report )
+    :   _report( report )
     ,   _f( nullptr )
 {
-    (void)_source;
+    (void)_report;
 }
 
 ir_live::~ir_live()

@@ -31,7 +31,7 @@ class ir_live
 {
 public:
 
-    explicit ir_live( source* source );
+    explicit ir_live( report* report );
     ~ir_live();
 
     void live( ir_function* function );
@@ -50,7 +50,7 @@ private:
 
     void erase_dead();
 
-    source* _source;
+    report* _report;
     ir_function* _f;
     std::vector< ir_block_index > _work_stack;
 

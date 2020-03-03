@@ -26,7 +26,7 @@ class ir_foldk
 {
 public:
 
-    ir_foldk( source* source );
+    ir_foldk( report* report );
     ~ir_foldk();
 
     bool foldk( ir_function* function );
@@ -43,7 +43,7 @@ private:
     ir_operand insert_selector( ir_operand operand );
     ir_operand insert_function( ir_operand operand );
 
-    source* _source;
+    report* _report;
     ir_function* _f;
     std::vector< ir_constant > _constants;
     std::vector< ir_selector > _selectors;

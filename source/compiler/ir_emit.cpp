@@ -83,8 +83,8 @@ const ir_emit::emit_shape ir_emit::SHAPES[] =
     { IR_OP_INVALID,    0, {                                    },  OP_MOV,         AB      },
 };
 
-ir_emit::ir_emit( source* source, code_unit* unit )
-    :   _source( source )
+ir_emit::ir_emit( report* report, code_unit* unit )
+    :   _report( report )
     ,   _unit( unit )
     ,   _f( nullptr )
     ,   _max_r( 0 )
@@ -337,7 +337,7 @@ void ir_emit::assemble()
 
         default:
         {
-            _source->error( iop->sloc, "internal: unhanded ir opcode at :%04X", op_index );
+            _report->error( iop->sloc, "internal: unhanded ir opcode at :%04X", op_index );
             break;
         }
         }
@@ -351,7 +351,7 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
     {
         if ( iop->opcode != shape->iopcode )
         {
-            _source->error( iop->sloc, "internal: no matching instruction shape :%04X", op_index );
+            _report->error( iop->sloc, "internal: no matching instruction shape :%04X", op_index );
             return op_index;
         }
 
@@ -379,14 +379,14 @@ unsigned ir_emit::with_shape( unsigned op_index, const ir_op* iop, const emit_sh
                 ir_operand operand = _f->operands[ jop->oindex + 0 ];
                 if ( operand.kind != IR_O_OP || operand.index != op_index )
                 {
-                    _source->error( iop->sloc, "internal: next jump after comparison does not use it" );
+                    _report->error( iop->sloc, "internal: next jump after comparison does not use it" );
                     return op_index;
                 }
                 break;
             }
             if ( jop->opcode != IR_PHI && jop->opcode != IR_REF && jop->opcode != IR_NOP )
             {
-                _source->error( iop->sloc, "internal: comparison without associated jump" );
+                _report->error( iop->sloc, "internal: comparison without associated jump" );
                 return op_index;
             }
         }
@@ -790,7 +790,7 @@ unsigned ir_emit::with_for_each( unsigned op_index, const ir_op* iop )
     if ( block_a_index == IR_INVALID_INDEX || jump_index == IR_INVALID_INDEX
         || block_b_index == IR_INVALID_INDEX || items_index == IR_INVALID_INDEX )
     {
-        _source->error( iop->sloc, "internal: malformed for-each loop" );
+        _report->error( iop->sloc, "internal: malformed for-each loop" );
         return op_index;
     }
 
@@ -870,7 +870,7 @@ unsigned ir_emit::with_for_step( unsigned op_index, const ir_op* iop )
     if ( block_a_index == IR_INVALID_INDEX || jump_index == IR_INVALID_INDEX
         || block_b_index == IR_INVALID_INDEX || index_index == IR_INVALID_INDEX )
     {
-        _source->error( iop->sloc, "internal: malformed for-step loop" );
+        _report->error( iop->sloc, "internal: malformed for-step loop" );
         return op_index;
     }
 
@@ -908,7 +908,7 @@ unsigned ir_emit::with_for_step( unsigned op_index, const ir_op* iop )
     const ir_op* xop = &_f->ops[ index_index ];
     if ( xop->r == IR_INVALID_INDEX )
     {
-        _source->error( iop->sloc, "internal: no allocated for-step index register" );
+        _report->error( iop->sloc, "internal: no allocated for-step index register" );
         return op_index;
     }
 
@@ -976,7 +976,7 @@ bool ir_emit::check_r( const ir_op* iop, const char* detail )
 {
     if ( iop->r == IR_INVALID_REGISTER )
     {
-        _source->error( iop->sloc, "internal: no allocated register for %s", detail );
+        _report->error( iop->sloc, "internal: no allocated register for %s", detail );
         return false;
     }
     return true;
@@ -986,7 +986,7 @@ bool ir_emit::check_s( const ir_op* iop, const char* detail )
 {
     if ( iop->s == IR_INVALID_REGISTER )
     {
-        _source->error( iop->sloc, "internal: no allocated stack top for %s", detail );
+        _report->error( iop->sloc, "internal: no allocated stack top for %s", detail );
         return false;
     }
     return true;
@@ -1099,7 +1099,7 @@ void ir_emit::fixup_jumps()
 
         if ( i == _labels.end() || i->iaddress != fixup.iaddress )
         {
-            _source->error( 0, "internal: jump :%04X to invalid address :%04X", fixup.jaddress, fixup.iaddress );
+            _report->error( 0, "internal: jump :%04X to invalid address :%04X", fixup.jaddress, fixup.iaddress );
             continue;
         }
 

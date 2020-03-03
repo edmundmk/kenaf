@@ -25,7 +25,7 @@ class ir_emit
 {
 public:
 
-    ir_emit( source* source, code_unit* unit );
+    ir_emit( report* report, code_unit* unit );
     ~ir_emit();
 
     void emit( ir_function* function );
@@ -88,7 +88,7 @@ private:
 
     void fixup_jumps();
 
-    source* _source;
+    report* _report;
     code_unit* _unit;
     ir_function* _f;
     std::unique_ptr< code_function_unit > _u;

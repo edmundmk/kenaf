@@ -15,8 +15,9 @@
 namespace kf
 {
 
-ir_fold::ir_fold( source* source )
-    :   _source( source )
+ir_fold::ir_fold( report* report, source* source )
+    :   _report( report )
+    ,   _source( source )
     ,   _f( nullptr )
 {
 }
@@ -377,7 +378,7 @@ bool ir_fold::fold_unarithmetic( ir_op* op )
     }
     else
     {
-        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        _report->warning( op->sloc, "arithmetic on constant will throw at runtime" );
         return false;
     }
 }
@@ -429,7 +430,7 @@ bool ir_fold::fold_biarithmetic( ir_op* op )
     }
     else
     {
-        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        _report->warning( op->sloc, "arithmetic on constant will throw at runtime" );
         return false;
     }
 }
@@ -463,7 +464,7 @@ bool ir_fold::fold_concat( ir_op* op )
     }
     else
     {
-        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        _report->warning( op->sloc, "arithmetic on constant will throw at runtime" );
         return false;
     }
 }
@@ -551,7 +552,7 @@ bool ir_fold::fold_compare( ir_op* op )
     }
     else
     {
-        _source->warning( op->sloc, "arithmetic on constant will throw at runtime" );
+        _report->warning( op->sloc, "arithmetic on constant will throw at runtime" );
         return false;
     }
 

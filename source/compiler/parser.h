@@ -22,7 +22,7 @@ class parser
 {
 public:
 
-    parser( source* source, lexer* lexer );
+    parser( report* report, lexer* lexer );
     ~parser();
 
     std::unique_ptr< ast_script > parse();
@@ -51,7 +51,7 @@ public:
 
 private:
 
-    source* _source;
+    report* _report;
     lexer* _lexer;
     void* _yyp;
     token _token;

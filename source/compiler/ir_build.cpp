@@ -13,8 +13,8 @@
 namespace kf
 {
 
-ir_build::ir_build( source* source )
-    :   _source( source )
+ir_build::ir_build( report* report )
+    :   _report( report )
     ,   _block_index( IR_INVALID_INDEX )
 {
 }
@@ -1400,7 +1400,7 @@ unsigned ir_build::rval_list( ast_node_index node, unsigned unpack )
 
     if ( rvcount != unpack )
     {
-        _source->error( node->sloc, "internal: mismatched rval count %d, expected %d", rvcount, unpack );
+        _report->error( node->sloc, "internal: mismatched rval count %d, expected %d", rvcount, unpack );
         for ( ; rvcount < unpack; rvcount += 1 )
         {
             _o.push_back( { IR_O_NONE } );
@@ -1518,7 +1518,7 @@ ir_operand ir_build::assign( ast_node_index lval, ir_operand rval )
     }
     else
     {
-        _source->error( lval->sloc, "internal: lhs is not assignable" );
+        _report->error( lval->sloc, "internal: lhs is not assignable" );
         return rval;
     }
 }

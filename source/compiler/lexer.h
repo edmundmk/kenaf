@@ -46,13 +46,14 @@ class lexer
 {
 public:
 
-    explicit lexer( source* source );
+    lexer( report* report, source* source );
     ~lexer();
 
     token lex();
 
 private:
 
+    report* _report;
     source* _source;
     size_t _index;
     std::vector< char > _text;

@@ -29,7 +29,7 @@ class ir_build
 {
 public:
 
-    explicit ir_build( source* source );
+    explicit ir_build( report* report );
     ~ir_build();
 
     std::unique_ptr< ir_function > build( ast_function* function );
@@ -103,7 +103,7 @@ private:
     void seal_loop( ir_block_index loop_header );
 
     // Function under construction.
-    source* _source;
+    report* _report;
     std::unique_ptr< ir_function > _f;
 
     // Operand stack.

@@ -20,16 +20,11 @@ namespace kf
 source::source()
     :   text( SOURCE_LOOKAHEAD, '\0' )
     ,   newlines{ 0 }
-    ,   has_error( false )
 {
 }
 
 source::~source()
 {
-    for ( source_string* s : strings )
-    {
-        free( s );
-    }
 }
 
 void source::append( const void* data, size_t size )
@@ -53,7 +48,7 @@ const source_string* source::new_string( const char* text, size_t size )
     source_string* s = (source_string*)malloc( sizeof( source_string ) + size );
     s->size = size;
     memcpy( (char*)s->text, text, size );
-    strings.push_back( s );
+    strings.push_back( source_string_ptr( s ) );
     return s;
 }
 
@@ -63,7 +58,7 @@ const source_string* source::new_string( const char* atext, size_t asize, const 
     s->size = asize + bsize;
     memcpy( (char*)s->text, atext, asize );
     memcpy( (char*)s->text + asize, btext, bsize );
-    strings.push_back( s );
+    strings.push_back( source_string_ptr( s ) );
     return s;
 }
 
@@ -73,7 +68,31 @@ source_location source::location( srcloc sloc ) const
     return { (unsigned)( i - newlines.begin() + 1 ), (unsigned)( sloc - *i + 1 ) };
 }
 
-void source::error( srcloc sloc, const char* message, ... )
+errors::errors()
+{
+}
+
+errors::~errors()
+{
+}
+
+void errors::reset()
+{
+    diagnostics.clear();
+    has_error = false;
+}
+
+report::report( struct source* source, struct errors* errors )
+    :   source( source )
+    ,   errors( errors )
+{
+}
+
+report::~report()
+{
+}
+
+void report::error( srcloc sloc, const char* message, ... )
 {
     va_list ap;
     va_start( ap, message );
@@ -81,12 +100,12 @@ void source::error( srcloc sloc, const char* message, ... )
     va_end( ap );
 }
 
-void source::error( srcloc sloc, const char* message, va_list ap )
+void report::error( srcloc sloc, const char* message, va_list ap )
 {
     diagnostic( ERROR, sloc, message, ap );
 }
 
-void source::warning( srcloc sloc, const char* message, ... )
+void report::warning( srcloc sloc, const char* message, ... )
 {
     va_list ap;
     va_start( ap, message );
@@ -94,12 +113,12 @@ void source::warning( srcloc sloc, const char* message, ... )
     va_end( ap );
 }
 
-void source::warning( srcloc sloc, const char* message, va_list ap )
+void report::warning( srcloc sloc, const char* message, va_list ap )
 {
     diagnostic( WARNING, sloc, message, ap );
 }
 
-void source::diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap )
+void report::diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap )
 {
     va_list aq;
 
@@ -114,9 +133,9 @@ void source::diagnostic( diagnostic_kind kind, srcloc sloc, const char* message,
     va_end( aq );
 
     text.pop_back();
-    source_location l = location( sloc );
-    diagnostics.push_back( { kind, { l.line, l.column }, std::move( text ) } );
-    has_error = has_error || kind == ERROR;
+    source_location l = source->location( sloc );
+    errors->diagnostics.push_back( { kind, { l.line, l.column }, std::move( text ) } );
+    errors->has_error |= kind == ERROR;
 }
 
 }

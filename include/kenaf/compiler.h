@@ -46,7 +46,9 @@ KF_API void release_compiler( compiler* c );
     Compilation.
 */
 
-KF_API bool compile( compiler* c, std::string_view path, std::string_view text );
+KF_API void source_path( compiler* c, std::string_view path );
+KF_API void source_text( compiler* c, std::string_view text );
+KF_API bool compile( compiler* c );
 
 /*
     Result of successful compilation is a bytecode block.  This is a block of

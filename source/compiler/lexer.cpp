@@ -117,8 +117,9 @@ std::string spelling( const token& token )
     Lexer.
 */
 
-lexer::lexer( source* source )
-    :   _source( source )
+lexer::lexer( report* report, source* source )
+    :   _report( report )
+    ,   _source( source )
     ,   _index( 0 )
 {
 }
@@ -231,7 +232,7 @@ token lexer::lex()
                 {
                     if ( c == '\0' && eof() )
                     {
-                        _source->error( sloc, "unterminated block comment" );
+                        _report->error( sloc, "unterminated block comment" );
                         break;
                     }
                     else if ( c == '\r' || c == '\n' )
@@ -346,7 +347,7 @@ token lexer::lex()
         if ( c >= 0x20 && c < 0x7F )
         {
             // Printable ASCII character.
-            _source->error( sloc, "unexpected character '%c'", c );
+            _report->error( sloc, "unexpected character '%c'", c );
             next();
             continue;
         }
@@ -370,14 +371,14 @@ token lexer::lex()
             if ( utf8_size == char_size )
             {
                 const char* text = &_source->text[ _index ];
-                _source->error( sloc, "unexpected character '%.*s'", char_size, text );
+                _report->error( sloc, "unexpected character '%.*s'", char_size, text );
                 next( char_size );
                 continue;
             }
         }
 
         // Non-printable character.
-        _source->error( sloc, "unexpected character '\\x%02X'", c );
+        _report->error( sloc, "unexpected character '\\x%02X'", c );
         next();
     }
 }
@@ -481,7 +482,7 @@ token lexer::lex_number()
         }
         else if ( peek( 1 ) >= '0' && peek( 1 ) <= '9' )
         {
-            _source->error( sloc, "invalid C-style octal literal" );
+            _report->error( sloc, "invalid C-style octal literal" );
         }
     }
 
@@ -511,7 +512,7 @@ token lexer::lex_number()
 
     if ( ! has_digit )
     {
-        _source->error( sloc, "numeric literal has no digits" );
+        _report->error( sloc, "numeric literal has no digits" );
     }
 
     if ( ( base == 10 && c == 'e' ) || ( base == 16 && c == 'p' ) )
@@ -528,7 +529,7 @@ token lexer::lex_number()
 
         if ( digit( c ) >= 10 )
         {
-            _source->error( sloc, "missing exponent in numeric literal" );
+            _report->error( sloc, "missing exponent in numeric literal" );
         }
 
         while ( digit( c ) < 10 )
@@ -540,7 +541,7 @@ token lexer::lex_number()
 
     if ( digit( c ) < INT_MAX )
     {
-        _source->error( _index, "invalid suffix on numeric literal" );
+        _report->error( _index, "invalid suffix on numeric literal" );
     }
 
     double n;
@@ -653,13 +654,13 @@ token lexer::lex_string()
                 }
                 else
                 {
-                    _source->error( xloc, "Unicode escape must have form 'U+000000'" );
+                    _report->error( xloc, "Unicode escape must have form 'U+000000'" );
                     _text.push_back( 'U' );
                 }
                 break;
 
             default:
-                _source->error( xloc, "invalid string escape" );
+                _report->error( xloc, "invalid string escape" );
                 _text.push_back( c );
                 c = next();
                 break;
@@ -669,14 +670,14 @@ token lexer::lex_string()
         }
         else if ( c == '\r' || c == '\n' )
         {
-            _source->error( sloc, "newline in string" );
+            _report->error( sloc, "newline in string" );
             _text.push_back( '\n' );
             source = false;
             c = newline();
         }
         else if ( c == '\0' && eof() )
         {
-            _source->error( sloc, "end of file in string" );
+            _report->error( sloc, "end of file in string" );
             break;
         }
         else
@@ -727,7 +728,7 @@ char lexer::string_hex( char c, size_t count, unsigned* x )
         }
         else
         {
-            _source->error( _index, "invalid hexadecimal escape" );
+            _report->error( _index, "invalid hexadecimal escape" );
             break;
         }
         c = next();
@@ -767,7 +768,7 @@ void lexer::string_utf8( srcloc xloc, unsigned codepoint )
         _text.push_back( 0xBD );
 
         // Report error.
-        _source->error( xloc, "invalid Unir codepoint U+%06X", codepoint );
+        _report->error( xloc, "invalid Unir codepoint U+%06X", codepoint );
     }
 }
 

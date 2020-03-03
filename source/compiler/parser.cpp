@@ -21,8 +21,8 @@ void KenafParseTrace( FILE* TraceFILE, char* zTracePrompt );
 namespace kf
 {
 
-parser::parser( source* source, lexer* lexer )
-    :   _source( source )
+parser::parser( report* report, lexer* lexer )
+    :   _report( report )
     ,   _lexer( lexer )
     ,   _yyp( KenafParseAlloc( malloc ) )
 {
@@ -61,8 +61,8 @@ std::unique_ptr< ast_script > parser::parse()
 #ifndef NDEBUG
         if ( trace )
         {
-            source_location location = _source->location( _token.sloc );
-            printf( "%s:%u:%u: %s\n", _source->filename.c_str(), location.line, location.column, spelling( _token ).c_str() );
+            source_location location = _report->source->location( _token.sloc );
+            printf( "%s:%u:%u: %s\n", _report->source->path.c_str(), location.line, location.column, spelling( _token ).c_str() );
         }
 #endif
 
@@ -79,14 +79,14 @@ std::unique_ptr< ast_script > parser::parse()
 
 void parser::syntax_error( token token )
 {
-    _source->error( token.sloc, "unexpected %s", spelling( token ).c_str() );
+    _report->error( token.sloc, "unexpected %s", spelling( token ).c_str() );
 }
 
 void parser::error( srcloc sloc, const char* message, ... )
 {
     va_list ap;
     va_start( ap, message );
-    _source->error( sloc, message, ap );
+    _report->error( sloc, message, ap );
     va_end( ap );
 }
 
@@ -210,7 +210,7 @@ void parser::check_generator( srcloc sloc )
 {
     if ( ! _fstack.back()->is_generator )
     {
-        _source->error( sloc, "cannot yield from a non-generator function" );
+        _report->error( sloc, "cannot yield from a non-generator function" );
     }
 }
 

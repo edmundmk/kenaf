@@ -76,7 +76,7 @@ class ast_resolve
 {
 public:
 
-    ast_resolve( source* source, ast_script* ast_script );
+    ast_resolve( report* report, ast_script* ast_script );
     ~ast_resolve();
 
     void resolve();
@@ -122,7 +122,7 @@ private:
 
     scope* loop_scope();
 
-    source* _source;
+    report* _report;
     ast_script* _ast_script;
     std::vector< std::unique_ptr< scope > > _scopes;
 };

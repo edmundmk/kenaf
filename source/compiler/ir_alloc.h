@@ -30,7 +30,7 @@ class ir_alloc
 {
 public:
 
-    ir_alloc( source* source );
+    explicit ir_alloc( report* report );
     ~ir_alloc();
 
     void alloc( ir_function* function );
@@ -80,7 +80,7 @@ private:
 
     void debug_print() const;
 
-    source* _source;
+    report* _report;
     ir_function* _f;
 
     // Live ranges for local values, which have holes.

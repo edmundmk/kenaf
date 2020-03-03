@@ -33,8 +33,8 @@ inline bool ast_resolve::scope::is_repeat() const
     return kind == AST_STMT_REPEAT;
 }
 
-ast_resolve::ast_resolve( source* source, ast_script* ast_script )
-    :   _source( source )
+ast_resolve::ast_resolve( report* report, ast_script* ast_script )
+    :   _report( report )
     ,   _ast_script( ast_script )
 {
 }
@@ -234,7 +234,7 @@ void ast_resolve::visit( ast_function* f, ast_node_index node )
         scope* loop = loop_scope();
         if ( ! loop )
         {
-            _source->error( node->sloc, "invalid 'break' outside of loop" );
+            _report->error( node->sloc, "invalid 'break' outside of loop" );
         }
         return;
     };
@@ -253,7 +253,7 @@ void ast_resolve::visit( ast_function* f, ast_node_index node )
         }
         else
         {
-            _source->error( node->sloc, "invalid 'continue' outside of loop" );
+            _report->error( node->sloc, "invalid 'continue' outside of loop" );
         }
         return;
     }
@@ -418,9 +418,9 @@ void ast_resolve::declare( ast_function* f, ast_node_index name_list )
         if ( i != scope->variables.end() )
         {
             if ( i->second.is_outenv )
-                _source->error( name->sloc, "redeclaration of captured variable '%.*s'", (int)text.size(), text.data() );
+                _report->error( name->sloc, "redeclaration of captured variable '%.*s'", (int)text.size(), text.data() );
             else
-                _source->error( name->sloc, "redeclaration of '%.*s'", (int)text.size(), text.data() );
+                _report->error( name->sloc, "redeclaration of '%.*s'", (int)text.size(), text.data() );
             continue;
         }
 
@@ -479,7 +479,7 @@ void ast_resolve::lookup( ast_function* f, ast_node_index name, lookup_context c
             // Can't assign to a bare global.
             if ( context == LOOKUP_ASSIGN )
             {
-                _source->error( name->sloc, "cannot assign to undeclared identifier '%.*s'", (int)text.size(), text.data() );
+                _report->error( name->sloc, "cannot assign to undeclared identifier '%.*s'", (int)text.size(), text.data() );
             }
 
             return;
@@ -491,13 +491,13 @@ void ast_resolve::lookup( ast_function* f, ast_node_index name, lookup_context c
     // Check for continue/until scope restriction.
     if ( current_scope->repeat_until && v->after_continue )
     {
-        _source->error( name->sloc, "variable '%.*s', declared after continue, cannot be used in until expression", (int)text.size(), text.data() );
+        _report->error( name->sloc, "variable '%.*s', declared after continue, cannot be used in until expression", (int)text.size(), text.data() );
     }
 
     // Can't assign to super.
     if ( context == LOOKUP_ASSIGN && v->implicit_super )
     {
-        _source->error( name->sloc, "cannot assign to 'super'" );
+        _report->error( name->sloc, "cannot assign to 'super'" );
     }
 
     // Found in scope at scope_index.
@@ -511,18 +511,18 @@ void ast_resolve::lookup( ast_function* f, ast_node_index name, lookup_context c
     {
         if ( context != LOOKUP_UNPACK )
         {
-            _source->error( name->sloc, "variable argument parameter '%.*s' cannot be used in an expression", (int)text.size(), text.data() );
+            _report->error( name->sloc, "variable argument parameter '%.*s' cannot be used in an expression", (int)text.size(), text.data() );
         }
 
         if ( vscope->function != current_scope->function )
         {
-            _source->error( name->sloc, "variable argument parameter '%.*s' cannot be captured by a closure", (int)text.size(), text.data() );
+            _report->error( name->sloc, "variable argument parameter '%.*s' cannot be captured by a closure", (int)text.size(), text.data() );
         }
     }
 
     if ( v->implicit_super && vscope->function != current_scope->function )
     {
-        _source->error( name->sloc, "'super' cannot be captured by a closure" );
+        _report->error( name->sloc, "'super' cannot be captured by a closure" );
     }
 
     // Capture into inner function.

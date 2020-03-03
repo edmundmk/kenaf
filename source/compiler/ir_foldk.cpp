@@ -16,11 +16,11 @@
 namespace kf
 {
 
-ir_foldk::ir_foldk( source* source )
-    :   _source( source )
+ir_foldk::ir_foldk( report* report )
+    :   _report( report )
     ,   _f( nullptr )
 {
-    (void)_source;
+    (void)_report;
 }
 
 ir_foldk::~ir_foldk()

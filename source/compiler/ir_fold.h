@@ -31,7 +31,7 @@ class ir_fold
 {
 public:
 
-    explicit ir_fold( source* source );
+    explicit ir_fold( report* report, source* source );
     ~ir_fold();
 
     void fold( ir_function* function );
@@ -68,6 +68,7 @@ private:
 
     void remove_unreachable_blocks();
 
+    report* _report;
     source* _source;
     ir_function* _f;
     std::vector< ir_operand > _stack;

@@ -77,11 +77,11 @@ namespace kf
     order.
 */
 
-ir_alloc::ir_alloc( source* source )
-    :   _source( source )
+ir_alloc::ir_alloc( report* report )
+    :   _report( report )
     ,   _f( nullptr )
 {
-    (void)_source;
+    (void)_report;
 }
 
 ir_alloc::~ir_alloc()
