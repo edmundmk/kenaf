@@ -552,7 +552,7 @@ void execute( vmachine* vm, xstate state )
             {
                 array_object* array = (array_object*)unbox_object( u );
                 if ( ! box_is_number( v ) ) goto type_error_b_number;
-                r[ op.r ] = array_getindex( vm, array, (size_t)(int64_t)unbox_number( v ) );
+                r[ op.r ] = array_getindex( vm, array, (size_t)(intptr_t)unbox_number( v ) );
                 INEXT;
             }
             else if ( type == TABLE_OBJECT )
@@ -565,7 +565,7 @@ void execute( vmachine* vm, xstate state )
         else if ( box_is_string( u ) )
         {
             string_object* string = unbox_string( u );
-            r[ op.r ] = box_string( string_getindex( vm, string, (size_t)(int64_t)unbox_number( v ) ) );
+            r[ op.r ] = box_string( string_getindex( vm, string, (size_t)(intptr_t)unbox_number( v ) ) );
             INEXT;
         }
         goto type_error_a_indexable;
@@ -610,7 +610,7 @@ void execute( vmachine* vm, xstate state )
             {
                 array_object* array = (array_object*)unbox_object( u );
                 if ( ! box_is_number( v ) ) goto type_error_b_number;
-                array_setindex( vm, array, (size_t)(int64_t)unbox_number( v ), r[ op.r ] );
+                array_setindex( vm, array, (size_t)(intptr_t)unbox_number( v ), r[ op.r ] );
                 INEXT;
             }
             else if ( type == TABLE_OBJECT )

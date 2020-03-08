@@ -37,10 +37,12 @@ struct array_object : public object
 
 array_object* array_new( vmachine* vm, size_t capacity );
 value array_getindex( vmachine* vm, array_object* array, size_t index );
-void array_setindex( vmachine* vm, array_object* array, size_t index, value value );
+value array_setindex( vmachine* vm, array_object* array, size_t index, value value );
 void array_resize( vmachine* vm, array_object* array, size_t length );
-void array_append( vmachine* vm, array_object* array, value value );
+value array_append( vmachine* vm, array_object* array, value value );
 void array_extend( vmachine* vm, array_object* array, const value* values, size_t vcount );
+value array_insert( vmachine* vm, array_object* array, size_t index, value value );
+value array_remove( vmachine* vm, array_object* array, size_t index );
 void array_clear( vmachine* vm, array_object* array );
 
 /*
@@ -59,7 +61,7 @@ inline value array_getindex( vmachine* vm, array_object* array, size_t index )
     }
 }
 
-inline void array_setindex( vmachine* vm, array_object* array, size_t index, value value )
+inline value array_setindex( vmachine* vm, array_object* array, size_t index, value value )
 {
     if ( index < array->length )
     {
@@ -69,6 +71,7 @@ inline void array_setindex( vmachine* vm, array_object* array, size_t index, val
     {
         throw index_error( "array index out of range" );
     }
+    return value;
 }
 
 };

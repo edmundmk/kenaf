@@ -46,6 +46,8 @@ namespace kf
         def resize( n ) end
         def append( n ) end
         def extend( x ... ) end
+        def insert( i, v ) end
+        def remove( i ) end
         def pop() end
         def clear() end
     end
@@ -165,13 +167,17 @@ static size_t string_self( void* cookie, frame* frame, const value* arguments, s
     return result( frame, v );
 }
 
+static inline size_t array_index( value v )
+{
+    if ( ! box_is_number( v ) ) throw type_error( v, "a number" );
+    return (size_t)(intptr_t)unbox_number( v );
+}
+
 static size_t array_resize( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    value n = arguments[ 1 ];
     if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
-    if ( ! box_is_number( n ) ) throw type_error( n, "a number" );
-    array_resize( (vmachine*)cookie, (array_object*)unbox_object( a ), (size_t)(uint64_t)get_number( n ) );
+    array_resize( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ) );
     return rvoid( frame );
 }
 
@@ -179,8 +185,8 @@ static size_t array_append( void* cookie, frame* frame, const value* arguments, 
 {
     value a = arguments[ 0 ];
     if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
-    array_append( (vmachine*)cookie, (array_object*)unbox_object( a ), arguments[ 1 ] );
-    return rvoid( frame );
+    value v = array_append( (vmachine*)cookie, (array_object*)unbox_object( a ), arguments[ 1 ] );
+    return result( frame, v );
 }
 
 static size_t array_extend( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -189,6 +195,22 @@ static size_t array_extend( void* cookie, frame* frame, const value* arguments, 
     if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
     array_extend( (vmachine*)cookie, (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
     return rvoid( frame );
+}
+
+static size_t array_insert( void* cookie, frame* frame, const value* arguments, size_t argcount )
+{
+    value a = arguments[ 0 ];
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    value v = array_insert( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ), arguments[ 2 ] );
+    return result( frame, v );
+}
+
+static size_t array_remove( void* cookie, frame* frame, const value* arguments, size_t argcount )
+{
+    value a = arguments[ 0 ];
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    value v = array_remove( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ) );
+    return result( frame, v );
 }
 
 static size_t array_pop( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -305,6 +327,8 @@ void expose_corobjects( vmachine* vm )
         set_key( box_object( proto_array ), "resize", create_function( "array.resize", array_resize, vm, 2 ) );
         set_key( box_object( proto_array ), "append", create_function( "array.append", array_append, vm, 2 ) );
         set_key( box_object( proto_array ), "extend", create_function( "array.extend", array_extend, vm, 1, PARAM_VARARG ) );
+        set_key( box_object( proto_array ), "insert", create_function( "array.insert", array_insert, vm, 3 ) );
+        set_key( box_object( proto_array ), "remove", create_function( "array.remove", array_remove, vm, 2 ) );
         set_key( box_object( proto_array ), "pop", create_function( "array.pop", array_pop, vm, 1 ) );
         set_key( box_object( proto_array ), "clear", create_function( "array.clear", array_clear, vm, 1 ) );
         lookup_seal( vm, proto_array );
