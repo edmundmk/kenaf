@@ -160,8 +160,9 @@ void release_context( context* c )
     }
 }
 
-void set_context_value( context* c, size_t index, value v )
+void set_context_value( size_t index, value v )
 {
+    context* c = current_runtime->current_context;
     c->vc.values.resize( std::max( c->vc.values.size(), index + 1 ), boxed_null );
     value u = c->vc.values.at( index );
     if ( box_is_object_or_string( v ) ) object_retain( &c->runtime->vm, unbox_object_or_string( v ) );
@@ -169,8 +170,9 @@ void set_context_value( context* c, size_t index, value v )
     c->vc.values[ index ] = v;
 }
 
-value get_context_value( context* c, size_t index )
+value get_context_value( size_t index )
 {
+    context* c = current_runtime->current_context;
     if ( index < c->vc.values.size() )
         return c->vc.values[ index ];
     else

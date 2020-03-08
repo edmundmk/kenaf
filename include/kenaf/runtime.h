@@ -68,8 +68,8 @@ KF_API void release_context( context* c );
 KF_API context* make_current( context* c );
 KF_API value global_object();
 
-KF_API void set_context_value( context* c, size_t index, value v );
-KF_API value get_context_value( context* c, size_t index );
+KF_API void set_context_value( size_t index, value v );
+KF_API value get_context_value( size_t index );
 
 /*
     Values.
