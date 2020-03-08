@@ -51,6 +51,9 @@ KF_API runtime* create_runtime();
 KF_API runtime* retain_runtime( runtime* r );
 KF_API void release_runtime( runtime* r );
 
+KF_API void set_runtime_value( runtime* r, size_t index, value v );
+KF_API value get_runtime_value( runtime* r, size_t index );
+
 /*
     A context consists of a runtime and a global object.  Contexts on the same
     runtime can share values.
@@ -64,6 +67,9 @@ KF_API void release_context( context* c );
 
 KF_API context* make_current( context* c );
 KF_API value global_object();
+
+KF_API void set_context_value( context* c, size_t index, value v );
+KF_API value get_context_value( context* c, size_t index );
 
 /*
     Values.

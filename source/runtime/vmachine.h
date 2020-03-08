@@ -216,9 +216,17 @@ struct vcontext
     vcontext();
     ~vcontext();
 
+    // Current cothread, and cothread execution stack.
     cothread_object* cothread;
-    lookup_object* global_object;
     std::vector< cothread_object* > cothread_stack;
+
+    // Global object.
+    lookup_object* global_object;
+
+    // Context values.
+    std::vector< value > values;
+
+    // Linked list of contexts.
     vcontext* next;
     vcontext* prev;
 };
@@ -250,6 +258,9 @@ struct vmachine
 
     // Unique u64vals.
     hash_table< uint64_t, u64val_object* > u64vals;
+
+    // Runtime values.
+    std::vector< value > values;
 
     // List of root objects.
     hash_table< object*, size_t > roots;

@@ -76,9 +76,35 @@ void release_runtime( runtime* r )
         {
             make_current( nullptr );
         }
+
+        for ( value v : r->vm.values )
+        {
+            if ( box_is_object_or_string( v ) )
+            {
+                object_release( &r->vm, unbox_object_or_string( v ) );
+            }
+        }
+
         stop_collector( &r->vm );
         delete r;
     }
+}
+
+void set_runtime_value( runtime* r, size_t index, value v )
+{
+    r->vm.values.resize( std::max( r->vm.values.size(), index + 1 ), boxed_null );
+    value u = r->vm.values.at( index );
+    if ( box_is_object_or_string( v ) ) object_retain( &r->vm, unbox_object_or_string( v ) );
+    if ( box_is_object_or_string( u ) ) object_release( &r->vm, unbox_object_or_string( u ) );
+    r->vm.values[ index ] = v;
+}
+
+value get_runtime_value( runtime* r, size_t index )
+{
+    if ( index < r->vm.values.size() )
+        return r->vm.values[ index ];
+    else
+        return boxed_null;
 }
 
 context* create_context( runtime* r )
@@ -119,10 +145,36 @@ void release_context( context* c )
         {
             make_current( nullptr );
         }
+
+        for ( value v : c->vc.values )
+        {
+            if ( box_is_object_or_string( v ) )
+            {
+                object_release( &c->runtime->vm, unbox_object_or_string( v ) );
+            }
+        }
+
         unlink_vcontext( &c->runtime->vm, &c->vc );
         release_runtime( c->runtime );
         delete c;
     }
+}
+
+void set_context_value( context* c, size_t index, value v )
+{
+    c->vc.values.resize( std::max( c->vc.values.size(), index + 1 ), boxed_null );
+    value u = c->vc.values.at( index );
+    if ( box_is_object_or_string( v ) ) object_retain( &c->runtime->vm, unbox_object_or_string( v ) );
+    if ( box_is_object_or_string( u ) ) object_release( &c->runtime->vm, unbox_object_or_string( u ) );
+    c->vc.values[ index ] = v;
+}
+
+value get_context_value( context* c, size_t index )
+{
+    if ( index < c->vc.values.size() )
+        return c->vc.values[ index ];
+    else
+        return boxed_null;
 }
 
 context* make_current( context* c )
