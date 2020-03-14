@@ -28,8 +28,8 @@ struct compiler
 {
     intptr_t refcount;
     unsigned debug_print;
-    std::unique_ptr< errors > errors;
-    std::unique_ptr< source > source;
+    std::unique_ptr< struct errors > errors;
+    std::unique_ptr< struct source > source;
     code_script_ptr code;
 };
 

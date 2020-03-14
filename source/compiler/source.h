@@ -41,8 +41,8 @@ struct source_string
     const char text[];
 };
 
-struct source_string_free { void operator () ( void* p ) { free( p ); } };
-typedef std::unique_ptr< source_string > source_string_ptr;
+struct source_string_deleter { void operator () ( void* p ) const { free( p ); } };
+typedef std::unique_ptr< source_string, source_string_deleter > source_string_ptr;
 
 /*
     Diagnostics.
@@ -104,7 +104,7 @@ struct errors
 
 struct report
 {
-    report( source* source, errors* errors );
+    report( struct source* source, errors* errors );
     ~report();
 
     void error( srcloc sloc, const char* message, ... ) KF_PRINTF_FORMAT( 3, 4 );
@@ -113,8 +113,8 @@ struct report
     void warning( srcloc sloc, const char* message, va_list ap );
     void diagnostic( diagnostic_kind kind, srcloc sloc, const char* message, va_list ap );
 
-    source* source;
-    errors* errors;
+    struct source* source;
+    struct errors* errors;
 };
 
 }

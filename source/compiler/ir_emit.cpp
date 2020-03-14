@@ -754,7 +754,7 @@ unsigned ir_emit::with_stacked( unsigned op_index, const ir_op* iop )
     }
 
     // Emit.
-    emit( iop->sloc, op::op_ab( opcode, iop->s, a, b ) );
+    emit( iop->sloc, op::op_ab( opcode, r, a, b ) );
 
     // Move single result if necessary.
     if ( m != IR_INVALID_REGISTER )
