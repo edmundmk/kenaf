@@ -783,14 +783,6 @@ void execute( vmachine* vm, xstate state )
     LABEL( OP_CALLR ):
     LABEL( OP_YCALL ):
     {
-        /*
-            Object types that you can call:
-                Lookup Objects  Get self method and pass a new object to it plus parameters.
-                Functions       Construct call frame for function, continue.
-                Generators      Create cothread for generator, assign initial parameters.
-                Cothreads       Push cothread on stack, resume yielded cothread.
-        */
-
         // First determine rp:xp for arguments.
         unsigned rp = op.r;
         if ( op.a != OP_STACK_MARK )

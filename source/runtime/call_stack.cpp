@@ -57,6 +57,14 @@ bool call_value( vmachine* vm, value u, unsigned rp, unsigned xp, bool ycall, xs
     if ( ! box_is_object( u ) ) return false;
     type_code type = header( unbox_object( u ) )->type;
 
+    /*
+        Object types that you can call:
+            Lookup Objects  Get self method and pass a new object to it plus parameters.
+            Functions       Construct call frame for function, continue.
+            Generators      Create cothread for generator, assign initial parameters.
+            Cothreads       Push cothread on stack, resume yielded cothread.
+    */
+
     if ( type == FUNCTION_OBJECT )
     {
         function_object* callee_function = (function_object*)unbox_object( u );
