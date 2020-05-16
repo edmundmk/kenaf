@@ -15,6 +15,7 @@
     How we build the code description.
 */
 
+#include <stdlib.h>
 #include <memory>
 #include <vector>
 #include "../common/code.h"

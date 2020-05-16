@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <assert.h>
+#include <stdio.h>
 #include <new>
 #include <functional>
 
