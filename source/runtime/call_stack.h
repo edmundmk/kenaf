@@ -75,6 +75,7 @@ value* entire_stack( vmachine* vm );
     Functions that perform calls and returns.
 */
 
+bool call_value( vmachine* vm, value u, unsigned rp, unsigned xp, bool ycall, xstate* out_state );
 xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsigned xp );
 xstate call_native( vmachine* vm, native_function_object* function, unsigned rp, unsigned xp );
 xstate call_generator( vmachine* vm, function_object* function, unsigned rp, unsigned xp );

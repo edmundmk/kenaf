@@ -814,43 +814,8 @@ void execute( vmachine* vm, xstate state )
             stack_frame->rr = op.r;
         }
 
-        // Find called object.
-        value w = r[ op.r ];
-        if ( ! box_is_object( w ) ) goto type_error_r_callable;
-        type_code type = header( unbox_object( w ) )->type;
-
         xstate state;
-        if ( type == FUNCTION_OBJECT )
-        {
-            function_object* callee_function = (function_object*)unbox_object( w );
-            program_object* callee_program = read( callee_function->program );
-            if ( op.opcode == OP_YCALL || ( callee_program->code_flags & CODE_GENERATOR ) == 0 )
-            {
-                state = call_function( vm, callee_function, rp, xp );
-            }
-            else
-            {
-                state = call_generator( vm, callee_function, rp, xp );
-            }
-        }
-        else if ( type == NATIVE_FUNCTION_OBJECT )
-        {
-            native_function_object* callee_function = (native_function_object*)unbox_object( w );
-            state = call_native( vm, callee_function, rp, xp );
-        }
-        else if ( type == COTHREAD_OBJECT )
-        {
-            // Resume yielded cothread.
-            cothread_object* callee_cothread = (cothread_object*)unbox_object( w );
-            state = call_cothread( vm, callee_cothread, rp, xp );
-        }
-        else if ( type == LOOKUP_OBJECT )
-        {
-            // Call prototype constructor.
-            lookup_object* callee_prototype = (lookup_object*)unbox_object( w );
-            state = call_prototype( vm, callee_prototype, rp, xp );
-        }
-        else
+        if ( ! call_value( vm, r[ op.r ], rp, xp, op.opcode == OP_YCALL, &state ) )
         {
             goto type_error_r_callable;
         }

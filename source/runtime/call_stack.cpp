@@ -52,6 +52,58 @@ value* entire_stack( vmachine* vm )
     return cothread->stack.data();
 }
 
+bool call_value( vmachine* vm, value u, unsigned rp, unsigned xp, bool ycall, xstate* out_state )
+{
+    if ( ! box_is_object( u ) ) return false;
+    type_code type = header( unbox_object( u ) )->type;
+
+    if ( type == FUNCTION_OBJECT )
+    {
+        function_object* callee_function = (function_object*)unbox_object( u );
+
+        // Check for generator.
+        if ( ! ycall )
+        {
+            program_object* callee_program = read( callee_function->program );
+            if ( ( callee_program->code_flags & CODE_GENERATOR ) != 0 )
+            {
+                *out_state = call_generator( vm, callee_function, rp, xp );
+                return true;
+            }
+        }
+
+        // Call normal function.
+        *out_state = call_function( vm, callee_function, rp, xp );
+        return true;
+    }
+
+    if ( type == NATIVE_FUNCTION_OBJECT )
+    {
+        // Call native function.
+        native_function_object* callee_function = (native_function_object*)unbox_object( u );
+        *out_state = call_native( vm, callee_function, rp, xp );
+        return true;
+    }
+
+    if ( type == COTHREAD_OBJECT )
+    {
+        // Resume yielded cothread.
+        cothread_object* callee_cothread = (cothread_object*)unbox_object( u );
+        *out_state = call_cothread( vm, callee_cothread, rp, xp );
+        return true;
+    }
+
+    if ( type == LOOKUP_OBJECT )
+    {
+        // Call prototype constructor.
+        lookup_object* callee_prototype = (lookup_object*)unbox_object( u );
+        *out_state = call_prototype( vm, callee_prototype, rp, xp );
+        return true;
+    }
+
+    return false;
+}
+
 xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsigned xp )
 {
     /*

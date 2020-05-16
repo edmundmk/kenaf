@@ -664,47 +664,15 @@ stack_values call_frame( frame* frame, value function )
     value* r = cothread->stack.data() + frame->fp;
     r[ 0 ] = function;
 
-    if ( ! box_is_object( function ) ) throw type_error( function, "callable" );
-    type_code type = header( unbox_object( function ) )->type;
-    if ( type == FUNCTION_OBJECT )
-    {
-        function_object* callee_function = (function_object*)unbox_object( function );
-        program_object* callee_program = read( callee_function->program );
-        if ( ( callee_program->code_flags & CODE_GENERATOR ) == 0 )
-        {
-            xstate state = call_function( vm, callee_function, 0, xp );
-            execute( vm, state );
-        }
-        else
-        {
-            xstate state = call_generator( vm, callee_function, 0, xp );
-            assert( state.function == nullptr );
-        }
-    }
-    else if ( type == NATIVE_FUNCTION_OBJECT )
-    {
-        native_function_object* callee_function = (native_function_object*)unbox_object( function );
-        xstate state = call_native( vm, callee_function, 0, xp );
-        assert( state.function == nullptr );
-    }
-    else if ( type == COTHREAD_OBJECT )
-    {
-        cothread_object* callee_cothread = (cothread_object*)unbox_object( function );
-        xstate state = call_cothread( vm, callee_cothread, 0, xp );
-        execute( vm, state );
-    }
-    else if ( type == LOOKUP_OBJECT )
-    {
-        lookup_object* callee_prototype = (lookup_object*)unbox_object( function );
-        xstate state = call_prototype( vm, callee_prototype, 0, xp );
-        if ( state.function )
-        {
-            execute( vm, state );
-        }
-    }
-    else
+    xstate state;
+    if ( ! call_value( vm, function, 0, xp, false, &state ) )
     {
         throw type_error( function, "callable" );
+    }
+
+    if ( state.function )
+    {
+        execute( vm, state );
     }
 
     assert( vm->c->cothread == cothread );
