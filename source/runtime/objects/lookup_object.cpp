@@ -323,7 +323,7 @@ void lookup_delkey( vmachine* vm, lookup_object* object, string_object* key )
     for ( auto i = surviving_keys.crbegin(); i != surviving_keys.crend(); ++i )
     {
         layout = next_layout( vm, layout, i->key );
-        assert( layout->sindex = i->sindex - 1 );
+        assert( layout->sindex == i->sindex - 1 );
         write( vm, oslots->slots[ layout->sindex ], read( oslots->slots[ i->sindex ] ) );
     }
 
