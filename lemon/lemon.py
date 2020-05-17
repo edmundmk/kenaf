@@ -5,11 +5,12 @@ import sys
 import subprocess
 
 lemon = sys.argv[ 1 ]
-input = sys.argv[ 2 ]
-output_c = sys.argv[ 3 ]
-output_h = sys.argv[ 4 ]
+lempar = sys.argv[ 2 ]
+input = sys.argv[ 3 ]
+output_c = sys.argv[ 4 ]
+output_h = sys.argv[ 5 ]
 
-subprocess.check_call( [ lemon, input ] )
+subprocess.check_call( [ lemon, "-T" + lempar, input ] )
 
 basename = os.path.splitext( input )[ 0 ]
 os.remove( basename + ".out" )

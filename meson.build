@@ -8,7 +8,7 @@
 #   full license information.
 #
 
-project( 'kenaf', 'cpp', default_options : [ 'cpp_std=c++17' ] )
+project( 'kenaf', 'c', 'cpp', default_options : [ 'cpp_std=c++17' ] )
 
 headers = [
     'include/kenaf/compiler.h',
@@ -57,8 +57,8 @@ sources = [
     'source/runtime/vmachine.cpp',
 ]
 
-lemon = generator( find_program( 'lemon.py' ), output : [ '@BASENAME@.cpp', '@BASENAME@.h' ], arguments : [ find_program( 'lemon' ).path(), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@' ] )
-sources += lemon.process( 'source/compiler/grammar.lemon' )
+subdir( 'lemon' )
+sources += lemon_gen.process( 'source/compiler/grammar.lemon' )
 
 kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compiler' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
 kenaf_lic = files( 'LICENSE' )
