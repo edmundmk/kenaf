@@ -477,24 +477,30 @@ void safepoint_start_sweep( vmachine* vm )
     gc->statistics.tick_sweep_pause = tick() - pause_start;
 }
 
+#ifdef _MSC_VER
+#define INIT( x )
+#else
+#define INIT( x ) [ x ] =
+#endif
+
 const char* const TYPE_NAMES[ TYPE_COUNT ] =
 {
-    [ LOOKUP_OBJECT             ] = "lookup",
-    [ STRING_OBJECT             ] = "string",
-    [ ARRAY_OBJECT              ] = "array",
-    [ TABLE_OBJECT              ] = "table",
-    [ FUNCTION_OBJECT           ] = "function",
-    [ NATIVE_FUNCTION_OBJECT    ] = "fnative",
-    [ COTHREAD_OBJECT           ] = "cothread",
-    [ U64VAL_OBJECT             ] = "u64val",
-    [ NUMBER_OBJECT             ] = nullptr,
-    [ BOOL_OBJECT               ] = nullptr,
-    [ NULL_OBJECT               ] = nullptr,
-    [ LAYOUT_OBJECT             ] = "layout",
-    [ VSLOTS_OBJECT             ] = "vslots",
-    [ KVSLOTS_OBJECT            ] = "kvslots",
-    [ PROGRAM_OBJECT            ] = "program",
-    [ SCRIPT_OBJECT             ] = "script",
+    INIT( LOOKUP_OBJECT             ) "lookup",
+    INIT( STRING_OBJECT             ) "string",
+    INIT( ARRAY_OBJECT              ) "array",
+    INIT( TABLE_OBJECT              ) "table",
+    INIT( FUNCTION_OBJECT           ) "function",
+    INIT( NATIVE_FUNCTION_OBJECT    ) "fnative",
+    INIT( COTHREAD_OBJECT           ) "cothread",
+    INIT( U64VAL_OBJECT             ) "u64val",
+    INIT( NUMBER_OBJECT             ) nullptr,
+    INIT( BOOL_OBJECT               ) nullptr,
+    INIT( NULL_OBJECT               ) nullptr,
+    INIT( LAYOUT_OBJECT             ) "layout",
+    INIT( VSLOTS_OBJECT             ) "vslots",
+    INIT( KVSLOTS_OBJECT            ) "kvslots",
+    INIT( PROGRAM_OBJECT            ) "program",
+    INIT( SCRIPT_OBJECT             ) "script",
 };
 
 void safepoint_new_epoch( vmachine* vm )
