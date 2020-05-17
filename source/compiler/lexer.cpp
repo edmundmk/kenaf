@@ -597,8 +597,12 @@ token lexer::lex_string()
             {
             case '"':
             case '\\':
-            case '/':
                 _text.push_back( c );
+                c = next();
+                break;
+
+            case '0':
+                _text.push_back( '\0' );
                 c = next();
                 break;
 
