@@ -15,6 +15,10 @@
 #include "kenaf/errors.h"
 #include "../../common/imath.h"
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
+
 namespace kf
 {
 
@@ -163,14 +167,24 @@ static size_t exp( void* cookie, frame* frame, const value* arguments, size_t ar
 static size_t clz( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
+#ifdef _MSC_VER
+    unsigned long result;
+    i = _BitScanReverse( &result, i ) ? 31 - result : 32;
+#else
     i = i ? __builtin_clz( i ) : 0;
+#endif
     return result( frame, number_value( i ) );
 }
 
 static size_t ctz( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
+#ifdef _MSC_VER
+    unsigned long result;
+    i = _BitScanForward( &result, i ) ? result : 32;
+#else
     i = i ? __builtin_ctz( i ) : 0;
+#endif
     return result( frame, number_value( i ) );
 }
 

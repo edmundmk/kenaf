@@ -14,8 +14,35 @@
 #include <limits.h>
 #include <functional>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
+
 namespace kf
 {
+
+#ifdef _MSC_VER
+
+static inline size_t clz( unsigned __int64 x )
+{
+    unsigned long result;
+    return _BitScanReverse64( &result, x ) ? 63 - result : 64;
+}
+
+static inline size_t clz( unsigned long x )
+{
+    unsigned long result;
+    return _BitScanReverse( &result, x ) ? 31 - result : 32;
+}
+
+#else
+
+static inline size_t clz( size_t x )
+{
+    return __builtin_clz( x );
+}
+
+#endif
 
 /*
     Round up to next highest power of two.
@@ -24,7 +51,7 @@ namespace kf
 static inline size_t ceilpow2( size_t x )
 {
     if ( x > 1 )
-        return 1 << ( sizeof( size_t ) * CHAR_BIT - __builtin_clz( x - 1 ) );
+        return 1 << ( sizeof( size_t ) * CHAR_BIT - clz( x - 1 ) );
     else
         return 1;
 }

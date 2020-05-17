@@ -16,7 +16,15 @@
 #include <new>
 #include <functional>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/mman.h>
+#endif
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 namespace kf
 {
@@ -27,12 +35,22 @@ namespace kf
 
 static inline uint32_t clz( uint32_t x )
 {
+#ifdef _MSC_VER
+    unsigned long result;
+    return _BitScanReverse( &result, x ) ? 31 - result : 32;
+#else
     return __builtin_clz( x );
+#endif
 }
 
 static inline uint32_t ctz( uint32_t x )
 {
+#ifdef _MSC_VER
+    unsigned long result;
+    return _BitScanForward( &result, x ) ? result : 32;
+#else
     return __builtin_ctz( x );
+#endif
 }
 
 /*
@@ -41,6 +59,25 @@ static inline uint32_t ctz( uint32_t x )
 
 const size_t HEAP_INITIAL_SIZE = 1024 * 1024;
 const size_t HEAP_VM_GRANULARITY = 1024 * 1024;
+
+#ifdef _WIN32
+
+void* heap_vmalloc( size_t size )
+{
+    void* p = VirtualAlloc( NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );
+    if ( p == NULL )
+    {
+        throw std::bad_alloc();
+    }
+    return p;
+}
+
+void heap_vmfree( void* p, size_t size )
+{
+    VirtualFree( p, 0, MEM_RELEASE );
+}
+
+#else
 
 void* heap_vmalloc( size_t size )
 {
@@ -56,6 +93,8 @@ void heap_vmfree( void* p, size_t size )
 {
     munmap( p, size );
 }
+
+#endif
 
 /*
     An allocated chunk looks like this:
