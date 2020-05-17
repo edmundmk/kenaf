@@ -60,7 +60,12 @@ sources = [
 subdir( 'lemon' )
 sources += lemon_gen.process( 'source/compiler/grammar.lemon' )
 
-kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compiler' ), cpp_args : [ '-DKF_BUILD' ], gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
+cpp_args = [ '-DKF_BUILD' ]
+if meson.get_compiler( 'cpp' ).get_argument_syntax() == 'msvc'
+    cpp_args += [ '/wd4200' ]
+endif
+
+kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compiler' ), cpp_args : cpp_args, gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
 kenaf_lic = files( 'LICENSE' )
 kenaf_dep = declare_dependency( include_directories : include_directories( 'include' ), link_with : kenaf_lib )
 install_headers( headers, subdir : 'kenaf' )

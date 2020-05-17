@@ -767,9 +767,9 @@ void lexer::string_utf8( srcloc xloc, unsigned codepoint )
     else
     {
         // Encode U+FFFD REPLACEMENT CHARACTER
-        _text.push_back( 0xEF );
-        _text.push_back( 0xBF );
-        _text.push_back( 0xBD );
+        _text.push_back( '\xEF' );
+        _text.push_back( '\xBF' );
+        _text.push_back( '\xBD' );
 
         // Report error.
         _report->error( xloc, "invalid Unir codepoint U+%06X", codepoint );

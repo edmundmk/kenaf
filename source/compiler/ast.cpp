@@ -126,7 +126,7 @@ ast_script::~ast_script()
 
 ast_function* ast_script::new_function( srcloc sloc, ast_function* outer )
 {
-    functions.append( std::make_unique< ast_function >( sloc, this, outer, functions.size() ) );
+    functions.append( std::make_unique< ast_function >( sloc, this, outer, (unsigned)functions.size() ) );
     return functions.back().get();
 }
 

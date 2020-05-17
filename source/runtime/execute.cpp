@@ -380,7 +380,7 @@ void execute( vmachine* vm, xstate state )
             test = box_is_string( v ) && string_equal( unbox_string( u ), unbox_string( v ) );
         }
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -392,7 +392,7 @@ void execute( vmachine* vm, xstate state )
         value u = r[ op.a ];
         bool test = box_is_number( u ) && unbox_number( u ) == unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -404,7 +404,7 @@ void execute( vmachine* vm, xstate state )
         value u = r[ op.a ];
         bool test = box_is_string( u ) && string_equal( unbox_string( u ), unbox_string( read( k[ op.b ] ) ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -431,7 +431,7 @@ void execute( vmachine* vm, xstate state )
             goto type_error_a_number_or_string;
         }
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -444,7 +444,7 @@ void execute( vmachine* vm, xstate state )
         if ( ! box_is_number( u ) ) goto type_error_a_number;
         bool test = unbox_number( u ) < unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -457,7 +457,7 @@ void execute( vmachine* vm, xstate state )
         if ( ! box_is_number( u ) ) goto type_error_a_number;
         bool test = unbox_number( u ) > unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -484,7 +484,7 @@ void execute( vmachine* vm, xstate state )
             goto type_error_a_number_or_string;
         }
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -497,7 +497,7 @@ void execute( vmachine* vm, xstate state )
         if ( ! box_is_number( u ) ) goto type_error_a_number;
         bool test = unbox_number( u ) <= unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -510,7 +510,7 @@ void execute( vmachine* vm, xstate state )
         if ( ! box_is_number( u ) ) goto type_error_a_number;
         bool test = unbox_number( u ) >= unbox_number( read( k[ op.b ] ) );
         struct op jop = ops[ ip++ ];
-        if ( test == op.r )
+        if ( ( test ? 1 : 0 ) == op.r )
         {
             ip += jop.j;
         }
@@ -1021,7 +1021,7 @@ void execute( vmachine* vm, xstate state )
                     xp = op.b != OP_STACK_MARK ? op.b : rp + 2;
                     r = resize_stack( vm, xp );
                     if ( rp < xp ) r[ rp++ ] = read( read( array->aslots )->slots[ i++ ] );
-                    if ( rp < xp ) r[ rp++ ] = box_number( i );
+                    if ( rp < xp ) r[ rp++ ] = box_number( (double)i );
                     while ( rp < xp )
                     {
                         r[ rp++ ] = boxed_null;
@@ -1258,18 +1258,18 @@ void execute( vmachine* vm, xstate state )
             type_code type = header( unbox_object( u ) )->type;
             if ( type == ARRAY_OBJECT )
             {
-                r[ op.r ] = box_number( ( (array_object*)unbox_object( u ) )->length );
+                r[ op.r ] = box_number( (double)( (array_object*)unbox_object( u ) )->length );
                 INEXT;
             }
             else if ( type == TABLE_OBJECT )
             {
-                r[ op.r ] = box_number( ( (table_object*)unbox_object( u ) )->length );
+                r[ op.r ] = box_number( (double)( (table_object*)unbox_object( u ) )->length );
                 INEXT;
             }
         }
         else if ( box_is_string( u ) )
         {
-            r[ op.r ] = box_number( unbox_string( u )->size );
+            r[ op.r ] = box_number( (double)unbox_string( u )->size );
             INEXT;
         }
         goto type_error_a_indexable;
