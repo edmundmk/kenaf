@@ -168,8 +168,8 @@ static size_t clz( void* cookie, frame* frame, const value* arguments, size_t ar
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
 #ifdef _MSC_VER
-    unsigned long result;
-    i = _BitScanReverse( &result, i ) ? 31 - result : 32;
+    unsigned long count;
+    i = _BitScanReverse( &count, i ) ? 31 - count : 32;
 #else
     i = i ? __builtin_clz( i ) : 0;
 #endif
@@ -180,8 +180,8 @@ static size_t ctz( void* cookie, frame* frame, const value* arguments, size_t ar
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
 #ifdef _MSC_VER
-    unsigned long result;
-    i = _BitScanForward( &result, i ) ? result : 32;
+    unsigned long count;
+    i = _BitScanForward( &count, i ) ? count : 32;
 #else
     i = i ? __builtin_ctz( i ) : 0;
 #endif

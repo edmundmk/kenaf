@@ -17,6 +17,8 @@
 namespace kf
 {
 
+uint32_t ibitint_overflow( double u );
+
 double ifloordiv( double u, double v );
 double ifloormod( double u, double v );
 double ibitnot( double u );
@@ -46,7 +48,6 @@ inline uint32_t ibitint( double u )
     }
     else
     {
-        uint32_t ibitint_overflow( double u );
         return ibitint_overflow( u );
     }
 }

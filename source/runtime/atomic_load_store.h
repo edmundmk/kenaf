@@ -114,7 +114,7 @@ inline void atomic_store( atomic_u64& u, uint64_t v ) { u.store( v, std::memory_
 #define MEMORY_ORDER_CONSUME std::memory_order_consume
 #endif
 
-inline void __attribute__(( always_inline )) atomic_produce_fence() { std::atomic_thread_fence( std::memory_order_release ); }
+inline void atomic_produce_fence() { std::atomic_thread_fence( std::memory_order_release ); }
 
 template < typename T > inline T* atomic_consume( const atomic_p< T >& p ) { return p.load( MEMORY_ORDER_CONSUME ); }
 inline uint64_t atomic_consume( const atomic_u64& p ) { return p.load( MEMORY_ORDER_CONSUME ); }
