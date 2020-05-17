@@ -53,7 +53,7 @@ inline uint32_t ibitint( double u )
 
 inline double ibitnot( double u )
 {
-    return ~ ibitint( u );
+    return (double)(uint32_t)~ibitint( u );
 }
 
 inline double ilshift( double u, double v )

@@ -77,6 +77,7 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <algorithm>
 #include "index_vector.h"
 #include "source.h"
 

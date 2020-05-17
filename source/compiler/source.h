@@ -38,7 +38,7 @@ struct source_location
 struct source_string
 {
     size_t size;
-    const char text[];
+    const char text[ 1 ];
 };
 
 struct source_string_deleter { void operator () ( void* p ) const { free( p ); } };
