@@ -16,6 +16,8 @@
 namespace kf
 {
 
+extern void append_stack_trace( stack_trace* s, const char* format, ... );
+
 static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
 static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
 
@@ -195,7 +197,7 @@ xstate call_native( vmachine* vm, native_function_object* function, unsigned rp,
     }
     catch ( script_error& e )
     {
-        e.append_stack_trace( "[native]: %.*s", (int)function->name_size, function->name_text );
+        append_stack_trace( e.stack_trace(), "[native]: %.*s", (int)function->name_size, function->name_text );
         throw;
     }
 
@@ -551,7 +553,7 @@ void unwind( vmachine* vm, script_error* e, unsigned ip )
         std::string_view fname = program_name( vm, program );
         std::string_view sname = script_name( vm, read( program->script ) );
         source_location sloc = program_source_location( vm, program, ip );
-        e->append_stack_trace( "%.*s:%u:%u: %.*s", (int)sname.size(), sname.data(), sloc.line, sloc.column, (int)fname.size(), fname.data() );
+        append_stack_trace( e->stack_trace(), "%.*s:%u:%u: %.*s", (int)sname.size(), sname.data(), sloc.line, sloc.column, (int)fname.size(), fname.data() );
 
         cothread->stack_frames.pop_back();
         if ( cothread->stack_frames.empty() )

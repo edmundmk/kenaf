@@ -26,8 +26,7 @@
 #ifndef KF_ERRORS_H
 #define KF_ERRORS_H
 
-#include <exception>
-#include <vector>
+#include <stdarg.h>
 #include "defines.h"
 #include "runtime.h"
 
@@ -35,29 +34,43 @@ namespace kf
 {
 
 /*
-    Error exceptions thrown from script code.
+    Stack trace.
 */
 
-class KF_API script_error : public std::exception
+struct stack_trace;
+
+KF_API stack_trace* create_stack_trace();
+KF_API stack_trace* retain_stack_trace( stack_trace* s );
+KF_API void release_stack_trace( stack_trace* s );
+
+KF_API size_t stack_trace_count( stack_trace* s );
+KF_API const char* stack_trace_frame( stack_trace* s, size_t index );
+
+/*
+    Error exceptions thrown from script code.  Unfortunately annot be derived
+    from std::exception as that makes our ABI brittle against the STL.
+*/
+
+struct error_message;
+
+class KF_API script_error /*: public std::exception*/
 {
 public:
 
-    script_error();
     script_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
     script_error( const script_error& e );
     script_error& operator = ( const script_error& e );
-    ~script_error() override;
+    virtual ~script_error();
 
-    void append_stack_trace( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-
-    const char* what() const noexcept override;
-    size_t stack_trace_count() const;
-    const char* stack_trace( size_t i ) const;
+    const char* what() const noexcept;
+    struct stack_trace* stack_trace() const noexcept;
 
 protected:
 
+    script_error();
+
     char* _message;
-    std::vector< char* > _stack_trace;
+    struct stack_trace* _stack_trace;
 
 };
 
@@ -69,6 +82,7 @@ public:
     value_error( const value_error& e );
     value_error& operator = ( const value_error& e );
     ~value_error() override;
+
     struct value value() const noexcept;
 
 protected:
@@ -82,8 +96,6 @@ class KF_API type_error : public script_error
 public:
 
     type_error( value v, const char* expected );
-    type_error( const type_error& e );
-    type_error& operator = ( const type_error& e );
     ~type_error() override;
 
 };
@@ -93,8 +105,6 @@ class KF_API key_error : public script_error
 public:
 
     key_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-    key_error( const key_error& e );
-    key_error& operator = ( const key_error& e );
     ~key_error() override;
 
 };
@@ -104,8 +114,6 @@ class KF_API index_error : public script_error
 public:
 
     index_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-    index_error( const index_error& e );
-    index_error& operator = ( const index_error& e );
     ~index_error() override;
 
 };
@@ -115,8 +123,6 @@ class KF_API argument_error : public script_error
 public:
 
     argument_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-    argument_error( const argument_error& e );
-    argument_error& operator = ( const argument_error& e );
     ~argument_error() override;
 
 };
@@ -126,8 +132,6 @@ class KF_API cothread_error : public script_error
 public:
 
     cothread_error( const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-    cothread_error( const cothread_error& e );
-    cothread_error& operator = ( const cothread_error& e );
     ~cothread_error() override;
 
 };

@@ -162,9 +162,10 @@ int main( int argc, char* argv[] )
     catch ( const kf::script_error& e )
     {
         fprintf( stderr, "%s\n", e.what() );
-        for ( size_t i = 0; i < e.stack_trace_count(); ++i )
+        kf::stack_trace* s = e.stack_trace();
+        for ( size_t i = 0; i < kf::stack_trace_count( s ); ++i )
         {
-            fprintf( stderr, "    %s\n", e.stack_trace( i ) );
+            fprintf( stderr, "    %s\n", stack_trace_frame( s, i ) );
         }
         return EXIT_FAILURE;
     }
