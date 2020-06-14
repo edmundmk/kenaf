@@ -26,8 +26,8 @@
 namespace kf
 {
 
-static_assert( CODE_VARARG == FUNCTION_VARARG );
-static_assert( CODE_DIRECT == FUNCTION_DIRECT );
+static_assert( (unsigned)CODE_VARARG == (unsigned)FUNCTION_VARARG );
+static_assert( (unsigned)CODE_DIRECT == (unsigned)FUNCTION_DIRECT );
 
 /*
     Thread-local VM state.
