@@ -11,7 +11,6 @@
 #include "corobjects.h"
 #include <stdlib.h>
 #include <cmath>
-#include "kenaf/errors.h"
 #include "../objects/array_object.h"
 #include "../objects/table_object.h"
 #include "../objects/cothread_object.h"
@@ -78,7 +77,7 @@ static result superof( void* cookie, frame* frame, const value* arguments, size_
 static result getkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vmachine* vm = (vmachine*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
+    if ( ! box_is_string( arguments[ 1 ] ) ) raise_type_error( arguments[ 1 ], "a string" );
     selector sel = {};
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     return return_value( frame, lookup_getkey( vm, value_keyerof( vm, arguments[ 0 ] ), key, &sel ) );
@@ -87,8 +86,8 @@ static result getkey( void* cookie, frame* frame, const value* arguments, size_t
 static result setkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vmachine* vm = (vmachine*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
-    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) throw type_error( arguments[ 0 ], "a lookup object" );
+    if ( ! box_is_string( arguments[ 1 ] ) ) raise_type_error( arguments[ 1 ], "a string" );
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) raise_type_error( arguments[ 0 ], "a lookup object" );
     selector sel = {};
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     lookup_setkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key, &sel, arguments[ 2 ] );
@@ -98,7 +97,7 @@ static result setkey( void* cookie, frame* frame, const value* arguments, size_t
 static result haskey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vmachine* vm = (vmachine*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
+    if ( ! box_is_string( arguments[ 1 ] ) ) raise_type_error( arguments[ 1 ], "a string" );
     if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return return_value( frame, boxed_false );
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     return return_value( frame, lookup_haskey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key ) ? boxed_true : boxed_false );
@@ -107,7 +106,7 @@ static result haskey( void* cookie, frame* frame, const value* arguments, size_t
 static result delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     vmachine* vm = (vmachine*)cookie;
-    if ( ! box_is_string( arguments[ 1 ] ) ) throw type_error( arguments[ 1 ], "a string" );
+    if ( ! box_is_string( arguments[ 1 ] ) ) raise_type_error( arguments[ 1 ], "a string" );
     if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return return_void( frame );
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
     lookup_delkey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key );
@@ -124,7 +123,7 @@ static result number_self( void* cookie, frame* frame, const value* arguments, s
             string_object* s = unbox_string( v );
             char* endptr = nullptr;
             double n = strtod( s->text, &endptr );
-            if ( *endptr != '\0' ) throw script_error( "string cannot be converted to number" );
+            if ( *endptr != '\0' ) raise_error( ERROR_TYPE, "string cannot be converted to number" );
             if ( n != n ) n = NAN;
             v = box_number( n );
         }
@@ -134,7 +133,7 @@ static result number_self( void* cookie, frame* frame, const value* arguments, s
         }
         else
         {
-            throw type_error( v, "convertible to a number" );
+            raise_type_error( v, "convertible to a number" );
         }
     }
     return return_value( frame, v );
@@ -161,7 +160,7 @@ static result string_self( void* cookie, frame* frame, const value* arguments, s
         }
         else
         {
-            throw type_error( v, "convertible to a string" );
+            raise_type_error( v, "convertible to a string" );
         }
     }
     return return_value( frame, v );
@@ -169,14 +168,14 @@ static result string_self( void* cookie, frame* frame, const value* arguments, s
 
 static inline size_t array_index( value v )
 {
-    if ( ! box_is_number( v ) ) throw type_error( v, "a number" );
+    if ( ! box_is_number( v ) ) raise_type_error( v, "a number" );
     return (size_t)(intptr_t)unbox_number( v );
 }
 
 static result array_resize( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     array_resize( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ) );
     return return_void( frame );
 }
@@ -184,7 +183,7 @@ static result array_resize( void* cookie, frame* frame, const value* arguments, 
 static result array_append( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     value v = array_append( (vmachine*)cookie, (array_object*)unbox_object( a ), arguments[ 1 ] );
     return return_value( frame, v );
 }
@@ -192,7 +191,7 @@ static result array_append( void* cookie, frame* frame, const value* arguments, 
 static result array_extend( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     array_extend( (vmachine*)cookie, (array_object*)unbox_object( a ), arguments + 1, argcount - 1 );
     return return_void( frame );
 }
@@ -200,7 +199,7 @@ static result array_extend( void* cookie, frame* frame, const value* arguments, 
 static result array_insert( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     value v = array_insert( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ), arguments[ 2 ] );
     return return_value( frame, v );
 }
@@ -208,7 +207,7 @@ static result array_insert( void* cookie, frame* frame, const value* arguments, 
 static result array_remove( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     value v = array_remove( (vmachine*)cookie, (array_object*)unbox_object( a ), array_index( arguments[ 1 ] ) );
     return return_value( frame, v );
 }
@@ -216,16 +215,16 @@ static result array_remove( void* cookie, frame* frame, const value* arguments, 
 static result array_pop( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     array_object* array = (array_object*)unbox_object( a );
-    if ( array->length == 0 ) throw index_error( "array is empty" );
+    if ( array->length == 0 ) raise_error( ERROR_INDEX, "array is empty" );
     return return_value( frame, read( read( array->aslots )->slots[ --array->length ] ) );
 }
 
 static result array_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value a = arguments[ 0 ];
-    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) throw type_error( a, "an array" );
+    if ( ! box_is_object_type( a, ARRAY_OBJECT ) ) raise_type_error( a, "an array" );
     array_object* array = (array_object*)unbox_object( a );
     array_clear( (vmachine*)cookie, array );
     return return_void( frame );
@@ -234,7 +233,7 @@ static result array_clear( void* cookie, frame* frame, const value* arguments, s
 static result table_has( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) raise_type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     return return_value( frame, bool_value( table_tryindex( (vmachine*)cookie, table, arguments[ 1 ], nullptr ) ) );
 }
@@ -242,8 +241,8 @@ static result table_has( void* cookie, frame* frame, const value* arguments, siz
 static result table_get( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( argcount > 3 ) throw argument_error( "too few arguments, expected 2 or 3, not %zu", argcount );
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
+    if ( argcount > 3 ) raise_error( ERROR_ARGUMENT, "too few arguments, expected 2 or 3, not %zu", argcount );
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) raise_type_error( t, "a table" );
     value v;
     table_object* table = (table_object*)unbox_object( t );
     if ( ! table_tryindex( (vmachine*)cookie, table, arguments[ 1 ], &v ) )
@@ -256,7 +255,7 @@ static result table_get( void* cookie, frame* frame, const value* arguments, siz
 static result table_del( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) raise_type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     table_delindex( (vmachine*)cookie, table, arguments[ 1 ] );
     return return_void( frame );
@@ -265,7 +264,7 @@ static result table_del( void* cookie, frame* frame, const value* arguments, siz
 static result table_clear( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value t = arguments[ 0 ];
-    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) throw type_error( t, "a table" );
+    if ( ! box_is_object_type( t, TABLE_OBJECT ) ) raise_type_error( t, "a table" );
     table_object* table = (table_object*)unbox_object( t );
     table_clear( (vmachine*)cookie, table );
     return return_void( frame );
@@ -274,7 +273,7 @@ static result table_clear( void* cookie, frame* frame, const value* arguments, s
 static result cothread_done( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     value c = arguments[ 0 ];
-    if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) throw type_error( c, "a cothread" );
+    if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) raise_type_error( c, "a cothread" );
     cothread_object* cothread = (cothread_object*)unbox_object( c );
     return return_value( frame, cothread->stack_frames.empty() ? boxed_true : boxed_false );
 }

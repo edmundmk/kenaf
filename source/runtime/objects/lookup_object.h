@@ -43,7 +43,6 @@
 
 #include <functional>
 #include <string_view>
-#include "kenaf/errors.h"
 #include "../vmachine.h"
 #include "string_object.h"
 
@@ -111,7 +110,7 @@ inline value lookup_getkeyslot( vmachine* vm, lookup_object* object, size_t inde
     }
     else
     {
-        throw key_error( "invalid keyslot index %zu", index );
+        raise_error( ERROR_KEY, "invalid keyslot index %zu", index );
     }
 }
 
@@ -123,7 +122,7 @@ inline void lookup_setkeyslot( vmachine* vm, lookup_object* object, size_t index
     }
     else
     {
-        throw key_error( "invalid keyslot index %zu", index );
+        raise_error( ERROR_KEY, "invalid keyslot index %zu", index );
     }
 }
 
@@ -144,7 +143,7 @@ inline value lookup_getkey( vmachine* vm, lookup_object* object, string_object* 
     }
     else
     {
-        throw key_error( "key '%s' not found", key->text );
+        raise_error( ERROR_KEY, "key '%s' not found", key->text );
     }
 }
 

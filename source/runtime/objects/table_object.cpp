@@ -9,7 +9,6 @@
 //
 
 #include "table_object.h"
-#include "kenaf/errors.h"
 #include "string_object.h"
 #include <limits.h>
 #include <functional>
@@ -140,7 +139,7 @@ value table_getindex( vmachine* vm, table_object* table, value key )
     }
     else
     {
-        throw index_error( "missing key in table" );
+        raise_error( ERROR_INDEX, "missing key in table" );
     }
 }
 

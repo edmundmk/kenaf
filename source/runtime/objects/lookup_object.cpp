@@ -173,13 +173,13 @@ void lookup_addkeyslot( vmachine* vm, lookup_object* object, size_t index, std::
 {
     if ( lookup_sealed( vm, object ) )
     {
-        throw key_error( "object is sealed" );
+        raise_error( ERROR_KEY, "object is sealed" );
     }
 
     layout_object* layout = read( object->layout );
     if ( index != layout->sindex + 1 )
     {
-        throw key_error( "keyslot added out of order" );
+        raise_error( ERROR_KEY, "keyslot added out of order" );
     }
 
     string_object* key = string_key( vm, keyslot.data(), keyslot.size() );
@@ -254,7 +254,7 @@ void lookup_setsel( vmachine* vm, lookup_object* object, string_object* key, sel
     // Check if object is sealed.
     if ( lookup_sealed( vm, object ) )
     {
-        throw key_error( "object is sealed" );
+        raise_error( ERROR_KEY, "object is sealed" );
     }
 
     // Update layout.
@@ -291,7 +291,7 @@ void lookup_delkey( vmachine* vm, lookup_object* object, string_object* key )
     // Check if object is sealed.
     if ( lookup_sealed( vm, object ) )
     {
-        throw key_error( "object is sealed" );
+        raise_error( ERROR_KEY, "object is sealed" );
     }
 
     // Remember all keys that we search past.

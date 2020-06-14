@@ -12,7 +12,6 @@
 #include <cmath>
 #include <algorithm>
 #include "kenaf/runtime.h"
-#include "kenaf/errors.h"
 #include "../../common/imath.h"
 
 #ifdef _MSC_VER
@@ -98,7 +97,7 @@ static result atan( void* cookie, frame* frame, const value* arguments, size_t a
     }
     else
     {
-        throw argument_error( "too many arguments, expected 1 or 2, not %zu", argcount );
+        raise_error( ERROR_ARGUMENT, "too many arguments, expected 1 or 2, not %zu", argcount );
     }
 }
 

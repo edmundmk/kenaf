@@ -9,7 +9,6 @@
 //
 
 #include "string_object.h"
-#include "kenaf/errors.h"
 
 namespace kf
 {
@@ -68,7 +67,7 @@ string_object* string_getindex( vmachine* vm, string_object* string, size_t inde
     }
     else
     {
-        throw index_error( "string index out of range" );
+        raise_error( ERROR_INDEX, "string index out of range" );
     }
 }
 

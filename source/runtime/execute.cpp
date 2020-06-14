@@ -1323,7 +1323,7 @@ void execute( vmachine* vm, xstate state )
 
     LABEL( OP_THROW ):
     {
-        throw_value_error( r[ op.a ] );
+        throw_value( r[ op.a ] );
         return;
     }
 
@@ -1337,62 +1337,62 @@ void execute( vmachine* vm, xstate state )
     }
 
 type_error_a_number:
-    throw_type_error( r[ op.a ], "a number" );
+    raise_type_error( r[ op.a ], "a number" );
     return;
 
 type_error_a_string:
-    throw_type_error( r[ op.a ], "a string" );
+    raise_type_error( r[ op.a ], "a string" );
     return;
 
 type_error_a_number_or_string:
-    throw_type_error( r[ op.a ], "a number or string" );
+    raise_type_error( r[ op.a ], "a number or string" );
     return;
 
 type_error_a_lookup:
-    throw_type_error( r[ op.a ], "a lookup object" );
+    raise_type_error( r[ op.a ], "a lookup object" );
     return;
 
 type_error_a_array:
-    throw_type_error( r[ op.a ], "an array" );
+    raise_type_error( r[ op.a ], "an array" );
     return;
 
 type_error_a_indexable:
-    throw_type_error( r[ op.a ], "indexable" );
+    raise_type_error( r[ op.a ], "an indexable value" );
     return;
 
 type_error_a_iterable:
-    throw_type_error( r[ op.a ], "iterable" );
+    raise_type_error( r[ op.a ], "an iterable value" );
     return;
 
 type_error_b_number:
-    throw_type_error( r[ op.b ], "a number" );
+    raise_type_error( r[ op.b ], "a number" );
     return;
 
 type_error_b_string:
-    throw_type_error( r[ op.b ], "a string" );
+    raise_type_error( r[ op.b ], "a string" );
     return;
 
 type_error_b_array:
-    throw_type_error( r[ op.b ], "an array" );
+    raise_type_error( r[ op.b ], "an array" );
     return;
 
 type_error_r_callable:
-    throw_type_error( r[ op.r ], "callable" );
+    raise_type_error( r[ op.r ], "a callable value" );
     return;
 
 type_error_a1_number:
-    throw_type_error( r[ op.a + 1 ], "a number" );
+    raise_type_error( r[ op.a + 1 ], "a number" );
     return;
 
 type_error_a2_number:
-    throw_type_error( r[ op.a + 2 ], "a number" );
+    raise_type_error( r[ op.a + 2 ], "a number" );
     return;
 
     }
-    catch ( script_error& e )
+    catch ( ... )
     {
 
-    unwind( vm, &e, ip );
+    unwind( vm, ip );
     throw;
 
     }

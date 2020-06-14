@@ -106,7 +106,7 @@ value array_insert( vmachine* vm, array_object* array, size_t index, value value
 
     if ( index > array_length )
     {
-        throw index_error( "array index out of range" );
+        raise_error( ERROR_INDEX, "array index out of range" );
     }
 
     if ( array_length + 1 <= aslots_count )
@@ -150,7 +150,7 @@ value array_remove( vmachine* vm, array_object* array, size_t index )
 
     if ( index >= array_length )
     {
-        throw index_error( "array index out of range" );
+        raise_error( ERROR_INDEX, "array index out of range" );
     }
 
     assert( array_length > 0 );

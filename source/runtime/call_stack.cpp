@@ -9,14 +9,13 @@
 //
 
 #include "call_stack.h"
-#include "kenaf/errors.h"
 #include "collector.h"
 #include "objects/cothread_object.h"
 
 namespace kf
 {
 
-extern void append_stack_trace( stack_trace* s, const char* format, ... );
+extern void append_stack_trace( const char* format, ... );
 
 static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, unsigned return_fp, unsigned rp, unsigned xp );
 static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack_frame* stack_frame, const value* yield_r, unsigned rp, unsigned xp );
@@ -127,7 +126,7 @@ xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsi
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {
-        throw argument_error( "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
+        raise_error( ERROR_ARGUMENT, "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
     }
 
     cothread_object* cothread = vm->c->cothread;
@@ -181,7 +180,7 @@ xstate call_native( vmachine* vm, native_function_object* function, unsigned rp,
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < function->param_count || ( argument_count > function->param_count && ! is_varargs ) )
     {
-        throw argument_error( "incorrect argument count, expected %u, got %u", function->param_count, argument_count );
+        raise_error( ERROR_ARGUMENT, "incorrect argument count, expected %u, got %u", function->param_count, argument_count );
     }
 
     cothread_object* cothread = vm->c->cothread;
@@ -195,9 +194,10 @@ xstate call_native( vmachine* vm, native_function_object* function, unsigned rp,
     {
         result_count = function->native( function->cookie, (frame*)&native_frame, arguments, argument_count );
     }
-    catch ( script_error& e )
+    catch ( ... )
     {
-        append_stack_trace( e.stack_trace(), "[native]: %.*s", (int)function->name_size, function->name_text );
+
+        append_stack_trace( "[native]: %.*s", (int)function->name_size, function->name_text );
         throw;
     }
 
@@ -221,7 +221,7 @@ xstate call_generator( vmachine* vm, function_object* function, unsigned rp, uns
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {
-        throw argument_error( "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
+        raise_error( ERROR_ARGUMENT, "incorrect argument count, expected %u, got %u", program->param_count, argument_count );
     }
 
     // Get current stack.
@@ -283,7 +283,7 @@ xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsi
     // Cothread might have completed.
     if ( cothread->stack_frames.empty() )
     {
-        throw cothread_error( "cothread is done" );
+        raise_error( ERROR_COTHREAD, "cothread is done" );
     }
 
     // Get current stack.
@@ -323,7 +323,7 @@ xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsi
 
     // Lookup prototype.self.
     value c = lookup_getkey( vm, prototype, vm->self_key, &vm->self_sel );
-    if ( ! box_is_object( c ) ) throw_type_error( c, "function" );
+    if ( ! box_is_object( c ) ) raise_type_error( c, "a function" );
     type_code type = header( unbox_object( c ) )->type;
 
     if ( ( header( unbox_object( c ) )->flags & FLAG_DIRECT ) == 0 )
@@ -362,7 +362,7 @@ xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsi
         program_object* callee_program = read( callee_function->program );
         if ( ( callee_program->code_flags & CODE_GENERATOR ) != 0 )
         {
-            throw_type_error( c, "non-generator function" );
+            raise_type_error( c, "a non-generator function" );
         }
         return call_function( vm, callee_function, rp, xp );
     }
@@ -373,7 +373,7 @@ xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsi
     }
     else
     {
-        throw_type_error( c, "function" );
+        raise_type_error( c, "a function" );
     }
 }
 
@@ -515,24 +515,10 @@ static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack
 }
 
 /*
-    Throw exceptions.
-*/
-
-void throw_value_error( value v )
-{
-    throw value_error( v );
-}
-
-void throw_type_error( value v, const char* expected )
-{
-    throw type_error( v, expected );
-}
-
-/*
     Unwind.
 */
 
-void unwind( vmachine* vm, script_error* e, unsigned ip )
+void unwind( vmachine* vm, unsigned ip )
 {
     cothread_object* cothread = vm->c->cothread;
     stack_frame& frame = cothread->stack_frames.back();
@@ -553,7 +539,7 @@ void unwind( vmachine* vm, script_error* e, unsigned ip )
         std::string_view fname = program_name( vm, program );
         std::string_view sname = script_name( vm, read( program->script ) );
         source_location sloc = program_source_location( vm, program, ip );
-        append_stack_trace( e->stack_trace(), "%.*s:%u:%u: %.*s", (int)sname.size(), sname.data(), sloc.line, sloc.column, (int)fname.size(), fname.data() );
+        append_stack_trace( "%.*s:%u:%u: %.*s", (int)sname.size(), sname.data(), sloc.line, sloc.column, (int)fname.size(), fname.data() );
 
         cothread->stack_frames.pop_back();
         if ( cothread->stack_frames.empty() )

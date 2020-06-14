@@ -86,17 +86,10 @@ xstate call_return( vmachine* vm, unsigned rp, unsigned xp );
 xstate call_yield( vmachine* vm, unsigned rp, unsigned xp );
 
 /*
-    Throwing of exceptions from execute loop.
-*/
-
-[[noreturn]] void throw_value_error( value v );
-[[noreturn]] void throw_type_error( value v, const char* expected );
-
-/*
     Handle unwind.
 */
 
-void unwind( vmachine* vm, script_error* e, unsigned ip );
+void unwind( vmachine* vm, unsigned ip );
 
 }
 

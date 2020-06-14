@@ -8,8 +8,11 @@
 //  full license information.
 //
 
+#define __STDC_FORMAT_MACROS
+
 #include "kenaf/runtime.h"
-#include "kenaf/errors.h"
+#include <inttypes.h>
+#include <stdarg.h>
 #include "vmachine.h"
 #include "call_stack.h"
 #include "collector.h"
@@ -44,6 +47,8 @@ struct runtime
     vmachine vm;
     intptr_t refcount;
     context* current_context;
+    error_handler handler;
+    stack_trace* backtrace;
 };
 
 struct context
@@ -58,6 +63,8 @@ runtime* create_runtime()
     runtime* r = new runtime();
     r->refcount = 1;
     r->current_context = nullptr;
+    r->handler = nullptr;
+    r->backtrace = nullptr;
     start_collector( &r->vm );
     setup_object_model( &r->vm );
     return r;
@@ -129,7 +136,6 @@ context* create_context( runtime* r )
 
     // Done.
     return c;
-
 }
 
 context* retain_context( context* c )
@@ -345,7 +351,7 @@ value bool_value( bool b )
 
 bool get_bool( value v )
 {
-    if ( ! is_bool( v ) ) throw type_error( v, "a bool" );
+    if ( ! is_bool( v ) ) raise_type_error( v, "a bool" );
     return v.v == boxed_true.v;
 }
 
@@ -356,7 +362,7 @@ value number_value( double n )
 
 double get_number( value v )
 {
-    if ( ! is_number( v ) ) throw type_error( v, "a number" );
+    if ( ! is_number( v ) ) raise_type_error( v, "a number" );
     return unbox_number( v );
 }
 
@@ -372,7 +378,7 @@ uint64_t get_u64val( value v )
     if ( u64val_check( v, &u ) )
         return u;
     else
-        throw type_error( v, "a u64val" );
+        raise_type_error( v, "a u64val" );
 }
 
 value create_lookup()
@@ -383,13 +389,13 @@ value create_lookup()
 
 value create_lookup( value prototype )
 {
-    if ( ! is_lookup( prototype ) ) throw type_error( prototype, "a lookup object" );
+    if ( ! is_lookup( prototype ) ) raise_type_error( prototype, "a lookup object" );
     return box_object( lookup_new( current(), (lookup_object*)unbox_object( prototype ) ) );
 }
 
 value create_lookup( value prototype, std::string_view ksnames[], size_t kscount )
 {
-    if ( ! is_lookup( prototype ) ) throw type_error( prototype, "a lookup object" );
+    if ( ! is_lookup( prototype ) ) raise_type_error( prototype, "a lookup object" );
     vmachine* vm = current();
     lookup_object* lookup = lookup_new( vm, (lookup_object*)unbox_object( prototype ) );
     for ( size_t index = 0; index < kscount; ++index )
@@ -401,13 +407,13 @@ value create_lookup( value prototype, std::string_view ksnames[], size_t kscount
 
 value get_keyslot( value lookup, size_t index )
 {
-    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
+    if ( ! is_lookup( lookup ) ) raise_type_error( lookup, "a lookup object" );
     return lookup_getkeyslot( current(), (lookup_object*)unbox_object( lookup ), index );
 }
 
 void set_keyslot( value lookup, size_t index, value v )
 {
-    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
+    if ( ! is_lookup( lookup ) ) raise_type_error( lookup, "a lookup object" );
     lookup_setkeyslot( current(), (lookup_object*)unbox_object( lookup ), index, v );
 }
 
@@ -423,7 +429,7 @@ void set_key( value lookup, std::string_view k, value v )
 {
     vmachine* vm = current();
     selector sel = {};
-    if ( ! is_lookup( lookup ) ) throw type_error( lookup, "a lookup object" );
+    if ( ! is_lookup( lookup ) ) raise_type_error( lookup, "a lookup object" );
     string_object* skey = string_key( vm, k.data(), k.size() );
     lookup_setkey( vm, (lookup_object*)unbox_object( lookup ), skey, &sel, v );
 }
@@ -458,7 +464,7 @@ value create_string_buffer( size_t size, char** out_text )
 
 std::string_view get_string( value string )
 {
-    if ( ! is_string( string ) ) throw type_error( string, "a string" );
+    if ( ! is_string( string ) ) raise_type_error( string, "a string" );
     string_object* s = unbox_string( string );
     return std::string_view( s->text, s->size );
 }
@@ -475,26 +481,26 @@ value create_array( size_t capacity )
 
 size_t array_length( value array )
 {
-    if ( ! is_array( array ) ) throw type_error( array, "an array" );
+    if ( ! is_array( array ) ) raise_type_error( array, "an array" );
     array_object* a = (array_object*)unbox_object( array );
     return a->length;
 }
 
 void array_resize( value array, size_t length )
 {
-    if ( ! is_array( array ) ) throw type_error( array, "an array" );
+    if ( ! is_array( array ) ) raise_type_error( array, "an array" );
     array_resize( current(), (array_object*)unbox_object( array ), length );
 }
 
 void array_append( value array, value v )
 {
-    if ( ! is_array( array ) ) throw type_error( array, "an array" );
+    if ( ! is_array( array ) ) raise_type_error( array, "an array" );
     array_append( current(), (array_object*)unbox_object( array ), v );
 }
 
 void array_clear( value array )
 {
-    if ( ! is_array( array ) )throw type_error( array, "an array" );
+    if ( ! is_array( array ) )raise_type_error( array, "an array" );
     array_clear( current(), (array_object*)unbox_object( array ) );
 }
 
@@ -510,14 +516,14 @@ value create_table( size_t capacity )
 
 size_t table_length( value table )
 {
-    if ( ! is_table( table ) ) throw type_error( table, "a table" );
+    if ( ! is_table( table ) ) raise_type_error( table, "a table" );
     table_object* t = (table_object*)unbox_object( table );
     return t->length;
 }
 
 void table_clear( value table )
 {
-    if ( ! is_table( table ) ) throw type_error( table, "a table" );
+    if ( ! is_table( table ) ) raise_type_error( table, "a table" );
     table_clear( current(), (table_object*)unbox_object( table ) );
 }
 
@@ -529,13 +535,13 @@ value get_index( value table, value k )
     }
     else if ( is_array( table ) )
     {
-        if ( ! is_number( k ) ) throw type_error( k, "a number" );
+        if ( ! is_number( k ) ) raise_type_error( k, "a number" );
         size_t index = (size_t)(uint64_t)unbox_number( k );
         return array_getindex( current(), (array_object*)unbox_object( table ), index );
     }
     else
     {
-        throw type_error( table, "indexable" );
+        raise_type_error( table, "indexable" );
     }
 }
 
@@ -551,7 +557,7 @@ value get_index( value array, size_t index )
     }
     else
     {
-        throw type_error( array, "indexable" );
+        raise_type_error( array, "indexable" );
     }
 }
 
@@ -563,13 +569,13 @@ void set_index( value table, value k, value v )
     }
     else if ( is_array( table ) )
     {
-        if ( ! is_number( k ) ) throw type_error( k, "a number" );
+        if ( ! is_number( k ) ) raise_type_error( k, "a number" );
         size_t index = (size_t)(uint64_t)unbox_number( k );
         array_setindex( current(), (array_object*)unbox_object( table ), index, v );
     }
     else
     {
-        throw type_error( table, "indexable" );
+        raise_type_error( table, "indexable" );
     }
 }
 
@@ -585,13 +591,13 @@ void set_index( value array, size_t index, value v )
     }
     else
     {
-        throw type_error( array, "indexable" );
+        raise_type_error( array, "indexable" );
     }
 }
 
 void del_index( value table, value k )
 {
-    if ( ! is_table( table ) ) type_error( table, "a table" );
+    if ( ! is_table( table ) ) raise_type_error( table, "a table" );
     table_delindex( current(), (table_object*)unbox_object( table ), k );
 }
 
@@ -672,7 +678,7 @@ stack_values call_frame( frame* frame, value function )
     xstate state;
     if ( ! call_value( vm, function, 0, xp, false, &state ) )
     {
-        throw type_error( function, "callable" );
+        raise_type_error( function, "callable" );
     }
 
     if ( state.function )
@@ -714,6 +720,180 @@ value call( value function, const value* arguments, size_t argcount )
     stack_values resframe = call_frame( &frame, function );
     value result = resframe.count ? resframe.values[ 0 ] : boxed_null;
     return result;
+}
+
+/*
+    Errors.
+*/
+
+static std::string format_string( const char* format, va_list ap )
+{
+    va_list aq;
+
+    va_copy( aq, ap );
+    int size = vsnprintf( nullptr, 0, format, aq );
+    va_end( aq );
+
+    std::string s;
+    s.resize( size + 1 );
+
+    va_copy( aq, ap );
+    vsnprintf( s.data(), s.size(), format, aq );
+    va_end( aq );
+
+    s.resize( size );
+    return s;
+}
+
+static std::string format_string( const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    std::string s = format_string( format, ap );
+    va_end( ap );
+    return s;
+}
+
+static std::string format_value( value v )
+{
+    std::string s;
+    if ( box_is_number( v ) )
+    {
+        s = format_string( "%f", unbox_number( v ) );
+    }
+    else if ( box_is_string( v ) )
+    {
+        string_object* string = unbox_string( v );
+        s = std::string( string->text, string->size );
+    }
+    else if ( box_is_object( v ) )
+    {
+        const char* type_name = "object";
+        switch ( header( unbox_object( v ) )->type )
+        {
+        case LOOKUP_OBJECT:             type_name = "lookup";           break;
+        case ARRAY_OBJECT:              type_name = "array";            break;
+        case TABLE_OBJECT:              type_name = "table";            break;
+        case FUNCTION_OBJECT:           type_name = "function";         break;
+        case NATIVE_FUNCTION_OBJECT:    type_name = "native function";  break;
+        case COTHREAD_OBJECT:           type_name = "cothread";         break;
+        case U64VAL_OBJECT:             type_name = "u64val";           break;
+        default: break;
+        }
+        s = format_string( "<%s %p>", type_name, unbox_object( v ) );
+    }
+    else if ( box_is_bool( v ) )
+    {
+        s = v.v == boxed_true.v ? "true" : "false";
+    }
+    else if ( box_is_u64val( v ) )
+    {
+        s = format_string( "[%016" PRIX64 "]", unbox_u64val( v ) );
+    }
+    else
+    {
+        s = "null";
+    }
+    return s;
+}
+
+struct stack_trace
+{
+    intptr_t refcount;
+    runtime* r;
+    std::vector< std::string > frames;
+};
+
+
+stack_trace* create_stack_trace( runtime* r )
+{
+    stack_trace* s = new stack_trace();
+    s->refcount = 1;
+    s->r = retain_runtime( r );
+    return s;
+}
+
+stack_trace* retain_stack_trace( stack_trace* s )
+{
+    assert( s->refcount >= 1 );
+    s->refcount += 1;
+    return s;
+}
+
+void release_stack_trace( stack_trace* s )
+{
+    assert( s->refcount >= 1 );
+    if ( --s->refcount == 0 )
+    {
+        release_runtime( s->r );
+        if ( s->r->backtrace == s )
+        {
+            s->r->backtrace = nullptr;
+        }
+        delete s;
+    }
+}
+
+size_t stack_trace_count( stack_trace* s )
+{
+    return s->frames.size();
+}
+
+const char* stack_trace_frame( stack_trace* s, size_t index )
+{
+    return s->frames.at( index ).c_str();
+}
+
+void append_stack_trace( const char* format, ... )
+{
+    runtime* r = current_runtime;
+    if ( r && r->backtrace )
+    {
+        va_list ap;
+        va_start( ap, format );
+        r->backtrace->frames.push_back( format_string( format, ap ) );
+        va_end( ap );
+    }
+}
+
+void install_handler( runtime* r, error_handler handler )
+{
+    r->handler = handler;
+}
+
+[[noreturn]] static void throw_error( error_kind error, const std::string& message, value raised )
+{
+    runtime* r = current_runtime;
+    if ( r && r->handler )
+    {
+        r->backtrace = create_stack_trace( r );
+        r->handler( error, message, r->backtrace, raised );
+        release_stack_trace( r->backtrace );
+    }
+
+    throw std::runtime_error( message );
+}
+
+void raise_error( error_kind error, const char* format, ... )
+{
+    va_list ap;
+    va_start( ap, format );
+    std::string message = format_string( format, ap );
+    va_end( ap );
+    throw_error( error, message, boxed_null );
+}
+
+void raise_type_error( value v, std::string_view expected )
+{
+    std::string message = format_value( v );
+    message += " is not ";
+    message += expected;
+    throw_error( ERROR_TYPE, message, boxed_null );
+}
+
+void throw_value( value raised )
+{
+    throw_error( ERROR_THROW, format_value( raised ), raised );
 }
 
 }

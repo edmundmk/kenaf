@@ -15,12 +15,16 @@
 #include <kenaf/compiler.h>
 #include <kenaf/runtime.h>
 #include <kenaf/handles.h>
-#include <kenaf/errors.h>
 
-int print_usage()
+static int print_usage()
 {
     fprintf( stderr, "usage: kenaf script\n" );
     return EXIT_FAILURE;
+}
+
+static void error_handler( kf::error_kind error, std::string_view message, kf::stack_trace* backtrace, kf::value raised )
+{
+    throw kf::script_error( error, message, backtrace, raised );
 }
 
 int main( int argc, char* argv[] )
@@ -132,6 +136,7 @@ int main( int argc, char* argv[] )
 
     // Execute script.
     kf::runtime_handle runtime = kf::make_runtime();
+    kf::install_handler( runtime.get(), &error_handler );
     kf::context_handle context = kf::make_context( runtime.get() );
     kf::make_current( context.get() );
 
@@ -162,7 +167,7 @@ int main( int argc, char* argv[] )
     catch ( const kf::script_error& e )
     {
         fprintf( stderr, "%s\n", e.what() );
-        kf::stack_trace* s = e.stack_trace();
+        kf::stack_trace* s = e.backtrace();
         for ( size_t i = 0; i < kf::stack_trace_count( s ); ++i )
         {
             fprintf( stderr, "    %s\n", stack_trace_frame( s, i ) );

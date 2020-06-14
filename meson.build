@@ -13,7 +13,6 @@ project( 'kenaf', 'c', 'cpp', default_options : [ 'cpp_std=c++17' ] )
 headers = [
     'include/kenaf/compiler.h',
     'include/kenaf/defines.h',
-    'include/kenaf/errors.h',
     'include/kenaf/handles.h',
     'include/kenaf/runtime.h'
 ]
@@ -49,7 +48,6 @@ sources = [
     'source/runtime/objects/u64val_object.cpp',
     'source/runtime/call_stack.cpp',
     'source/runtime/collector.cpp',
-    'source/runtime/errors.cpp',
     'source/runtime/execute.cpp',
     'source/runtime/heap.cpp',
     'source/runtime/runtime.cpp',

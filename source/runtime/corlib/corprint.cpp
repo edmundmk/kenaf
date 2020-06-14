@@ -14,7 +14,6 @@
 #include <vector>
 #include <exception>
 #include "kenaf/runtime.h"
-#include "kenaf/errors.h"
 
 namespace kf
 {
@@ -71,8 +70,8 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         if ( *p == '*' )
         {
             format.push_back( *p++ );
-            if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
-            if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
+            if ( argindex >= argcount ) raise_error( ERROR_ARGUMENT, "fewer arguments than format specifiers" );
+            if ( ! is_number( arguments[ argindex ] ) ) raise_type_error( arguments[ argindex ], "a number" );
             intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
             argindex += 1;
         }
@@ -87,8 +86,8 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
             if ( *p == '*' )
             {
                 format.push_back( *p++ );
-                if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
-                if ( ! is_number( arguments[ argindex ] ) ) throw type_error( arguments[ argindex ], "a number" );
+                if ( argindex >= argcount ) raise_error( ERROR_ARGUMENT, "fewer arguments than format specifiers" );
+                if ( ! is_number( arguments[ argindex ] ) ) raise_type_error( arguments[ argindex ], "a number" );
                 intarg[ intarg_count++ ] = (int)(int64_t)get_number( arguments[ argindex ] );
                 argindex += 1;
             }
@@ -98,7 +97,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
             }
         }
 
-        if ( argindex >= argcount ) throw argument_error( "fewer arguments than format specifiers" );
+        if ( argindex >= argcount ) raise_error( ERROR_ARGUMENT, "fewer arguments than format specifiers" );
         value arg = arguments[ argindex++ ];
 
         char c = *p++;
@@ -106,7 +105,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         {
         case 'c':
         {
-            if ( ! is_number( arg ) ) type_error( arg, "a number" );
+            if ( ! is_number( arg ) ) raise_type_error( arg, "a number" );
             int c = (int)(int64_t)get_number( arg );
             format.push_back( c );
             format.push_back( '\0' );
@@ -121,7 +120,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
 
         case 's':
         {
-            if ( ! is_string( arg ) ) type_error( arg, "a string" );
+            if ( ! is_string( arg ) ) raise_type_error( arg, "a string" );
             std::string_view text = get_string( arg );
             format.push_back( c );
             format.push_back( '\0' );
@@ -137,7 +136,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'd':
         case 'i':
         {
-            if ( ! is_number( arg ) ) type_error( arg, "a number" );
+            if ( ! is_number( arg ) ) raise_type_error( arg, "a number" );
             intmax_t i = (intmax_t)get_number( arg );
             format.push_back( 'j' );
             format.push_back( c );
@@ -156,7 +155,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'X':
         case 'u':
         {
-            if ( ! is_number( arg ) ) type_error( arg, "a number" );
+            if ( ! is_number( arg ) ) raise_type_error( arg, "a number" );
             uintmax_t u = (uintmax_t)get_number( arg );
             format.push_back( 'j' );
             format.push_back( c );
@@ -179,7 +178,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         case 'g':
         case 'G':
         {
-            if ( ! is_number( arg ) ) type_error( arg, "a number" );
+            if ( ! is_number( arg ) ) raise_type_error( arg, "a number" );
             double n = get_number( arg );
             format.push_back( c );
             format.push_back( '\0' );
@@ -193,7 +192,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
         }
 
         default:
-            throw script_error( "invalid format specifier '%c'", c );
+            raise_error( ERROR_INVALID, "invalid format specifier '%c'", c );
         }
 
         format.clear();
@@ -205,7 +204,7 @@ static result print( void* cookie, frame* frame, const value* arguments, size_t 
 
     if ( argindex < argcount )
     {
-        throw argument_error( "more arguments than format specifiers" );
+        raise_error( ERROR_ARGUMENT, "more arguments than format specifiers" );
     }
 
     return return_void( frame );

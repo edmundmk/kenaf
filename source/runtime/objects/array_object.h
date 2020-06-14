@@ -57,7 +57,7 @@ inline value array_getindex( vmachine* vm, array_object* array, size_t index )
     }
     else
     {
-        throw index_error( "array index out of range" );
+        raise_error( ERROR_INDEX, "array index out of range" );
     }
 }
 
@@ -69,7 +69,7 @@ inline value array_setindex( vmachine* vm, array_object* array, size_t index, va
     }
     else
     {
-        throw index_error( "array index out of range" );
+        raise_error( ERROR_INDEX, "array index out of range" );
     }
     return value;
 }

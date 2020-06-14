@@ -190,6 +190,48 @@ KF_API stack_values push_frame( frame* frame, size_t count );
 KF_API stack_values call_frame( frame* frame, value function );
 KF_API void pop_frame( frame* frame );
 
+/*
+    Error handling.  Designed so that embedders can throw an exception.  For
+    now, kenaf may also throw exceptions outside of this mechanism.  If a
+    runtime has no error handler, then the runtime throws std::runtime_error.
+
+    On entry to the handler the stack trace will be empty.  As kenaf stack
+    frames are unwound, if the stack trace is still alive. entries are added.
+
+    Handlers should not return.  If the backtrace is not used, it must be
+    released by the handler.
+*/
+
+enum error_kind
+{
+    ERROR_NONE,
+    ERROR_SYSTEM,       // System error.
+    ERROR_MEMORY,       // Memory allocation failure.
+    ERROR_THROW,        // Script threw a value.
+    ERROR_TYPE,         // Type error.
+    ERROR_INDEX,        // Index out of range.
+    ERROR_KEY,          // Key not found.
+    ERROR_INVALID,      // Invalid argument.
+    ERROR_ARGUMENT,     // Incorrect argument count.
+    ERROR_COTHREAD,     // Attempt to resume a dead cothread.
+};
+
+struct stack_trace;
+
+typedef void (*error_handler)( error_kind error, std::string_view message, stack_trace* backtrace, value raised );
+
+KF_API void install_handler( runtime* r, error_handler handler );
+
+KF_API [[noreturn]] void raise_error( error_kind error, const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+KF_API [[noreturn]] void raise_type_error( value v, std::string_view expected );
+KF_API [[noreturn]] void throw_value( value raised );
+
+KF_API stack_trace* retain_stack_trace( stack_trace* s );
+KF_API void release_stack_trace( stack_trace* s );
+
+KF_API size_t stack_trace_count( stack_trace* s );
+KF_API const char* stack_trace_frame( stack_trace* s, size_t index );
+
 }
 
 #endif
