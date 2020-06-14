@@ -206,7 +206,7 @@ static void debug_print_tree( const std::vector< ast_node >& nodes, unsigned ind
 {
     const ast_node& n = nodes.at( index );
 
-    printf( "%*s%s", indent, "", AST_NODE_NAME[ n.kind ] );
+    printf( "%*s[%4u]%s", indent, "", n.sloc, AST_NODE_NAME[ n.kind ] );
     if ( n.leaf == AST_LEAF_STRING )
     {
         const ast_leaf_string& l = n.leaf_string();

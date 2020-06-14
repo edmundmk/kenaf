@@ -127,7 +127,7 @@ static void debug_print_op( const ir_function* f, unsigned i, int indent )
         printf( "\x1B[90m" );
     }
 
-    printf( "%*s:%04X", indent, "", i );
+    printf( "%*s[%4u]:%04X", indent, "", op.sloc, i );
     if ( op.live_range != IR_INVALID_INDEX )
         printf( " ↓%04X", op.live_range );
     else

@@ -69,6 +69,7 @@ code_script_ptr code_unit::pack() const
         code_size += sizeof( op ) * funit->ops.size();
         code_size += sizeof( code_constant ) * funit->constants.size();
         code_size += sizeof( code_selector ) * funit->selectors.size();
+        code_size += sizeof( uint32_t ) * funit->functions.size();
 
         uint32_t debug_size = sizeof( code_debug_function );
         debug_size += sizeof( uint32_t ) * funit->debug_slocs.size();
