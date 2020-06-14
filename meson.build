@@ -63,6 +63,10 @@ if meson.get_compiler( 'cpp' ).get_argument_syntax() == 'msvc'
     cpp_args += [ '/wd4200' ]
 endif
 
+if host_machine.system() == 'windows'
+    sources += import( 'windows' ).compile_resources( 'kenaf.rc' )
+endif
+
 kenaf_lib = library( 'kenaf', sources : sources, include_directories : include_directories( 'include', 'source/compiler' ), cpp_args : cpp_args, gnu_symbol_visibility : 'hidden', dependencies : [ dependency( 'threads' ) ], install : true )
 kenaf_lic = files( 'LICENSE' )
 kenaf_dep = declare_dependency( include_directories : include_directories( 'include' ), link_with : kenaf_lib )

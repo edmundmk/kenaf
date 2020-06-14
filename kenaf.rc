@@ -1,0 +1,60 @@
+#include <winres.h>
+
+#define VERSION_MAJOR       0
+#define VERSION_MINOR       0
+#define VERSION_REVISION    1
+
+#define STRINGIZE( x )      STRINGIFY( x )
+#define STRINGIFY( x )      #x
+#define VERSION_STRING      STRINGIZE( VERSION_MAJOR.VERSION_MINOR.VERSION_REVISION )
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION     VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,0
+    PRODUCTVERSION  VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,0
+    FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+    FILEFLAGS       VS_FF_DEBUG
+#else
+    FILEFLAGS       0
+#endif
+    FILEOS          VOS_NT_WINDOWS32
+    FILETYPE        VFT_DLL
+    FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "ProductName",        "Kenaf"
+            VALUE "ProductVersion",     VERSION_STRING
+            VALUE "FileVersion",        VERSION_STRING
+            VALUE "FileDescription",    "A small, embeddable, dynamically typed scripting language."
+            VALUE "InternalName",       "kenaf.dll"
+            VALUE "OriginalFilename",   "kenaf.dll"
+            VALUE "LegalCopyright",     "Copyright (c) 2019 Edmund Kapusniak\n"
+"\n"
+"Permission is hereby granted, free of charge, to any person obtaining a copy of\n"
+"this software and associated documentation files (the ""Software""), to deal in\n"
+"the Software without restriction, including without limitation the rights to\n"
+"use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\n"
+"of the Software, and to permit persons to whom the Software is furnished to do\n"
+"so, subject to the following conditions:\n"
+"\n"
+"The above copyright notice and this permission notice shall be included in all\n"
+"copies or substantial portions of the Software.\n"
+"\n"
+"THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+"IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+"FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+"AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+"LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+"SOFTWARE."
+            VALUE "Comments",           "https://github.com/edmundmk/kenaf"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
