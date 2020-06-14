@@ -222,9 +222,9 @@ typedef void (*error_handler)( error_kind error, std::string_view message, stack
 
 KF_API void install_handler( runtime* r, error_handler handler );
 
-KF_API [[noreturn]] void raise_error( error_kind error, const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
-KF_API [[noreturn]] void raise_type_error( value v, std::string_view expected );
-KF_API [[noreturn]] void throw_value( value raised );
+[[noreturn]] KF_API void raise_error( error_kind error, const char* format, ... ) KF_PRINTF_FORMAT( 2, 3 );
+[[noreturn]] KF_API void raise_type_error( value v, std::string_view expected );
+[[noreturn]] KF_API void throw_value( value raised );
 
 KF_API stack_trace* retain_stack_trace( stack_trace* s );
 KF_API void release_stack_trace( stack_trace* s );
