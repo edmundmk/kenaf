@@ -94,7 +94,7 @@ enum
     PRINT_CODE          = 1 << 8,
 };
 
-KF_API void debug_print( compiler* c, unsigned debug_print );
+KF_API void print_flags( compiler* c, unsigned flags );
 KF_API void debug_print( const void* code, size_t size );
 
 }

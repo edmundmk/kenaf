@@ -27,7 +27,7 @@ namespace kf
 struct compiler
 {
     intptr_t refcount;
-    unsigned debug_print;
+    unsigned print_flags;
     std::unique_ptr< struct errors > errors;
     std::unique_ptr< struct source > source;
     code_script_ptr code;
@@ -37,7 +37,7 @@ compiler* create_compiler()
 {
     compiler* c = new compiler();
     c->refcount = 1;
-    c->debug_print = 0;
+    c->print_flags = 0;
     c->errors = std::make_unique< errors >();
     return c;
 }
@@ -90,7 +90,7 @@ bool compile( compiler* c )
         lexer lexer( &report, c->source.get() );
         parser parser( &report, &lexer );
         std::unique_ptr< ast_script > script = parser.parse();
-        if ( c->debug_print & PRINT_AST_PARSED )
+        if ( c->print_flags & PRINT_AST_PARSED )
             script->debug_print();
         if ( c->errors->has_error )
             goto return_error;
@@ -105,7 +105,7 @@ bool compile( compiler* c )
         // Resolve names.
         ast_resolve resolve( &report, script.get() );
         resolve.resolve();
-        if ( c->debug_print & PRINT_AST_RESOLVED )
+        if ( c->print_flags & PRINT_AST_RESOLVED )
             script->debug_print();
         if ( c->errors->has_error )
             goto return_error;
@@ -121,37 +121,37 @@ bool compile( compiler* c )
         for ( const auto& function : script->functions )
         {
             std::unique_ptr< ir_function > ir = build.build( function.get() );
-            if ( ir && ( c->debug_print & PRINT_IR_BUILD ) )
+            if ( ir && ( c->print_flags & PRINT_IR_BUILD ) )
                 ir->debug_print();
             if ( ! ir || c->errors->has_error )
                 goto return_error;
 
             fold.fold( ir.get() );
-            if ( c->debug_print & PRINT_IR_FOLD )
+            if ( c->print_flags & PRINT_IR_FOLD )
                 ir->debug_print();
             if ( c->errors->has_error )
                 goto return_error;
 
             live.live( ir.get() );
-            if ( c->debug_print & PRINT_IR_LIVE )
+            if ( c->print_flags & PRINT_IR_LIVE )
                 ir->debug_print();
             if ( c->errors->has_error )
                 goto return_error;
 
             foldk.foldk( ir.get() );
-            if ( c->debug_print & PRINT_IR_FOLDK )
+            if ( c->print_flags & PRINT_IR_FOLDK )
                 ir->debug_print();
             if ( c->errors->has_error )
                 goto return_error;
 
             live.live( ir.get() );
-            if ( c->debug_print & PRINT_IR_FOLD_LIVE )
+            if ( c->print_flags & PRINT_IR_FOLD_LIVE )
                 ir->debug_print();
             if ( c->errors->has_error )
                 goto return_error;
 
             alloc.alloc( ir.get() );
-            if ( c->debug_print & PRINT_IR_ALLOC )
+            if ( c->print_flags & PRINT_IR_ALLOC )
                 ir->debug_print();
             if ( c->errors->has_error )
                 goto return_error;
@@ -162,7 +162,7 @@ bool compile( compiler* c )
         }
 
         code_script_ptr code = unit.pack();
-        if ( c->debug_print & PRINT_CODE )
+        if ( c->print_flags & PRINT_CODE )
             code->debug_print();
 
         c->code = std::move( code );
@@ -201,9 +201,9 @@ diagnostic get_diagnostic( compiler* c, size_t index )
     return { d.kind, d.location.line, d.location.column, d.message };
 }
 
-void debug_print( compiler* c, unsigned debug_print )
+void print_flags( compiler* c, unsigned flags )
 {
-    c->debug_print = debug_print;
+    c->print_flags = flags;
 }
 
 void debug_print( const void* code, size_t size )
