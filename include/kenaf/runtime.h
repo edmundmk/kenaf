@@ -160,7 +160,9 @@ KF_API value create_function( const void* code, size_t size );
     Native function interface.
 */
 
-struct frame { void* sp; size_t fp; };
+struct frame { void* sp; size_t bp; };
+
+
 typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
 enum { PARAM_VARARG = 1 << 0, DIRECT_SELF = 1 << 1 };

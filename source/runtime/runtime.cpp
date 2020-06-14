@@ -612,14 +612,14 @@ value* arguments( frame* frame )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
     assert( current()->c->cothread == frame->sp );
-    return cothread->stack.data() + frame->fp + 1;
+    return cothread->stack.data() + frame->bp + 1;
 }
 
 value* results( frame* frame, size_t count )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
     assert( current()->c->cothread == cothread );
-    return resize_stack( cothread, frame->fp, frame->fp + count );
+    return resize_stack( cothread, frame->bp, frame->bp + count );
 }
 
 size_t result( frame* frame, value v )
@@ -643,11 +643,11 @@ stack_values push_frame( frame* frame, size_t argcount )
 {
     vmachine* vm = current();
     cothread_object* cothread = vm->c->cothread;
-    unsigned fp = cothread->xp;
-    cothread->stack_frames.push_back( { nullptr, fp, fp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
+    unsigned bp = cothread->xp;
+    cothread->stack_frames.push_back( { nullptr, bp, bp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
     frame->sp = vm;
-    frame->fp = fp;
-    return { resize_stack( cothread, fp, 1 + argcount ) + 1, argcount };
+    frame->bp = bp;
+    return { resize_stack( cothread, bp, 1 + argcount ) + 1, argcount };
 }
 
 stack_values call_frame( frame* frame, value function )
@@ -657,11 +657,11 @@ stack_values call_frame( frame* frame, value function )
 
     stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
-    assert( stack_frame->fp == frame->fp );
+    assert( stack_frame->fp == frame->bp );
     assert( stack_frame->fp < cothread->xp );
 
-    unsigned xp = cothread->xp - frame->fp;
-    value* r = cothread->stack.data() + frame->fp;
+    unsigned xp = cothread->xp - frame->bp;
+    value* r = cothread->stack.data() + frame->bp;
     r[ 0 ] = function;
 
     xstate state;
@@ -676,8 +676,8 @@ stack_values call_frame( frame* frame, value function )
     }
 
     assert( vm->c->cothread == cothread );
-    assert( frame->fp <= cothread->xp );
-    return { cothread->stack.data() + frame->fp, cothread->xp - frame->fp };
+    assert( frame->bp <= cothread->xp );
+    return { cothread->stack.data() + frame->bp, cothread->xp - frame->bp };
 }
 
 void pop_frame( frame* frame )
@@ -687,11 +687,11 @@ void pop_frame( frame* frame )
 
     stack_frame* stack_frame = &cothread->stack_frames.back();
     assert( ! stack_frame->function );
-    assert( stack_frame->fp == frame->fp );
+    assert( stack_frame->fp == frame->bp );
     assert( stack_frame->fp <= cothread->xp );
 
     cothread->stack_frames.pop_back();
-    cothread->xp = frame->fp;
+    cothread->xp = frame->bp;
     frame->sp = nullptr;
 }
 
