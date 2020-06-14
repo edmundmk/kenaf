@@ -105,6 +105,16 @@ private:
 
 };
 
+inline value call( value function, std::initializer_list< value > arguments )
+{
+    return call( function, arguments.begin(), arguments.size() );
+}
+
+template < typename ... A > inline value call( value function, A ... argvalues )
+{
+    return call( function, { std::forward< A >( argvalues ) ... } );
+}
+
 }
 
 #endif

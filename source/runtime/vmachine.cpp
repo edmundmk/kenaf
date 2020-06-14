@@ -250,9 +250,9 @@ cothread_object* mark_cothread( vmachine* vm, cothread_object* cothread )
     Object model.
 */
 
-static size_t object_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result object_self( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return rvoid( frame );
+    return return_void( frame );
 }
 
 void setup_object_model( vmachine* vm )

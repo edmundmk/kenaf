@@ -26,6 +26,9 @@
 namespace kf
 {
 
+static_assert( CODE_VARARG == FUNCTION_VARARG );
+static_assert( CODE_DIRECT == FUNCTION_DIRECT );
+
 /*
     Thread-local VM state.
 */
@@ -608,30 +611,32 @@ value create_function( std::string_view name, native_function native, void* cook
     return box_object( native_function_new( current(), name, native, cookie, param_count, code_flags ) );
 }
 
-value* arguments( frame* frame )
-{
-    cothread_object* cothread = (cothread_object*)frame->sp;
-    assert( current()->c->cothread == frame->sp );
-    return cothread->stack.data() + frame->bp + 1;
-}
-
-value* results( frame* frame, size_t count )
+stack_values push_results( frame* frame, size_t count )
 {
     cothread_object* cothread = (cothread_object*)frame->sp;
     assert( current()->c->cothread == cothread );
-    return resize_stack( cothread, frame->bp, frame->bp + count );
+    return { resize_stack( cothread, frame->bp, frame->bp + count ), count };
 }
 
-size_t result( frame* frame, value v )
+result return_results( frame* frame )
 {
-    value* r = results( frame, 1 );
+    cothread_object* cothread = (cothread_object*)frame->sp;
+    assert( current()->c->cothread == cothread );
+    assert( cothread->xp >= frame->bp );
+    return cothread->xp - frame->bp;
+}
+
+result return_value( frame* frame, value v )
+{
+    cothread_object* cothread = (cothread_object*)frame->sp;
+    assert( current()->c->cothread == cothread );
+    value* r = resize_stack( cothread, frame->bp, frame->bp + 1 );
     r[ 0 ] = v;
     return 1;
 }
 
-size_t rvoid( frame* frame )
+size_t return_void( frame* frame )
 {
-    results( frame, 0 );
     return 0;
 }
 
@@ -639,7 +644,7 @@ size_t rvoid( frame* frame )
     Function calls.
 */
 
-stack_values push_frame( frame* frame, size_t argcount )
+stack_values push_frame( frame* frame, size_t count )
 {
     vmachine* vm = current();
     cothread_object* cothread = vm->c->cothread;
@@ -647,7 +652,7 @@ stack_values push_frame( frame* frame, size_t argcount )
     cothread->stack_frames.push_back( { nullptr, bp, bp, 0, RESUME_CALL, 0, OP_STACK_MARK, 0 } );
     frame->sp = vm;
     frame->bp = bp;
-    return { resize_stack( cothread, bp, 1 + argcount ) + 1, argcount };
+    return { resize_stack( cothread, bp, 1 + count ) + 1, count };
 }
 
 stack_values call_frame( frame* frame, value function )
@@ -709,11 +714,6 @@ value call( value function, const value* arguments, size_t argcount )
     stack_values resframe = call_frame( &frame, function );
     value result = resframe.count ? resframe.values[ 0 ] : boxed_null;
     return result;
-}
-
-value call( value function, std::initializer_list< value > arguments )
-{
-    return call( function, arguments.begin(), arguments.size() );
 }
 
 }

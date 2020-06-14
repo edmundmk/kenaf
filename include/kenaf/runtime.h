@@ -160,35 +160,35 @@ KF_API value create_function( const void* code, size_t size );
     Native function interface.
 */
 
+enum
+{
+    FUNCTION_NONE   = 0,
+    FUNCTION_VARARG = 1 << 0, // Function accepts variable arguments.
+    FUNCTION_DIRECT = 1 << 1, // When called as constructor, don't create self.
+};
+
 struct frame { void* sp; size_t bp; };
+struct stack_values { value* values; size_t count; };
+typedef size_t result;
 
+typedef result (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
 
-typedef size_t (*native_function)( void* cookie, frame* frame, const value* arguments, size_t argcount );
+KF_API value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags = FUNCTION_NONE );
 
-enum { PARAM_VARARG = 1 << 0, DIRECT_SELF = 1 << 1 };
-KF_API value create_function( std::string_view name, native_function native, void* cookie, unsigned param_count, unsigned code_flags = 0 );
-
-KF_API value* arguments( frame* frame );
-KF_API value* results( frame* frame, size_t count );
-KF_API size_t result( frame* frame, value v );
-KF_API size_t rvoid( frame* frame );
+KF_API stack_values push_results( frame* frame, size_t count );
+KF_API result return_results( frame* frame );
+KF_API result return_value( frame* frame, value v );
+KF_API result return_void( frame* frame );
 
 /*
     Calling functions from native code.
 */
 
-struct KF_API stack_values { value* values; size_t count; };
-KF_API stack_values push_frame( frame* frame, size_t argcount );
+KF_API value call( value function, const value* arguments, size_t argcount );
+
+KF_API stack_values push_frame( frame* frame, size_t count );
 KF_API stack_values call_frame( frame* frame, value function );
 KF_API void pop_frame( frame* frame );
-
-KF_API value call( value function, const value* arguments, size_t argcount );
-KF_API value call( value function, std::initializer_list< value > arguments );
-
-template < typename ... A > value call( value function, A ... argvalues )
-{
-    return call( function, { std::forward< A >( argvalues ) ... } );
-}
 
 }
 

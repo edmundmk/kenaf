@@ -106,7 +106,7 @@ void ir_emit::emit( ir_function* function )
     _u->function.code_flags = 0;
     if ( _f->ast->is_varargs )
     {
-        _u->function.code_flags |= CODE_VARARGS;
+        _u->function.code_flags |= CODE_VARARG;
         _u->function.param_count -= 1;
     }
     if ( _f->ast->is_generator )

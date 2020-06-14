@@ -24,77 +24,77 @@ namespace kf
 
 const double PI = 0x3.243F6A8885A30p0;
 
-static size_t abs( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result abs( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::abs( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::abs( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t min( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result min( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     double n = get_number( arguments[ 0 ] );
     for ( size_t i = 1; i < argcount; ++i )
     {
         n = std::min( n, get_number( arguments[ i ] ) );
     }
-    return result( frame, number_value( n ) );
+    return return_value( frame, number_value( n ) );
 }
 
-static size_t max( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result max( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     double n = get_number( arguments[ 0 ] );
     for ( size_t i = 1; i < argcount; ++i )
     {
         n = std::max( n, get_number( arguments[ i ] ) );
     }
-    return result( frame, number_value( n ) );
+    return return_value( frame, number_value( n ) );
 }
 
-static size_t pow( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result pow( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     double a = get_number( arguments[ 0 ] );
     double b = get_number( arguments[ 1 ] );
-    return result( frame, number_value( std::pow( a, b ) ) );
+    return return_value( frame, number_value( std::pow( a, b ) ) );
 }
 
-static size_t sqrt( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result sqrt( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::sqrt( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::sqrt( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t sin( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result sin( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::sin( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::sin( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t tan( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result tan( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::tan( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::tan( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t cos( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result cos( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::cos( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::cos( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t asin( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result asin( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::asin( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::asin( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t acos( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result acos( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::acos( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::acos( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t atan( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result atan( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     if ( argcount == 1 )
     {
-        return result( frame, number_value( std::atan( get_number( arguments[ 0 ] ) ) ) );
+        return return_value( frame, number_value( std::atan( get_number( arguments[ 0 ] ) ) ) );
     }
     else if ( argcount == 2 )
     {
-        return result( frame, number_value( std::atan2( get_number( arguments[ 0 ] ), get_number( arguments[ 1 ] ) ) ) );
+        return return_value( frame, number_value( std::atan2( get_number( arguments[ 0 ] ), get_number( arguments[ 1 ] ) ) ) );
     }
     else
     {
@@ -102,69 +102,69 @@ static size_t atan( void* cookie, frame* frame, const value* arguments, size_t a
     }
 }
 
-static size_t ceil( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result ceil( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::ceil( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::ceil( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t floor( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result floor( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::floor( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::floor( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t round( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result round( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::round( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::round( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t trunc( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result trunc( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, number_value( std::trunc( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, number_value( std::trunc( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t isnan( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result isnan( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::isnan( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::isnan( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t isinf( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result isinf( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::isinf( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::isinf( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t isfinite( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result isfinite( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::isfinite( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::isfinite( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t fmod( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result fmod( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     double a = get_number( arguments[ 0 ] );
     double b = get_number( arguments[ 1 ] );
-    return result( frame, number_value( std::fmod( a, b ) ) );
+    return return_value( frame, number_value( std::fmod( a, b ) ) );
 }
 
-static size_t log2( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result log2( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::log2( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::log2( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t exp2( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result exp2( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::exp2( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::exp2( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t log( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result log( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::log( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::log( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t exp( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result exp( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
-    return result( frame, bool_value( std::exp( get_number( arguments[ 0 ] ) ) ) );
+    return return_value( frame, bool_value( std::exp( get_number( arguments[ 0 ] ) ) ) );
 }
 
-static size_t clz( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result clz( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
 #ifdef _MSC_VER
@@ -173,10 +173,10 @@ static size_t clz( void* cookie, frame* frame, const value* arguments, size_t ar
 #else
     i = i ? __builtin_clz( i ) : 0;
 #endif
-    return result( frame, number_value( i ) );
+    return return_value( frame, number_value( i ) );
 }
 
-static size_t ctz( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result ctz( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     uint32_t i = ibitint( get_number( arguments[ 0 ] ) );
 #ifdef _MSC_VER
@@ -185,7 +185,7 @@ static size_t ctz( void* cookie, frame* frame, const value* arguments, size_t ar
 #else
     i = i ? __builtin_ctz( i ) : 0;
 #endif
-    return result( frame, number_value( i ) );
+    return return_value( frame, number_value( i ) );
 }
 
 void expose_cormath()
@@ -193,8 +193,8 @@ void expose_cormath()
     value global = global_object();
 
     set_key( global, "abs", create_function( "abs", abs, nullptr, 1 ) );
-    set_key( global, "min", create_function( "min", min, nullptr, 1, PARAM_VARARG ) );
-    set_key( global, "max", create_function( "max", max, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "min", create_function( "min", min, nullptr, 1, FUNCTION_VARARG ) );
+    set_key( global, "max", create_function( "max", max, nullptr, 1, FUNCTION_VARARG ) );
     set_key( global, "pow", create_function( "pow", pow, nullptr, 2 ) );
     set_key( global, "sqrt", create_function( "sqrt", sqrt, nullptr, 1 ) );
     set_key( global, "sin", create_function( "sin", sin, nullptr, 1 ) );
@@ -202,7 +202,7 @@ void expose_cormath()
     set_key( global, "cos", create_function( "cos", cos, nullptr, 1 ) );
     set_key( global, "asin", create_function( "asin", asin, nullptr, 1 ) );
     set_key( global, "acos", create_function( "acos", acos, nullptr, 1 ) );
-    set_key( global, "atan", create_function( "atan", atan, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "atan", create_function( "atan", atan, nullptr, 1, FUNCTION_VARARG ) );
     set_key( global, "ceil", create_function( "ceil", ceil, nullptr, 1 ) );
     set_key( global, "floor", create_function( "floor", floor, nullptr, 1 ) );
     set_key( global, "round", create_function( "round", round, nullptr, 1 ) );

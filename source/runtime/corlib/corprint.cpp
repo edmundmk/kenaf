@@ -23,7 +23,7 @@ namespace kf
     print has a printf-like format.
 */
 
-static size_t print( void* cookie, frame* frame, const value* arguments, size_t argcount )
+static result print( void* cookie, frame* frame, const value* arguments, size_t argcount )
 {
     std::string_view text = get_string( arguments[ 0 ] );
     const char* s = text.data();
@@ -208,13 +208,13 @@ static size_t print( void* cookie, frame* frame, const value* arguments, size_t 
         throw argument_error( "more arguments than format specifiers" );
     }
 
-    return rvoid( frame );
+    return return_void( frame );
 }
 
 void expose_corprint()
 {
     value global = global_object();
-    set_key( global, "print", create_function( "print", print, nullptr, 1, PARAM_VARARG ) );
+    set_key( global, "print", create_function( "print", print, nullptr, 1, FUNCTION_VARARG ) );
 }
 
 }

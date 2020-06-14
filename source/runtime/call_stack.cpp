@@ -123,7 +123,7 @@ xstate call_function( vmachine* vm, function_object* function, unsigned rp, unsi
     assert( rp < xp );
 
     program_object* program = read( function->program );
-    bool is_varargs = ( program->code_flags & CODE_VARARGS ) != 0;
+    bool is_varargs = ( program->code_flags & CODE_VARARG ) != 0;
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {
@@ -177,7 +177,7 @@ xstate call_native( vmachine* vm, native_function_object* function, unsigned rp,
 
     assert( rp < xp );
 
-    bool is_varargs = ( function->code_flags & CODE_VARARGS ) != 0;
+    bool is_varargs = ( function->code_flags & CODE_VARARG ) != 0;
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < function->param_count || ( argument_count > function->param_count && ! is_varargs ) )
     {
@@ -217,7 +217,7 @@ xstate call_generator( vmachine* vm, function_object* function, unsigned rp, uns
     assert( rp < xp );
 
     program_object* program = read( function->program );
-    bool is_varargs = ( program->code_flags & CODE_VARARGS ) != 0;
+    bool is_varargs = ( program->code_flags & CODE_VARARG ) != 0;
     unsigned argument_count = xp - ( rp + 1 );
     if ( argument_count < program->param_count || ( argument_count > program->param_count && ! is_varargs ) )
     {

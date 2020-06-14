@@ -194,8 +194,10 @@ void code_function::debug_print( const code_script* script ) const
     printf( "  %u OUTENV COUNT\n", outenv_count );
     printf( "  %u PARAM COUNT\n", param_count );
     printf( "  %u STACK SIZE\n", stack_size );
-    if ( code_flags & CODE_VARARGS )
-        printf( "  VARARGS\n" );
+    if ( code_flags & CODE_VARARG )
+        printf( "  VARARG\n" );
+    if ( code_flags & CODE_DIRECT )
+        printf( "  DIRECT\n" );
     if ( code_flags & CODE_GENERATOR )
         printf( "  GENERATOR\n" );
 
