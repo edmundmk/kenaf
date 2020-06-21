@@ -30,6 +30,7 @@
 #include "compiler.h"
 #include <utility>
 #include <stdexcept>
+#include <string>
 
 namespace kf
 {
