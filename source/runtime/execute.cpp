@@ -334,7 +334,7 @@ void execute( vmachine* vm, xstate state )
     LABEL( OP_NOT ):
     {
         value u = r[ op.a ];
-        r[ op.r ] = value_test( u ) ? boxed_false : boxed_true;
+        r[ op.r ] = value_test( u ) ? false_value : true_value;
         INEXT;
     }
 
@@ -896,7 +896,7 @@ void execute( vmachine* vm, xstate state )
         size_t fp = stack_frame->fp;
         while ( rp < xp )
         {
-            r[ rp++ ] = ap < fp ? stack[ ap++ ] : boxed_null;
+            r[ rp++ ] = ap < fp ? stack[ ap++ ] : null_value;
         }
         INEXT;
     }
@@ -913,7 +913,7 @@ void execute( vmachine* vm, xstate state )
         size_t i = 0;
         while ( rp < xp )
         {
-            r[ rp++ ] = i < array->length ? array_getindex( vm, array, i++ ) : boxed_null;
+            r[ rp++ ] = i < array->length ? array_getindex( vm, array, i++ ) : null_value;
         }
         INEXT;
     }
@@ -1024,7 +1024,7 @@ void execute( vmachine* vm, xstate state )
                     if ( rp < xp ) r[ rp++ ] = box_number( (double)i );
                     while ( rp < xp )
                     {
-                        r[ rp++ ] = boxed_null;
+                        r[ rp++ ] = null_value;
                     }
                     r[ op.a + 1 ] = box_index( i );
                 }
@@ -1047,7 +1047,7 @@ void execute( vmachine* vm, xstate state )
                     if ( rp < xp ) r[ rp++ ] = keyval.v;
                     while ( rp < xp )
                     {
-                        r[ rp++ ] = boxed_null;
+                        r[ rp++ ] = null_value;
                     }
                     r[ op.a + 1 ] = box_index( i );
                 }
@@ -1093,7 +1093,7 @@ void execute( vmachine* vm, xstate state )
                 if ( rp < xp ) r[ rp++ ] = box_string( string_getindex( vm, string, i++ ) );
                 while ( rp < xp )
                 {
-                    r[ rp++ ] = boxed_null;
+                    r[ rp++ ] = null_value;
                     r[ op.a + 1 ] = box_index( i );
                 }
             }
@@ -1310,7 +1310,7 @@ void execute( vmachine* vm, xstate state )
                 }
             }
         }
-        r[ op.r ] = test ? boxed_true : boxed_false;
+        r[ op.r ] = test ? true_value : false_value;
         INEXT;
     }
 

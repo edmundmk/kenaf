@@ -102,7 +102,7 @@ void release_runtime( runtime* r )
 
 void set_runtime_value( runtime* r, size_t index, value v )
 {
-    r->vm.values.resize( std::max( r->vm.values.size(), index + 1 ), boxed_null );
+    r->vm.values.resize( std::max( r->vm.values.size(), index + 1 ), null_value );
     value u = r->vm.values.at( index );
     if ( box_is_object_or_string( v ) ) object_retain( &r->vm, unbox_object_or_string( v ) );
     if ( box_is_object_or_string( u ) ) object_release( &r->vm, unbox_object_or_string( u ) );
@@ -114,7 +114,7 @@ value get_runtime_value( runtime* r, size_t index )
     if ( index < r->vm.values.size() )
         return r->vm.values[ index ];
     else
-        return boxed_null;
+        return null_value;
 }
 
 context* create_context( runtime* r )
@@ -172,7 +172,7 @@ void release_context( context* c )
 void set_context_value( size_t index, value v )
 {
     context* c = current_runtime->current_context;
-    c->vc.values.resize( std::max( c->vc.values.size(), index + 1 ), boxed_null );
+    c->vc.values.resize( std::max( c->vc.values.size(), index + 1 ), null_value );
     value u = c->vc.values.at( index );
     if ( box_is_object_or_string( v ) ) object_retain( &c->runtime->vm, unbox_object_or_string( v ) );
     if ( box_is_object_or_string( u ) ) object_release( &c->runtime->vm, unbox_object_or_string( u ) );
@@ -185,7 +185,7 @@ value get_context_value( size_t index )
     if ( index < c->vc.values.size() )
         return c->vc.values[ index ];
     else
-        return boxed_null;
+        return null_value;
 }
 
 context* make_current( context* c )
@@ -318,21 +318,6 @@ bool is_null( value v )
     return box_is_null( v );
 }
 
-value null_value()
-{
-    return boxed_null;
-}
-
-value true_value()
-{
-    return boxed_true;
-}
-
-value false_value()
-{
-    return boxed_false;
-}
-
 value superof( value v )
 {
     vmachine* vm = current();
@@ -346,13 +331,13 @@ bool test( value v )
 
 value bool_value( bool b )
 {
-    return b ? boxed_true : boxed_false;
+    return b ? true_value : false_value;
 }
 
 bool get_bool( value v )
 {
     if ( ! is_bool( v ) ) raise_type_error( v, "a bool" );
-    return v.v == boxed_true.v;
+    return v.v == true_value.v;
 }
 
 value number_value( double n )
@@ -718,7 +703,7 @@ value call( value function, const value* arguments, size_t argcount )
     stack_values argframe = push_frame( &frame, argcount );
     memcpy( argframe.values, arguments, argcount * sizeof( value ) );
     stack_values resframe = call_frame( &frame, function );
-    value result = resframe.count ? resframe.values[ 0 ] : boxed_null;
+    value result = resframe.count ? resframe.values[ 0 ] : null_value;
     return result;
 }
 
@@ -784,7 +769,7 @@ static std::string format_value( value v )
     }
     else if ( box_is_bool( v ) )
     {
-        s = v.v == boxed_true.v ? "true" : "false";
+        s = v.v == true_value.v ? "true" : "false";
     }
     else if ( box_is_u64val( v ) )
     {
@@ -880,7 +865,7 @@ void raise_error( error_kind error, const char* format, ... )
     va_start( ap, format );
     std::string message = format_string( format, ap );
     va_end( ap );
-    throw_error( error, message, boxed_null );
+    throw_error( error, message, null_value );
 }
 
 void raise_type_error( value v, std::string_view expected )
@@ -888,7 +873,7 @@ void raise_type_error( value v, std::string_view expected )
     std::string message = format_value( v );
     message += " is not ";
     message += expected;
-    throw_error( ERROR_TYPE, message, boxed_null );
+    throw_error( ERROR_TYPE, message, null_value );
 }
 
 void throw_value( value raised )

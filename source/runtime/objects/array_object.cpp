@@ -33,7 +33,7 @@ void array_resize( vmachine* vm, array_object* array, size_t length )
         // Clear slots at the end.
         for ( size_t i = length; i < array_length; ++i )
         {
-            write( vm, aslots->slots[ i ], boxed_null );
+            write( vm, aslots->slots[ i ], null_value );
         }
     }
     else
@@ -162,7 +162,7 @@ value array_remove( vmachine* vm, array_object* array, size_t index )
     }
 
     // Clear final slot.
-    write( vm, aslots->slots[ array_length - 1 ], boxed_null );
+    write( vm, aslots->slots[ array_length - 1 ], null_value );
 
     return value;
 }
@@ -175,7 +175,7 @@ void array_clear( vmachine* vm, array_object* array )
     // Clear slots.
     for ( size_t i = 0; i < array_length; ++i )
     {
-        write( vm, aslots->slots[ i ], boxed_null );
+        write( vm, aslots->slots[ i ], null_value );
     }
 
     array->length = 0;

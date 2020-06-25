@@ -303,7 +303,7 @@ xstate call_cothread( vmachine* vm, cothread_object* cothread, unsigned rp, unsi
     // Copy parameters into cothread.
     while ( xr < xb )
     {
-        r[ xr++ ] = rp < xp ? caller_r[ rp++ ] : boxed_null;
+        r[ xr++ ] = rp < xp ? caller_r[ rp++ ] : null_value;
     }
 
     // Continue with new cothread.
@@ -351,7 +351,7 @@ xstate call_prototype( vmachine* vm, lookup_object* prototype, unsigned rp, unsi
         value* r = resize_stack( vm, xp + 1 );
         memmove( r + rp + 1, r + rp, sizeof( value ) * ( xp - rp ) );
         r[ rp + 0 ] = c;
-        r[ rp + 1 ] = boxed_null;
+        r[ rp + 1 ] = null_value;
         xp += 1;
     }
 
@@ -469,7 +469,7 @@ static xstate stack_return( vmachine* vm, cothread_object* cothread, const stack
 
     while ( xr < xb )
     {
-        r[ xr++ ] = boxed_null;
+        r[ xr++ ] = null_value;
     }
 
     if ( stack_frame->rr != stack_frame->xr )
@@ -502,7 +502,7 @@ static xstate yield_return( vmachine* vm, cothread_object* cothread, const stack
 
     while ( xr < xb )
     {
-        r[ xr++ ] = rp < xp ? yield_r[ rp++ ] : boxed_null;
+        r[ xr++ ] = rp < xp ? yield_r[ rp++ ] : null_value;
     }
 
     if ( stack_frame->rr != stack_frame->xr )

@@ -98,9 +98,9 @@ static result haskey( void* cookie, frame* frame, const value* arguments, size_t
 {
     vmachine* vm = (vmachine*)cookie;
     if ( ! box_is_string( arguments[ 1 ] ) ) raise_type_error( arguments[ 1 ], "a string" );
-    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return return_value( frame, boxed_false );
+    if ( ! box_is_object_type( arguments[ 0 ], LOOKUP_OBJECT ) ) return return_value( frame, false_value );
     string_object* key = string_key( vm, unbox_string( arguments[ 1 ] ) );
-    return return_value( frame, lookup_haskey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key ) ? boxed_true : boxed_false );
+    return return_value( frame, lookup_haskey( vm, (lookup_object*)unbox_object( arguments[ 0 ] ), key ) ? true_value : false_value );
 }
 
 static result delkey( void* cookie, frame* frame, const value* arguments, size_t argcount )
@@ -129,7 +129,7 @@ static result number_self( void* cookie, frame* frame, const value* arguments, s
         }
         else if ( box_is_bool( v ) )
         {
-            v = box_number( v.v != boxed_false.v ? 1.0 : 0.0 );
+            v = box_number( v.v != false_value.v ? 1.0 : 0.0 );
         }
         else
         {
@@ -155,7 +155,7 @@ static result string_self( void* cookie, frame* frame, const value* arguments, s
         }
         else if ( box_is_bool( v ) )
         {
-            std::string_view s = v.v != boxed_false.v ? "true" : "false";
+            std::string_view s = v.v != false_value.v ? "true" : "false";
             v = box_string( string_new( vm, s.data(), s.size() ) );
         }
         else
@@ -247,7 +247,7 @@ static result table_get( void* cookie, frame* frame, const value* arguments, siz
     table_object* table = (table_object*)unbox_object( t );
     if ( ! table_tryindex( (vmachine*)cookie, table, arguments[ 1 ], &v ) )
     {
-        v = argcount >= 2 ? arguments[ 2 ] : boxed_null;
+        v = argcount >= 2 ? arguments[ 2 ] : null_value;
     }
     return return_value( frame, v );
 }
@@ -275,7 +275,7 @@ static result cothread_done( void* cookie, frame* frame, const value* arguments,
     value c = arguments[ 0 ];
     if ( ! box_is_object_type( c, COTHREAD_OBJECT ) ) raise_type_error( c, "a cothread" );
     cothread_object* cothread = (cothread_object*)unbox_object( c );
-    return return_value( frame, cothread->stack_frames.empty() ? boxed_true : boxed_false );
+    return return_value( frame, cothread->stack_frames.empty() ? true_value : false_value );
 }
 
 void expose_corobjects( vmachine* vm )

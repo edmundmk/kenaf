@@ -123,18 +123,14 @@ object_header* header( object* object );
     containing an index as an operand to an instruction that requires a number.
 */
 
-const value boxed_null  = { 0 };
-const value boxed_false = { 1 };
-const value boxed_true  = { 2 };
-
 const uint64_t BOX_OBJPTR = UINT64_C( 0x0001'FFFF'FFFF'FFFF );
 const uint64_t BOX_STRING = UINT64_C( 0x0002'0000'0000'0000 );
 const uint64_t BOX_U64VAL = UINT64_C( 0x0004'0000'0000'0000 );
 const uint64_t BOX_NUMBER = UINT64_C( 0x0008'0000'0000'0000 );
 
-inline bool box_is_null( value v )                  { return v.v == boxed_null.v; }
-inline bool box_is_false( value v )                 { return v.v == boxed_false.v; }
-inline bool box_is_true( value v )                  { return v.v == boxed_true.v; }
+inline bool box_is_null( value v )                  { return v.v == null_value.v; }
+inline bool box_is_false( value v )                 { return v.v == false_value.v; }
+inline bool box_is_true( value v )                  { return v.v == true_value.v; }
 inline bool box_is_bool( value v )                  { return v.v >= 1 && v.v < 3; }
 inline bool box_is_object( value v )                { return v.v >= 3 && v.v < BOX_STRING; }
 inline bool box_is_string( value v )                { return v.v >= BOX_STRING && v.v < BOX_U64VAL; }

@@ -44,18 +44,22 @@ class basic_handle
 {
 public:
 
-    basic_handle()                                  : _p( nullptr ) {}
-    explicit basic_handle( T* p )                   : _p( p ) {}
-    basic_handle( basic_handle&& p )                : _p( nullptr ) { swap( p ); }
-    basic_handle& operator = ( basic_handle&& p )   { reset(); swap( p ); return *this; }
-    ~basic_handle()                                 { if ( _p ) release( _p ); }
+    static basic_handle wrap( T* rawp )                 { basic_handle p; p._p = rawp; return p; }
 
-    explicit operator bool () const                 { return _p != nullptr; }
-    T* get() const                                  { return _p; }
+    basic_handle()                                      : _p( nullptr ) {}
+    explicit basic_handle( T* rawp )                    : _p( nullptr ) { reset( rawp ); }
+    basic_handle( basic_handle&& p )                    : _p( nullptr ) { swap( p ); }
+    basic_handle( const basic_handle& p )               : _p( nullptr ) { reset( p._p ); }
+    basic_handle& operator = ( basic_handle&& p )       { reset(); swap( p ); return *this; }
+    basic_handle& operator = ( const basic_handle& p )  { reset( p._p ); return *this; }
+    ~basic_handle()                                     { reset( nullptr ); }
 
-    basic_handle copy()                             { return basic_handle( _p ); }
-    void swap( basic_handle& p )                    { std::swap( _p, p._p ); }
-    void reset( T* p = nullptr )                    { if ( _p ) release( _p ); _p = p; if ( _p ) retain( _p ); }
+    explicit operator bool () const                     { return _p != nullptr; }
+    T* get() const                                      { return _p; }
+
+    basic_handle copy()                                 { return basic_handle( _p ); }
+    void swap( basic_handle& p )                        { std::swap( _p, p._p ); }
+    void reset( T* rawp = nullptr )                     { if ( _p ) release( _p ); _p = rawp ? retain( rawp ) : nullptr; }
 
 private:
 
@@ -68,9 +72,9 @@ typedef basic_handle< context, retain_context, release_context > context_handle;
 typedef basic_handle< stack_trace, retain_stack_trace, release_stack_trace > stack_trace_handle;
 typedef basic_handle< compiler, retain_compiler, release_compiler > compiler_handle;
 
-inline runtime_handle make_runtime() { return runtime_handle( create_runtime() ); }
-inline context_handle make_context( runtime* r ) { return context_handle( create_context( r ) ); }
-inline compiler_handle make_compiler() { return compiler_handle( create_compiler() ); }
+inline runtime_handle make_runtime() { return runtime_handle::wrap( create_runtime() ); }
+inline context_handle make_context( runtime* r ) { return context_handle::wrap( create_context( r ) ); }
+inline compiler_handle make_compiler() { return compiler_handle::wrap( create_compiler() ); }
 
 /*
     Handle to value.
@@ -80,18 +84,21 @@ class handle
 {
 public:
 
-    handle()                                        : _v( { 0 } ) {}
-    explicit handle( value v )                      : _v( retain( v ) ) {}
-    handle( handle&& v )                            : _v( { 0 } ) { swap( v ); }
-    handle& operator = ( handle&& v )               { reset(); swap( v ); return *this; }
-    ~handle()                                       { if ( _v.v ) release( _v ); }
+    static handle wrap( value rawv )                    { handle v; v._v = rawv; return v; }
 
-    operator value () const                         { return _v; }
-    value get() const                               { return _v; }
+    handle()                                            : _v( null_value ) {}
+    explicit handle( value rawv )                       : _v( retain( rawv ) ) {}
+    handle( handle&& v )                                : _v( null_value ) { swap( v ); }
+    handle( const handle& v )                           : _v( v._v.v ? retain( v._v ) : null_value ) {}
+    handle& operator = ( handle&& v )                   { reset(); swap( v ); return *this; }
+    handle& operator = ( const handle& v )              { reset( v._v ); return *this; }
+    ~handle()                                           { if ( _v.v ) release( _v ); }
 
-    handle copy()                                   { return handle( _v ); }
-    void swap( handle& v )                          { std::swap( _v, v._v ); }
-    void reset( value v = { 0 } )                   { if ( _v.v ) release( _v ); _v = v; if ( _v.v ) retain( _v ); }
+    operator value () const                             { return _v; }
+    value get() const                                   { return _v; }
+
+    void swap( handle& v )                              { std::swap( _v, v._v ); }
+    void reset( value rawv = { 0 } )                    { release( _v ); _v = retain( rawv ); }
 
 private:
 

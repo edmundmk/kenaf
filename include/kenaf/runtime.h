@@ -89,6 +89,10 @@ enum value_kind
     NULL_VALUE,
 };
 
+static const value null_value   = { 0 };
+static const value false_value  = { 1 };
+static const value true_value   = { 2 };
+
 KF_API value retain( value v );
 KF_API void release( value v );
 
@@ -103,10 +107,6 @@ KF_API bool is_u64val( value v );
 KF_API bool is_number( value v );
 KF_API bool is_bool( value v );
 KF_API bool is_null( value v );
-
-KF_API value null_value();
-KF_API value true_value();
-KF_API value false_value();
 
 KF_API value superof( value v );
 KF_API bool test( value v );
