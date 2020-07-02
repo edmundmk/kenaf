@@ -45,7 +45,7 @@
     architecture, but it's good practise to be conservative.
 */
 
-#if defined( __x86_64__ ) || defined( __arm64__ )
+#if defined( __x86_64__ ) || defined( _M_X64 ) || defined( __aarch64__ ) || defined( _M_ARM64 )
 #define ATOMIC_CONSUME_RELAXED 1
 #endif
 
